@@ -1939,6 +1939,12 @@ public sealed class Game
         // that knew it is in its owner's hand (CR 702.190b).
         AttackTarget? joining = null;
 
+        // What the additional cost is about to take, for a spell whose effect names it -
+        // "sacrifice a creature ... where X is the sacrificed creature's power" (CR 608.2k).
+        // Read here rather than after the loop for the reason the sneak attacker above is: the
+        // object is about to stop existing, and the numbers with it.
+        var costTakes = WhatTheCostTakes([.. chosenCosts.SelectMany(paid => paid.Cards)]);
+
         // Paid before the spell moves to the stack (CR 601.2f), which matters when the cost is
         // sacrificing a creature: the sacrifice happens whether or not the spell ever resolves,
         // and anything that triggers on it triggers now.
@@ -2044,6 +2050,12 @@ public sealed class Game
         {
             stackId = Move(cardId, Zone.Stack, MoveCause.Cast, playerId);
         }
+
+        // Recorded against the spell here for the same reason the mana is: this is the first
+        // moment there is an object on the stack to record it against, and the numbers it carries
+        // were read before the payment that made them unreadable.
+        if (costTakes is { } bought)
+            Emit(new CostPaidRecorded(stackId, bought));
 
         // Which spell this object actually is (CR 715.3b). Recorded here for the same reason the
         // mana is: this is the first moment there is an object to record it against.
@@ -2494,6 +2506,13 @@ public sealed class Game
         // subtlety gets in later.
         var powerTapped = 0;
 
+        // The same reading one question wider, for "where X is the sacrificed creature's power"
+        // and its family (CR 608.2k). Station's number above is a total over everything tapped
+        // and is folded into the ability's own amount; this one is a single object's whole set of
+        // characteristics, kept apart because the sentences that ask for it ask for a different
+        // one of them on different cards.
+        var costTakes = WhatTheCostTakes([.. chosen.SelectMany(paid => paid.Cards)]);
+
         foreach (var (cost, cards) in chosen)
         {
             foreach (var card in cards)
@@ -2637,6 +2656,11 @@ public sealed class Game
             // is a different X entirely.
             VariableValue = variableValue,
         });
+
+        // Beside the announced X, and after the ability is on the stack because until then there
+        // is no object to hang it on (CR 602.2a).
+        if (costTakes is { } bought)
+            Emit(new CostPaidRecorded(stackId, bought));
 
         if (!chosenTargets.IsEmpty)
             Emit(new TargetsChosen(stackId, chosenTargets, variableValue));
@@ -13628,6 +13652,46 @@ public sealed class Game
             ?.Targets
         ?? GrantedTriggerOnStack(sourceId, abilityId)?.Targets;
 
+    /// <summary>
+    /// What a cost is about to take, for the sentence that names it afterwards (CR 608.2k).
+    /// </summary>
+    /// <remarks>
+    /// Read before anything is paid and not after, which is the whole of the difficulty. "Where X
+    /// is the sacrificed creature's power" is answered while the ability resolves, by which time
+    /// the creature is a card in a graveyard under a new id (CR 400.7) whose power is the printed
+    /// one — so a 2/2 sacrificed under an anthem would answer 2 where the game was looking at a
+    /// 4/4. CR 608.2h asks for the object's last known information, and this is the last moment
+    /// it exists.
+    /// <para>
+    /// <b>Exactly one, or nothing.</b> Every printed sentence in this family is singular — "the
+    /// sacrificed creature", "the exiled card" — and a cost that took two has not said which one
+    /// is meant. Answering with either would be a guess, and answering with the sum would be a
+    /// number no card prints, so the payment is not recorded at all and the reader that wanted it
+    /// falls back to nought. That is the same singular discipline
+    /// <see cref="Abilities.TouchFilter.StatIn"/> keeps for the objects a resolution moves.
+    /// </para>
+    /// <para>
+    /// Off the layers for a permanent and off the card for anything else: a card exiled from a
+    /// graveyard to pay for an ability has never been subject to a continuous effect, and its
+    /// printed characteristics are its real ones (CR 108.3).
+    /// </para>
+    /// </remarks>
+    private CostPaid? WhatTheCostTakes(IReadOnlyList<ObjectId> taking)
+    {
+        if (taking.Count != 1 || !State.TryGetObject(taking[0], out var paying))
+            return null;
+
+        if (paying.Zone != Zone.Battlefield)
+            return new CostPaid(paying.Card.Power, paying.Card.Toughness, paying.Card.Cmc);
+
+        var now = Characteristics.Of(State, _abilities, paying);
+
+        // The card the layers settled on rather than the printed one, for the mana value as well
+        // as the size: a permanent that has become a copy is the card it copied (CR 613.2c), and
+        // sacrificing a Clone of a Dragon pays with the Dragon's mana value.
+        return new CostPaid(now.Power, now.Toughness, now.Card.Cmc);
+    }
+
     /// <summary>Runs a resolving object's effects in order (CR 608.2c).</summary>
     /// <summary>
     /// Runs a set of effects as though they were the rest of a resolution.
@@ -13661,6 +13725,11 @@ public sealed class Game
             AbilityId = source.Ability?.AbilityId,
             Targets = source.Targets,
             VariableValue = source.VariableValue,
+
+            // What the cost took, carried the same way the announced X is and for the same
+            // reason: both were settled while this object was being put on the stack, and by the
+            // time it resolves nothing else in the game remembers either (CR 608.2k).
+            CostPaid = source.CostPaid,
             Division = source.Division,
             SubjectPlayer = subjectPlayer ?? source.Ability?.SubjectPlayer,
             SubjectAmount = about,

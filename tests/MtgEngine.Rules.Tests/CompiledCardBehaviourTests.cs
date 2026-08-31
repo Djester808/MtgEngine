@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Globalization;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
@@ -5508,6 +5508,244 @@ public sealed class CompiledCardBehaviourTests
 
         game.ActivateAbility(alice, back.Id, "mana");
         Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+    }
+
+    // ---- A stat of the object a cost took (CR 601.2h, 608.2k) ----------------
+
+    /// <summary>A card with a mana value, which the shared helper does not take.</summary>
+    private static CardDefinition Priced(
+        string name,
+        string oracleText,
+        CardType types,
+        int cmc,
+        int? power = null,
+        int? toughness = null) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = oracleText,
+            CardTypes = types,
+            ManaCostRaw = "{" + cmc.ToString(CultureInfo.InvariantCulture) + "}",
+            Cmc = cmc,
+            Power = power,
+            Toughness = toughness,
+        };
+
+    /// <remarks>
+    /// The fifth thing the X-definition clause can name, and the only one that points at
+    /// something which happened before the spell or ability reached the stack: not the board, not
+    /// the source's own history, not what an earlier sentence of the same resolution touched, but
+    /// what was handed over to buy it. CR 608.2k is the rule — an effect may refer back to an
+    /// untargeted object its own cost referred to — and CR 608.2h says which numbers it gets,
+    /// which is the object's last known information rather than its card's.
+    /// <para>
+    /// That distinction is the whole of the first test. A 1/1 sacrificed under an anthem was a
+    /// 3/1 as it went, and by the time the ability resolves the only thing left is a card in a
+    /// graveyard that says 1/1. An engine that looked the number up when it was wanted would
+    /// answer 1 on a card that compiles, plays and looks entirely right.
+    /// </para>
+    /// <para>
+    /// The last two tests are the fail-closed line, and they are the reason the printed wording
+    /// never reaches the reader at all. "Where X is the sacrificed creature's toughness" is
+    /// printed by cards whose sacrifice is an <em>effect</em> they make rather than a price they
+    /// charge, and by cards whose cost takes two. Neither can be answered — the first is a
+    /// question the player has not been asked when the next sentence runs, the second has not
+    /// said which creature it means — and both would settle silently at nought on a card that
+    /// counted as complete. So the compiler licences the clause against the cost and rewrites it
+    /// only where the licence holds; everywhere else the words stay printed and the line stays
+    /// unread.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_power_a_sacrifice_cost_paid_is_the_power_the_layers_gave_it()
+    {
+        var altar = Card(
+            "Cost Paid Altar Test",
+            "Sacrifice a creature: You gain X life, where X is the sacrificed creature's power.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(altar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, altar, Zone.Battlefield);
+
+        // The anthem is what makes the answer interesting: the creature that is about to be
+        // sacrificed is a 1/1 card standing on the battlefield as a 3/1.
+        game.Create(
+            alice,
+            Card(
+                "Cost Paid Anthem Test",
+                "Creatures you control get +2/+0.",
+                CardType.Enchantment),
+            Zone.Battlefield);
+
+        var runt = game.Create(
+            alice, TestCards.Creature("Cost Paid Runt Test", 1, 1), Zone.Battlefield);
+
+        // A second creature, bigger than either number the answer could be, so a reader that
+        // grabbed the wrong permanent would be caught rather than agreeing by accident.
+        game.Create(alice, TestCards.Creature("Cost Paid Giant Test", 7, 7), Zone.Battlefield);
+
+        game.ActivateAbility(alice, artifact, "a", targets: null, costPayment: [runt]);
+        Settle(game);
+
+        // Three. Not one, which is what the card in the graveyard says; not seven, which is the
+        // other creature; not two, which is how many creatures were there; and emphatically not
+        // nought, which is what an unanswered X comes to.
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_toughness_read_off_a_sacrifice_cost_is_not_the_power_beside_it()
+    {
+        var guildmage = Card(
+            "Cost Paid Guildmage Test",
+            "Sacrifice a creature: You gain X life, where X is the sacrificed creature's toughness.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(guildmage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, guildmage, Zone.Battlefield);
+
+        // A 5/2, so power and toughness are different numbers and only one of them is right.
+        var lopsided = game.Create(
+            alice, TestCards.Creature("Cost Paid Lopsided Test", 5, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, artifact, "a", targets: null, costPayment: [lopsided]);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void The_mana_value_an_additional_cast_cost_paid_is_the_artifact_that_went()
+    {
+        var forge = Priced(
+            "Cost Paid Forge Test",
+            "As an additional cost to cast this spell, sacrifice an artifact.\n"
+                + "Put X +1/+1 counters on target creature, "
+                + "where X is the sacrificed artifact's mana value.",
+            CardType.Sorcery,
+            1);
+
+        var compiled = CardCompiler.Compile(forge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, forge);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        // Two artifacts worth different amounts, so the answer names one of them rather than
+        // counting them or totalling them.
+        var costly = game.Create(
+            alice,
+            Priced("Cost Paid Relic Test", string.Empty, CardType.Artifact, 5),
+            Zone.Battlefield);
+        game.Create(
+            alice,
+            Priced("Cost Paid Trinket Test", string.Empty, CardType.Artifact, 0),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Cost Paid Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            card,
+            targets: [Target.ToPermanent(bear)],
+            variableValue: 0,
+            tapToPay: null,
+            modes: null,
+            kicked: false,
+            costPayment: [costly]);
+
+        Settle(game);
+
+        // Five counters, off a card that was never on the battlefield as anything but itself:
+        // 2/2 plus five is 7/7. Nought would be the trinket, and nought is also what an X
+        // nobody answered comes to.
+        Assert.Equal(7, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(7, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    [Fact]
+    public void A_card_exiled_from_a_graveyard_to_pay_a_cost_answers_with_its_printed_value()
+    {
+        var necropolis = Card(
+            "Cost Paid Necropolis Test",
+            "Exile a creature card from your graveyard: You gain X life, "
+                + "where X is the exiled card's mana value.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(necropolis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, necropolis, Zone.Battlefield);
+
+        // Two creature cards in the graveyard, worth four and worth one. Nothing there has ever
+        // been subject to a continuous effect, so this is the arm that reads the printed card —
+        // and it still has to read the right one.
+        var dear = game.Create(
+            alice,
+            Priced("Cost Paid Dear Test", string.Empty, CardType.Creature, 4, 1, 1),
+            Zone.Graveyard);
+        game.Create(
+            alice,
+            Priced("Cost Paid Cheap Test", string.Empty, CardType.Creature, 1, 1, 1),
+            Zone.Graveyard);
+
+        game.ActivateAbility(alice, artifact, "a", targets: null, costPayment: [dear]);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_sacrifice_the_card_makes_rather_than_charges_leaves_the_clause_unread()
+    {
+        // Feed the Pack's shape. The sacrifice is an effect, and this engine settles every
+        // question a player has to answer *after* the resolution is over — so the sentence
+        // beside it would be asking about something that has not happened, would answer nought
+        // for ever, and would do it on a card coverage counted as complete.
+        var pack = Card(
+            "Cost Paid Wolf Pack Test",
+            "At the beginning of your end step, you may sacrifice a creature. If you do, "
+                + "create X 2/2 green Wolf creature tokens, "
+                + "where X is the sacrificed creature's toughness.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(pack);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("the sacrificed creature's toughness", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_cost_that_takes_two_leaves_the_singular_clause_unread()
+    {
+        // "The sacrificed creature" has not said which of them, and a card that answered with
+        // either — or with the sum of both — would print a number no printing of it carries.
+        var offering = Priced(
+            "Cost Paid Double Offering Test",
+            "As an additional cost to cast this spell, sacrifice two creatures.\n"
+                + "You gain X life, where X is the sacrificed creature's power.",
+            CardType.Sorcery,
+            1);
+
+        var compiled = CardCompiler.Compile(offering);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("the sacrificed creature's power", StringComparison.Ordinal));
     }
 
     // ---- A card referred to by its literal printed name (CR 201.2a) ----------

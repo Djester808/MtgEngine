@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using MtgEngine.Domain.Models;
+using MtgEngine.Rules.Abilities;
 
 namespace MtgEngine.Rules.State;
 
@@ -1007,6 +1008,23 @@ public sealed record GameObject
     public int VariableValue { get; init; }
 
     /// <summary>
+    /// The one object this spell or ability's cost took, as it was taken (CR 601.2h, 608.2k).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="VariableValue"/> and carried for the same reason: both are decided while
+    /// the cost is being paid and both are wanted on resolution, by which time the payment is over
+    /// and the state does not remember it. A creature sacrificed for an ability is a card in a
+    /// graveyard under a new id by then (CR 400.7), so there is nothing left to ask.
+    /// <para>
+    /// Deliberately not carried across the move that turns a spell into a permanent, unlike the
+    /// kicker and X flags next door: nothing printed asks a permanent what its spell's additional
+    /// cost took, and a field that outlived the stack would be one more thing an "enters" trigger
+    /// could read by accident.
+    /// </para>
+    /// </remarks>
+    public CostPaid? CostPaid { get; init; }
+
+    /// <summary>
     /// How much damage each target is to be dealt, by target index (CR 601.2d).
     /// </summary>
     /// <remarks>
@@ -1040,6 +1058,7 @@ public sealed record GameObject
         Equals(Permanent, other.Permanent) &&
         Equals(Ability, other.Ability) &&
         VariableValue == other.VariableValue &&
+        Equals(CostPaid, other.CostPaid) &&
         Division.SequenceEqual(other.Division) &&
         Structural.Same(Targets, other.Targets) &&
         // Anything the state carries has to be compared here, and not only for correctness of

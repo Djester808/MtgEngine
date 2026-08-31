@@ -200,6 +200,7 @@ public static class EventLogSerializer
             ["SummoningSicknessCleared"] = typeof(SummoningSicknessCleared),
             ["LandDropUsed"] = typeof(LandDropUsed),
             ["SpellCastEvent"] = typeof(SpellCastEvent),
+            ["CostPaidRecorded"] = typeof(CostPaidRecorded),
             ["StackObjectResolved"] = typeof(StackObjectResolved),
             ["DamageCleared"] = typeof(DamageCleared),
             ["PlayerLost"] = typeof(PlayerLost),

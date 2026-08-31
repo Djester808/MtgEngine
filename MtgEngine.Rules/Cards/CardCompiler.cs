@@ -3222,6 +3222,40 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// Whether this card charges, as a cost, the single object a printed participle names.
+    /// </summary>
+    /// <remarks>
+    /// The licence for the X-definition clause that says "the sacrificed creature's power", and
+    /// the whole of what keeps that clause from being read on a card whose sacrifice is an effect
+    /// rather than a price. Two places count as a cost and no others: the text before this line's
+    /// colon, which CR 602.1a defines as the activation cost, and an "as an additional cost to
+    /// cast this spell" sentence anywhere on the card (CR 601.2f).
+    /// <para>
+    /// The article is part of the demand. "Sacrifice a creature" takes exactly one object and the
+    /// sentence asking about it is singular; "sacrifice two creatures" takes two, and no answer
+    /// this could give would be the number the card prints — so the licence is refused and the
+    /// line stays unread, rather than compiling to a nought nothing downstream could see.
+    /// </para>
+    /// </remarks>
+    private static bool ChargedAsACost(string additionalCosts, string line, string participle)
+    {
+        var colon = line.IndexOf(':', StringComparison.Ordinal);
+        var charged = colon > 0 ? additionalCosts + " " + line[..colon] : additionalCosts;
+
+        var verb = participle.ToLowerInvariant() switch
+        {
+            "sacrificed" => "sacrifice",
+            "exiled" => "exile",
+            "discarded" => "discard",
+            "returned" => "return",
+            _ => "tap",
+        };
+
+        return SingularCostVerb().Matches(charged)
+            .Any(paid => paid.Groups["verb"].Value.Equals(verb, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Whether a line filters on an X that nothing about it announces (CR 107.3, 601.2b).
     /// </summary>
     /// <remarks>
@@ -3289,6 +3323,17 @@ public static partial class CardCompiler
             yield break;
 
         var selfNames = SelfNames(card.Name);
+
+        // Every additional cost this card charges for casting, gathered once because the sentence
+        // that names what a cost took is on a different line from the cost that took it: "As an
+        // additional cost to cast this spell, sacrifice a creature." stands alone above "Create X
+        // 0/1 black Insect creature tokens, where X is the sacrificed creature's power."
+        var additionalCosts = string.Join(
+            " ",
+            text.Split('\n')
+                .Select(other => AdditionalCostSentence().Match(other))
+                .Where(found => found.Success)
+                .Select(found => found.Groups["cost"].Value));
 
         // The line a results row is being folded into, when the line above called for a roll.
         string? held = null;
@@ -3524,6 +3569,30 @@ public static partial class CardCompiler
                 cleaned,
                 m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
                     + ", where X is " + m.Groups["amount"].Value);
+
+            // "…, where X is the sacrificed creature's power" — X measured on the object this
+            // spell or ability's own cost took (CR 608.2k). The engine records what a cost takes
+            // and the reader in `EffectPhrase` answers from that record, but the *phrase* alone
+            // cannot say whether this card's referent is a cost at all: the same eight words are
+            // printed by Feed the Pack, whose sacrifice is an effect the player has not been
+            // asked about yet, and by Drach'Nyen, whose exile happened in a different ability's
+            // resolution a turn ago. Both would answer nought for ever on a card that compiled
+            // clean, which is the one failure this compiler treats as worse than an unread line.
+            //
+            // So the licence is the cost, and it is checked here because here is the only place
+            // that has both: the activation cost is the text before this line's colon, and an
+            // additional cost to cast is a sentence on some *other* line of the same card. A line
+            // that has neither keeps its printed words and goes unread.
+            //
+            // The licence demands a singular - "sacrifice **a** creature", "exile **another**
+            // artifact" - because the sentence asking is singular. A cost that took two has not
+            // said which one is meant, the engine declines to record it, and a clause admitted
+            // here would quietly settle at nought.
+            cleaned = VariableIsCostPaidStat().Replace(
+                cleaned,
+                m => ChargedAsACost(additionalCosts, cleaned, m.Groups["verb"].Value)
+                    ? ", where X is the " + m.Groups["stat"].Value + " of the cost paid"
+                    : m.Value);
 
             // The rule between a card's two faces, which the card pool writes as a line of its
             // own. It is deliberately left unread, and that is the whole of the engine's answer
@@ -19232,6 +19301,46 @@ public static partial class CardCompiler
             + @"(?: and (?:white|blue|black|red|green))?)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex DevotionAsANumber();
+
+    /// <summary>
+    /// "…, where X is the sacrificed creature's power" — a stat of what a cost took (CR 608.2k).
+    /// </summary>
+    /// <remarks>
+    /// The participle list is the cost verbs and nothing else. "Milled" is deliberately absent
+    /// even though the record next door reads it: no cost in the game mills, so Mindshrieker's
+    /// "the milled card's mana value" is about the sentence in front of it rather than about the
+    /// price, and the two are answered from different places. The stat list is the closed one
+    /// <c>VariableIsStatLine</c> keeps, for the reason written there — an arithmetic tail admitted
+    /// here would read as the bare stat and hand the card a bigger number than it prints.
+    /// <para>
+    /// The noun is matched but not used: it is what the cost took, and the cost has already said
+    /// what that was. Reading it would mean deciding what to do when the two disagree, and they
+    /// never do — a card charging "sacrifice an artifact" says "the sacrificed artifact's mana
+    /// value" one sentence later.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @", where X is the (?<verb>sacrificed|exiled|discarded|returned|tapped) "
+            + @"(?<noun>[A-Za-z]+(?: [A-Za-z]+)?)'s (?<stat>power|toughness|mana value)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsCostPaidStat();
+
+    /// <summary>"Sacrifice a creature", "Exile another artifact" — a cost that takes one object.</summary>
+    /// <remarks>
+    /// Written against the article rather than against the noun, because the noun is anything at
+    /// all — "a nontoken creature", "an Atog creature", "a creature card from your graveyard" —
+    /// and the one word that matters is the one saying how many.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?<verb>sacrifice|exile|discard|return|tap) (?:a|an|another)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SingularCostVerb();
+
+    /// <summary>"As an additional cost to cast this spell, sacrifice a creature." (CR 601.2f).</summary>
+    [GeneratedRegex(
+        @"^\s*As an additional cost to cast this spell, (?<cost>[^.]+)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AdditionalCostSentence();
 
     /// <summary>
     /// "Equal to the greatest power among …", "where X is the total mana value of …".

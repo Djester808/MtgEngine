@@ -3044,6 +3044,47 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "..., where X is the power of the cost paid" - the compiler's own spelling of "where X
+        // is the sacrificed creature's power", and the fifth thing this clause can name: not the
+        // board, not the source's history and not what an earlier sentence touched, but what was
+        // handed over to buy this spell or ability (CR 608.2k).
+        //
+        // The printed wording never reaches here. `CardCompiler` rewrites it, and only on a card
+        // whose cost actually takes one object - the licence, and the reason this reader may
+        // answer at all. Feed the Pack and Spellbound Dragon print the same eight words about a
+        // sacrifice and a discard their own *effect* makes, which the engine settles after the
+        // resolution is over; admitted here they would each be a card that reads, plays and does
+        // nothing for ever.
+        //
+        // The numbers were read while the object was still on the battlefield, because by now it
+        // is a card in a graveyard under a new id whose power is the printed one (CR 400.7,
+        // 608.2h) - so a creature sacrificed under an anthem is worth what it was worth, not what
+        // its card says. Nought when the payment named nothing, which is a cost paid some other
+        // way rather than a card that should not have compiled.
+        var byCost = VariableIsCostPaidLine().Match(sentence);
+        if (byCost.Success)
+        {
+            var priced = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(byCost.Groups["head"].Value.Trim(), targets, priced, objectNamedByTrigger))
+                return false;
+
+            var wanted = byCost.Groups["stat"].Value.ToLowerInvariant();
+
+            effects.Add(new WithCountedVariable(
+                context => context.CostPaid is not { } paid
+                    ? 0
+                    : wanted switch
+                    {
+                        "power" => paid.Power ?? 0,
+                        "toughness" => paid.Toughness ?? 0,
+                        _ => paid.ManaValue,
+                    },
+                priced.ToImmutable()));
+
+            return true;
+        }
+
         // "..., where X is the mana value of the permanent exiled this way." The same clause
         // again, measuring the one thing an earlier sentence of this same resolution touched
         // (CR 608.2h). It goes through the record rather than through the pronoun reader below
@@ -15006,6 +15047,24 @@ public static partial class EffectPhrase
             + @"of (?<phrase>.+ this way)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsTouchedStatLine();
+
+    /// <summary>
+    /// "…, where X is the power of the cost paid" — a stat of what bought this (CR 608.2k).
+    /// </summary>
+    /// <remarks>
+    /// The one phrase in this family that no card prints. <c>CardCompiler</c> writes it, in place
+    /// of "the sacrificed creature's power" and its four siblings, and only where the card's own
+    /// cost takes exactly one object — so this pattern is deliberately narrow and deliberately
+    /// synthetic. Widening it to the printed wording would take the licence away and put the
+    /// clause back on the cards whose referent is an effect rather than a price.
+    /// <para>
+    /// The stat list is the closed one its two siblings above keep, for the reason written there.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is the (?<stat>power|toughness|mana value) of the cost paid$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsCostPaidLine();
 
     /// <summary>
     /// "You may put a permanent card from among the cards milled this way into your hand".

@@ -2341,6 +2341,30 @@ public sealed record SpellCastEvent(
 }
 
 /// <summary>
+/// What the one object a cost took was, as it was taken (CR 601.2h, 608.2k).
+/// </summary>
+/// <remarks>
+/// Its own event rather than a field on the cast and activation events, because the two paths
+/// announce themselves with different events and the fact is the same fact — one arm here beats
+/// two fields that would have to be kept saying the same thing. It is emitted only when a cost
+/// moved or tapped exactly one object, which is every card in the game that says "the sacrificed
+/// creature's power".
+/// <para>
+/// The numbers travel rather than the id, and they travel because they cannot be looked up again:
+/// the permanent is in a graveyard by the time anything reads them, where it is a new object
+/// (CR 400.7) whose power is the printed one rather than what the layers had made it. CR 608.2h
+/// calls for the last known information, and this is the last moment it exists.
+/// </para>
+/// </remarks>
+public sealed record CostPaidRecorded(ObjectId StackId, CostPaid Paid) : GameEvent
+{
+    public override string Rule => "608.2k";
+
+    public override string Describe() =>
+        $"{StackId} was paid for with a {Paid.Power}/{Paid.Toughness} of mana value {Paid.ManaValue}.";
+}
+
+/// <summary>
 /// The top object of the stack finished resolving (CR 608.2m, 608.3).
 /// </summary>
 public sealed record StackObjectResolved(ObjectId StackId, string Description) : GameEvent

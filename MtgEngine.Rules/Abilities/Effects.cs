@@ -742,6 +742,26 @@ public sealed record ResolutionContext
     /// </remarks>
     public ResolutionRecord Record { get; init; } = ResolutionRecord.Empty;
 
+    /// <summary>
+    /// The one object this spell or ability's own cost took — "the sacrificed creature"
+    /// (CR 601.2h, 608.2k).
+    /// </summary>
+    /// <remarks>
+    /// The fifth back-reference, and the only one that points at something which happened
+    /// <em>before</em> the object reached the stack. <see cref="Record"/>'s set and
+    /// <see cref="SubjectAmount"/>'s magnitude are both about this resolution; this is about the
+    /// payment that bought it, which is why it arrives on the stack object rather than being
+    /// accumulated as the effects run.
+    /// <para>
+    /// Null when the cost took nothing, and null when it took more than one thing — a sentence
+    /// saying "the sacrificed creature" has not said which one, and the same singular discipline
+    /// <see cref="TouchFilter.StatIn"/> keeps applies here. The compiler refuses the clause on
+    /// any card whose cost cannot have named an object at all, so a null here is a cost that was
+    /// paid differently rather than a card that should never have compiled.
+    /// </para>
+    /// </remarks>
+    public CostPaid? CostPaid { get; init; }
+
     /// <summary>How much each target was assigned, by target index (CR 601.2d).</summary>
     /// <remarks>
     /// Not "how much damage". The same announcement carries a distribution of counters, and the

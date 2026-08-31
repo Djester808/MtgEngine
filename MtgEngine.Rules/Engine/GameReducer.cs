@@ -413,6 +413,13 @@ public static class GameReducer
                 }),
             DivisionAnnounced divided => state.WithObject(
                 state.GetObject(divided.StackId) with { Division = divided.Division }),
+
+            // CR 608.2k: what the cost took, put on the object the cost bought so that the
+            // effect can still name it once the permanent has gone. It rides beside the chosen
+            // targets and the announced X for the same reason those do - all three are settled
+            // during announcement and wanted on resolution.
+            CostPaidRecorded paid => state.WithObject(
+                state.GetObject(paid.StackId) with { CostPaid = paid.Paid }),
             FizzledForIllegalTargets => state,
             AbilityActivated => state,
             ChoiceRequested asked => state with { Choice = asked.Choice },

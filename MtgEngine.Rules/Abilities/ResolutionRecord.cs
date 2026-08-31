@@ -59,6 +59,38 @@ public enum TouchVerb
 /// <param name="Toughness">Its toughness as it left, or null when it had none.</param>
 public sealed record LastKnown(CardDefinition Card, int? Power, int? Toughness);
 
+/// <summary>
+/// What a cost took, measured the instant before it was paid (CR 601.2h, 602.2b, 608.2k).
+/// </summary>
+/// <remarks>
+/// "…, where X is the sacrificed creature's power" points at an object the spell or ability's own
+/// <em>cost</em> named, not at one an earlier effect of the same resolution touched. That is a
+/// different back-reference with a different rule behind it — CR 608.2k, which lets an effect
+/// refer to an untargeted object its cost referred to, and means that object still even after the
+/// object has changed or gone — so it is deliberately not a <see cref="Touch"/> and does not go on
+/// <see cref="ResolutionRecord"/>. Filing it there would have told <see cref="TouchFilter"/> that
+/// "sacrificed" is a participle the record can answer, and it is not: the sacrifices that reader
+/// refuses are the ones an <em>effect</em> makes, which are a question the player has not been
+/// asked yet when the next sentence runs.
+/// <para>
+/// Three numbers rather than the object itself, because a permanent sacrificed to a cost is in a
+/// graveyard under a new id long before the ability resolves (CR 400.7) and the card there answers
+/// with its printed power, not with what an anthem had made it. CR 608.2h asks for the object's
+/// last known information, so the numbers are read while the permanent is still on the battlefield
+/// and carried forward — the same discipline <see cref="Touch"/> keeps, one step earlier in the
+/// turn.
+/// </para>
+/// <para>
+/// Null power and toughness for something that had none: a sacrificed artifact, a card exiled from
+/// a graveyard to pay for an ability. A reader asked for a stat that was never there answers zero
+/// rather than inventing one.
+/// </para>
+/// </remarks>
+/// <param name="Power">Its power as the cost was paid, or null when it had none.</param>
+/// <param name="Toughness">Its toughness as the cost was paid, or null when it had none.</param>
+/// <param name="ManaValue">Its mana value, which every card has (CR 202.3).</param>
+public sealed record CostPaid(int? Power, int? Toughness, int ManaValue);
+
 /// <summary>One thing an earlier effect of this same resolution did to one object (CR 608.2c).</summary>
 /// <remarks>
 /// The id is the one the object has <em>after</em> the move, because a card that changes zones
