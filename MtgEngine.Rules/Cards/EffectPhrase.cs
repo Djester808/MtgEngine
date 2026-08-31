@@ -16300,7 +16300,14 @@ public static partial class EffectPhrase
             // crossed. Skipping the group first asks the question the sentence is actually
             // written to answer, and a real "a creature card" still backtracks into it.
             + @"(?<what>[A-Za-z, ]+? )??cards?"
-            + @"( named (?<named>[^,.]+?))?"
+            // The name may not run past a second "named". "A card named Alpine Watchdog or a
+            // card named Igneous Cur" is two names and this reader builds one filter, so an
+            // untempered capture takes the whole clause as a single name - a filter that
+            // matches no card in any library, on a card that reports itself fully read. That
+            // is the failure this compiler treats as worse than an unread line, and refusing
+            // to cross the word is what leaves the two-name family unread until somebody
+            // builds it a filter that can hold two.
+            + @"( named (?<named>(?:(?! named )[^,.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"(,? reveal (it|that card|them|those cards))?"
             + @"(,? put (it|that card|them|those cards) "
@@ -16328,7 +16335,14 @@ public static partial class EffectPhrase
             // crossed. Skipping the group first asks the question the sentence is actually
             // written to answer, and a real "a creature card" still backtracks into it.
             + @"(?<what>[A-Za-z, ]+? )??cards?"
-            + @"( named (?<named>[^,.]+?))?"
+            // The name may not run past a second "named". "A card named Alpine Watchdog or a
+            // card named Igneous Cur" is two names and this reader builds one filter, so an
+            // untempered capture takes the whole clause as a single name - a filter that
+            // matches no card in any library, on a card that reports itself fully read. That
+            // is the failure this compiler treats as worse than an unread line, and refusing
+            // to cross the word is what leaves the two-name family unread until somebody
+            // builds it a filter that can hold two.
+            + @"( named (?<named>(?:(?! named )[^,.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"( (and|then) put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield)(?<tapped> tapped)?)?\.?$",
