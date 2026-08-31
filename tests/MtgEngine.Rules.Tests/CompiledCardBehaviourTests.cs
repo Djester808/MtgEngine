@@ -8012,11 +8012,18 @@ public sealed class CompiledCardBehaviourTests
     /// player who controls either effect. Six damage becomes fourteen one way round and sixteen
     /// the other, so gather order would be a silently wrong answer half the time.
     /// <para>
-    /// It is also the CR 614.5 test, and the one that would hang rather than fail: each
-    /// replacement produces a fresh damage event that both of them would otherwise see again, so
-    /// an engine that did not key an application on the effect would replace its own output for
-    /// ever. The rule's own worked example is this family. The assertion is the number, and that
-    /// the test terminates at all is half of what it proves.
+    /// It is also the CR 614.5 test: each replacement produces a fresh damage event that both of
+    /// them would otherwise see again, so an engine that did not key an application on the effect
+    /// would replace its own output for ever. The rule's own worked example is this family.
+    /// <para>
+    /// **It catches that by the number and not by hanging, and the reason is worth writing down**,
+    /// because it was written here first as "the test that would hang" and that turned out to be
+    /// false. Deleting the <c>applied</c> record and running this test does not loop: the amount
+    /// doubles about thirty times, overflows <c>int</c> to something negative, and CR 614.7a's
+    /// "a source that would deal 0 damage deals none" guard drops the event — so the damaged
+    /// player takes *nothing at all* and the assertion below reads 0 where it wants 14. That is a
+    /// caught mutation, but it is caught by an integer overflow rather than by the rule, and
+    /// nothing here should be read as evidence that a runaway replacement terminates.
     /// </para>
     /// </remarks>
     [Fact]
