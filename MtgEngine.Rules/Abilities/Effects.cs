@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -6020,6 +6020,59 @@ public sealed record LoseHalfLife(
         }
 
         return lost;
+    }
+}
+
+/// <summary>
+/// "Target player mills half their library, rounded down" (CR 701.13a, 107.15).
+/// </summary>
+/// <remarks>
+/// The library half of <see cref="LoseHalfLife"/>, and it is a separate effect for the identical
+/// reason: half a library is a different number for every player the sentence names and is only
+/// known when the effect resolves, so no <see cref="Amount"/> the compiler could work out is
+/// right for more than one of them. "Any number of target players each mill half their library"
+/// at forty cards and at six is twenty and three.
+/// <para>
+/// The rounding is read from the card and never defaulted, because CR 107.15 leaves it to the
+/// card to say and the two answers differ on every odd library - a sentence that does not say
+/// stays in the work queue.
+/// </para>
+/// <para>
+/// The milling itself goes through <see cref="Milling"/> like every other mill, so a player who
+/// cannot mill that many mills what they have and does not lose for it (CR 701.13b).
+/// </para>
+/// </remarks>
+public sealed record MillHalfLibrary(
+    PlayerScope Scope = PlayerScope.You,
+    bool RoundUp = true,
+    int? TargetIndex = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // A named target wins outright over a scope, the same way it does for the ordinary mill
+        // beside this: the sentence named one player and the scope named none.
+        var told = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed
+                ? (IEnumerable<Guid>)[aimed.Player]
+                : []
+            : PlayerScopes.Resolve(Scope, context);
+
+        var milled = new List<GameEvent>();
+
+        foreach (var who in told)
+        {
+            var library = context.State.GetPlayer(who).Library.Count;
+            var half = RoundUp ? (library + 1) / 2 : library / 2;
+
+            if (half <= 0)
+                continue;
+
+            milled.AddRange(Milling.From(context, who, half));
+        }
+
+        return milled;
     }
 }
 

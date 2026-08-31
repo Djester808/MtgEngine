@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 
 namespace MtgEngine.Rules.Abilities;
 
@@ -395,6 +395,10 @@ public static class EffectTargets
         // Nullable for the same reason ChangeLife's is: the sentence names a scope far more
         // often than it targets a player.
         Add<LoseHalfLife>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
+        Add<MillHalfLibrary>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 

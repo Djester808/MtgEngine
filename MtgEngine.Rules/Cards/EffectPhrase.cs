@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
@@ -4577,6 +4577,33 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new LoseHalfLife(ScopeOf(whose), roundsUp));
+            return true;
+        }
+
+        // "Target player mills half their library, rounded down" - the same shape one zone over,
+        // and unreadable for the same reason an ordinary mill count is readable: half a library
+        // is a different number per player and is only known on resolution.
+        var halvingLibrary = MillHalfLibraryLine().Match(sentence);
+        if (halvingLibrary.Success)
+        {
+            var millsUp = halvingLibrary.Groups["round"].Value
+                .Equals("up", StringComparison.OrdinalIgnoreCase);
+
+            var whoseLibrary = halvingLibrary.Groups["who"].Value.Trim();
+
+            if (whoseLibrary.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Specs.Parse(whoseLibrary) is not { Kind: TargetKind.Player } halvedLibrary)
+                    return false;
+
+                targets.Add(halvedLibrary);
+                effects.Add(new MillHalfLibrary(
+                    PlayerScope.You, millsUp, targets.Count - 1));
+
+                return true;
+            }
+
+            effects.Add(new MillHalfLibrary(ScopeOf(whoseLibrary), millsUp));
             return true;
         }
 
@@ -16751,6 +16778,19 @@ public static partial class EffectPhrase
             + @"rounded (?<round>up|down)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LoseHalfLifeLine();
+
+    /// <summary>"Target player mills half their library, rounded down" (CR 701.13a, 107.15).</summary>
+    /// <remarks>
+    /// The rounding is required for the reason its life-total sibling above requires it: CR
+    /// 107.15 leaves the direction to the card, and half of an odd library differs by a card
+    /// either way. Every printing of this sentence says which, so nothing is lost by refusing
+    /// the ones that do not.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WOrTarget + @" mills? half (your|their) library, "
+            + @"rounded (?<round>up|down)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MillHalfLibraryLine();
 
     [GeneratedRegex(
         @"^~ deals " + N + @" damage to " + W + @"$", RegexOptions.IgnoreCase)]

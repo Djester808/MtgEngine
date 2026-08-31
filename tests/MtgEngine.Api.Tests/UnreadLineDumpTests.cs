@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Cards;
 using Xunit.Abstractions;
@@ -501,6 +501,168 @@ public sealed partial class UnreadLineDumpTests(ITestOutputHelper output)
 
         File.WriteAllLines(destination, lines);
         output.WriteLine($"{lines.Count} distinct read lines written to {destination}");
+    }
+
+    /// <summary>
+    /// Measures a candidate reader before it is written: a rewrite file names the phrase, the
+    /// substitution that would replace it with one the compiler already reads, and a control.
+    /// </summary>
+    /// <remarks>
+    /// Excision has over-counted the worth of a family by between 1.5x and 82x, because deleting
+    /// a clause deletes whatever else was wrong with the sentence too. The honest ceiling is the
+    /// <em>substitution</em>: rewrite only the phrase into one already read and leave the rest of
+    /// the words alone. This runs all three cuts over the same set of cards so the three numbers
+    /// can be compared - excise the phrase, substitute it, and excise a different sentence of the
+    /// same line as a control that says whether any excision at all would have completed them.
+    /// <para>
+    /// Driven entirely by a file so that measuring a new family needs no code: each row is
+    /// <c>name TAB mode TAB pattern TAB replacement</c>, mode one of <c>sub</c>, <c>excise</c> or
+    /// <c>ctrl</c>. It asserts nothing - it is a ruler, and the ratchet is the gate.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Candidate_rewrites_named_in_a_file_are_measured_three_ways()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present - skipping.");
+            return;
+        }
+
+        var source = Environment.GetEnvironmentVariable("MTG_REWRITE_FILE");
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+        {
+            output.WriteLine("MTG_REWRITE_FILE not set - skipping.");
+            return;
+        }
+
+        var probes = new List<(string Name, string Mode, Regex Pattern, string Replacement)>();
+        foreach (var row in File.ReadAllLines(source))
+        {
+            if (row.Length == 0 || row[0] == '#')
+                continue;
+
+            var parts = row.Split('\t');
+            if (parts.Length < 3)
+                continue;
+
+            probes.Add((
+                parts[0],
+                parts[1],
+                new Regex(parts[2], RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200)),
+                parts.Length > 3 ? parts[3] : string.Empty));
+        }
+
+        // Compiled once and kept, because every probe asks the same question of the same set:
+        // recompiling the corpus per row turned a two-minute ruler into a forty-minute one.
+        var short1 = new List<(CardDefinition Card, string Line)>(20_000);
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete && compiled.Unhandled.Count == 1)
+                short1.Add((card, compiled.Unhandled[0]));
+        }
+
+        output.WriteLine($"{short1.Count} cards are one line short.");
+
+        foreach (var (name, mode, pattern, replacement) in probes)
+        {
+            var matched = 0;
+            var completed = 0;
+            var examples = new List<string>();
+
+            foreach (var (card, line) in short1)
+            {
+                if (!pattern.IsMatch(line))
+                    continue;
+
+                matched++;
+
+                string rewritten;
+                if (string.Equals(mode, "ctrl", StringComparison.Ordinal))
+                {
+                    // The control: cut a sentence the candidate phrase is *not* in. A family
+                    // whose control completes as many cards as the substitution was never a
+                    // family - the line was one edit from reading whatever you did to it.
+                    var sentences = SentencesIn(line);
+                    var other = sentences.FindIndex(s => !pattern.IsMatch(s));
+                    if (other < 0)
+                        continue;
+
+                    rewritten = string.Join(" ", sentences.Where((_, j) => j != other));
+                }
+                else
+                {
+                    rewritten = pattern.Replace(
+                        line, string.Equals(mode, "excise", StringComparison.Ordinal)
+                            ? string.Empty
+                            : replacement);
+                }
+
+                rewritten = RepeatedSpace().Replace(rewritten, " ").Trim();
+                if (rewritten.Length == 0 || string.Equals(rewritten, line, StringComparison.Ordinal))
+                    continue;
+
+                if (!CardCompiler.Compile(ProbeOf(card, rewritten)).IsComplete)
+                    continue;
+
+                completed++;
+                if (examples.Count < 8)
+                    examples.Add(card.Name + ": " + line.Replace('\n', ' '));
+            }
+
+            output.WriteLine($"{completed,5} / {matched,5} matched  [{mode}] {name}");
+            foreach (var example in examples)
+                output.WriteLine("         " + example);
+        }
+    }
+
+    /// <summary>
+    /// Compiles whatever text a file names, so a candidate wording can be tried without a corpus.
+    /// </summary>
+    /// <remarks>
+    /// Working from shapes alone means guessing at the surrounding words, and reading a
+    /// candidate reader out of the regex means guessing at what the compiler does with them.
+    /// This asks it. Each row is <c>name TAB oracle text</c>, newlines written as a backslash-n pair, and
+    /// the answer is the card's own <c>Unhandled</c> list.
+    /// </remarks>
+    [Fact]
+    public void Text_named_in_a_file_is_compiled_and_its_unread_lines_printed()
+    {
+        var source = Environment.GetEnvironmentVariable("MTG_TEXT_PROBE");
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+        {
+            output.WriteLine("MTG_TEXT_PROBE not set - skipping.");
+            return;
+        }
+
+        foreach (var row in File.ReadAllLines(source))
+        {
+            if (row.Length == 0 || row[0] == '#')
+                continue;
+
+            var parts = row.Split('\t');
+            if (parts.Length < 2)
+                continue;
+
+            var card = new CardDefinition
+            {
+                OracleId = "probe-" + parts[0],
+                Name = parts[0],
+                OracleText = parts[1].Replace("\\n", "\n", StringComparison.Ordinal),
+                CardTypes = parts.Length > 2 && parts[2].Length > 0
+                    ? Enum.Parse<MtgEngine.Domain.Enums.CardType>(parts[2], ignoreCase: true)
+                    : MtgEngine.Domain.Enums.CardType.Creature,
+                Power = 2,
+                Toughness = 2,
+            };
+
+            var compiled = CardCompiler.Compile(card);
+            output.WriteLine(compiled.IsComplete
+                ? $"COMPLETE  {parts[0]}"
+                : $"UNREAD    {parts[0]}  ->  " + string.Join(" | ", compiled.Unhandled));
+        }
     }
 
     /// <summary>The same card carrying one sentence, so that sentence can be compiled alone.</summary>
