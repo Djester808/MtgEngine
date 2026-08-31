@@ -7231,6 +7231,24 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
     /// </remarks>
     public bool UntilYourNextTurn { get; init; }
 
+    /// <summary>
+    /// The "for as long as …" condition holding the bonus up, when the card printed one
+    /// (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The third duration this effect can carry, and it is a different <em>kind</em> of clock
+    /// from the two flags beside it: those name a turn and end in a cleanup step, and this one is
+    /// a question re-asked of the board. So it is not a flag on the event — the condition has to
+    /// travel in the definition's id, which is what <see cref="Cards.GenerativeEffects.HeldWhileId"/>
+    /// is for, and the same wrapper the aimed form of this effect already rides.
+    /// <para>
+    /// CR 611.2c is untouched by it. The affected set is still fixed here, as the list is built,
+    /// so "all creatures get +2/+2 for as long as this remains tapped" does not reach a creature
+    /// that arrives while it is running — a longer duration makes that more visible, not less.
+    /// </para>
+    /// </remarks>
+    public Cards.GenerativeEffects.ControlHeldWhile? HeldWhile { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -7249,19 +7267,43 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
                 context.ControllerId, source, peer, context.VariableValue))
             .ToImmutableList();
 
-        return affected.IsEmpty
-            ? []
-            :
+        if (affected.IsEmpty)
+            return [];
+
+        if (HeldWhile is { } until)
+        {
+            // A held duration asks about the source, so a source that has already left does
+            // nothing rather than doing it for ever - the same guard the aimed form makes, and
+            // for the same reason: the id names an object, and an object that is gone is a
+            // different one (CR 400.7).
+            if (source is not { Zone: Zone.Battlefield })
+                return [];
+
+            return
             [
                 new ContinuousEffectCreated(
                     Guid.NewGuid(),
-                    Size?.DefinitionIdIn(context) ?? DefinitionId,
+                    Cards.GenerativeEffects.HeldWhileId(
+                        Size?.DefinitionIdIn(context) ?? DefinitionId,
+                        context.ControllerId,
+                        source.Id,
+                        until),
                     affected,
-                    UntilYourNextTurn ? null : context.State.TurnNumber)
-                {
-                    UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
-                },
+                    UntilEndOfTurn: null),
             ];
+        }
+
+        return
+        [
+            new ContinuousEffectCreated(
+                Guid.NewGuid(),
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
+                affected,
+                UntilYourNextTurn ? null : context.State.TurnNumber)
+            {
+                UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
+            },
+        ];
     }
 }
 
