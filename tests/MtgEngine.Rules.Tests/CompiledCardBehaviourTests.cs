@@ -3083,27 +3083,6 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(Zone.Graveyard, ability.FunctionsFrom);
     }
 
-    [Fact]
-    public void Exiling_the_card_from_hand_as_a_cost_is_left_unread()
-    {
-        // The Spirit Guides. The zone phrase is deliberately not swallowed: there is no self
-        // cost that charges a card out of hand by exiling it, so the remainder fails to parse as
-        // mana and the whole line stays unread. Granting the ability anyway would hand a player
-        // a free red mana with nothing paid for it - the exact fail-open this compiler refuses.
-        var guide = Card(
-            "Spirit Guide Test",
-            "Exile ~ from your hand: Add {R}.",
-            CardType.Creature,
-            power: 2,
-            toughness: 2);
-
-        var compiled = CardCompiler.Compile(guide);
-
-        Assert.False(compiled.IsComplete);
-        Assert.Contains("Exile ~ from your hand: Add {R}.", compiled.Unhandled);
-        Assert.Empty(compiled.Activated);
-    }
-
     [Theory]
     [InlineData("Reliquary Cane Test", "{T}, Exile ~: Shuffle your graveyard into your library.")]
     [InlineData("Reliquary Archive Test", "{2}, Exile ~: Target player shuffles their graveyard into their library. Draw a card.")]
@@ -6439,6 +6418,89 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The numbered shield behind a condition: "During your turn, if a red source would deal
+    /// damage to you, prevent 2 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The compiler read this shape and no test ever played one, which
+    /// <c>MechanicCoverageTests</c> caught the moment the reader landed. That gap is the failure
+    /// this project keeps finding: "the compiler reads it" and "the card does something" are
+    /// different claims, and only the second is worth anything at a table.
+    /// <para>
+    /// <strong>The pair is the control, and it is a pair for a reason.</strong> The obvious way to
+    /// check that the guard is enforced is to delete it in the compiler and watch this fail;
+    /// that mutation was tried and it <em>survived</em>, which says nothing about the guard and
+    /// everything about the mutation - the "to you" shield is built on a branch the edited line
+    /// never reaches. So the control is a second card instead: the same sentence <em>without</em>
+    /// the condition, played through the identical script, which prevents on the opponent's turn
+    /// where the guarded one does not. A reader that dropped the guard would make the two rows
+    /// agree, and a reader that never applied the shield at all would make them agree the other
+    /// way.
+    /// </para>
+    /// <para>
+    /// The other two parts are held on both rows: a white bolt for the same damage lands in full,
+    /// so the source description is read, and two points are prevented rather than all three.
+    /// </para>
+    /// <para>
+    /// "During your turn" is the only condition this reader accepts today - "as long as ~ is
+    /// untapped", "as long as you control a Cleric", "as long as you control a permanent of each
+    /// color", "as long as you control three or more creatures" and "during each opponent's turn"
+    /// all still leave the line unread. Measured, and recorded so the next person does not
+    /// re-measure it.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(
+        "Guarded Conditional Shield Test",
+        "During your turn, if a red source would deal damage to you, prevent 2 of that damage.",
+        13)]
+    [InlineData(
+        "Unguarded Conditional Shield Test",
+        "If a red source would deal damage to you, prevent 2 of that damage.",
+        15)]
+    public void A_conditional_numbered_shield_stops_when_its_condition_does(
+        string name, string line, int lifeAfterTheOpponentsTurnBolt)
+    {
+        var shield = Card(
+            name,
+            line,
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(shield);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, shield, Zone.Battlefield);
+        SettleIn(game);
+
+        var red = NumberedShieldBolt("Conditional Shield Red Test", 3, ManaColor.Red);
+        var white = NumberedShieldBolt("Conditional Shield White Test", 3, ManaColor.White);
+        var later = NumberedShieldBolt("Conditional Shield Later Test", 3, ManaColor.Red);
+
+        // Alice's own turn, red: two of the three prevented on both rows.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, red), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        // Same turn, white: the source description still has to be read, on both rows.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, white), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+
+        // The opponent's turn. This is the only line the two rows disagree on, and the
+        // disagreement is the whole test.
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, later), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(lifeAfterTheOpponentsTurnBolt, game.State.GetPlayer(alice).Life);
     }
 
     /// <summary>
@@ -14592,6 +14654,13 @@ public sealed class CompiledCardBehaviourTests
     /// A Spirit Guide compiled that way reads as complete, offers its ability nowhere, and makes
     /// no mana for anybody, which is this compiler's worst failure shape and the one a coverage
     /// number scores as a win.
+    /// <para>
+    /// This replaced a test that asserted the line was <em>left unread</em>, on the reasoning that
+    /// no self cost could charge a card out of a hand and granting the ability anyway would hand
+    /// out a free mana with nothing paid. That was true when it was written. The cost exists now,
+    /// so the refusal it protected became the thing standing in the way, and the protection moved
+    /// here - where the card is made to actually leave the hand before the mana is spent.
+    /// </para>
     /// <para>
     /// So the test spends the mana. The card leaves the hand for exile as the cost is paid
     /// (CR 601.2h), the green it made pays for a spell that could not otherwise be cast, and the
@@ -27564,26 +27633,29 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// The same sentence where "it" cannot mean the source is left unread.
+    /// The same sentence where "it" cannot mean the source names the object it does mean.
     /// </summary>
     /// <remarks>
-    /// Both the damage's source and the power measured are the permanent with the ability, so the
-    /// pronoun is only honoured where it can mean that permanent and nothing else.
+    /// Both the damage's source and the power measured are named by the pronoun, so reading it as
+    /// the permanent with the ability is wrong wherever the sentence points somewhere else.
     /// <para>
     /// Fiendlash is the card that proves it matters: "whenever equipped creature is dealt damage,
-    /// it deals damage equal to its power to target player or planeswalker" compiled with the
-    /// <em>Equipment</em> as the damage source and the Equipment's power as the amount, which is
-    /// no power at all — a card that read as complete and dealt nothing. An Aura or Equipment's
-    /// trigger is about its host, never about itself, so those conditions now say so.
+    /// it deals damage equal to its power to target player or planeswalker" once compiled with
+    /// the <em>Equipment</em> as the damage source and the Equipment's power as the amount, which
+    /// is no power at all - a card that read as complete and dealt nothing. An Aura or
+    /// Equipment's trigger is about its host, never about itself.
     /// </para>
     /// <para>
-    /// The other refusal is a pronoun after a target: "Tap target creature. It deals damage equal
-    /// to its power…" means the tapped creature, and this effect could only ever deal the
-    /// source's power from the source.
+    /// <strong>This test used to assert both were left unread, and that is no longer the right
+    /// assertion.</strong> The refusal was a stand-in for a reader that could not say which object
+    /// the pronoun meant; the reader can now say, so refusing would lose two cards that are read
+    /// correctly. What is asserted instead is the thing the refusal was protecting - the dealer is
+    /// the object the sentence named, never the source - which fails just as loudly if the
+    /// fallback to <see cref="EffectSubject.Source"/> ever creeps back.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_pronoun_that_cannot_mean_the_source_leaves_the_damage_unread()
+    public void A_pronoun_that_cannot_mean_the_source_names_what_it_does_mean()
     {
         var lash = Card(
             "Power Damage Equipment Test",
@@ -27592,14 +27664,27 @@ public sealed class CompiledCardBehaviourTests
             CardType.Artifact,
             subtypes: "Equipment");
 
-        Assert.False(CardCompiler.Compile(lash).IsComplete);
+        var lashed = CardCompiler.Compile(lash);
+        Assert.True(lashed.IsComplete, string.Join(" | ", lashed.Unhandled));
+
+        // The equipped creature, not the Equipment - which has no power to deal.
+        var lashFight = Assert.IsType<Fight>(
+            Assert.Single(Assert.Single(lashed.Triggers).Effects));
+        Assert.Equal(EffectSubject.TriggeringObject, lashFight.MySubject);
+        Assert.Null(lashFight.MyIndex);
 
         var afterTarget = Card(
             "Power Damage After Target Test",
             "Tap target creature. It deals damage equal to its power to any target.",
             CardType.Instant);
 
-        Assert.False(CardCompiler.Compile(afterTarget).IsComplete);
+        var tapped = CardCompiler.Compile(afterTarget);
+        Assert.True(tapped.IsComplete, string.Join(" | ", tapped.Unhandled));
+
+        // The creature the sentence in front tapped is target 0, and that is who deals.
+        var tapFight = Assert.IsType<Fight>(
+            Assert.Single(tapped.Spell!.Effects, e => e is Fight));
+        Assert.Equal(0, tapFight.MyIndex);
 
         // The shape it is being kept apart from: the source naming itself, which still reads.
         var berserker = Card(
@@ -61896,82 +61981,91 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// A pronoun whose antecedent is not the source is left unread.
+    /// A pronoun whose antecedent is not the source names that antecedent, or stays unread.
     /// </summary>
     /// <remarks>
     /// CR 120.2b: the ability specifies which object deals the damage, and reading the wrong one
     /// is not a detail - lifelink, deathtouch and every "whenever this deals damage" trigger read
-    /// the source, and a spell has no power for "equal to its power" to find. So the word is only
-    /// normalised where the last thing the line named before it was the source. Three printed
-    /// shapes name something else, and all three stay unread:
-    /// <list type="bullet">
-    /// <item>the trigger names another object - Warstorm Surge, Be'lakor, Stalking Vengeance,
-    /// Fiendlash (6 corpus cards);</item>
-    /// <item>an earlier sentence targeted a creature and the pronoun is that creature - Deadshot,
-    /// Assert Perfection, Venom Blast, Bionic Blow (4 cards);</item>
-    /// <item>the trigger names the source <em>or</em> another object and the text cannot say
-    /// which entered - Hawkeye, Trick Shot.</item>
-    /// </list>
+    /// the source, and a spell has no power for "equal to its power" to find.
     /// <para>
-    /// Each is asserted as a pair, and the pair is what stops the test going vacuous: the same
-    /// card with the source named outright <em>does</em> read, so what is being refused is the
-    /// pronoun and not the sentence.
+    /// <strong>Two of the three shapes below were asserted unread and are now read.</strong> That
+    /// is progress rather than drift, and the assertion moved with it: where the reader can name
+    /// the antecedent it must name it, and where it cannot the line must still stay unread. The
+    /// pairs are kept, because they are what stops the test going vacuous - the same card with
+    /// the source named outright reads as the source, and that difference is the whole point.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_pronoun_whose_antecedent_is_not_the_source_is_left_unread()
+    public void A_pronoun_whose_antecedent_is_not_the_source_names_it_or_stays_unread()
     {
-        static bool Reads(string name, string text, CardType types, int? power, int? toughness) =>
-            CardCompiler.Compile(Card(name, text, types, power, toughness)).IsComplete;
+        static CompiledCard Compile(string name, string text, CardType types, int? power) =>
+            CardCompiler.Compile(Card(name, text, types, power, power));
 
         // The trigger names the creature that entered, not the enchantment that said so.
-        Assert.False(Reads(
+        var entered = Compile(
             "Warstorm Pronoun Test",
             "Whenever a creature you control enters, it deals damage equal to its power "
                 + "to any target.",
             CardType.Enchantment,
-            null,
-            null));
+            null);
 
-        Assert.True(Reads(
+        Assert.True(entered.IsComplete, string.Join(" | ", entered.Unhandled));
+        Assert.Equal(
+            EffectSubject.TriggeringObject,
+            Assert.IsType<Fight>(Assert.Single(Assert.Single(entered.Triggers).Effects))
+                .MySubject);
+
+        // Named outright, the same sentence is about the enchantment and reads as damage it deals.
+        var enteredNamed = Compile(
             "Warstorm Named Test",
             "Whenever a creature you control enters, ~ deals damage equal to its power "
                 + "to any target.",
             CardType.Enchantment,
-            null,
-            null));
+            null);
+
+        Assert.True(enteredNamed.IsComplete, string.Join(" | ", enteredNamed.Unhandled));
+        Assert.DoesNotContain(
+            Assert.Single(enteredNamed.Triggers).Effects, e => e is Fight);
 
         // The sentence before it targeted a creature, and that creature is what deals the damage.
-        Assert.False(Reads(
+        var tapped = Compile(
             "Deadshot Pronoun Test",
             "Tap target creature. It deals damage equal to its power to another target creature.",
             CardType.Sorcery,
-            null,
-            null));
+            null);
 
-        Assert.True(Reads(
+        Assert.True(tapped.IsComplete, string.Join(" | ", tapped.Unhandled));
+        Assert.Equal(
+            0, Assert.IsType<Fight>(Assert.Single(tapped.Spell!.Effects, e => e is Fight)).MyIndex);
+
+        var tappedNamed = Compile(
             "Deadshot Named Test",
             "Tap target creature. ~ deals damage equal to its power to another target creature.",
             CardType.Sorcery,
-            null,
-            null));
+            null);
 
-        // "~ or another Hero" names two candidates and the text cannot say which arrived.
-        Assert.False(Reads(
+        Assert.True(tappedNamed.IsComplete, string.Join(" | ", tappedNamed.Unhandled));
+        Assert.DoesNotContain(tappedNamed.Spell!.Effects, e => e is Fight);
+
+        // "~ or another Hero" names two candidates and the text cannot say which arrived, so this
+        // one is still refused - the reader names an antecedent or it declines, never guesses.
+        var ambiguous = Compile(
             "Hawkeye Pronoun Test",
             "Whenever ~ or another Hero you control enters, it deals damage equal to the number "
                 + "of Heroes you control to any target.",
             CardType.Creature,
-            3,
-            3));
+            3);
 
-        Assert.True(Reads(
+        Assert.False(ambiguous.IsComplete);
+
+        var ambiguousNamed = Compile(
             "Hawkeye Named Test",
             "Whenever ~ or another Hero you control enters, ~ deals damage equal to the number "
                 + "of Heroes you control to any target.",
             CardType.Creature,
-            3,
-            3));
+            3);
+
+        Assert.True(ambiguousNamed.IsComplete, string.Join(" | ", ambiguousNamed.Unhandled));
     }
 
     /// <summary>

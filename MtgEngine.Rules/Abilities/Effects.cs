@@ -6088,7 +6088,7 @@ public sealed record LoseHalfLife(
 /// </para>
 /// <para>
 /// The milling itself goes through <see cref="Milling"/> like every other mill, so a player who
-/// cannot mill that many mills what they have and does not lose for it (CR 701.13b).
+/// cannot mill that many mills what they have and does not lose for it (CR 701.17b).
 /// </para>
 /// </remarks>
 public sealed record MillHalfLibrary(
