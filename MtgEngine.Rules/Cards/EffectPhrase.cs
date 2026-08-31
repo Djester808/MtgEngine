@@ -3170,7 +3170,7 @@ public static partial class EffectPhrase
         var byCount = DamageEqualToCountLine().Match(sentence);
         if (byCount.Success
             && Specs.Parse(byCount.Groups["t"].Value) is { } measured
-            && CountingAmount(Times(byCount), "each " + byCount.Groups["foreach"].Value.Trim())
+            && CountingAmount(1, "each " + byCount.Groups["foreach"].Value.Trim())
                 is { } tally)
         {
             targets.Add(measured);
@@ -3184,7 +3184,7 @@ public static partial class EffectPhrase
         var afterTarget = DamageToTargetEqualToCountLine().Match(sentence);
         if (afterTarget.Success
             && Specs.Parse(afterTarget.Groups["t"].Value.Trim()) is { } tallied
-            && CountingAmount(Times(afterTarget), afterTarget.Groups["foreach"].Value.Trim())
+            && CountingAmount(1, afterTarget.Groups["foreach"].Value.Trim())
                 is { } perOne)
         {
             targets.Add(tallied);
@@ -4665,7 +4665,7 @@ public static partial class EffectPhrase
             // "Life equal to the number of X" is one per thing with the number left out.
             var each = perEach.Groups["n"].Success
                 ? Number(perEach.Groups["n"].Value)
-                : Times(perEach);
+                : 1;
 
             // "Life equal to that creature's toughness" measures one permanent rather than
             // counting a group, and the permanent is whatever the trigger was about. Last known
@@ -4700,7 +4700,7 @@ public static partial class EffectPhrase
             // of X" says one per thing and leaves the number out. The same amount either way.
             var per = perEachDraw.Groups["n"].Success
                 ? Number(perEachDraw.Groups["n"].Value)
-                : Times(perEachDraw);
+                : 1;
 
             if (CountingAmount(per, perEachDraw.Groups["t"].Value) is not { } drawn)
                 return false;
@@ -10844,14 +10844,6 @@ public static partial class EffectPhrase
         ["Plains", "Island", "Swamp", "Mountain", "Forest"];
 
     /// <summary>
-    /// How many the count is worth per thing: "twice the number of X" is "2 for each X".
-    /// </summary>
-    /// <remarks>
-    /// A multiplier is not a different mechanism from "N for each X" - it is the same amount with
-    /// the fixed part spelled as a word - so it is folded into the per-thing number rather than
-    /// given a wrapper of its own, and every verb that can carry a count gets it for free.
-    /// </remarks>
-    /// <summary>
     /// The card types one noun in a zone-counting phrase names, or null if it names none.
     /// </summary>
     /// <remarks>
@@ -10863,13 +10855,6 @@ public static partial class EffectPhrase
     internal static IReadOnlyList<Domain.Enums.CardType>? TypesOfCardNoun(string noun) =>
         Specs.PermanentTypes(noun)
             ?? (Specs.CardTypeInGraveyard(noun) is { } single ? [single] : null);
-
-    private static int Times(Match m) => m.Groups["mult"].Value.Trim().ToLowerInvariant() switch
-    {
-        "twice" => 2,
-        "three times" => 3,
-        _ => 1,
-    };
 
     /// <summary>
     /// The card types an animation confers (CR 205.1b).
@@ -11472,24 +11457,65 @@ public static partial class EffectPhrase
         // 35 corpus cards blocked on one compile as complete with the constant simply thrown
         // away, and each of them then plays a smaller number than it prints, for ever, on a card
         // coverage scores as read.
+        // "X is twice the number of Vehicles you control" - the other half of the same
+        // arithmetic, and it arrives here the same way. The compiler moves the factor across
+        // "the number of" so that all six wrappers see a count they can read, and the factor is
+        // folded into the count rather than kept beside an amount.
+        //
+        // Beside an amount is where it does not belong, and `WithCountedVariable` is the proof.
+        // It holds a bare `Func<ResolutionContext, int>` and nothing else - it binds X to
+        // whatever that delegate answers - so a factor stored next to an `Amount` never reaches
+        // the commonest printing of this family at all. Nor would it reach the largest one:
+        // seven of the corpus cards blocked on this print "~'s power and toughness are each
+        // equal to twice the number of ...", a characteristic-defining ability with no amount
+        // anywhere near it.
+        //
+        // Folded into the count it is also the arithmetic that stays right when a card puts a
+        // "for each" in front: two life for each of twice the Islands you control is 2 x (2 x
+        // Islands), and a factor applied after the per-thing multiplication would be right only
+        // while one of the two is the implicit one.
+        //
+        // Read as one is the failure this refuses. A card printing twice the number of Goblins
+        // and playing the number of Goblins deals half what it says, for ever, on a line that
+        // coverage counts as read - the same fail-open shape as an {X} cost paid for {0}.
         var phrase = groupPhrase.Trim();
 
         var lead = phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase)
             ? "each "
             : string.Empty;
 
-        if (AdditiveCountTerm().Match(phrase[lead.Length..]) is not { Success: true } more)
-            return CountedGroup(phrase, hasSource, seats);
+        var body = phrase[lead.Length..];
+        var extra = 0;
+        var factor = 1;
 
-        if (AdditiveNumber(more.Groups["n"].Value) is not { } extra)
+        if (AdditiveCountTerm().Match(body) is { Success: true } more)
+        {
+            if (AdditiveNumber(more.Groups["n"].Value) is not { } added)
+                return null;
+
+            extra = added;
+            body = body[more.Length..].TrimStart();
+        }
+
+        if (MultipliedCountTerm().Match(body) is { Success: true } times)
+        {
+            if (MultiplyingNumber(times.Groups["n"].Value) is not { } by)
+                return null;
+
+            factor = by;
+            body = body[times.Length..].TrimStart();
+        }
+
+        if (CountedGroup(lead + body, hasSource, seats) is not { } counted)
             return null;
 
-        var rest = lead + phrase[(lead.Length + more.Length)..].Trim();
-
-        return CountedGroup(rest, hasSource, seats) is not { } counted
-            ? null
+        // The delegate is handed back untouched when the phrase named neither term, because a
+        // count is asked for on every characteristics computation and an arithmetic wrapper
+        // around every one of them would be paid for by the cards that printed no arithmetic.
+        return extra == 0 && factor == 1
+            ? counted
             : (state, abilities, you, source, players) =>
-                counted(state, abilities, you, source, players) + extra;
+                (counted(state, abilities, you, source, players) * factor) + extra;
     }
 
     /// <summary>The group itself, with any constant added to its count already taken off.</summary>
@@ -12298,6 +12324,27 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditiveCountTerm();
 
+    /// <summary>"Twice …", "three times …" - a factor in front of the count behind it.</summary>
+    /// <remarks>
+    /// Anchored at the start for the reason the additive term is, and read after it: the one
+    /// corpus card printing both spells them in that order - "1 plus twice the number of age
+    /// counters on it" - so the constant comes off first and what is left begins with the factor.
+    /// <para>
+    /// The pattern is wide and the table behind it is closed, rather than the other way about.
+    /// A factor this cannot name has to reach <see cref="MultiplyingNumber"/> to be refused;
+    /// spelling the same word list into the pattern as well would put the refusal behind a
+    /// guard that can never fire, and leave two lists to keep in step.
+    /// </para>
+    /// <para>
+    /// The digit spelling is deliberately not a factor. A bare number in front of a group is
+    /// part of the group - "3 or more creatures" - so only the "N times" form counts.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>twice|thrice|[A-Za-z]+ times) ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MultipliedCountTerm();
+
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
     /// <remarks>
     /// A name clause may follow it - "each other creature on the battlefield named Relentless
@@ -12808,6 +12855,28 @@ public static partial class EffectPhrase
     /// constant read as one on a card that printed three is a card two short of what it says,
     /// on a line that compiled, with nothing downstream able to tell.
     /// </remarks>
+    /// <summary>The factor in front of a count, or null for a word this may not guess at.</summary>
+    /// <remarks>
+    /// Null rather than one for anything unrecognised, and that is the whole of its value: a
+    /// factor read as one is a card that deals or gains half or a third of what it prints while
+    /// compiling as complete, and nothing downstream of here can tell that apart from a card
+    /// that printed no factor at all.
+    /// </remarks>
+    private static int? MultiplyingNumber(string word) =>
+        word.ToLowerInvariant() switch
+        {
+            "twice" or "two times" => 2,
+            "thrice" or "three times" => 3,
+            "four times" => 4,
+            "five times" => 5,
+            "six times" => 6,
+            "seven times" => 7,
+            "eight times" => 8,
+            "nine times" => 9,
+            "ten times" => 10,
+            _ => null,
+        };
+
     private static int? AdditiveNumber(string word) =>
         int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var digits)
             ? digits
@@ -15034,7 +15103,7 @@ public static partial class EffectPhrase
     /// spelling. One vocabulary, two ways of saying it on a card.
     /// </remarks>
     [GeneratedRegex(
-        @"^~ deals damage equal to (?<mult>twice |three times )?the number of (?<foreach>" + COUNTED + @"+?) "
+        @"^~ deals damage equal to the number of (?<foreach>" + COUNTED + @"+?) "
             + @"to (?<t>[A-Za-z0-9'’ ]+?)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageEqualToCountLine();
@@ -15042,7 +15111,7 @@ public static partial class EffectPhrase
     /// <summary>The same count with the target named first (CR 107.3).</summary>
     [GeneratedRegex(
         @"^~ deals damage to (?<t>[A-Za-z0-9'’ ]+?) "
-            + @"equal to (?<mult>twice |three times )?the number of (?<foreach>" + COUNTED + @"+?)$",
+            + @"equal to the number of (?<foreach>" + COUNTED + @"+?)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageToTargetEqualToCountLine();
 
@@ -17063,7 +17132,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(?<who>you|each opponent|each player) (?<verb>gains?|loses?) "
             + @"((?<n>\d+|X) life for (?<t>each " + COUNTED + @"+)"
-            + @"|life equal to (?<mult>twice |three times )?the number of (?<t>" + COUNTED + @"+)"
+            + @"|life equal to the number of (?<t>" + COUNTED + @"+)"
             + @"|life equal to (?<subject>that [a-z]+'s|its|the sacrificed [a-z]+'s) "
             + @"(?<stat>power|toughness|mana value))$",
         RegexOptions.IgnoreCase)]
@@ -17075,7 +17144,7 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^draw " + N + @" cards? for each (?<t>" + COUNTED + @"+)"
-            + @"|^draw cards equal to (?<mult>twice |three times )?the number of (?<t>" + COUNTED + @"+)$",
+            + @"|^draw cards equal to the number of (?<t>" + COUNTED + @"+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PerEachDrawLine();
 
