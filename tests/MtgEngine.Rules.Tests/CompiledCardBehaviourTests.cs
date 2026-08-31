@@ -1121,6 +1121,471 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Counted Elegy Test");
     }
 
+    // ---- A price that is a computation, not a number (CR 107.3) --------------
+
+    /// <summary>
+    /// "Counter target spell unless its controller pays {1} for each card in your graveyard."
+    /// </summary>
+    /// <remarks>
+    /// The offer machinery charged a fixed <c>ManaCostSpec</c>, so every counted tax in the
+    /// corpus was unread — twenty-four lines of it, all of them a printed number multiplied by
+    /// something on the board. The computed half now rides on the offer as an <c>Amount</c>, the
+    /// same vocabulary "gain 2 life for each creature you control" uses, and is worked out at the
+    /// moment the question is put.
+    /// <para>
+    /// Three cards in the graveyard is a price of {3}, and the point of the test is that three is
+    /// nowhere on the card. A reader that charged the printed {1} would pass a test asserting
+    /// only that <em>something</em> was paid.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_tax_charges_what_the_count_comes_to_and_lets_the_spell_through()
+    {
+        var rebuff = Card(
+            "Counted Rebuff Test",
+            "Counter target spell unless its controller pays {1} for each card in your graveyard.");
+
+        var compiled = CardCompiler.Compile(rebuff);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // "Your" graveyard is the counterspell's controller's, so these three price Bob's escape.
+        game.Create(alice, TestCards.Creature("Counted Buried One Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Counted Buried Two Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Counted Buried Three Test", 1, 1), Zone.Graveyard);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        // Floated before he casts, because this engine cannot activate a mana ability inside a
+        // resolution — the same way every other paying test in this file arranges it.
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(bob, forest, "mana");
+        }
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Counted Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rebuff), [Target.ToSpell(onStack)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // The price quoted is the number the board came to, and it travels as text so a replay
+        // reaches the price that was actually offered rather than the price today's board implies.
+        Assert.Equal("{3}", game.Log.OfType<OptionalPaymentRequested>().Last().CostText);
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+    }
+
+    /// <summary>
+    /// The same tax one mana short of what it counted: not a discount, a decline (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The assertion that earns its place is the absence of the question. A cost cannot be paid
+    /// in part, so a player who cannot meet the whole price is never asked — and a counted price
+    /// that quietly fell back to its printed {1} would be payable out of the two mana Bob has
+    /// here, which is the failure this whole change is fenced against: a card read as cheaper
+    /// than printed is strictly better than the card.
+    /// </remarks>
+    [Fact]
+    public void A_counted_tax_is_not_offered_one_mana_short_and_the_spell_is_countered()
+    {
+        var rebuff = Card(
+            "Short Counted Rebuff Test",
+            "Counter target spell unless its controller pays {1} for each card in your graveyard.");
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Short Buried One Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Short Buried Two Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Short Buried Three Test", 1, 1), Zone.Graveyard);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        // Two, against a price of three.
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(bob, forest, "mana");
+        }
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Short Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rebuff), [Target.ToSpell(onStack)]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log, e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// The count is taken when the offer is made, not when the card was compiled.
+    /// </summary>
+    /// <remarks>
+    /// One card in the graveyard where the test above had three, and the same compiled card
+    /// quotes {1}. A price worked out once at compile time would be the same number in both
+    /// games, which is exactly what an <c>Amount</c> with a fixed part and no counter gives.
+    /// </remarks>
+    [Fact]
+    public void A_counted_tax_is_priced_from_the_board_at_the_moment_it_is_offered()
+    {
+        var rebuff = Card(
+            "Recounted Rebuff Test",
+            "Counter target spell unless its controller pays {1} for each card in your graveyard.");
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Recounted Buried Test", 1, 1), Zone.Graveyard);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(bob, forest, "mana");
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Recounted Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rebuff), [Target.ToSpell(onStack)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal("{1}", game.Log.OfType<OptionalPaymentRequested>().Last().CostText);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Counter target spell unless its controller pays {X}" — X is what the caster announced
+    /// (CR 107.3b).
+    /// </summary>
+    /// <remarks>
+    /// This one was worse than unread. <c>ManaCostSpec</c> keeps {X} as a symbol worth nothing
+    /// off the stack (CR 202.3b), so the offer compiled clean and charged <em>nothing</em>:
+    /// eleven X counterspells — Condescend, Logic Knot and Clash of Wills among them — let the
+    /// opponent walk out for {0} while the coverage census counted them as finished cards.
+    /// </remarks>
+    [Fact]
+    public void A_bare_X_tax_charges_the_amount_the_caster_announced()
+    {
+        var sink = new CardDefinition
+        {
+            OracleId = "oracle-announced-x-sink-test",
+            Name = "Announced Sink Test",
+            OracleText = "Counter target spell unless its controller pays {X}.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{X}",
+        };
+
+        var compiled = CardCompiler.Compile(sink);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(bob, forest, "mana");
+        }
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Announced Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, sink),
+            [Target.ToSpell(onStack)],
+            variableValue: 2);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal("{2}", game.Log.OfType<OptionalPaymentRequested>().Last().CostText);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+    }
+
+    /// <summary>The announced X, one mana short: countered rather than discounted.</summary>
+    [Fact]
+    public void A_bare_X_tax_is_not_offered_one_mana_short()
+    {
+        var sink = new CardDefinition
+        {
+            OracleId = "oracle-short-x-sink-test",
+            Name = "Short Sink Test",
+            OracleText = "Counter target spell unless its controller pays {X}.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{X}",
+        };
+
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var bobsWood = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(bob, bobsWood, "mana");
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Short Sink Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, sink),
+            [Target.ToSpell(onStack)],
+            variableValue: 2);
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log, e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// "…pays {X}, where X is your devotion to blue" — the sentence says what X is (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// The third spelling of one idea, and it goes to the same counting vocabulary the "for each"
+    /// form does — so devotion, domain, party and every zone that vocabulary reaches are prices
+    /// this offer can quote without any of them being taught to it.
+    /// </remarks>
+    [Fact]
+    public void A_tax_whose_sentence_defines_X_charges_the_count_that_sentence_names()
+    {
+        var rebuff = Card(
+            "Defined Rebuff Test",
+            "Counter target spell unless its controller pays {X}, where X is your devotion to "
+                + "blue.");
+
+        var compiled = CardCompiler.Compile(rebuff);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Two blue pips among the permanents Alice controls, so her devotion to blue is two.
+        game.Create(
+            alice, TestCards.Costed("Defined Devotion Sage", "{U}{U}", 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(bob, forest, "mana");
+        }
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card("Defined Threat Test", "You gain 6 life."));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rebuff), [Target.ToSpell(onStack)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal("{2}", game.Log.OfType<OptionalPaymentRequested>().Last().CostText);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Sacrifice this creature unless you pay {1} for each other creature you control."
+    /// </summary>
+    /// <remarks>
+    /// The fourth payer word. "You" redirects nothing — the offer goes where an offer goes when
+    /// nobody says otherwise, which is the controller of the ability making it — but it still has
+    /// to be said out loud, because the reader's target arm would otherwise claim the sentence
+    /// and charge whoever the consequence was aimed at.
+    /// <para>
+    /// Two other creatures make the upkeep cost {2}. A price read as the printed {1} would keep
+    /// the creature alive off a single land, which is the direction this may not be wrong in.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_upkeep_charged_to_you_is_paid_and_the_creature_survives()
+    {
+        var spirit = Card(
+            "Counted Upkeep Test",
+            "At the beginning of your upkeep, sacrifice ~ unless you pay {1} for each other "
+                + "creature you control.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(spirit);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ghost = game.Create(alice, spirit, Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("Counted Upkeep Friend One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Counted Upkeep Friend Two", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.Upkeep);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Asked of Alice — the ability's own controller — and priced at the two other creatures.
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        Assert.Equal("{2}", game.Log.OfType<OptionalPaymentRequested>().Last().CostText);
+
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Contains(ghost, game.State.Battlefield);
+    }
+
+    /// <summary>The same upkeep one mana short: the creature is sacrificed.</summary>
+    [Fact]
+    public void A_counted_upkeep_one_mana_short_takes_the_creature()
+    {
+        var spirit = Card(
+            "Short Upkeep Test",
+            "At the beginning of your upkeep, sacrifice ~ unless you pay {1} for each other "
+                + "creature you control.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var (game, alice, _) = InMainPhase();
+        var ghost = game.Create(alice, spirit, Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("Short Upkeep Friend One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Short Upkeep Friend Two", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.Upkeep);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        Settle(game);
+
+        Assert.DoesNotContain(ghost, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Short Upkeep Test");
+    }
+
+    /// <summary>
+    /// A count the shared vocabulary cannot read leaves the line unread, not priced at nought.
+    /// </summary>
+    /// <remarks>
+    /// The whole reason the computation is refused at compile time rather than answered with
+    /// zero on the board. A price that comes to nothing is a ward nobody pays and a counterspell
+    /// that counters nobody, and it compiles as a finished card — which the coverage census then
+    /// scores as a win. Zero reached by <em>counting</em> is a different thing and is charged as
+    /// printed: an empty graveyard really does make "for each card in your graveyard" free.
+    /// </remarks>
+    [Theory]
+    [InlineData("Counter target spell unless its controller pays {1} for each rumor you have heard.")]
+    [InlineData("Counter target spell unless its controller pays {X}, where X is the mood of the table.")]
+    public void A_price_counting_something_unreadable_leaves_the_line_unread(string line)
+    {
+        var card = Card("Unreadable Price Test " + line.Length, line);
+
+        var compiled = CardCompiler.Compile(card);
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, l => l.Contains("unless", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A price whose symbols the mana parser drops is refused (CR 107.4c).
+    /// </summary>
+    /// <remarks>
+    /// <c>ManaCostSpec.Parse</c> keeps the symbols it understands and drops the rest, so "{E}"
+    /// and "{S}" both parse to an <em>empty</em> cost — and an offer costing nothing is one every
+    /// player takes. "Tap this creature unless you pay {E}" compiled clean and never tapped
+    /// anything. Every printed symbol has to survive the parse or the line stays unread, which
+    /// costs one snow cumulative upkeep and is the right side to be wrong on.
+    /// </remarks>
+    [Theory]
+    [InlineData("At the beginning of your upkeep, tap ~ unless you pay {E}.")]
+    [InlineData("At the beginning of your upkeep, sacrifice ~ unless you pay {S}.")]
+    public void A_price_the_mana_parser_cannot_keep_whole_is_refused(string line)
+    {
+        var card = Card(
+            "Dropped Symbol Price Test " + line.Length, line, CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(card);
+        Assert.False(compiled.IsComplete);
+    }
+
     // ---- An Aura's buff and its rider (CR 613.1f) ----------------------------
 
     [Fact]

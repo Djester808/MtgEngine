@@ -3570,11 +3570,31 @@ public static partial class EffectPhrase
         m = SacrificeUnlessPayLine().Match(sentence);
         if (m.Success)
         {
+            // Priced through the shared reader rather than parsed here. This arm called
+            // ManaCostSpec.Parse directly, and that parser *drops* a symbol it does not know
+            // ({E}, {S}) instead of refusing it - so "sacrifice this unless you pay {S}" was a
+            // sacrifice nobody ever had to avoid, on a card that compiled clean. Everything the
+            // shared reader knows arrives with the guard: the counted price, the announced X,
+            // and the refusal of a price that parses to nothing.
+            if (CardCompiler.OfferedCost(m.Groups["cost"].Value) is not
+                var (price, owed, chosenCost, countedPrice))
+            {
+                return false;
+            }
+
             effects.Add(new MayPay(
-                Mana.ManaCostSpec.Parse(m.Groups["cost"].Value),
+                price,
                 IfYouDo: [],
                 IfYouDont: [new SacrificeSource()],
-                effects.Count));
+                effects.Count,
+                LifeCost: owed,
+                ChosenKind: chosenCost?.Kind,
+                ChosenCount: chosenCost?.Count ?? 1,
+                ChosenWhat: chosenCost?.What)
+            {
+                VariablePrice = countedPrice,
+            });
+
             return true;
         }
 
