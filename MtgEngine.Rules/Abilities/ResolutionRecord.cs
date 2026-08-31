@@ -285,17 +285,124 @@ public sealed record TouchFilter(TouchVerb Verb)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (Matching(context).ToList() is not [var only])
+        return Matching(context).ToList() is [var only] ? ValueOf(context, only, stat) ?? 0 : 0;
+    }
+
+    /// <summary>
+    /// One fold over every object the phrase names - the total, the greatest or the least
+    /// (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The plural twin of <see cref="StatIn"/>, over the set <see cref="Matching"/> answers and
+    /// through the per-touch reading that one uses, so a card that counts what this resolution
+    /// touched and a card that totals it cannot disagree about which objects the phrase named.
+    /// That is the whole point of asking the filter for the set once: the tally is
+    /// <see cref="In"/>, the aggregate is this, and there is no third answer to "which objects".
+    /// <para>
+    /// A touch with no such characteristic is left out of the fold rather than folded in as a
+    /// zero, which is the rule the board aggregate next door keeps for the same reason: a Sol
+    /// Ring destroyed alongside the creatures has no power at all, and counting it as nought
+    /// would drag "the least power among permanents destroyed this way" to nothing.
+    /// </para>
+    /// <para>
+    /// Zero for an empty set, which is what a value that cannot be determined comes to
+    /// (CR 107.2), and clamped at zero on the way out (CR 107.1b) - a creature that left the
+    /// battlefield with -3/-0 on it had power below nought, and a calculation deciding the
+    /// result of an effect uses zero instead.
+    /// </para>
+    /// </remarks>
+    public int AggregateIn(ResolutionContext context, TouchStat stat, TouchFold fold)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var values = new List<int>();
+
+        foreach (var touch in Matching(context))
+        {
+            if (ValueOf(context, touch, stat) is { } value)
+                values.Add(value);
+        }
+
+        if (values.Count == 0)
             return 0;
+
+        var answer = fold switch
+        {
+            TouchFold.Total => values.Sum(),
+            TouchFold.Least => values.Min(),
+            _ => values.Max(),
+        };
+
+        return Math.Max(0, answer);
+    }
+
+    /// <summary>
+    /// What one recorded object's characteristic came to, or null when it has none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Last known information, not the card lying in the graveyard</b> (CR 608.2h). A creature
+    /// that died with three +1/+1 counters on it was a 5/5 as it left; the object the graveyard
+    /// holds is a new one (CR 400.7) with no layers applied to it (CR 613.1), so its power is the
+    /// printed 2/2 on its face (CR 202.3). A fold that looked the touch up where it now lies
+    /// would therefore be short by every counter and every pump on every card in this family, and
+    /// short in silence - the sentence still compiles and the card still plays. The record stored
+    /// what each object was as it left precisely so this does not have to guess; this reads that.
+    /// <para>
+    /// The one object that is <em>not</em> read from the record is the one still on the
+    /// battlefield, which is where a "put onto the battlefield this way" touch leaves it. Nothing
+    /// has left, so there is no last known information to use: CR 613 applies and the computed
+    /// characteristics are what the permanent is now, counters and anthems included. What the
+    /// record holds for that touch is what the card was in the zone it came from, which is the
+    /// one number that is certainly wrong.
+    /// </para>
+    /// <para>
+    /// Null rather than zero for a characteristic the object does not have, and null for a touch
+    /// whose card could not be read at all - the same fail-closed direction <see cref="Admits"/>
+    /// takes for a noun it cannot check.
+    /// </para>
+    /// </remarks>
+    private static int? ValueOf(ResolutionContext context, Touch touch, TouchStat stat)
+    {
+        if (touch.To == Zone.Battlefield
+            && context.State.TryGetObject(touch.Id, out var live)
+            && live.Permanent is not null)
+        {
+            var now = Characteristics.Of(context.State, context.Abilities, live);
+
+            return stat switch
+            {
+                TouchStat.Power => now.Power,
+                TouchStat.Toughness => now.Toughness,
+                _ => now.Card.Cmc,
+            };
+        }
 
         return stat switch
         {
-            TouchStat.Power => only.Power ?? 0,
-            TouchStat.Toughness => only.Toughness ?? 0,
-            TouchStat.ManaValue => only.Card?.Cmc ?? 0,
-            _ => 0,
+            TouchStat.Power => touch.Power,
+            TouchStat.Toughness => touch.Toughness,
+            _ => touch.Card?.Cmc,
         };
     }
+}
+
+/// <summary>Which way a sentence folds the objects it names (CR 608.2h).</summary>
+/// <remarks>
+/// The three the corpus prints, and the same three the board aggregate next door reads - "the
+/// greatest" and "the highest" are one fold under two words, as are "the least" and "the lowest".
+/// A closed list rather than a string, because a fold this did not recognise would have to pick
+/// one, and every wrong pick is a number the card does not print.
+/// </remarks>
+public enum TouchFold
+{
+    /// <summary>Every value added together.</summary>
+    Total,
+
+    /// <summary>The largest - "the greatest", "the highest".</summary>
+    Greatest,
+
+    /// <summary>The smallest - "the least", "the lowest".</summary>
+    Least,
 }
 
 /// <summary>Which characteristic of a recorded object a sentence asks for (CR 608.2h).</summary>
