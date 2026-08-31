@@ -425,6 +425,218 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(20, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- A land arriving by its land drop, and the mana it then makes (CR 305.1) ----
+
+    /// <summary>
+    /// A shockland asks its question when it is <em>played</em>, and both answers still differ.
+    /// </summary>
+    /// <remarks>
+    /// The shockland theory further down this file conjures the land straight onto the
+    /// battlefield with <c>Game.Create</c>. That is not how a land reaches a battlefield in a
+    /// game: it is played from hand as a special action (CR 305.1, 505.6b), which is a different
+    /// path through the engine, and this repository has already had one whole-class bug living in
+    /// exactly that gap - every "enters tapped" land arrived untapped, because the replacement
+    /// was pinned to the zone a spell is in and a land drop never passes through it.
+    /// <para>
+    /// So the same card is played rather than conjured, and the assertion is carried one step
+    /// further than the other test carries it: to the mana. Paying leaves the land upright and it
+    /// taps for the colour its basic land type gives it (CR 305.6); declining taps it, and the
+    /// engine refuses the tap, which is the half a test that only reads <c>IsTapped</c> never
+    /// sees. Ten shocklands in the corpus ask this question, and the land soak that found them
+    /// answers it 32 times a run.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 18, false)]
+    [InlineData(false, 20, true)]
+    public void A_shockland_played_as_a_land_drop_asks_the_same_question(
+        bool pay, int expectedLife, bool expectTapped)
+    {
+        var shock = Card(
+            "Dropped Shock Test",
+            "As ~ enters, you may pay 2 life. If you don't, it enters tapped.",
+            CardType.Land,
+            subtypes: ["Mountain"]);
+
+        var compiled = CardCompiler.Compile(shock);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.PlayLand(alice, TestCards.PutInHand(game, alice, shock));
+
+        // The question is asked as it arrives, on this path too.
+        var asked = game.State.Choice;
+        Assert.NotNull(asked);
+
+        var decline = asked.Options.Single(o => o.Label.Contains(
+            "instead", StringComparison.OrdinalIgnoreCase));
+
+        game.Choose(
+            alice,
+            [pay ? asked.Options.First(o => o.Id != decline.Id).Id : decline.Id]);
+
+        Settle(game);
+
+        Assert.Equal(expectedLife, game.State.GetPlayer(alice).Life);
+        Assert.Equal(expectTapped, game.State.GetObject(land).Permanent!.IsTapped);
+
+        // And the half that matters to a player: whether it makes mana this turn. The ability is
+        // the intrinsic one CR 305.6 grants for the Mountain type - the card prints no mana line
+        // at all - so this is the whole chain, from the land drop to the red mana.
+        var mana = Assert.Single(ManaAbilitiesOf(game, land));
+        Assert.Equal("{T}: Add {R}.", mana.Text);
+
+        if (expectTapped)
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => game.ActivateAbility(alice, land, mana.Id));
+
+            Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+            return;
+        }
+
+        game.ActivateAbility(alice, land, mana.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+    }
+
+    /// <summary>
+    /// A land played from hand that enters tapped makes no mana until it has untapped.
+    /// </summary>
+    /// <remarks>
+    /// Three facts that are only worth anything together, and which no test held together: the
+    /// land drop applies the replacement, the tapped land is refused when it is asked for mana,
+    /// and the untap step is what fixes that. Read apart, the middle one looks like a land that
+    /// does not work - which is precisely the reading the land soak had to be built not to make,
+    /// since 425 of the 826 lands it plays arrive tapped and every one of them is refused once
+    /// before it produces anything.
+    /// </remarks>
+    [Fact]
+    public void A_land_played_from_hand_that_enters_tapped_makes_mana_only_once_it_untaps()
+    {
+        var land = Card(
+            "Dropped Tapped Test",
+            "This land enters tapped.",
+            CardType.Land,
+            subtypes: ["Island"]);
+
+        var compiled = CardCompiler.Compile(land);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var dropped = game.PlayLand(alice, TestCards.PutInHand(game, alice, land));
+        Settle(game);
+
+        Assert.True(game.State.GetObject(dropped).Permanent!.IsTapped);
+
+        var mana = Assert.Single(ManaAbilitiesOf(game, dropped));
+        Assert.Equal("{T}: Add {U}.", mana.Text);
+
+        // It has the ability and cannot pay for it: the two are different questions, and only the
+        // second one is about the tap (CR 602.5b).
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, dropped, mana.Id));
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        // Alice's own next turn, so her untap step has run (CR 502.1).
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.False(game.State.GetObject(dropped).Permanent!.IsTapped);
+
+        game.ActivateAbility(alice, dropped, mana.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+    }
+
+    /// <summary>
+    /// A land that prints a mana ability <em>and</em> has a basic land type offers both of them.
+    /// </summary>
+    /// <remarks>
+    /// Murmuring Bosk's shape: a Forest whose text box also says "{T}: Add {W}". CR 305.6's
+    /// ability is granted by the layers and the compiler numbers a printed mana ability "mana"
+    /// from zero without knowing that rule exists, so the granted one has to take the first id
+    /// the card has not already used. **A collision here is not a duplicate in a list - it is the
+    /// wrong ability resolving**, because the board and the log both address an ability by its id
+    /// and would find whichever came first.
+    /// <para>
+    /// The two are also one tap between them (CR 305.6 grants an ability, not a second untapped
+    /// permanent), so the second is refused - which is what makes the first one's identity
+    /// checkable at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_that_prints_a_mana_ability_and_has_a_basic_type_offers_both()
+    {
+        var bosk = Card("Bosk Test", "{T}: Add {W}.", CardType.Land, subtypes: ["Forest"]);
+
+        var compiled = CardCompiler.Compile(bosk);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.PlayLand(alice, TestCards.PutInHand(game, alice, bosk));
+        Settle(game);
+
+        var mana = ManaAbilitiesOf(game, land);
+        Assert.Equal(2, mana.Count);
+        Assert.Equal(2, mana.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count());
+
+        // The granted one, addressed by the id the layers gave it, and green comes out - not the
+        // white the printed ability of the same card would have added.
+        var granted = mana.Single(a => a.Text == "{T}: Add {G}.");
+        game.ActivateAbility(alice, land, granted.Id);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.White]);
+
+        // One tap, one ability: the printed one is refused now, and its id is the other one.
+        var printed = mana.Single(a => a.Text == "{T}: Add {W}.");
+        Assert.NotEqual(granted.Id, printed.Id);
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, land, printed.Id));
+    }
+
+    /// <summary>
+    /// A storage land asked to remove no counters is a legal activation that adds no mana.
+    /// </summary>
+    /// <remarks>
+    /// What the land soak actually turned up. Eleven storage lands in the corpus were tapped with
+    /// no counters on them, the engine accepted the activation, and no mana arrived - which reads
+    /// exactly like a mana ability that does not work. It is not: "remove any number" includes
+    /// none (CR 601.2b), and a payout of "one for each counter removed this way" is then nothing.
+    /// <para>
+    /// The theory further up this file spends one counter and three; nothing spent zero, so the
+    /// one outcome that looks like a defect was the one nothing had written down. It is pinned
+    /// here so the next reader of that soak's output does not have to work it out again - and so
+    /// that a land which genuinely stopped producing would not be able to hide behind it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_storage_land_asked_for_no_counters_is_activated_and_pays_out_nothing()
+    {
+        var land = Card(
+            "Empty Storage Test",
+            "{T}, Remove any number of storage counters from ~: "
+                + "Add {C} for each storage counter removed this way.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(land);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var id = game.PlayLand(alice, TestCards.PutInHand(game, alice, land));
+        Settle(game);
+
+        Assert.Empty(game.State.GetObject(id).Permanent!.Counters);
+
+        var mana = Assert.Single(ManaAbilitiesOf(game, id));
+        game.ActivateAbility(alice, id, mana.Id);
+
+        // Paid for, and worth nothing: the tap was spent and the pool is still empty.
+        Assert.True(game.State.GetObject(id).Permanent!.IsTapped);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
     // ---- A counter put on something the sentence names by role (CR 603.2) ----
 
     [Fact]
