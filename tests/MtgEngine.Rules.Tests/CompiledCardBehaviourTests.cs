@@ -260,14 +260,14 @@ public sealed class CompiledCardBehaviourTests
     public void A_shield_counter_is_spent_instead_of_the_damage_landing()
     {
         var aegis = Card("Shield Counter Test", "Put a shield counter on target creature.");
-        var bolt = Card("Shield Bolt Test", "~ deals 2 damage to target creature.");
+        var bolt = Card("Shield Counter Bolt Test", "~ deals 2 damage to target creature.");
 
         var compiled = CardCompiler.Compile(aegis);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
         var (game, alice, _) = InMainPhase();
         var bear = game.Create(
-            alice, TestCards.Creature("Shielded Bear Test", 2, 2), Zone.Battlefield);
+            alice, TestCards.Creature("Shield Counter Bear Test", 2, 2), Zone.Battlefield);
 
         game.CastSpell(
             alice, TestCards.PutInHand(game, alice, aegis), [Target.ToPermanent(bear)]);
