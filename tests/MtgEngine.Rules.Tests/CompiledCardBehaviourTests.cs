@@ -54146,6 +54146,85 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(enlist, game.State.GetObject(helper).Permanent!.IsTapped);
     }
 
+    /// <summary>
+    /// A hasty creature that came under your control this turn can still be enlisted.
+    /// </summary>
+    /// <remarks>
+    /// CR 702.154a asks for a creature "that either has haste or has been under your control
+    /// continuously since this turn began", and the eligibility check read the summoning-sickness
+    /// flag instead. CR 302.6 makes haste ignore that flag rather than clear it, so every hasty
+    /// creature was silently ineligible - and the theory above could not see it, because it waits
+    /// until turn three so that its helper has lost sickness the slow way.
+    /// <para>
+    /// The note this document kept called the clause "summoning sickness said the long way round,
+    /// which the permanent already records". The rewording is right; the field it names is not.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_hasty_creature_may_be_enlisted_on_the_turn_it_arrives()
+    {
+        var captain = Card(
+            "Test Enlisting Captain",
+            "Enlist",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.Enlist | KeywordAbility.Haste);
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, captain, Zone.Battlefield);
+
+        // Arrives this turn, so it is summoning sick, and has haste - which is exactly the case
+        // the rule spells out and the flag cannot express.
+        var helper = game.Create(
+            alice,
+            Card(
+                "Test Hasty Recruit",
+                "Haste",
+                CardType.Creature,
+                power: 3,
+                toughness: 3,
+                keywords: KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        // A sick creature with no haste, on the same board, must stay ineligible - otherwise this
+        // test would pass just as well against a check that had been deleted rather than fixed.
+        var sick = game.Create(
+            alice, TestCards.Creature("Test Sick Recruit", 4, 4), Zone.Battlefield);
+
+        Assert.True(game.State.GetObject(helper).Permanent!.HasSummoningSickness);
+
+        TestCards.PassUntil(
+            game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        var asked = game.State.Choice;
+        Assert.NotNull(asked);
+        Assert.Equal(ChoiceKind.Enlist, asked.Kind);
+
+        var offered = asked.Options.Where(o => !o.Label.Contains(
+            "nobody", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Assert.Contains(offered, o => o.Label.Contains(
+            "Test Hasty Recruit", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, o => o.Label.Contains(
+            "Test Sick Recruit", StringComparison.Ordinal));
+
+        game.Choose(
+            alice,
+            [offered.First(o => o.Label.Contains(
+                "Test Hasty Recruit", StringComparison.Ordinal)).Id]);
+
+        // The pump is what a player would see: 2 power plus the enlisted creature's 3.
+        Assert.Equal(
+            5, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+        Assert.True(game.State.GetObject(helper).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(sick).Permanent!.IsTapped);
+    }
+
     // ---- Support, and "each of" ---------------------------------------------
 
     /// <summary>

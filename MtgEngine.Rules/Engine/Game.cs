@@ -8399,9 +8399,9 @@ public sealed class Game
             .Where(id => id != attackerId)
             .Where(id => !State.Combat.Attackers.ContainsKey(id))
             .Select(State.GetObject)
-            .Where(o => o.Permanent is { IsTapped: false, HasSummoningSickness: false }
+            .Where(o => o.Permanent is { IsTapped: false }
                 && ControllerOf(o) == controller
-                && Characteristics.Of(State, _abilities, o).CardTypes.HasFlag(CardType.Creature))
+                && CanBeEnlisted(o))
             .ToList();
 
         if (eligible.Count == 0)
@@ -8425,6 +8425,30 @@ public sealed class Game
         });
 
         return true;
+    }
+
+    /// <summary>Whether this permanent may be tapped to pay an enlist cost.</summary>
+    /// <remarks>
+    /// CR 702.154a asks for a creature "that either has haste or has been under your control
+    /// continuously since this turn began". That is not the summoning-sickness flag read on its
+    /// own: CR 302.6 makes haste <em>ignore</em> the sickness rather than remove it, so a hasty
+    /// creature still carries <see cref="PermanentState.HasSummoningSickness"/> and reading the
+    /// flag alone made every hasty creature permanently ineligible to be enlisted.
+    /// <para>
+    /// GAME_ENGINE_FEATURE.md recorded the clause as "summoning sickness said the long way round,
+    /// which the permanent already records". The first half is right and the second is not, which
+    /// is how the defect got written: the sentence the rule is really asking is "could this
+    /// creature have attacked", and that is the same question <see cref="CombatRules.CannotAttack"/>
+    /// answers, not a field.
+    /// </para>
+    /// </remarks>
+    private bool CanBeEnlisted(GameObject candidate)
+    {
+        var computed = Characteristics.Of(State, _abilities, candidate);
+
+        return computed.CardTypes.HasFlag(CardType.Creature)
+            && (candidate.Permanent?.HasSummoningSickness != true
+                || computed.Has(KeywordAbility.Haste));
     }
 
     /// <summary>

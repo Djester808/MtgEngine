@@ -6679,8 +6679,13 @@ declaration step had no hook there.
 Two details worth the ink:
 
 - The last clause of the rule - "haste, or under your control since this turn began" - is summoning
-  sickness said the long way round, which the permanent already records. A creature that could not
-  have attacked cannot be enlisted either.
+  sickness said the long way round. A creature that could not have attacked cannot be enlisted
+  either. ~~which the permanent already records~~ **It is not what the permanent records, and
+  that half-sentence became a bug**: `HasSummoningSickness` is "came under control this turn",
+  and CR 302.6 makes haste *ignore* it rather than clear it, so a hasty creature still carries
+  the flag. Reading it made every hasty creature permanently ineligible to be enlisted, against
+  the explicit "either has haste or" in CR 702.154a. The rewording above is right; the field it
+  named is not. Ask whether the creature could have attacked - do not read the flag.
 - The pump is a **fixed** number, not a running count. "+X/+0 where X is the tapped creature's
   power" is read once; a creature that grows or dies afterwards does not change what was added.
 

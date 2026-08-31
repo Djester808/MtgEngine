@@ -590,6 +590,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
         output.WriteLine($"cast {resolved} spells of {spells.Count}");
 
+        output.WriteLine($"combat retries reached {_combatRetriesReached}");
         foreach (var (why, n) in Refusals.OrderByDescending(p => p.Value).Take(10))
             output.WriteLine($"  refused {n,5}  {why}");
 
@@ -597,6 +598,15 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             faults.Count == 0,
             $"{faults.Count} hands broke when their spells were cast:\n  "
                 + string.Join("\n  ", faults.Take(12)));
+
+        // The combat retry has to have run. It spent its whole life bailing before its loop -
+        // 321 calls, 0 arrivals - and every assertion in this test passed throughout, because
+        // nothing here distinguishes "the spells could not be cast" from "the code meant to
+        // cast them never executed". This is the cheapest sentence that tells them apart.
+        Assert.True(
+            _combatRetriesReached > 0,
+            "the combat retry never reached its loop, so every spell needing an attacking or "
+                + "blocking creature was refused by the harness rather than by the rules.");
 
         Assert.True(
             resolved > spells.Count / 3,
@@ -1558,10 +1568,18 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         if (game.State.CurrentStep != TurnStep.DeclareAttackers)
             return 0;
 
+        // The board deliberately contains a hasty creature so that combat can be staged on the
+        // turn everything arrives. Selecting on HasSummoningSickness threw it away again:
+        // CR 302.6 makes haste ignore the sickness rather than clear it, so the flag stays
+        // set and this predicate matched nothing, 321 times out of 321. The retry below had
+        // never run once - which is invisible from the outside, because a soak that reaches
+        // nothing and a soak that reaches everything both pass.
         var attacker = game.State.Battlefield.FirstOrDefault(id =>
             game.State.GetObject(id).ControllerId == alice
             && game.State.GetObject(id).Card.CardTypes.HasFlag(CardType.Creature)
-            && game.State.GetObject(id).Permanent?.HasSummoningSickness == false);
+            && game.State.GetObject(id).Permanent is { IsTapped: false } permanent
+            && (!permanent.HasSummoningSickness
+                || game.State.GetObject(id).Card.Keywords.HasFlag(KeywordAbility.Haste)));
 
         if (attacker == default)
             return 0;
@@ -1577,6 +1595,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             return 0;
         }
 
+        _combatRetriesReached++;
         Settle(game);
 
         var cast = 0;
@@ -1627,6 +1646,16 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
     /// <summary>Why the engine said no, and how often. Diagnosis, not assertion.</summary>
     private static readonly Dictionary<string, int> Refusals = new(StringComparer.Ordinal);
+
+    /// <summary>How many times the combat retry actually got as far as re-offering a card.</summary>
+    /// <remarks>
+    /// Counted because for its whole life this retry reached its loop <em>zero</em> times and
+    /// nothing said so: it selected its attacker on <c>HasSummoningSickness</c>, which the
+    /// board's deliberately hasty creature still carries (CR 302.6), so it bailed 321 times out
+    /// of 321. A soak that reaches nothing passes exactly like a soak that reaches everything,
+    /// so the only way this class of defect becomes visible is to assert that the path ran.
+    /// </remarks>
+    private static int _combatRetriesReached;
 
     private static string Shorten(string message) =>
         message.Length <= 70 ? message : message[..70];

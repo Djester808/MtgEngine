@@ -154,18 +154,27 @@ had never been on a battlefield in any test in the repository.
 
 ### Selecting is not resolving
 
-The spell soak *selects* 2,943 complete spells. Its own output says **`cast 1273 spells of 2943`** —
-so **1,670 fully read instants and sorceries are offered to the engine and refused**, for want of a
-legal target or a legal moment. Their effect code has never run. (The commonest refusals are
-`Illegal target: target spell` at 584 and `target attacking or blocking creature` at 242: these are
-mostly situations a board cannot supply, not defects.) The activated-ability soak reports
-`activated 2702 abilities across 4062 cards` on the same measure.
-
-**So before this pass, the count of fully read cards whose behaviour had never executed inside a
-game was 759 + 1,670 = 2,429.** That is an *upper bound*: `CompiledCardBehaviourTests` is 1,026
-tests built from real oracle wording, and an unknown number of them name cards that fall in this
-set. It is not reduced by the permanent soak, which plays all 11,334 of its cards.
-
+> **Re-measured, and the numbers below are superseded.** Kept because what changed is not just
+> the count. At the current tip the spell soak selects **3,842** complete spells and reports
+> **`cast 1691 spells of 3842`**, so **2,151** fully read instants and sorceries are still never
+> resolved. The two causes named below as unfixable by any board were both addressed afterwards -
+> a decoy spell is now put up for counterspells, and combat is staged for the ones that need an
+> attacker - and the second of those **did not work at all until it was measured**.
+>
+> The combat retry selected its attacker on `HasSummoningSickness == false`. The board carries a
+> creature given haste specifically so combat could be staged, but CR 302.6 makes haste *ignore*
+> summoning sickness rather than clear it, so the flag stays set and the predicate matched
+> nothing: **321 calls, 0 arrivals at the retry loop**, for the whole life of the mechanism. Every
+> assertion in the soak passed throughout, because nothing in it distinguished "these spells could
+> not be cast" from "the code meant to cast them never ran". Fixing the predicate takes the retry
+> to 299 arrivals of 321 and rescues **13 cards** - not the ~300 the refusal tally implied, which
+> is worth stating plainly: a refusal count is attempts, not cards, and reading it as a ceiling
+> overcounts the same way excision does.
+>
+> `_combatRetriesReached` is now asserted greater than zero, so a mechanism that reaches nothing
+> fails instead of passing quietly. The same mistake was in the engine proper - enlist eligibility
+> read the same flag, making every hasty creature ineligible against CR 702.154a - and that is
+> fixed with its own test.
 ## Where a complete card throws: nowhere found
 
 Two new passes, both in `CardPlayabilityTests`. Both are negative results, and both are worth
