@@ -680,6 +680,48 @@ public sealed record ResolutionContext
     /// <summary>How much the triggering event was about — "that many" (CR 603.2).</summary>
     public int? SubjectAmount { get; init; }
 
+    /// <summary>
+    /// How much of the damage this resolution has dealt was excess — "excess damage dealt
+    /// this way" (CR 120.4a, CR 120.10).
+    /// </summary>
+    /// <remarks>
+    /// The third of the back-references the resolution loop carries forward, beside
+    /// <see cref="SubjectAmount"/>'s "that much" and <see cref="Record"/>'s set. It is a
+    /// magnitude and not a set, which is exactly why it is <em>here</em> rather than on
+    /// <see cref="ResolutionRecord"/>: round eighteen kept that record to zone changes because
+    /// an entry the readers cannot tell apart from another is how a count comes out too big, and
+    /// a number has nothing to be told apart from. The twin it belongs beside is the magnitude,
+    /// not the things.
+    /// <para>
+    /// <b>Nothing about it reaches the log, and that is deliberate.</b> It is derived while the
+    /// resolution runs and consumed by the next effect of the same resolution, whose own events
+    /// carry the number onward — Razor Rings logs the life it gained, not the excess it gained
+    /// it for. So no core event grows a field, the serializer is untouched and
+    /// <c>Replay(log) == State</c> never has to know this exists. A field on
+    /// <see cref="Events.DamageMarked"/> would have been needed only by a <em>trigger</em> that
+    /// asks about excess (CR 120.10), and every corpus card of that shape is short for a second
+    /// reason as well — measured, not assumed.
+    /// </para>
+    /// <para>
+    /// Zero on a context built without one, which is what a card printing the phrase with no
+    /// damage in front of it would read. The readers refuse that sentence instead of asking.
+    /// </para>
+    /// </remarks>
+    public int ExcessDealt { get; init; }
+
+    /// <summary>
+    /// The same number counting only the permanents that were creatures (CR 120.4a).
+    /// </summary>
+    /// <remarks>
+    /// "If excess damage was dealt to a creature this way" and "if excess damage was dealt to a
+    /// permanent this way" are printed one word apart on two cards that both aim at any target,
+    /// and they are different questions: a planeswalker whose loyalty is overshot has been dealt
+    /// excess damage and is not a creature. One number for both would draw Vikya a card off a
+    /// planeswalker, which is a card playing better than it prints and nothing downstream could
+    /// see it.
+    /// </remarks>
+    public int ExcessDealtToCreature { get; init; }
+
     /// <summary>The value chosen for X as the spell was cast (CR 601.2b).</summary>
     public int VariableValue { get; init; }
 
@@ -973,6 +1015,70 @@ public static class ExcessDamage
         return lethal is { } past ? Math.Max(0, amount - past) : 0;
     }
 
+    /// <summary>
+    /// How much of one effect's damage was excess, split the two ways the cards ask
+    /// (CR 120.4a, CR 120.10).
+    /// </summary>
+    /// <remarks>
+    /// Null when the batch marked no damage on anything, which is how the resolution loop tells
+    /// "this effect dealt damage and none of it was excess" from "this effect was not about
+    /// damage at all". The first has to overwrite the running number and the second must leave
+    /// it alone, or a card that burns a creature and then draws a card would still be reading
+    /// the burn two sentences later.
+    /// <para>
+    /// Grouped by what was hit rather than counted event by event, because CR 120.10 measures
+    /// the sources that hit one permanent at the same time <em>together</em>: two events of 2 on
+    /// a 3/3 are one point of excess between them and not none each. The state is the one from
+    /// before the batch is applied, which is the state CR 120.4a's "would be lethal" is asked
+    /// about.
+    /// </para>
+    /// </remarks>
+    public static (int Any, int ToCreature)? InBatch(
+        ResolutionContext context, IReadOnlyList<GameEvent> emitted)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(emitted);
+
+        var marked = emitted.OfType<DamageMarked>().ToList();
+        if (marked.Count == 0)
+            return null;
+
+        var any = 0;
+        var creature = 0;
+
+        foreach (var group in marked.GroupBy(damage => damage.Id))
+        {
+            if (!context.State.TryGetObject(group.Key, out var struck))
+                continue;
+
+            // Deathtouch from any of the sources hitting it makes every point past the first
+            // excess, so it is folded in here rather than left to the per-source check inside
+            // Over - which only ever sees one of them.
+            var deadly = group.Any(damage =>
+                damage.FromDeathtouch
+                || (context.State.TryGetObject(damage.SourceId, out var dealer)
+                    && Characteristics.HasKeyword(
+                        context.State, context.Abilities, dealer, KeywordAbility.Deathtouch)));
+
+            var over = Over(
+                context,
+                struck,
+                group.Sum(damage => damage.Amount),
+                deadly,
+                group.First().SourceId);
+
+            if (over <= 0)
+                continue;
+
+            any += over;
+
+            if (Characteristics.Of(context.State, context.Abilities, struck).IsCreature)
+                creature += over;
+        }
+
+        return (any, creature);
+    }
+
     private static int? Smallest(int? lethal, bool applies, GameObject struck, string counter)
     {
         if (!applies)
@@ -980,6 +1086,55 @@ public static class ExcessDamage
 
         var here = struck.Permanent?.Counters.GetValueOrDefault(counter) ?? 0;
         return lethal is { } already ? Math.Min(already, here) : here;
+    }
+}
+
+/// <summary>
+/// "If excess damage was dealt this way, ..." - a guard on how hard this resolution just hit
+/// (CR 120.4a, CR 608.2c).
+/// </summary>
+/// <remarks>
+/// The twin of <see cref="OnlyIfTouched"/> one field along, and its own effect for the same
+/// reason: <see cref="OnlyIf"/> is handed a state and a source and every condition it can
+/// express is a fact about the board, while this one is a fact about the resolution that only
+/// the context knows.
+/// <para>
+/// <b>It rebinds "that much" for what it guards, and that is the whole point of the clause.</b>
+/// Bottle-Cap Blast prints "if excess damage was dealt to a permanent this way, create that many
+/// tapped Treasure tokens", and the number the sentence has just named is the excess - not the
+/// five damage the spell dealt, which is what the running magnitude would otherwise still be
+/// holding. Guarding without rebinding would make that card five Treasures every time it killed
+/// anything, on a card that compiles, resolves and looks right in the log.
+/// </para>
+/// </remarks>
+/// <param name="ToCreatureOnly">
+/// Whether the clause said "to a creature". A planeswalker whose loyalty is overshot was dealt
+/// excess damage and is not a creature (CR 120.4a), so the two clauses are different questions
+/// and the word is kept rather than folded away.
+/// </param>
+/// <param name="AtLeast">
+/// How much excess it takes to satisfy the clause. One for every printed form of it, and a
+/// number rather than a flag because that is the shape the sibling condition already has - a
+/// card reading "if 3 or more excess damage was dealt" would want the same effect.
+/// </param>
+public sealed record OnlyIfExcessDealt(
+    bool ToCreatureOnly, int AtLeast, ImmutableList<IEffect> Effects) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var much = ToCreatureOnly ? context.ExcessDealtToCreature : context.ExcessDealt;
+        if (much < AtLeast)
+            return [];
+
+        var named = context with { SubjectAmount = much };
+
+        var events = new List<GameEvent>();
+        foreach (var effect in Effects)
+            events.AddRange(effect.Resolve(named));
+
+        return events;
     }
 }
 
@@ -2976,6 +3131,98 @@ public sealed record CreateTokenCopy(
 }
 
 /// <summary>
+/// Conjures a duplicate of something as a real card in a zone (CR 701.55, CR 701.56).
+/// </summary>
+/// <remarks>
+/// Alchemy's conjure creates a card that was never in anybody's deck. CR 701.55a says what the
+/// created object is - <em>a card</em>, not a token - and CR 701.56a says a duplicate is a copy
+/// of the copiable values of the thing named. So this is <see cref="CreateTokenCopy"/> with two
+/// differences and no third: the definition is not passed through
+/// <c>TokenCards.AsToken</c> (nothing marks it <see cref="CardType.Token"/>, because it is not
+/// one), and it arrives in the zone the sentence names rather than on the battlefield.
+/// <para>
+/// <strong>Nothing new was needed to hold it.</strong> <see cref="ObjectCreated"/> already
+/// carries a zone and a whole card definition, and <c>GameReducer.Create</c> already reads that
+/// zone rather than assuming the battlefield - it gives a per-player zone's object to its owner
+/// and builds a <c>Permanent</c> only for the battlefield. That is the same reuse the emblems
+/// made of the command zone: a conjured card is an object created in a zone, which the engine
+/// has always been able to say.
+/// </para>
+/// <para>
+/// The definition keeps the copied card's own oracle id, exactly as an ungranted token copy
+/// does, because a duplicate of Lightning Bolt <em>is</em> Lightning Bolt and
+/// <see cref="Cards.CompiledPool"/> must serve it the same behaviour. A duplicate that had been
+/// re-keyed would compile a second time under a second id and be a different card in the log.
+/// </para>
+/// <para>
+/// Only the reachable half of conjure lives here. "Conjure a card named Lightning Bolt" needs a
+/// name-to-definition lookup that <c>MtgEngine.Rules</c> does not have and this does not add -
+/// see the round twenty-one note in <c>GAME_ENGINE_FEATURE.md</c>. A <em>duplicate</em> needs
+/// none, because the thing being copied is already an object in the game.
+/// </para>
+/// </remarks>
+public sealed record ConjureDuplicate(
+    Zone Into,
+    int? TargetIndex = null,
+
+    /// <summary>Whose card is copied, when it is neither a target nor this permanent.</summary>
+    EffectSubject? Subject = null,
+
+    /// <summary>Whether what is copied is a card rather than a permanent (CR 707.2).</summary>
+    bool CopiesACard = false) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var aimed = TargetIndex is { } index ? context.TargetAt(index) : null;
+
+        var subject = Subject is { } named
+            ? Subjects.Resolve(context, named, TargetIndex ?? 0)
+            : TargetIndex is not null
+            ? aimed is { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard }
+                ? aimed.Value.Subject
+                : (ObjectId?)null
+            : context.PhysicalSourceId;
+
+        if (subject is not { } id)
+            return [];
+
+        // CR 608.2g, and the same reach-back CreateTokenCopy makes: by the time an attack or a
+        // death trigger resolves, what it names may already be somewhere else under a new id
+        // (CR 400.7). Requiring it to still be where it was would make every such card do nothing.
+        var original = context.State.TryGetObject(id, out var present)
+            ? present
+            : context.ObjectBehind?.Invoke(id);
+
+        if (original is null)
+            return [];
+
+        if (!CopiesACard
+            && Subject is not EffectSubject.TriggeringObject
+            && original.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        // CR 707.3 for a permanent, CR 707.2 for a card: only a permanent has copiable values
+        // worked out for it, and a card in a graveyard or a hand is read as itself.
+        var copiable = original.Zone == Zone.Battlefield
+            ? Characteristics.CardOf(context.State, context.Abilities, original)
+            : original.Card;
+
+        // The conjured card belongs to whoever the ability's controller is, and a per-player zone
+        // gives it to its owner - which is the same player. Passed as both so that a conjure onto
+        // the battlefield puts it under the controller, where CR 701.55a leaves it.
+        return
+        [
+            new ObjectCreated(
+                ObjectId.New(), copiable, context.ControllerId, context.ControllerId, Into),
+        ];
+    }
+}
+
+/// <summary>
 /// The same card, marked as a token (CR 111.7).
 /// </summary>
 /// <remarks>
@@ -3804,47 +4051,6 @@ public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
                 Guid.NewGuid(),
                 Size?.DefinitionIdIn(context) ?? DefinitionId,
                 [subject],
-                context.State.TurnNumber),
-        ];
-    }
-}
-
-/// <summary>
-/// Pumps whatever the source is attached to, until end of turn (CR 701.3c).
-/// </summary>
-/// <remarks>
-/// The activated twin of "enchanted creature gets +2/+2", which is a static. An Aura that can
-/// pump on demand names no target - "enchanted creature" is whatever it is already on, and an
-/// Aura attached to nothing is on its way to the graveyard anyway (CR 704.5m).
-/// </remarks>
-public sealed record PumpHostUntilEndOfTurn(string DefinitionId) : IEffect
-{
-    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
-    /// <remarks>
-    /// Read here for the reason <see cref="PumpUntilEndOfTurn.Size"/> gives: a variable pump's
-    /// <see cref="DefinitionId"/> is a placeholder built from nothing, and the real id is not
-    /// knowable until X is. This was the one of the five pump effects that never read it, so a
-    /// host pump of +X/+X created the placeholder instead - a continuous effect of +0/+0, which
-    /// is a pump that resolves and does nothing at all.
-    /// </remarks>
-    public VariablePumpSize? Size { get; init; }
-
-    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        if (!context.State.TryGetObject(context.PhysicalSourceId, out var aura)
-            || aura.Permanent?.AttachedTo is not { } host)
-        {
-            return [];
-        }
-
-        return
-        [
-            new ContinuousEffectCreated(
-                Guid.NewGuid(),
-                Size?.DefinitionIdIn(context) ?? DefinitionId,
-                [host],
                 context.State.TurnNumber),
         ];
     }
@@ -7673,10 +7879,22 @@ public static class SearchFilters
 
         if (filterId.StartsWith(NamedPrefix, StringComparison.Ordinal))
         {
-            return string.Equals(
-                subject.Name,
-                filterId[NamedPrefix.Length..],
-                StringComparison.OrdinalIgnoreCase);
+            var wanted = filterId[NamedPrefix.Length..];
+
+            if (string.Equals(subject.Name, wanted, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // A two-faced card carries both faces in one name - "Halvar, God of Battle // Sword
+            // of the Realms" - and CR 201.2b gives a card with two names each of them. A search
+            // naming one face is naming the card, so asking only the joined string left Forging
+            // the Tyrite Sword complete and searching for a card no library holds.
+            var faces = subject.Name.Split(
+                " // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            return faces.Length > 1
+                && Array.Exists(
+                    faces,
+                    face => string.Equals(face, wanted, StringComparison.OrdinalIgnoreCase));
         }
 
         // "A noncreature, nonland card" is two filters the card must answer to *both* of, which

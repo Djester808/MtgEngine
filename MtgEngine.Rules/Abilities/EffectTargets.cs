@@ -528,6 +528,12 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
+        // The same slot on conjure's half of the family (CR 701.56): null when the duplicate is
+        // of this permanent or of whatever a trigger named, an index when the sentence targets.
+        Add<ConjureDuplicate>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
         // The index names what is copied rather than what changes: the permanent that becomes
         // the copy is usually the source. Always a real index - a copy effect with nothing to
         // copy is CR 608.2b and does nothing.

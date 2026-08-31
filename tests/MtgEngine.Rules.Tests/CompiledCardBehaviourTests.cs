@@ -1122,6 +1122,396 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
     }
 
+    // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
+
+    /// <summary>
+    /// "You gain life equal to the total power of creatures exiled this way" (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The third source for the fold that already reads a board group and a zone pile, and the
+    /// one no state can answer: the set is what an earlier sentence of this same resolution
+    /// touched. A tally of it was already readable, which is exactly why the aggregate had to be
+    /// built rather than approximated — the two are different numbers about the same objects, and
+    /// a card that totals a set has no way to say so if the only reading available counts it.
+    /// <para>
+    /// Both boards carry two creatures, so every reading that counts permanents answers two twice
+    /// and gains the same two life on each. Only a reading that adds their power tells the boards
+    /// apart, and neither answer it gives happens to equal the tally's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_total_over_the_touched_set_adds_it_up_rather_than_counting_it()
+    {
+        var reckoning = Card(
+            "Touched Total Reckoning Test",
+            "Exile all creatures. You gain life equal to the total power of creatures exiled "
+                + "this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Total Ogre One", 4, 4), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Total Ogre Two", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reckoning), []);
+        Settle(game);
+
+        // Four and four, not two things.
+        Assert.Equal(28, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two creatures by count, a different total. A tally reading
+        // gains two here and two above; this gains four here and eight above.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Total Runt", 1, 1), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Total Cub", 3, 3), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, reckoning), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// What a creature was as it left, not what the card in the graveyard says (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The whole difficulty of this family in one board. A creature that died with three +1/+1
+    /// counters on it was a 5/5 at the moment it was destroyed; the object lying in the graveyard
+    /// is a new one (CR 400.7) that no continuous effect applies to (CR 613.1), so its power is
+    /// the printed 2 on its face (CR 202.3). CR 608.2h is what settles it: an effect needing
+    /// information about an object that has left uses what was last known about it.
+    /// <para>
+    /// So a fold that looked each touch up where it now lies would answer four on both boards —
+    /// silently, on a card that compiled and played. The two boards carry the same two creatures
+    /// and differ only in the counters, which is the one thing such a reader cannot see.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_touched_total_reads_what_each_creature_was_as_it_left()
+    {
+        var sweep = Card(
+            "Touched Memory Sweep Test",
+            "Destroy all creatures. You gain life equal to the total power of creatures "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(sweep);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(
+            alice, TestCards.Creature("Touched Memory Bear One", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            alice, TestCards.Creature("Touched Memory Bear Two", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(first, CounterKinds.PlusOnePlusOne, 3);
+        game.ChangeCounters(second, CounterKinds.PlusOnePlusOne, 3);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, sweep), []);
+        Settle(game);
+
+        // Two 5/5s as they left, not two 2/2s as they now lie.
+        Assert.Equal(30, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two printed 2/2s with nothing on them. A reader that took
+        // the graveyard card's printed power gains four on both and cannot tell them apart.
+        var (control, carol, _) = InMainPhase();
+        control.Create(
+            carol, TestCards.Creature("Touched Memory Bear Three", 2, 2), Zone.Battlefield);
+        control.Create(
+            carol, TestCards.Creature("Touched Memory Bear Four", 2, 2), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, sweep), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// "The greatest power among creatures exiled this way" is the largest, not how many.
+    /// </summary>
+    /// <remarks>
+    /// The other fold, on boards built so that the tally, the total and the greatest are three
+    /// different numbers and no two of them coincide. Three creatures on each: a count gains
+    /// three either way, a total gains seven and four, and the greatest gains five and two.
+    /// </remarks>
+    [Fact]
+    public void A_greatest_over_the_touched_set_is_the_largest_and_not_how_many()
+    {
+        var levy = Card(
+            "Touched Greatest Levy Test",
+            "Exile all creatures. You gain life equal to the greatest power among creatures "
+                + "exiled this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(levy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Greatest Rat One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Greatest Rat Two", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Greatest Champion", 5, 5), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, levy), []);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+
+        // The control board: three creatures again, and the champion two sizes smaller.
+        var (control, carol, _) = InMainPhase();
+        control.Create(
+            carol, TestCards.Creature("Touched Greatest Rat Three", 1, 1), Zone.Battlefield);
+        control.Create(
+            carol, TestCards.Creature("Touched Greatest Rat Four", 1, 1), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Greatest Cub", 2, 2), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, levy), []);
+        Settle(control);
+
+        Assert.Equal(22, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// A permanent with no power at all is left out of the fold, not folded in as a nought.
+    /// </summary>
+    /// <remarks>
+    /// The rule the board aggregate next door already keeps, and it only shows on the folds that
+    /// can be dragged down: an artifact destroyed alongside the creatures has no power, and
+    /// counting it as zero would make "the least power among permanents destroyed this way"
+    /// nought whenever anything but a creature went with them.
+    /// <para>
+    /// Three permanents on each board, so a tally gains three twice; the least gains three and
+    /// one; a reader that folded the artifact in as a zero gains nothing at all, on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_with_no_such_characteristic_is_left_out_of_the_touched_fold()
+    {
+        var quake = Card(
+            "Touched Least Quake Test",
+            "Destroy all permanents. You gain life equal to the least power among permanents "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(quake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Least Ox", 3, 3), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Least Giant", 5, 5), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Touched Least Relic", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, quake), []);
+        Settle(game);
+
+        // Three and five; the relic has no power to be least.
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        // The control board: the relic swapped for something that does have a power, and the
+        // answer moves to it. A reader that had been folding the relic in as nought answers
+        // nought on the first board and nought here.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Least Ox Two", 3, 3), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Least Giant Two", 5, 5), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Least Mouse", 1, 1), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, quake), []);
+        Settle(control);
+
+        Assert.Equal(21, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// The one touch that is not read from the record is the one still on the battlefield.
+    /// </summary>
+    /// <remarks>
+    /// Nothing has left, so there is no last known information to use: a creature put onto the
+    /// battlefield this way is standing there and CR 613 applies to it, anthems and counters
+    /// included. What the record holds for that touch is what the card was in the graveyard it
+    /// came from, which is the one number that is certainly wrong.
+    /// <para>
+    /// The two boards differ only by the anthem, which is invisible to a reader that took the
+    /// stored value: that reader gains four on both. It is invisible to a tally too, which gains
+    /// two on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_touch_that_is_still_on_the_battlefield_is_read_through_the_layers()
+    {
+        var rise = Card(
+            "Touched Rise Test",
+            "Return all creature cards from your graveyard to the battlefield. You gain life "
+                + "equal to the total power of creatures put onto the battlefield this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var anthem = Card(
+            "Touched Rise Anthem Test",
+            "Creatures you control get +2/+0.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(anthem).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, anthem, Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Rise Bear One", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Touched Rise Bear Two", 2, 2), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rise), []);
+        Settle(game);
+
+        // Two 4/4s as they now stand, not the 2/2s the graveyard held.
+        Assert.Equal(28, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two cards, no anthem over them.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Rise Bear Three", 2, 2), Zone.Graveyard);
+        control.Create(carol, TestCards.Creature("Touched Rise Bear Four", 2, 2), Zone.Graveyard);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, rise), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// A participle the record cannot answer is refused by the aggregate exactly as by the tally.
+    /// </summary>
+    /// <remarks>
+    /// The verb list is the family's fail-closed guard and the fold inherits it whole, because
+    /// the fold asks the same reader for its set. A sacrifice is a question the engine defers to
+    /// the settle after the resolution, so a later sentence of that resolution asking about it
+    /// would total an empty record, answer nought for ever, and do it on a card coverage counts
+    /// as complete. Two cards differing in one word say which half the refusal is about: the
+    /// aggregate is readable, and this participle is not.
+    /// </remarks>
+    [Fact]
+    public void A_touched_aggregate_refuses_the_participles_the_record_cannot_answer()
+    {
+        var deferred = Card(
+            "Touched Deferred Rite Test",
+            "Each player sacrifices a creature. You gain life equal to the total power of the "
+                + "creatures sacrificed this way.",
+            CardType.Sorcery);
+
+        var refused = CardCompiler.Compile(deferred);
+        Assert.False(refused.IsComplete);
+        Assert.Contains(
+            refused.Unhandled,
+            line => line.Contains("total power", StringComparison.Ordinal));
+
+        // The same fold over a participle the record does keep, so the refusal above is about the
+        // verb rather than about the aggregate.
+        var kept = Card(
+            "Touched Deferred Twin Test",
+            "Destroy all creatures. You gain life equal to the total power of the creatures "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var read = CardCompiler.Compile(kept);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+    }
+
+    // ---- A count with a constant added to it (CR 107.3) ----------------------
+
+    /// <summary>
+    /// "~ deals X damage to any target, where X is 2 plus the number of cards named ~ in all
+    /// graveyards" — Kindle (CR 201.2a).
+    /// </summary>
+    /// <remarks>
+    /// An amount is a fixed part times a count and has nowhere to add a term once, so the
+    /// constant comes off in front of the group grammar instead. Dropping it is the fail-open
+    /// this refuses: 18 of the 35 corpus cards blocked on this shape compile as complete with the
+    /// constant thrown away, and Kindle then deals nothing at all the first time it is cast.
+    /// <para>
+    /// The empty graveyard is the board that says so. A reader without the constant deals nought
+    /// there and two on the control board — which is the number this one deals on the first.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_constant_added_keeps_the_constant()
+    {
+        var kindle = Card(
+            "Kindle Additive Test",
+            "~ deals X damage to any target, where X is 2 plus the number of cards named ~ in "
+                + "all graveyards.");
+
+        var compiled = CardCompiler.Compile(kindle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, kindle), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Nothing in any graveyard, so the count is nought and the constant is the whole of it.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // The control board: two copies already in graveyards, one in each, so the count is two
+        // and the constant still stands on top of it.
+        var (control, carol, dave) = InMainPhase();
+        control.Create(carol, kindle, Zone.Graveyard);
+        control.Create(dave, kindle, Zone.Graveyard);
+
+        control.CastSpell(
+            carol, TestCards.PutInHand(control, carol, kindle), [Target.ToPlayer(dave)]);
+        Settle(control);
+
+        Assert.Equal(16, control.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to 1 plus the number of lands you control" —
+    /// Allosaurus Rider (CR 604.3).
+    /// </summary>
+    /// <remarks>
+    /// Why the constant comes off in front of the group grammar rather than going onto the
+    /// amount: this count reaches the same reader with no amount anywhere near it. A
+    /// characteristic-defining ability keeps answering as the board moves, so the constant has to
+    /// travel with the count rather than with the number some effect multiplies.
+    /// <para>
+    /// The empty board is the assertion that matters, and it is a sharp one: without the constant
+    /// the creature is a 0/0 and the state-based actions bury it (CR 704.5a). With it, it stands
+    /// as a 1/1 and grows a land at a time.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_with_a_constant_added_keeps_the_constant()
+    {
+        var rider = Card(
+            "Additive Rider Test",
+            "Additive Rider Test's power and toughness are each equal to 1 plus the number of "
+                + "lands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(rider);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var it = game.Create(alice, rider, Zone.Battlefield);
+        Settle(game);
+
+        // No lands at all: the constant on its own, and a 0/0 would already be in the graveyard.
+        Assert.Contains(it, game.State.Battlefield);
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+
+        // Alice's three, not Bob's one, and the constant still on top.
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
     // ---- A counter put on something the sentence names by role (CR 603.2) ----
 
     [Fact]
@@ -5583,6 +5973,275 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(SearchFilters.Matches("creature&counter:+1/+1", ground));
     }
 
+    // ---- A ceiling on blockers, and the keyword it is not (CR 509.1b) --------
+
+    /// <summary>
+    /// "~ can't be blocked by more than one creature" is a maximum, not menace (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The sentence read as <see cref="KeywordAbility.Menace"/> for four rounds, and menace is the
+    /// opposite restriction: CR 702.111b is "can't be blocked except by two or more creatures", a
+    /// floor of two, while this is a ceiling of one. Twenty cards - Charging Rhino, Bristling Boar,
+    /// Stalking Tiger and Familiar Ground among them - compiled <em>complete</em> and played the
+    /// rule backwards, which is why no census saw it: a card read as the wrong rule is
+    /// indistinguishable from a card read correctly in any count of coverage.
+    /// <para>
+    /// Both halves are asserted, because either alone passes under the old reading as easily as
+    /// the new one: two blockers are refused, and - the half that tells this from menace - one
+    /// blocker is allowed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Cant_be_blocked_by_more_than_one_creature_is_a_ceiling_and_not_menace()
+    {
+        var rhino = Card(
+            "Test Ceiling Rhino",
+            "~ can't be blocked by more than one creature.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(rhino);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, rhino, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Test Ceiling Guard", 1, 6), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Test Ceiling Watch", 1, 6), Zone.Battlefield);
+
+        Assert.Equal(1, Now(game, attacker).MaxBlockers);
+        Assert.False(Now(game, attacker).Has(KeywordAbility.Menace));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] }));
+
+        Assert.Contains("509.1b", ex.Message, StringComparison.Ordinal);
+
+        // The control, and the half menace would have refused: one blocker is legal.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(4, game.State.GetObject(first).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The same ceiling said by an Equipment, which reaches its bearer and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Vorrac Battlehorns' shape, and the reason the attached spelling is worth its own test: the
+    /// effect is built with an <c>Applies</c> that asks whether the permanent being computed is
+    /// the one the source is attached to, so a bug that dropped that condition would hold every
+    /// creature on the board to one blocker and still pass a test that only looked at the bearer.
+    /// </remarks>
+    [Fact]
+    public void An_equipment_holds_only_its_bearer_to_one_blocker()
+    {
+        var horns = Card(
+            "Test Ceiling Horns",
+            "Equipped creature has trample and can't be blocked by more than one creature.\nEquip {1}",
+            CardType.Artifact,
+            null,
+            null,
+            KeywordAbility.None,
+            "Equipment");
+
+        var compiled = CardCompiler.Compile(horns);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var gear = game.Create(alice, horns, Zone.Battlefield);
+        var bearer = game.Create(alice, TestCards.Creature("Test Ceiling Bearer", 2, 2), Zone.Battlefield);
+        var beside = game.Create(alice, TestCards.Creature("Test Ceiling Beside", 2, 2), Zone.Battlefield);
+
+        game.Attach(gear, bearer);
+
+        Assert.Equal(1, Now(game, bearer).MaxBlockers);
+        Assert.True(Now(game, bearer).Has(KeywordAbility.Trample));
+
+        // The control: the creature beside it carries neither half of the sentence.
+        Assert.Equal(0, Now(game, beside).MaxBlockers);
+        Assert.False(Now(game, beside).Has(KeywordAbility.Trample));
+    }
+
+    /// <summary>
+    /// The group spelling reaches the same characteristic, not the keyword (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Familiar Ground and Yuan Shao say it about a group, and that reader made the same
+    /// substitution the keyword table did - so their own creatures came out unblockable by a lone
+    /// blocker, which is what their card forbids happening to them rather than what it grants.
+    /// </remarks>
+    [Fact]
+    public void A_group_held_to_one_blocker_is_not_given_menace()
+    {
+        var ground = Card(
+            "Test Ceiling Ground",
+            "Creatures you control can't be blocked by more than one creature.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(ground);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, ground, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Test Ceiling Mine", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Test Ceiling Theirs", 2, 2), Zone.Battlefield);
+
+        Assert.Equal(1, Now(game, mine).MaxBlockers);
+        Assert.False(Now(game, mine).Has(KeywordAbility.Menace));
+
+        // The control: the ownership clause is read, so the opponent's creature is untouched.
+        Assert.Equal(0, Now(game, theirs).MaxBlockers);
+    }
+
+    /// <summary>
+    /// Menace and a ceiling of one on the same creature leave nothing that may block it.
+    /// </summary>
+    /// <remarks>
+    /// CR 509.1b says different evasion restrictions are cumulative, and this is the pair that
+    /// proves the two are separate rules rather than one rule spelled twice: a floor of two and a
+    /// ceiling of one cannot both be obeyed. Reading either as the other would make this creature
+    /// ordinary.
+    /// </remarks>
+    [Fact]
+    public void Menace_and_a_one_blocker_ceiling_leave_a_creature_unblockable()
+    {
+        // Menace arrives as the printed keyword rather than as a line of text, because that
+        // is where the blocking rules read it from; the ceiling is the sentence under test.
+        var brute = Card(
+            "Test Ceiling Brute",
+            "~ can't be blocked by more than one creature.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3,
+            keywords: KeywordAbility.Menace);
+
+        var compiled = CardCompiler.Compile(brute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, brute, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Test Ceiling Wall", 0, 4), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Test Ceiling Gate", 0, 4), Zone.Battlefield);
+
+        Assert.True(Now(game, attacker).Has(KeywordAbility.Menace));
+        Assert.Equal(1, Now(game, attacker).MaxBlockers);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first] }));
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] }));
+
+        // Declaring no blockers is the only legal answer, and the damage says so.
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "~ becomes colorless until end of turn" takes every colour away (CR 105.2c, 613.1e).
+    /// </summary>
+    /// <remarks>
+    /// Colorless is the absence of colour and not a sixth colour, which is the whole of what this
+    /// asserts: the computed colour list comes out <em>empty</em> rather than holding
+    /// <see cref="ManaColor.Colorless"/>. A permanent carrying the enum value would answer "no" to
+    /// every colour question by accident, and would start answering differently the moment
+    /// anything read the list rather than tested it.
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_becomes_colorless_has_no_colour_at_all()
+    {
+        var spirit = new CardDefinition
+        {
+            OracleId = "oracle-test-colorless-spirit",
+            Name = "Test Colorless Spirit",
+            OracleText = "{0}: ~ becomes colorless until end of turn.",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [ManaColor.Red],
+            ColorIdentity = [ManaColor.Red],
+        };
+
+        var compiled = CardCompiler.Compile(spirit);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var painted = game.Create(alice, spirit, Zone.Battlefield);
+
+        Assert.Contains(ManaColor.Red, Now(game, painted).Colors);
+
+        game.ActivateAbility(alice, painted, compiled.Activated[0].Id);
+        Settle(game);
+
+        Assert.Empty(Now(game, painted).Colors);
+        Assert.DoesNotContain(ManaColor.Colorless, Now(game, painted).Colors);
+    }
+
+    /// <summary>
+    /// "Enchanted permanent is legendary" - a supertype an Aura confers (CR 205.4a, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// In Bolas's Clutches, whose whole point is the state-based action the supertype turns on
+    /// (CR 704.5j). It goes to the flag the computed characteristics already keep for the Ring
+    /// rather than into the card types, so the legend rule reads one answer however a permanent
+    /// came by it.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_make_its_host_legendary()
+    {
+        var clutches = Card(
+            "Test Legendary Clutches",
+            "Enchant permanent\nEnchanted permanent is legendary.",
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        var compiled = CardCompiler.Compile(clutches);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, TestCards.Creature("Test Legendary Host", 2, 2), Zone.Battlefield);
+        var beside = game.Create(alice, TestCards.Creature("Test Legendary Beside", 2, 2), Zone.Battlefield);
+
+        Assert.False(Now(game, host).IsLegendary);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, clutches), [Target.ToPermanent(host)]);
+        Settle(game);
+
+        Assert.True(Now(game, host).IsLegendary);
+
+        // The control: the Aura reaches its host and nothing else on the same battlefield.
+        Assert.False(Now(game, beside).IsLegendary);
+    }
+
     // ---- Flicker (CR 400.7) --------------------------------------------------
 
     [Fact]
@@ -6911,6 +7570,289 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.GetPlayer(alice).Graveyard);
     }
 
+    // ---- A printed name where the card prints it (CR 201.2a) -----------------
+
+    // Every test in this section names things "Wall", which is a creature type as well as a
+    // name. That is not decoration. Everywhere else in this compiler a capitalised word beside a
+    // type line *is* a subtype, and the way this family fails is that a name gets read as one:
+    // "all Mountains are Plains" once compiled to a lord for the creature type Mountain -
+    // complete, legal, castable, and matching nothing on any board. So each test below puts a
+    // permanent that *is* a Wall next to one that is *called* Wall and insists that only the
+    // second one answers.
+
+    [Fact]
+    public void A_token_named_after_its_keywords_is_called_that_and_is_not_that_type()
+    {
+        // The printed word order this reader did not have. A token's name follows its keyword
+        // list as often as it precedes one, and thirteen cards - Hornet Cannon, The Hive, Wall
+        // of Kelp, Jungle Patrol - were one line short for that alone.
+        var cannon = Card(
+            "Boulder Cannon Test",
+            "{2}, {T}: Create a 1/1 colorless Insect artifact creature token with flying "
+                + "named Wall.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(cannon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The two questions this family gets wrong, asked of the same board: one card asks for
+        // the *name* and the other for the *type*, and the token answers exactly one of them.
+        var caller = Card(
+            "Wall Caller Test",
+            "~ gets +2/+2 as long as you control a creature named Wall.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var watcher = Card(
+            "Wall Watcher Test",
+            "~ gets +2/+2 as long as you control a Wall.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        Assert.True(CardCompiler.Compile(caller).IsComplete);
+        Assert.True(CardCompiler.Compile(watcher).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var gun = game.Create(alice, cannon, Zone.Battlefield);
+        var byName = game.Create(alice, caller, Zone.Battlefield);
+        var byType = game.Create(alice, watcher, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power!.Value;
+
+        // Nothing called Wall and nothing that is one: both conditions are false, which is the
+        // baseline that makes the two assertions after the token arrives mean something.
+        Assert.Equal(2, PowerOf(byName));
+        Assert.Equal(2, PowerOf(byType));
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, swamp, "mana");
+        game.ActivateAbility(alice, gun, "a");
+        Settle(game);
+
+        var token = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.CardTypes.HasFlag(CardType.Token));
+
+        // The name the card printed, and the keyword that stood in front of it - the two things
+        // the old word order could not hold at once.
+        Assert.Equal("Wall", token.Card.Name);
+        Assert.True(token.Card.Keywords.HasFlag(KeywordAbility.Flying));
+
+        // And the name went nowhere near the type line. A token called Wall is an Insect.
+        Assert.Equal(["Insect"], token.Card.Subtypes);
+
+        // The collision control, asked of a live board: matched once by name, not twice by type.
+        Assert.Equal(4, PowerOf(byName));
+        Assert.Equal(2, PowerOf(byType));
+    }
+
+    [Fact]
+    public void A_name_filters_a_target_in_a_graveyard_and_the_type_does_not()
+    {
+        // "Return target card named Groffskithur from your graveyard to your hand" - a name with
+        // the zone printed behind it. The end-anchored name clause never matched one, because a
+        // card outside the battlefield says where it is after saying what it is.
+        var recall = Card(
+            "Named Recall Test",
+            "Return target card named Wall from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(recall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Called Wall, and a Bear. This is the card the spell is for.
+        var named = game.Create(
+            alice,
+            Card("Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear"),
+            Zone.Graveyard);
+
+        // A Wall, and called something else. The collision control: a filter that had read the
+        // capitalised word as a subtype would take this one and refuse the one above.
+        var typed = game.Create(
+            alice,
+            Card(
+                "Palisade Test",
+                string.Empty,
+                CardType.Creature,
+                power: 0,
+                toughness: 4,
+                subtypes: "Wall"),
+            Zone.Graveyard);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, swamp, "mana");
+
+        var wrong = TestCards.PutInHand(game, alice, recall);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(typed)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, recall), [Target.ToCard(named)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Wall");
+
+        // The Wall stayed where it was, which is the half a type-reading filter would have got
+        // backwards.
+        Assert.Contains(game.State.GetPlayer(alice).Graveyard, id => id == typed);
+    }
+
+    [Fact]
+    public void One_clause_naming_two_creatures_asks_for_one_of_each()
+    {
+        // The three Workers and the three Empires artifacts. A single name capture here reads
+        // "Wall and Bear" as one name, compiles, plays, and the ability never once turns on -
+        // which is worse than the unread line it replaces, because a deck check cannot see it.
+        var worker = Card(
+            "Two Name Worker Test",
+            "{1}: You gain 1 life. If you control creatures named Wall and Bear, "
+                + "you gain 3 life instead.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(worker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Each one is called after the other one's creature type, so a reader that had confused
+        // the two would still see two permanents and answer yes to the wrong question.
+        var calledWall = Card(
+            "Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear");
+
+        var calledBear = Card(
+            "Bear", string.Empty, CardType.Creature, power: 2, toughness: 2, subtypes: "Wall");
+
+        // One board per question, because the answer is a life total and a board that has been
+        // added to is a board two questions have been asked of.
+        int LifeAfterActivating(params CardDefinition[] board)
+        {
+            var (game, alice, _) = InMainPhase();
+            var machine = game.Create(alice, worker, Zone.Battlefield);
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+            foreach (var card in board)
+                game.Create(alice, card, Zone.Battlefield);
+
+            game.ActivateAbility(alice, forest, "mana");
+            game.ActivateAbility(alice, machine, "a");
+            Settle(game);
+
+            return game.State.GetPlayer(alice).Life;
+        }
+
+        // A Wall and a Bear on the board, and neither of them *called* one. The type-collision
+        // control, and it has to answer no or the assertion below proves nothing.
+        var typedWall = Card(
+            "Palisade Guard Test",
+            string.Empty,
+            CardType.Creature,
+            power: 0,
+            toughness: 4,
+            subtypes: "Wall");
+
+        Assert.Equal(21, LifeAfterActivating(TestCards.Creature("Grizzly Test"), typedWall));
+
+        // One of the two names is not both of them.
+        Assert.Equal(21, LifeAfterActivating(calledWall));
+        Assert.Equal(21, LifeAfterActivating(calledBear));
+
+        // Three, not one: both names are answered, by two different permanents. A single capture
+        // would be looking for one permanent called "Wall and Bear" and would stop at one here.
+        Assert.Equal(23, LifeAfterActivating(calledWall, calledBear));
+    }
+
+    [Fact]
+    public void The_negation_spelled_with_the_verb_asks_about_the_name()
+    {
+        // Kookus, Rufus Shinra, Tatsunari, Jiang Yanggu, and every amass card asking whether you
+        // have an Army yet. "You don't control a creature named X" is the question "you control
+        // no creature named X" has answered all along, in the words the cards print.
+        var lonely = Card(
+            "Lonely Beast Test",
+            "At the beginning of your upkeep, if you don't control a creature named Wall, "
+                + "you lose 1 life.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(lonely);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, lonely, Zone.Battlefield);
+
+        // A Wall, called something else. It must not answer the question, or the loss below
+        // stops for the wrong reason.
+        game.Create(
+            alice,
+            Card(
+                "Palisade Sentry Test",
+                string.Empty,
+                CardType.Creature,
+                power: 0,
+                toughness: 4,
+                subtypes: "Wall"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        // Now something that is *called* Wall, and is a Bear.
+        game.Create(
+            alice,
+            Card("Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 5 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // The condition is false now, so the trigger did nothing on turn five's upkeep.
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_phrase_naming_two_cards_stays_unread_rather_than_naming_one()
+    {
+        // Alpine Houndmaster's shape, and the failure this whole section is built to avoid: read
+        // with one capture the phrase becomes a single filter naming both cards at once, which
+        // is complete, castable, and searching for a card no library holds. Two audits this
+        // round found dozens of exactly that kind already compiled.
+        var both = Card(
+            "Two Named Recall Test",
+            "Return target card named Wall or a card named Bear from your graveyard to "
+                + "your hand.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(both).IsComplete);
+
+        // The control: the same sentence carrying one name reads perfectly, so the refusal above
+        // is about the second name and not about the shape of the phrase.
+        var one = Card(
+            "One Named Recall Test",
+            "Return target card named Wall from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(one);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
     // ---- A filter naming a subtype and a type (CR 109.4) ---------------------
 
     [Fact]
@@ -7079,6 +8021,137 @@ public sealed class CompiledCardBehaviourTests
             o => o.Card.Name == "White Bear Test");
     }
 
+    // ---- A conjured duplicate (CR 701.55, 701.56) ----------------------------
+
+    [Fact]
+    public void A_conjured_duplicate_arrives_in_hand_as_a_card_and_not_as_a_token()
+    {
+        // CR 701.55a: conjuring creates a *card*. The distinction is the whole point of the
+        // mechanic - a token that left the battlefield would cease to exist (CR 111.7), and a
+        // conjured duplicate in a hand is meant to be castable like anything else there.
+        var mirror = Card(
+            "Conjured Mirror Test",
+            "Conjure a duplicate of target creature into your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Conjured Bear Test", 2, 2), Zone.Battlefield);
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+        var spell = TestCards.PutInHand(game, alice, mirror);
+        game.CastSpell(alice, spell, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var made = game.State.GetPlayer(alice).Hand
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Conjured Bear Test");
+
+        Assert.Equal(Zone.Hand, made.Zone);
+        Assert.Equal(alice, made.OwnerId);
+
+        // Not a token, and not a permanent either: it is in a hand, so nothing about it is on
+        // the battlefield yet.
+        Assert.False(made.Card.CardTypes.HasFlag(CardType.Token));
+        Assert.Null(made.Permanent);
+
+        // The original is untouched - a duplicate copies, it does not move.
+        Assert.Equal(Zone.Battlefield, game.State.GetObject(bear).Zone);
+
+        // One card gained, over and above the spell leaving the hand.
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    [Fact]
+    public void A_conjured_duplicate_is_read_from_what_the_permanent_is_now()
+    {
+        // CR 707.3 through CR 701.56a: a duplicate is of the copiable values, which is the
+        // copied card when something has already made the permanent a copy of something else.
+        // The same reading CreateTokenCopy makes, and it has to be the same or the two halves of
+        // the copy family would disagree about what a copy is.
+        var mirror = Card(
+            "Conjured Echo Test",
+            "Conjure a duplicate of target creature into your graveyard.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ogre = game.Create(
+            alice, TestCards.Creature("Conjured Ogre Test", 4, 4), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, mirror);
+        game.CastSpell(alice, spell, [Target.ToPermanent(ogre)]);
+        Settle(game);
+
+        var made = game.State.GetPlayer(alice).Graveyard
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Conjured Ogre Test");
+
+        Assert.Equal(Zone.Graveyard, made.Zone);
+        Assert.Equal(4, made.Card.Power);
+        Assert.Equal(4, made.Card.Toughness);
+
+        // A duplicate of a card is that card, so it keeps the oracle id: the compiled pool has to
+        // serve it the same behaviour, and a re-keyed duplicate would be a second card in the log
+        // that no deck ever contained.
+        Assert.Equal(game.State.GetObject(ogre).Card.OracleId, made.Card.OracleId);
+    }
+
+    [Fact]
+    public void Each_of_two_targets_is_duplicated_once()
+    {
+        // Sinister Reflections is the printed card, and this is the assertion the round it
+        // landed in nearly got wrong: "each of up to two target creatures" is normalised to two
+        // targets and one effect apiece by the shared grammar, so the conjure reader must *not*
+        // do its own counting. One duplicate per target, and one only.
+        var reflections = Card(
+            "Conjured Reflections Test",
+            "Conjure a duplicate of each of up to two target creatures you control into your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reflections);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.Targets.Count);
+
+        var (game, alice, _) = InMainPhase();
+        var one = game.Create(alice, TestCards.Creature("Conjured Scout Test", 1, 1), Zone.Battlefield);
+        var two = game.Create(alice, TestCards.Creature("Conjured Herald Test", 3, 3), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, reflections);
+        game.CastSpell(alice, spell, [Target.ToPermanent(one), Target.ToPermanent(two)]);
+        Settle(game);
+
+        var hand = game.State.GetPlayer(alice).Hand.Select(game.State.GetObject).ToList();
+        Assert.Single(hand, o => o.Card.Name == "Conjured Scout Test");
+        Assert.Single(hand, o => o.Card.Name == "Conjured Herald Test");
+    }
+
+    [Fact]
+    public void A_conjure_wording_the_reader_does_not_know_is_refused_rather_than_guessed()
+    {
+        // The half of conjure this round did not build, kept in front of the next one. A named
+        // card needs a name-to-definition lookup MtgEngine.Rules does not have, and a library
+        // destination needs *where* in the library; both are left unread rather than read as
+        // something near enough, because a card that compiles and plays as a different card is
+        // the failure this compiler exists to avoid.
+        foreach (var text in new[]
+        {
+            "Conjure a card named Lightning Bolt into your hand.",
+            "Conjure a duplicate of target creature into your library.",
+            "Conjure a duplicate of target creature into the top five cards of your library at random.",
+        })
+        {
+            var card = Card("Conjured Refusal Test " + text.Length, text, CardType.Sorcery);
+            Assert.False(
+                CardCompiler.Compile(card).IsComplete,
+                $"'{text}' compiled; it should have been refused.");
+        }
+    }
+
     // ---- Mana that may only be spent on some things (CR 106.6) ---------------
 
     [Fact]
@@ -7224,6 +8297,320 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         Assert.Empty(game.State.Battlefield);
+    }
+
+    // ---- A static shield computed from the board (CR 613, 615) ---------------
+
+    /// <summary>
+    /// A shield naming a keyword answers to one an Aura granted, not to the printed card.
+    /// </summary>
+    /// <remarks>
+    /// Tresserhorn Skyknight, and the card the previous round named as still wrong. Its filter
+    /// was asked of the permanent already - that half landed - but through an empty
+    /// <c>IAbilitySource</c>, and the layer walk gathers its candidates through that source. With
+    /// an empty one it gathers nothing: counters and the face-down rules still applied and no
+    /// continuous effect did, so "creatures with first strike" meant creatures with first strike
+    /// <em>printed on them</em> and the Aura beside it was invisible.
+    /// <para>
+    /// Both pingers are on the board for the whole test and only one of them is enchanted, so the
+    /// control is the same creature under the same shield in the same turn.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_naming_first_strike_answers_to_a_keyword_an_aura_granted()
+    {
+        var knight = Card(
+            "R2130 Skyknight Test",
+            "Prevent all damage that would be dealt to ~ by creatures with first strike.",
+            CardType.Creature,
+            power: 2,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(knight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var blade = Card(
+            "R2130 First Strike Aura Test",
+            "Enchant creature" + (char)10 + "Enchanted creature has first strike.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(blade).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, knight, Zone.Battlefield);
+        var plain = game.Create(bob, Pinger("R2130 Plain Pinger Test"), Zone.Battlefield);
+        var quick = game.Create(bob, Pinger("R2130 Quick Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        // Neither pinger has first strike yet, so the shield watches neither of them.
+        game.ActivateAbility(bob, plain, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, quick, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(2, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, blade), [Target.ToPermanent(quick)]);
+        ResolveStack(game);
+
+        // Granted rather than printed, which is the whole of the test.
+        Assert.True(Now(game, quick).Keywords.HasFlag(KeywordAbility.FirstStrike));
+        Assert.False(Now(game, plain).Keywords.HasFlag(KeywordAbility.FirstStrike));
+
+        game.ActivateAbility(bob, quick, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        // Still two: the enchanted pinger is now a creature with first strike and the shield
+        // covers its damage.
+        Assert.Equal(2, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        // The control, and it runs after the aura rather than before it, so a shield that had
+        // simply started preventing everything would fail here.
+        game.ActivateAbility(bob, plain, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(3, game.State.GetObject(shielded).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// A shield naming a power reads CR 613.4's number rather than the corner of the card.
+    /// </summary>
+    /// <remarks>
+    /// The same defect said with a quality no card can carry at all. A 1/1 pumped to 3/3 by an
+    /// Aura is a creature with power 3 or greater, and the printed reading has no way to say so.
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_naming_a_power_reads_the_one_an_aura_gave()
+    {
+        var wall = Card(
+            "R2130 Power Shield Test",
+            "Prevent all damage that would be dealt to ~ by creatures with power 3 or greater.",
+            CardType.Creature,
+            power: 0,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var muscle = Card(
+            "R2130 Muscle Aura Test",
+            "Enchant creature" + (char)10 + "Enchanted creature gets +2/+2.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, wall, Zone.Battlefield);
+        var small = game.Create(bob, Pinger("R2130 Small Pinger Test"), Zone.Battlefield);
+        var grown = game.Create(bob, Pinger("R2130 Grown Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, muscle), [Target.ToPermanent(grown)]);
+        ResolveStack(game);
+
+        Assert.Equal(3, PowerNow(game, grown));
+        Assert.Equal(1, PowerNow(game, small));
+
+        // The one the Aura grew is over the line and the one beside it is not.
+        game.ActivateAbility(bob, grown, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(0, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        game.ActivateAbility(bob, small, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Creatures you control" follows a permanent that was taken, not the one that printed it.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the same argument, and the half the report called degraded: the shield's
+    /// own <c>ControllerId</c> comes from the control-only layer reader, which gathers control
+    /// effects <em>through</em> the ability source too. Asked with an empty one it found none, so
+    /// it always answered the stored controller - where control started rather than where it is
+    /// (CR 613.1b) - and a stolen shield went on shielding its old controller's creatures while
+    /// leaving its new controller's open.
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_over_creatures_you_control_follows_the_permanent_when_it_is_taken()
+    {
+        var aegis = Card(
+            "R2130 Aegis Test",
+            "Prevent all noncombat damage that would be dealt to creatures you control.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(aegis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var theft = Card(
+            "R2130 Theft Aura Test",
+            "Enchant creature" + (char)10 + "You control enchanted creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(theft).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var shield = game.Create(alice, aegis, Zone.Battlefield);
+        var hers = game.Create(
+            alice, TestCards.Creature("R2130 Her Bear Test", 2, 9), Zone.Battlefield);
+        var his = game.Create(
+            bob, TestCards.Creature("R2130 His Bear Test", 2, 9), Zone.Battlefield);
+        var pinger = game.Create(bob, Pinger("R2130 Theft Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 6);
+
+        // While Alice has it: her creature is covered and Bob's is not.
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(hers)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(his)]);
+        ResolveStack(game);
+
+        Assert.Equal(0, game.State.GetObject(hers).Permanent?.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(his).Permanent?.DamageMarked);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, theft), [Target.ToPermanent(shield)]);
+        ResolveStack(game);
+
+        // Granted by an Aura rather than printed on the permanent, which is exactly the control
+        // effect the empty source could not see.
+        Assert.Equal(
+            bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(shield)));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(hers)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(his)]);
+        ResolveStack(game);
+
+        // The two swap: Alice's creature now takes the point and Bob's does not.
+        Assert.Equal(1, game.State.GetObject(hers).Permanent?.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(his).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// The shield asks the board from a board that asks back, and settles (CR 613.8b).
+    /// </summary>
+    /// <remarks>
+    /// This is the failure the widening had to not create. A shield's filter now runs a full CR
+    /// 613 computation of the permanent it is asked about, and that computation walks every
+    /// static on the battlefield - each of which may ask its own question about a permanent that
+    /// is not the one being computed. Two lords with an ownership clause is the shape that
+    /// overflowed the stack when the control reader was first written as a full computation: each
+    /// lord's filter would compute the other without bottom.
+    /// <para>
+    /// It is bounded the way CR 613.8b bounds a dependency loop it cannot order, and by two
+    /// separate fallbacks rather than one: a nested filter question is answered from the printed
+    /// card, and a nested control question from the stored controller.
+    /// </para>
+    /// <para>
+    /// <strong>Neither fallback fires on this board, and that was measured rather than assumed.</strong>
+    /// Each was neutered in turn - the filter flag never set, the control flag never set - and
+    /// this test went on passing, because no continuous effect in the engine today asks a board
+    /// filter or a control question about a permanent other than the one being computed from
+    /// inside its own predicate. The fallbacks are a guarantee about a shape that is one card
+    /// away, not a behaviour anything reaches. What this test does prove is that the shield's
+    /// question terminates and answers correctly on the deepest board the engine can currently
+    /// build, and it fails outright when the shield goes back to an empty ability source.
+    /// </para>
+    /// <para>
+    /// The two lands are here for the same reason: they retype each other, so the layer walk the
+    /// shield starts has a mutual dependency in it as well as a stolen lord.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_asking_the_board_settles_when_the_board_asks_back()
+    {
+        var wall = Card(
+            "R2130 Recursion Shield Test",
+            "Prevent all damage that would be dealt to ~ by creatures with power 3 or greater.",
+            CardType.Creature,
+            power: 0,
+            toughness: 9);
+
+        // Creatures rather than enchantments, so the Aura below can take one: the point is a
+        // lord whose ownership clause has to be re-read after control of it moves.
+        var herLordCard = Card(
+            "R2130 Recursion Lord One Test",
+            "Creatures you control get +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var hisLordCard = Card(
+            "R2130 Recursion Lord Two Test",
+            "Creatures you control get +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var theft = Card(
+            "R2130 Recursion Theft Test",
+            "Enchant creature" + (char)10 + "You control enchanted creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var swamps = Card(
+            "R2130 Swampbenders Test",
+            "Lands you control are Swamps in addition to their other types.",
+            CardType.Land);
+
+        var forests = Card(
+            "R2130 Yavimaya Test",
+            "Each land is a Forest in addition to its other land types.",
+            CardType.Land);
+
+        foreach (var card in new[] { wall, herLordCard, hisLordCard, theft, swamps, forests })
+            Assert.True(CardCompiler.Compile(card).IsComplete, card.Name);
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, wall, Zone.Battlefield);
+        var herLord = game.Create(alice, herLordCard, Zone.Battlefield);
+        game.Create(bob, hisLordCard, Zone.Battlefield);
+        game.Create(alice, swamps, Zone.Battlefield);
+        game.Create(bob, forests, Zone.Battlefield);
+
+        var pinger = game.Create(bob, Pinger("R2130 Recursion Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        // One lord is Bob's, so the pinger is a 2/2 and under the line. The whole question is
+        // asked and answered rather than running away.
+        Assert.Equal(2, PowerNow(game, pinger));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        // Bob takes Alice's lord, so both lords are his and the pinger is a 3/3 - and the
+        // shield's filter has to run the layer walk that says so from inside its own predicate.
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, theft), [Target.ToPermanent(herLord)]);
+        ResolveStack(game);
+
+        Assert.Equal(
+            bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(herLord)));
+        Assert.Equal(3, PowerNow(game, pinger));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        // Still one, and the test returned: the shield covered the second point.
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
     }
 
     // ---- Cycling -------------------------------------------------------------
@@ -7784,6 +9171,336 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, hit.Permanent.Counters.GetValueOrDefault(CounterKinds.MinusOneMinusOne));
         Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, hit));
     }
+
+    // ---- How much damage was excess (CR 120.4a, CR 120.10) --------------------
+
+    /// <summary>
+    /// A later sentence of the same line gains life for the damage past lethal, and only that.
+    /// </summary>
+    /// <remarks>
+    /// Razor Rings' printed text. Round twenty built the subtraction and spent it on the redirect,
+    /// which moves the excess without ever saying how much it was; this is the other half - the
+    /// number itself, carried out of the damage event and into the sentence that asks for it.
+    /// <para>
+    /// It rides the same channel "that much" has ridden since the resolution loop was written,
+    /// which is why nothing about it reaches the log: the life gain is the event, and the excess
+    /// is only how the life gain got its size.
+    /// </para>
+    /// <para>
+    /// The 6/7 is the control and it is not optional. An implementation that handed the whole six
+    /// to the clause would look identical from the 2/2 alone - four is both "the excess" and
+    /// "some of the damage", and only a creature with nothing in excess tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Excess_damage_dealt_this_way_is_the_amount_past_lethal_and_not_the_whole_hit()
+    {
+        var rings = Card(
+            "Excess Rings Test",
+            "~ deals 6 damage to target creature. You gain life equal to the excess damage "
+                + "dealt this way.");
+
+        var compiled = CardCompiler.Compile(rings);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Rings Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rings), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Two of the six were lethal to a 2/2, so four were excess - not six, and not nothing.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var wall = game.Create(
+            bob, TestCards.Creature("Excess Rings Wall Test", 6, 7), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rings), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        // Nothing was in excess of lethal on a 6/7, so the clause gains nothing and the whole
+        // six is marked on the creature.
+        Assert.Contains(wall, game.State.Battlefield);
+        Assert.Equal(6, game.State.GetObject(wall).Permanent!.DamageMarked);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "If excess damage was dealt this way" fires on the overkill and not on the damage.
+    /// </summary>
+    /// <remarks>
+    /// Orbital Plunge and Vikya print the same clause round different tails. It is its own effect
+    /// rather than an arm of the board-condition guard for the reason <c>OnlyIfTouched</c> is:
+    /// that guard is handed a state and a source, and what this asks about is not the board at
+    /// all - it is how hard the sentence in front of it just hit.
+    /// </remarks>
+    [Fact]
+    public void A_guard_on_excess_damage_fires_only_when_there_was_some()
+    {
+        var plunge = Card(
+            "Excess Plunge Test",
+            "~ deals 6 damage to target creature. If excess damage was dealt this way, create a "
+                + "Treasure token.");
+
+        var compiled = CardCompiler.Compile(plunge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Plunge Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plunge), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Single(Treasures(game));
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var wall = game.Create(
+            bob, TestCards.Creature("Excess Plunge Wall Test", 6, 7), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plunge), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        // Six into a 6/7 is short of lethal, so the guard does not fire a second time.
+        Assert.Single(Treasures(game));
+        Assert.Equal(6, game.State.GetObject(wall).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "That many" inside the guard is the excess, not the damage the spell dealt.
+    /// </summary>
+    /// <remarks>
+    /// Bottle-Cap Blast, and the reason the guard rebinds the running magnitude rather than
+    /// merely reading it. The loop has carried "that much" forward as <em>the damage dealt</em>
+    /// since the day it was written, so a guard that only gated would have let this card make six
+    /// Treasures off a 2/2 - a card that compiles, resolves, logs plausibly and pays out half as
+    /// much again as it prints.
+    /// <para>
+    /// Four is the assertion that separates the two readings, and no other number does: six is
+    /// what the spell dealt, two is what was lethal, and only four is what got through.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void That_many_inside_an_excess_guard_is_the_excess_and_not_the_damage()
+    {
+        var blast = Card(
+            "Excess Blast Test",
+            "~ deals 6 damage to any target. If excess damage was dealt to a permanent this way, "
+                + "create that many tapped Treasure tokens.");
+
+        var compiled = CardCompiler.Compile(blast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Blast Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var made = Treasures(game);
+        Assert.Equal(4, made.Count);
+        Assert.All(made, t => Assert.True(t.Permanent!.IsTapped));
+    }
+
+    /// <summary>
+    /// The guard aimed at a player has no permanent to overshoot, so it never fires.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the control above, and the half a coverage number cannot see. "Any
+    /// target" includes a player, damage to a player is never excess (CR 120.4a is written about
+    /// permanents), and a reader that answered with the damage dealt would pay out on every burn
+    /// spell aimed at a face.
+    /// </remarks>
+    [Fact]
+    public void An_excess_guard_reads_nothing_from_damage_dealt_to_a_player()
+    {
+        var blast = Card(
+            "Excess Face Test",
+            "~ deals 6 damage to any target. If excess damage was dealt to a permanent this way, "
+                + "create that many tapped Treasure tokens.");
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+        Assert.Empty(Treasures(game));
+    }
+
+    /// <summary>
+    /// "To a creature" and "to a permanent" are different questions, and a planeswalker is why.
+    /// </summary>
+    /// <remarks>
+    /// A planeswalker whose loyalty is overshot has been dealt excess damage (CR 120.4a) and is
+    /// not a creature. Vikya prints "to a creature" and Bottle-Cap Blast prints "to a permanent",
+    /// and both aim at anything - so one number for both would draw Vikya a card off a
+    /// planeswalker, which is a card playing better than the one printed with nothing downstream
+    /// able to tell.
+    /// </remarks>
+    [Fact]
+    public void An_excess_guard_naming_a_creature_does_not_read_a_planeswalker()
+    {
+        var creatureOnly = Card(
+            "Excess Vikya Test",
+            "~ deals 6 damage to target creature or planeswalker. If excess damage was dealt to "
+                + "a creature this way, create a Treasure token.");
+
+        var anyPermanent = Card(
+            "Excess Permanent Test",
+            "~ deals 6 damage to target creature or planeswalker. If excess damage was dealt to "
+                + "a permanent this way, create a Treasure token.");
+
+        var read = CardCompiler.Compile(creatureOnly);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var walker = game.Create(
+            bob, Walker("Excess Walker Test", 3, "+1: You gain 1 life."), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, creatureOnly), [Target.ToPermanent(walker)]);
+
+        Settle(game);
+
+        // Three of the six were in excess of the walker's loyalty, and none of them were dealt to
+        // a creature.
+        Assert.DoesNotContain(walker, game.State.Battlefield);
+        Assert.Empty(Treasures(game));
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var second = game.Create(
+            bob, Walker("Excess Walker Two Test", 3, "+1: You gain 1 life."), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, anyPermanent), [Target.ToPermanent(second)]);
+
+        Settle(game);
+
+        // The same six at the same walker, read by the clause that says "permanent".
+        Assert.Single(Treasures(game));
+    }
+
+    /// <summary>
+    /// A redirect the compiler could not see is found one step down, inside its own X.
+    /// </summary>
+    /// <remarks>
+    /// Gandalf's Sanction, and the refusal round twenty wrote down rather than papered over. "~
+    /// deals X damage to target creature, where X is the number of instant and sorcery cards in
+    /// your graveyard" compiles to the damage <em>inside</em> a counted-variable box, so the
+    /// rider's search for a top-level hit found nothing - and a rider that quietly found nothing
+    /// would have left a card printing a redirect and performing none.
+    /// <para>
+    /// The answer is to look one level down and one level only, and to insist the box holds
+    /// exactly the damage: the rider still declines rather than guessing which of several hits a
+    /// sentence meant. This test plays the card, because a refusal that has become reachable is a
+    /// game to be played and not a test to be flipped.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_redirect_finds_the_damage_inside_the_variable_that_sizes_it()
+    {
+        var sanction = Card(
+            "Excess Sanction Test",
+            "~ deals X damage to target creature, where X is the number of instant and sorcery "
+                + "cards in your graveyard. Excess damage is dealt to that creature's controller "
+                + "instead.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(sanction);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Create(
+                alice,
+                Card("Excess Sanction Fuel " + i + " Test", "Draw a card."),
+                Zone.Graveyard);
+        }
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Sanction Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, sanction), [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        // Six instants in the graveyard is six damage; two were lethal to a 2/2 and the other
+        // four went to Bob as damage from the same source.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// An excess clause with no damage in front of it leaves its line unread.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed gate, and the reason this family is allowed to exist at all. "Excess damage
+    /// dealt this way" points back at a sentence of the same line; a card where the reader cannot
+    /// find one would compile a clause whose number is nought for ever - complete, castable and
+    /// silent, which is the exact shape of card two audits this round found forty-one and nine of
+    /// already in the tree.
+    /// <para>
+    /// Both grammars are gated, because a gate on one of them is a gate on neither.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Draw a card. If excess damage was dealt this way, create a Treasure token.")]
+    [InlineData("Draw a card. You gain life equal to the excess damage dealt this way.")]
+    public void An_excess_clause_with_no_damage_in_front_of_it_is_refused(string text)
+    {
+        var card = Card("Excess Ungated Test", text);
+
+        Assert.Contains(
+            CardCompiler.Compile(card).Unhandled,
+            line => line.Contains("excess", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// A clause naming one particular creature is refused rather than answered about all of them.
+    /// </summary>
+    /// <remarks>
+    /// "If excess damage was dealt to <em>that creature</em> this way" names one permanent, and
+    /// the number this reader holds is about every permanent the effect hit. On a spell with one
+    /// target the two agree; on a fight they do not, and nothing in the sentence tells the reader
+    /// which it is looking at. Refused for the reason the recorded-set condition refuses a
+    /// pronoun one file along.
+    /// </remarks>
+    [Fact]
+    public void An_excess_clause_naming_one_particular_creature_is_refused()
+    {
+        var card = Card(
+            "Excess Pronoun Test",
+            "~ deals 6 damage to target creature. If excess damage was dealt to that creature "
+                + "this way, create a Treasure token.");
+
+        Assert.Contains(
+            CardCompiler.Compile(card).Unhandled,
+            line => line.Contains("excess", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Every Treasure token on the battlefield, in the order the game made them.</summary>
+    private static List<GameObject> Treasures(Game game) =>
+        game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.Name == "Treasure")
+            .ToList();
 
     // ---- Changeling -----------------------------------------------------------
 
@@ -9560,6 +11277,399 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(self, game.State.Battlefield);
     }
 
+    // ---- Aggregates over a counted group (CR 107.1b) ---------------------------
+
+    /// <summary>
+    /// "~ costs {X} less to cast, where X is the total power of creatures you control"
+    /// — Ghalta, Primal Hunger (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The whole reason this family was left unread rather than approximated: a total is not a
+    /// tally, and the counting vocabulary could only say how many things matched. Two boards make
+    /// that the thing under test — both carry exactly two creatures, so every reading that counts
+    /// permanents answers the same number twice, and only a reading that adds their power tells
+    /// them apart. Read as a count the spell would be four mana dearer than it prints on the
+    /// first board, and a card that is dearer than printed compiles and scores as a win.
+    /// </remarks>
+    [Fact]
+    public void A_total_power_discount_adds_the_group_up_rather_than_counting_it()
+    {
+        var giant = new CardDefinition
+        {
+            OracleId = "oracle-total-power-discount-test",
+            Name = "Total Power Discount Test",
+            OracleText =
+                "~ costs {X} less to cast, where X is the total power of creatures you control.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{7}",
+            Cmc = 7,
+            Power = 6,
+            Toughness = 6,
+        };
+
+        var compiled = CardCompiler.Compile(giant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Two 3/3s: total power six, so {7} becomes {1} and one mana pays for it. An opponent's
+        // creature is not "creatures you control" and is on the board to say so — counted in, the
+        // total would be eleven and the spell would cost nothing.
+        var (big, alice, bob) = InMainPhase();
+        big.Create(alice, TestCards.Creature("Total Power Ox One", 3, 3), Zone.Battlefield);
+        big.Create(alice, TestCards.Creature("Total Power Ox Two", 3, 3), Zone.Battlefield);
+        big.Create(bob, TestCards.Creature("Total Power Rival", 5, 5), Zone.Battlefield);
+
+        TapForestsFor(big, alice, 1);
+        big.CastSpell(alice, TestCards.PutInHand(big, alice, giant), []);
+        Settle(big);
+
+        Assert.Contains(
+            big.State.Battlefield,
+            id => big.State.GetObject(id).Card.Name == "Total Power Discount Test");
+
+        // The control board. The same two creatures by count and a different total: two 1/1s are
+        // a total power of two, so {7} becomes {5} and the one mana that paid above does not.
+        var (small, carol, _) = InMainPhase();
+        small.Create(carol, TestCards.Creature("Total Power Mouse One", 1, 1), Zone.Battlefield);
+        small.Create(carol, TestCards.Creature("Total Power Mouse Two", 1, 1), Zone.Battlefield);
+
+        TapForestsFor(small, carol, 1);
+        var held = TestCards.PutInHand(small, carol, giant);
+        Assert.Throws<InvalidOperationException>(() => small.CastSpell(carol, held, []));
+
+        // And it is a real discount rather than a refusal: four more mana is five, which is what
+        // the printed cost less the printed total comes to.
+        TapForestsFor(small, carol, 4);
+        small.CastSpell(carol, held, []);
+        Settle(small);
+
+        Assert.Contains(
+            small.State.Battlefield,
+            id => small.State.GetObject(id).Card.Name == "Total Power Discount Test");
+    }
+
+    /// <summary>
+    /// "You gain life equal to the greatest power among creatures you control" — Huatli,
+    /// Warrior Poet (CR 107.1b).
+    /// </summary>
+    /// <remarks>
+    /// The other fold, and the one a tally reading is closest to: on a board of three creatures a
+    /// count says three, and so does the power of any of them if they happen to be 3/3s. So the
+    /// board is deliberately lopsided — two 1/1s beside a 5/5 — and it is asked twice, before and
+    /// after the big one leaves, because the number has to move with the board rather than with
+    /// how many things are on it. A count answers three then two; the greatest answers five then
+    /// one, and the two never agree.
+    /// </remarks>
+    [Fact]
+    public void A_greatest_power_is_the_largest_in_the_group_and_not_how_many_there_are()
+    {
+        var gift = Card(
+            "Greatest Power Gift Test",
+            "You gain life equal to the greatest power among creatures you control.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Greatest Power Runt One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Greatest Power Runt Two", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Greatest Power Champion", 5, 5), Zone.Battlefield);
+
+        // Bob's is the biggest creature in the game and belongs to the wrong player, so a reader
+        // that walked the battlefield without asking who controls what would say nine.
+        game.Create(bob, TestCards.Creature("Greatest Power Rival", 9, 9), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gift));
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+
+        // The control board: the runts without the champion. One creature fewer, so a count falls
+        // by one; the greatest falls from five to one, and the two answers cross.
+        var (runts, carol, _) = InMainPhase();
+        runts.Create(carol, TestCards.Creature("Greatest Power Runt Three", 1, 1), Zone.Battlefield);
+        runts.Create(carol, TestCards.Creature("Greatest Power Runt Four", 1, 1), Zone.Battlefield);
+
+        runts.CastSpell(carol, TestCards.PutInHand(runts, carol, gift));
+        Settle(runts);
+
+        Assert.Equal(21, runts.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// "When ~ enters, you gain life equal to the greatest power among <em>other</em> creatures
+    /// you control" — Flourishing Hunter's shape (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The word "other" is put on the group spec's <em>source</em> filter, not on its object
+    /// filter, and a reader that asks only the object filter parses the word, drops it, and lets
+    /// the permanent answer about itself. On a tally that is one too many; on an aggregate it is
+    /// worse, because the thing asking is usually the biggest thing on the board — this creature
+    /// is a 9/9 beside a 4/4, so the two readings are five life apart rather than one.
+    /// <para>
+    /// A trigger and not an enters-with-counters replacement, which is the same sentence and
+    /// cannot test this: a replacement is applied while the permanent is still on its way in, so
+    /// it is not on the battlefield to be counted and "other" costs nothing there. The source has
+    /// to be standing among the group for the exclusion to be doing any work.
+    /// </para>
+    /// <para>
+    /// The empty board is the second half. With nothing else to measure the answer is nought
+    /// (CR 107.2), and a reader that had quietly included the source would say nine.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_other_aggregate_leaves_out_the_permanent_that_is_asking()
+    {
+        var hunter = Card(
+            "Other Greatest Hunter Test",
+            "When ~ enters, you gain life equal to the greatest power among other creatures you "
+                + "control.",
+            CardType.Creature, 9, 9);
+
+        var compiled = CardCompiler.Compile(hunter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Other Greatest Friend", 4, 4), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Other Greatest Rival", 8, 8), Zone.Battlefield);
+
+        game.Create(alice, hunter, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        // The control board: nothing else to measure at all.
+        var (empty, carol, _) = InMainPhase();
+        empty.Create(carol, hunter, Zone.Battlefield);
+        Settle(empty);
+
+        Assert.Equal(20, empty.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to the total mana value of artifacts you control"
+    /// — Karn, Legacy Reforged (CR 604.3, 202.3).
+    /// </summary>
+    /// <remarks>
+    /// A characteristic-defining ability, so it has to keep answering as the board moves rather
+    /// than take a number once. Three things on the board each break a different wrong reading: a
+    /// creature of the same controller that is not an artifact, an opponent's artifact, and —
+    /// after the first assertion — one of the two artifacts leaving. A count of artifacts says two
+    /// then one; the total says seven then three.
+    /// </remarks>
+    [Fact]
+    public void A_power_defined_by_a_total_mana_value_tracks_the_group_it_names()
+    {
+        static CardDefinition Relic(string name, int cmc) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{" + cmc.ToString(CultureInfo.InvariantCulture) + "}",
+            Cmc = cmc,
+        };
+
+        var karn = Card(
+            "Total Mana Value Golem Test",
+            "~'s power and toughness are each equal to the total mana value of artifacts you "
+                + "control.",
+            CardType.Creature, 0, 0);
+
+        var compiled = CardCompiler.Compile(karn);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var four = game.Create(alice, Relic("Total Mana Value Anvil", 4), Zone.Battlefield);
+        game.Create(alice, Relic("Total Mana Value Lens", 3), Zone.Battlefield);
+
+        // Alice's, and dear, and not an artifact. Bob's, and an artifact, and not hers.
+        game.Create(alice, TestCards.Costed("Total Mana Value Squire", "{5}", 5), Zone.Battlefield);
+        game.Create(bob, Relic("Total Mana Value Rival Anvil", 6), Zone.Battlefield);
+
+        var golem = game.Create(alice, karn, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(7, Characteristics.Of(game.State, Pool, game.State.GetObject(golem)).Power);
+
+        game.Move(four, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(golem)).Power);
+    }
+
+    /// <summary>
+    /// "You gain life equal to the least toughness among creatures you control" (CR 107.2).
+    /// </summary>
+    /// <remarks>
+    /// The third fold. It is the one that most needs the empty case written down, because a
+    /// minimum over nothing has no answer at all and the rules say a value that cannot be
+    /// determined is nought — which is also what a count of an empty board comes to, so the two
+    /// agree there and only there. The two boards before it are where they part: three creatures
+    /// whose least toughness is two, then two creatures whose least toughness is three.
+    /// </remarks>
+    [Fact]
+    public void A_least_toughness_is_the_smallest_in_the_group_and_nothing_over_an_empty_one()
+    {
+        var gift = Card(
+            "Least Toughness Gift Test",
+            "You gain life equal to the least toughness among creatures you control.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (three, alice, _) = InMainPhase();
+        three.Create(alice, TestCards.Creature("Least Toughness Wall", 1, 4), Zone.Battlefield);
+        three.Create(alice, TestCards.Creature("Least Toughness Scout", 2, 2), Zone.Battlefield);
+        three.Create(alice, TestCards.Creature("Least Toughness Ox", 3, 3), Zone.Battlefield);
+
+        three.CastSpell(alice, TestCards.PutInHand(three, alice, gift));
+        Settle(three);
+
+        Assert.Equal(22, three.State.GetPlayer(alice).Life);
+
+        // The control board: the smallest one is not there, so the smallest that is left is
+        // bigger — which is the direction a count of a shrinking board cannot move in. Two
+        // creatures, and three life rather than two.
+        var (two, carol, _) = InMainPhase();
+        two.Create(carol, TestCards.Creature("Least Toughness Keep", 1, 4), Zone.Battlefield);
+        two.Create(carol, TestCards.Creature("Least Toughness Bull", 3, 3), Zone.Battlefield);
+
+        two.CastSpell(carol, TestCards.PutInHand(two, carol, gift));
+        Settle(two);
+
+        Assert.Equal(23, two.State.GetPlayer(carol).Life);
+
+        // And nothing at all to measure: a least over an empty group is nought (CR 107.2).
+        var (none, dave, _) = InMainPhase();
+        none.CastSpell(dave, TestCards.PutInHand(none, dave, gift));
+        Settle(none);
+
+        Assert.Equal(20, none.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "…, where X is the total mana value of instant and sorcery cards in your graveyard"
+    /// — Inferno Project (CR 202.3).
+    /// </summary>
+    /// <remarks>
+    /// The same fold over a pile rather than over the battlefield, which is the point of asking
+    /// the shared vocabulary for the set instead of growing a second group grammar beside it: the
+    /// zone arm, the noun it filters by and the possessive all arrive already working, and the
+    /// aggregate only adds the fold.
+    /// <para>
+    /// The graveyard holds a creature card too, and the opponent's holds an instant, because both
+    /// are ways for the wrong reading to come out bigger than the card. Cards of mana value nought
+    /// would tell none of these apart, so every card here is worth something.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aggregate_over_a_graveyard_totals_only_the_cards_it_names()
+    {
+        static CardDefinition Buried(string name, CardType type, int cmc) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = type,
+            ManaCostRaw = "{" + cmc.ToString(CultureInfo.InvariantCulture) + "}",
+            Cmc = cmc,
+        };
+
+        var project = Card(
+            "Graveyard Total Project Test",
+            "~ enters with X +1/+1 counters on it, where X is the total mana value of instant and "
+                + "sorcery cards in your graveyard.",
+            CardType.Creature, 1, 1);
+
+        var compiled = CardCompiler.Compile(project);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, Buried("Graveyard Total Bolt", CardType.Instant, 3), Zone.Graveyard);
+        game.Create(alice, Buried("Graveyard Total Rite", CardType.Sorcery, 4), Zone.Graveyard);
+        game.Create(alice, Buried("Graveyard Total Beast", CardType.Creature, 5), Zone.Graveyard);
+        game.Create(bob, Buried("Graveyard Total Rival Bolt", CardType.Instant, 6), Zone.Graveyard);
+
+        var entered = game.Create(alice, project, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            7, game.State.GetObject(entered).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+
+        // The control board: the same two cards by count, and six less mana value between them.
+        var (cheap, carol, _) = InMainPhase();
+        cheap.Create(carol, Buried("Graveyard Total Spark", CardType.Instant, 1), Zone.Graveyard);
+        cheap.Create(carol, Buried("Graveyard Total Chant", CardType.Sorcery, 1), Zone.Graveyard);
+
+        var lesser = cheap.Create(carol, project, Zone.Battlefield);
+        Settle(cheap);
+
+        Assert.Equal(
+            2, cheap.State.GetObject(lesser).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+    }
+
+    /// <summary>
+    /// "This ability costs {X} less to activate, where X is the greatest power among Wurms you
+    /// control" — Baru, Wurmspeaker (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The variable form of the discount, which both cost-reduction readers refused because their
+    /// patterns end where this sentence carries on — and the form nearly every printed aggregate
+    /// discount uses, since no card prints "costs {X} less, where X is the number of".
+    /// <para>
+    /// Two Wurms whose greatest power is four make the difference between the readings two mana
+    /// wide, and the refusal is the half that matters: a discount read too generously still pays,
+    /// and only the failure tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_variable_activation_discount_reads_the_greatest_rather_than_the_count()
+    {
+        static CardDefinition Wurm(string name, int power) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Subtypes = ["Wurm"],
+            Power = power,
+            Toughness = power,
+        };
+
+        // An artifact rather than the creature the card is, so that the ability can be activated
+        // the turn it arrives: {T} on a creature that has not been controlled since the turn
+        // began is refused for summoning sickness (CR 302.6), which is a rule about the cost and
+        // has nothing to say about the discount under test.
+        var baru = Card(
+            "Variable Wurm Discount Test",
+            "{6}, {T}: Draw a card. This ability costs {X} less to activate, where X is the "
+                + "greatest power among Wurms you control.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(baru);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var speaker = game.Create(alice, baru, Zone.Battlefield);
+
+        game.Create(alice, Wurm("Variable Wurm Elder", 4), Zone.Battlefield);
+        game.Create(alice, Wurm("Variable Wurm Whelp", 1), Zone.Battlefield);
+
+        // Bob's is the biggest Wurm in the game. Counted in, the ability would be free.
+        game.Create(bob, Wurm("Variable Wurm Rival", 6), Zone.Battlefield);
+
+        // {6} less the greatest power among her own Wurms is {2}. One mana is one short, and a
+        // reading that counted the Wurms instead of measuring them would want four.
+        TapForestsFor(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, speaker, "a"));
+
+        TapForestsFor(game, alice, 1);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, speaker, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
     // ---- Can't attack or block alone -------------------------------------------
 
     /// <summary>
@@ -9750,6 +11860,174 @@ public sealed class CompiledCardBehaviourTests
 
         // The mana was not spent on the refused attempt.
         Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+    }
+
+    // ---- Readers that claimed a conjunction they could not read ------------------
+    //
+    // Three readers recognised a line, found a conjunction their own vocabulary was short of,
+    // and refused it - which ends the line, because the matcher chain stops at the first reader
+    // that claims. Each had a one-noun twin that read perfectly one sentence away, and each was
+    // found by ranking every whole-line reader by the cards its claim leaves one line short
+    // (ReaderClaimAuditTests). The tests are here rather than in the compiler suite because the
+    // claim being made is that the card plays, not that the line parses.
+
+    /// <summary>
+    /// "Protection from black and from red" grants both halves (CR 702.16f).
+    /// </summary>
+    /// <remarks>
+    /// The noun is printed once and the keyword vocabulary split on " and ", so the second half
+    /// arrived as "from red" - a keyword in no table, which makes the whole list null and leaves
+    /// the line unread. The compiler read the same words perfectly as a line of their own, so an
+    /// Aura saying it about its host did less than a creature saying it about itself.
+    /// </remarks>
+    [Fact]
+    public void An_aura_granting_two_protections_with_the_noun_printed_once_grants_both()
+    {
+        var ward = Card(
+            "Twofold Ward Test",
+            "Enchant creature\nEnchanted creature has protection from black and from red.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(ward);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Twofold Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, ward, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        foreach (var colour in new[] { ManaColor.Black, ManaColor.Red })
+        {
+            var blocker = game.Create(
+                bob, Coloured($"Twofold {colour} Test", colour), Zone.Battlefield);
+
+            var why = CombatRules.CannotBlock(
+                game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(bear), bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // A colour the Aura did not name still gets through, which is what shows the grant is
+        // two protections rather than a blanket one.
+        var green = game.Create(bob, Coloured("Twofold Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(bear), bob));
+    }
+
+    /// <summary>
+    /// "Elemental spells and Warrior spells you cast cost {1} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The template prints the noun twice, so the filter arrived as "Elemental spells and
+    /// Warrior" and the reader refused it. Read as <em>one</em> disjunctive filter rather than
+    /// two modifiers, because two would be a different card: a spell that is both an Elemental
+    /// and a Warrior would come down for two mana less than printed, and nothing about that
+    /// failure is visible from the outside.
+    /// </remarks>
+    [Fact]
+    public void A_cost_modifier_naming_two_kinds_of_spell_discounts_each_of_them_once()
+    {
+        var lord = Card(
+            "Twofold Discount Test",
+            "Elemental spells and Warrior spells you cast cost {1} less to cast.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One modifier, not two. A spell answering to both nouns is reduced once, and a second
+        // modifier is exactly how it would come down for two mana less than printed.
+        Assert.Single(compiled.CostModifiers);
+
+        foreach (var tribe in new[] { "Elemental", "Warrior" })
+        {
+            var (game, alice, _) = InMainPhase();
+            game.Create(alice, lord, Zone.Battlefield);
+
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+
+            // {1}{G} discounted to {G}: the one Forest pays for it and would not otherwise.
+            var spell = new CardDefinition
+            {
+                OracleId = "oracle-twofold-" + tribe.ToLowerInvariant() + "-test",
+                Name = "Twofold " + tribe + " Test",
+                CardTypes = CardType.Creature,
+                Subtypes = [tribe],
+                ManaCostRaw = "{1}{G}",
+                Cmc = 2,
+                Power = 2,
+                Toughness = 2,
+            };
+
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+            Settle(game);
+
+            Assert.Contains(
+                game.State.Battlefield,
+                id => game.State.GetObject(id).Card.Name == spell.Name);
+        }
+    }
+
+    /// <summary>
+    /// "Can't be blocked except by creatures with flying or reach" (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The phrase after "except by" went whole to the target grammar, which reads one description
+    /// and not a list of them, so the reader claimed the line and left it unread - on cards whose
+    /// one-quality twin ("can't be blocked by creatures with flying") plays. The second half
+    /// leaves the noun out, so the head is distributed into it; and the list is cut from the
+    /// right, because "power 2 or less or Walls" has an "or" that is part of a comparison.
+    /// </remarks>
+    [Fact]
+    public void Can_t_be_blocked_except_by_reads_a_list_of_two_descriptions()
+    {
+        var elusive = Keyworded(
+            "Twofold Evasion Test",
+            "~ can't be blocked except by creatures with flying or reach.");
+
+        var compiled = CardCompiler.Compile(elusive);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, elusive, Zone.Battlefield);
+
+        var flier = game.Create(
+            bob,
+            Card("Twofold Flier Test", "Flying", CardType.Creature, 2, 2, KeywordAbility.Flying),
+            Zone.Battlefield);
+
+        var reacher = game.Create(
+            bob,
+            Card("Twofold Reacher Test", "Reach", CardType.Creature, 2, 2, KeywordAbility.Reach),
+            Zone.Battlefield);
+
+        var ground = game.Create(bob, TestCards.Creature("Twofold Ground Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        // A creature answering to neither description is turned away. A refused declaration is
+        // not a declaration, so the legal one below is still this combat's only one.
+        Assert.NotNull(TryBlock(game, bob, attacker, ground));
+
+        // And both halves of the list are permission, declared together because a combat has one
+        // declaration: reading only the first would refuse the creature with reach.
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [flier, reacher] });
+
+        var blocking = game.State.Combat!.BlockersOf(attacker);
+        Assert.Contains(flier, blocking);
+        Assert.Contains(reacher, blocking);
     }
 
     // ---- Renown ------------------------------------------------------------------
@@ -14574,6 +16852,533 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Equal(
             3, Characteristics.Of(game.State, Pool, game.State.GetObject(measured)).Power);
+    }
+
+    // ---- A price on declaring an attacker (CR 508.1h, 509.1d) ----------------
+
+    /// <summary>Lands that can be tapped for one mana each, created where they are wanted.</summary>
+    private static List<ObjectId> TaxLands(Game game, Guid playerId, int count)
+    {
+        var lands = new List<ObjectId>(count);
+
+        for (var i = 0; i < count; i++)
+            lands.Add(game.Create(playerId, TestCards.BasicLand("Forest"), Zone.Battlefield));
+
+        return lands;
+    }
+
+    /// <summary>
+    /// Floats mana from those lands, which CR 508.1i lets a player do inside the declaration.
+    /// </summary>
+    /// <remarks>
+    /// Activated with no priority on purpose: the declare attackers step's turn-based action
+    /// happens before anybody has priority, and a mana ability is the one thing CR 117.1d lets a
+    /// player use anyway. If that stopped being true, every test in this section would fail here
+    /// rather than quietly finding the price already paid.
+    /// </remarks>
+    private static void FloatFrom(Game game, Guid playerId, IEnumerable<ObjectId> lands)
+    {
+        foreach (var land in lands)
+            game.ActivateAbility(playerId, land, "mana");
+    }
+
+    /// <summary>
+    /// "Creatures can't attack you unless their controller pays {2} for each creature they
+    /// control that's attacking you." — Ghostly Prison, Propaganda, Windborn Muse.
+    /// </summary>
+    /// <remarks>
+    /// The family this section exists for had been measured and declined twice, and both declines
+    /// gave the same reason: the declare attackers step could not charge anything. The first
+    /// assertion here is the one that matters — the declaration is <em>refused</em> and the mana
+    /// is still in the pool, because CR 508.1 returns the game to the moment before an illegal
+    /// declaration and CR 508.1j forbids a partial payment. A tax that took the mana and then
+    /// refused would be worse than no tax at all.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_refuses_a_declaration_nobody_has_paid_for()
+    {
+        var prison = Card(
+            "Attack Tax Prison Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(prison);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Attack Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) };
+
+        // Nothing floating: refused, and nothing happened at all.
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.False(game.State.Combat.AttackersDeclared);
+        Assert.Empty(game.State.Combat.Attackers);
+
+        // One short: still refused, and — the assertion this test is for — the one mana that was
+        // floating is still floating. There is no partial payment (CR 508.1j).
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Empty(game.State.Combat.Attackers);
+
+        // Paid: the attack stands and the mana is gone.
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, attack);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(bob, game.State.Combat.Attackers[bear].DefendingPlayer);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The same price, charged once for each creature in the declaration (CR 508.1h).
+    /// </summary>
+    /// <remarks>
+    /// "For each creature they control that's attacking you" is the whole reason this family
+    /// needed a mechanism rather than a counted price: the multiplication is the declaration's
+    /// own, and the number it multiplies by does not exist until the declaration is made. Two
+    /// attackers rather than one is what separates a tax that reads the count from one that
+    /// charged a flat {2} and passed every single-attacker test.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_is_charged_once_for_every_creature_in_the_declaration()
+    {
+        var muse = Card(
+            "Attack Tax Muse Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob) = InMainPhase();
+        var one = game.Create(alice, TestCards.Creature("Attack Tax Pair One Test", 2, 2), Zone.Battlefield);
+        var two = game.Create(alice, TestCards.Creature("Attack Tax Pair Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, muse, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 4);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [one] = AttackTarget.Player(bob),
+            [two] = AttackTarget.Player(bob),
+        };
+
+        // Three is enough for one attacker and not for two, which is the arithmetic under test.
+        FloatFrom(game, alice, lands.Take(3));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+        Assert.Equal(3, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(3));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// A tax guards the player who controls it and nobody else (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// The reading this rules out is the one a "creatures can't attack" prohibition would have
+    /// taken: a tax that charged for every attacker in the declaration, wherever it was pointed.
+    /// Two attackers go out at once and only the one aimed at the taxing player is paid for, so a
+    /// mechanism that ignored the defender comes to {4} here and fails on the first assertion
+    /// rather than on a subtle one.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_leaves_an_attack_on_another_player_alone()
+    {
+        var prison = Card(
+            "Attack Tax Seat Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+        var atBob = game.Create(alice, TestCards.Creature("Attack Tax Seat One Test", 2, 2), Zone.Battlefield);
+        var atCarol = game.Create(alice, TestCards.Creature("Attack Tax Seat Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        Settle(game);
+
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+
+        var spread = new Dictionary<ObjectId, AttackTarget>
+        {
+            [atBob] = AttackTarget.Player(bob),
+            [atCarol] = AttackTarget.Player(carol),
+        };
+
+        // One mana: not enough for the creature aimed at Bob, which is the only one charged.
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, spread));
+
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, spread);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack <em>you</em>" does not cover an attack on your planeswalker
+    /// (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Attacking a planeswalker is not attacking its controller, which is the whole reason the
+    /// cards that mean both print "you or planeswalkers you control" — five words nobody would
+    /// pay for if the shorter line already said it. A tax that read the defending player out of
+    /// the target slot and stopped there charges here, so this is the assertion that keeps the
+    /// two arms apart.
+    /// </remarks>
+    [Fact]
+    public void A_tax_on_attacking_you_does_not_charge_for_an_attack_on_your_planeswalker()
+    {
+        var prison = Card(
+            "Walker Free Tax Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Walker Free Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Walker Free Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        // No mana anywhere, and the attack stands: the planeswalker is not the player.
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.At(bob, walker) });
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(walker, game.State.Combat.Attackers[bear].Planeswalker);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack you or planeswalkers you control unless their controller pays {1}
+    /// for each of those creatures." — Baird, Archon of Absolution.
+    /// </summary>
+    [Fact]
+    public void A_tax_that_names_planeswalkers_charges_for_an_attack_on_one()
+    {
+        var baird = Card(
+            "Walker Tax Test",
+            "Creatures can't attack you or planeswalkers you control unless their controller "
+                + "pays {1} for each of those creatures.",
+            CardType.Creature,
+            power: 2,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(baird);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Walker Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, baird, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Walker Tax Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 1);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var atWalker = new Dictionary<ObjectId, AttackTarget>
+        {
+            [bear] = AttackTarget.At(bob, walker),
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, atWalker));
+
+        FloatFrom(game, alice, lands);
+        game.DeclareAttackers(alice, atWalker);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(walker, game.State.Combat.Attackers[bear].Planeswalker);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack planeswalkers you control unless their controller pays {1} for
+    /// each creature they control that's attacking a planeswalker you control." — Onakke
+    /// Oathkeeper, which guards the planeswalkers and not the player.
+    /// </summary>
+    [Fact]
+    public void A_tax_on_planeswalkers_alone_leaves_an_attack_on_the_player_free()
+    {
+        var oathkeeper = Card(
+            "Oathkeeper Tax Test",
+            "Creatures can't attack planeswalkers you control unless their controller pays {1} "
+                + "for each creature they control that's attacking a planeswalker you control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(oathkeeper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var atPlayer = game.Create(
+            alice, TestCards.Creature("Oathkeeper Player Bear Test", 2, 2), Zone.Battlefield);
+        var atWalker = game.Create(
+            alice, TestCards.Creature("Oathkeeper Walker Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, oathkeeper, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Oathkeeper Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 1);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var spread = new Dictionary<ObjectId, AttackTarget>
+        {
+            [atPlayer] = AttackTarget.Player(bob),
+            [atWalker] = AttackTarget.At(bob, walker),
+        };
+
+        // Two attackers, one price: the creature aimed at Bob himself is not what this card
+        // names, so a reading that charged for both fails here.
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, spread));
+
+        FloatFrom(game, alice, lands);
+        game.DeclareAttackers(alice, spread);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "…unless their controller pays {X} for each of those creatures, where X is the number of
+    /// enchantments you control." — Sphere of Safety.
+    /// </summary>
+    /// <remarks>
+    /// Two counts in one sentence, and only one of them is a count. "For each of those creatures"
+    /// is the declaration's own multiplication and is recognised as a phrase; "where X is the
+    /// number of enchantments you control" is a genuine board count and goes to the same shared
+    /// counting vocabulary every "for each" in the compiler uses — entered from a caller that has
+    /// no resolution, because a declaration is not one.
+    /// <para>
+    /// Three enchantments rather than two, so the price is neither the number of attackers nor
+    /// any constant a broken reader would land on by accident. The card counts itself, which is
+    /// what the printed sentence says.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_attack_tax_multiplies_by_what_is_on_the_board()
+    {
+        var sphere = Card(
+            "Sphere Tax Test",
+            "Creatures can't attack you or planeswalkers you control unless their controller "
+                + "pays {X} for each of those creatures, where X is the number of enchantments "
+                + "you control.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sphere);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Sphere Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, sphere, Zone.Battlefield);
+        game.Create(
+            bob,
+            Card("Sphere Tax Neighbour One Test", "Enchant creature", CardType.Enchantment),
+            Zone.Battlefield);
+        game.Create(
+            bob,
+            Card("Sphere Tax Neighbour Two Test", "Enchant creature", CardType.Enchantment),
+            Zone.Battlefield);
+        var lands = TaxLands(game, alice, 3);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) };
+
+        FloatFrom(game, alice, lands.Take(2));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(2));
+        game.DeclareAttackers(alice, attack);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Single(game.State.Combat.Attackers);
+    }
+
+    /// <summary>
+    /// "~ can't attack or block unless you pay {2}." — Qal Sisma Behemoth, one line and two
+    /// prices (CR 508.1h, 509.1d).
+    /// </summary>
+    /// <remarks>
+    /// Both halves are played in one combat, by two different players, because reading only the
+    /// attack half is the mistake this card is here to catch: the block would have been free on a
+    /// card whose printed text charges for it, and no coverage number would have noticed.
+    /// </remarks>
+    [Fact]
+    public void A_creature_can_be_taxed_for_its_own_attack_and_for_its_own_block()
+    {
+        var behemoth = Card(
+            "Behemoth Tax Test",
+            "~ can't attack or block unless you pay {2}.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(behemoth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, behemoth, Zone.Battlefield);
+        var blocker = game.Create(bob, behemoth, Zone.Battlefield);
+        var aliceLands = TaxLands(game, alice, 2);
+        var bobLands = TaxLands(game, bob, 2);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget>
+        {
+            [attacker] = AttackTarget.Player(bob),
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+
+        FloatFrom(game, alice, aliceLands);
+        game.DeclareAttackers(alice, attack);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var block = new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = new List<ObjectId> { blocker },
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(bob, block));
+        Assert.False(game.State.Combat.BlockersDeclared);
+
+        FloatFrom(game, bob, bobLands);
+        game.DeclareBlockers(bob, block);
+
+        Assert.Equal(0, game.State.GetPlayer(bob).ManaPool.Total);
+        Assert.Contains(attacker, game.State.Combat.Blocked);
+    }
+
+    /// <summary>
+    /// "Enchanted creature can't attack unless its controller pays {3}." — Brainwash.
+    /// </summary>
+    /// <remarks>
+    /// The tax is printed on the Aura and charged for the permanent it is on, which is why the
+    /// second creature is in this test: an Aura read as taxing its controller's whole side would
+    /// come to {6} here, and one read as taxing itself would come to nothing at all.
+    /// </remarks>
+    [Fact]
+    public void An_aura_taxes_only_the_creature_it_is_attached_to()
+    {
+        var brainwash = Card(
+            "Brainwash Tax Test",
+            "Enchant creature\nEnchanted creature can't attack unless its controller pays {3}.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(brainwash);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var held = game.Create(alice, TestCards.Creature("Brainwash Held Test", 2, 2), Zone.Battlefield);
+        var free = game.Create(alice, TestCards.Creature("Brainwash Free Test", 2, 2), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 3);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, brainwash), [Target.ToPermanent(held)]);
+        Settle(game);
+
+        Assert.Equal(
+            held,
+            game.State.Battlefield.Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Brainwash Tax Test").Permanent!.AttachedTo);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [held] = AttackTarget.Player(bob),
+            [free] = AttackTarget.Player(bob),
+        };
+
+        FloatFrom(game, alice, lands.Take(2));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+
+        FloatFrom(game, alice, lands.Skip(2));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "~ can't attack unless you pay {1} for each +1/+1 counter on it." — Phyrexian Marauder.
+    /// </summary>
+    /// <remarks>
+    /// The counted price on a creature's own line, where "it" is the creature itself. Two
+    /// counters rather than one, and a second untaxed attacker beside it, so a reader that
+    /// charged one apiece or charged the whole declaration fails rather than passing on a number
+    /// that happened to agree.
+    /// </remarks>
+    [Fact]
+    public void A_creature_can_be_taxed_by_what_is_sitting_on_it()
+    {
+        var marauder = Card(
+            "Marauder Tax Test",
+            "~ can't attack unless you pay {1} for each +1/+1 counter on it.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(marauder);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var counted = game.Create(alice, marauder, Zone.Battlefield);
+        var plain = game.Create(alice, TestCards.Creature("Marauder Plain Test", 2, 2), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        game.ChangeCounters(counted, CounterKinds.PlusOnePlusOne, 2);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(counted).Permanent!.Counters
+            .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [counted] = AttackTarget.Player(bob),
+            [plain] = AttackTarget.Player(bob),
+        };
+
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
     }
 
     // ---- A condition in the middle of an effect (CR 608.2c) -------------------
@@ -19865,7 +22670,7 @@ public sealed class CompiledCardBehaviourTests
             {
                 Id = "shield",
                 FunctionsFrom = Zone.Battlefield,
-                Applies = (e, _, source) =>
+                Applies = (e, _, _, source) =>
                     e is ObjectMoved { To: Zone.Graveyard } gone && gone.OldId == source.Id,
                 Replace = (e, _, _) => [((ObjectMoved)e) with { To = Zone.Exile }],
             })
@@ -21293,7 +24098,7 @@ public sealed class CompiledCardBehaviourTests
         // Null, not Battlefield: a permanent created on the battlefield was never anywhere else,
         // and one that resolves off the stack is replaced while it is still a spell (CR 614.6).
         FunctionsFrom = null,
-        Applies = (e, _, source) => ArrivingAs(e, source) is not null,
+        Applies = (e, _, _, source) => ArrivingAs(e, source) is not null,
         Replace = (e, _, source) =>
         [
             // Before the arrival, not after it. Reversed, the permanent is still a copy with the
@@ -35393,13 +38198,15 @@ public sealed class CompiledCardBehaviourTests
     // ---- Keywords written out longhand ---------------------------------------
 
     [Fact]
-    public void Cant_be_blocked_by_more_than_one_creature_is_menace()
+    public void Cant_be_blocked_by_more_than_one_creature_holds_it_to_one_blocker()
     {
-        // Cards printed before the keyword existed say it in full, and it is the same rule
-        // (CR 702.111a) rather than an approximation of it - so it has to reach the same flag
-        // the blocking rules already ask for.
+        // This test asserted the opposite until round twenty-one, when it read "can't be blocked
+        // by more than one creature" as a longhand spelling of menace and demanded that a lone
+        // blocker be refused. Menace is a floor of two blockers (CR 702.111b); this sentence is a
+        // ceiling of one. The test restated the compiler's mistake, so it went green over the
+        // whole four rounds the twenty cards printing it played the rule backwards.
         var rider = Card(
-            "Longhand Menace Test",
+            "Longhand Ceiling Test",
             "~ can't be blocked by more than one creature.",
             CardType.Creature, 2, 2);
 
@@ -35409,6 +38216,7 @@ public sealed class CompiledCardBehaviourTests
         var (game, alice, bob) = InMainPhase();
         var attacker = game.Create(alice, rider, Zone.Battlefield);
         var blocker = game.Create(bob, TestCards.Creature("Lone Wall Test", 0, 4), Zone.Battlefield);
+        var beside = game.Create(bob, TestCards.Creature("Second Wall Test", 0, 4), Zone.Battlefield);
 
         TestCards.PassToTurn(game, 3);
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
@@ -35421,7 +38229,14 @@ public sealed class CompiledCardBehaviourTests
         Assert.Throws<InvalidOperationException>(
             () => game.DeclareBlockers(
                 bob,
-                new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] }));
+                new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+                {
+                    [attacker] = [blocker, beside],
+                }));
+
+        // And the declaration menace would have refused is the legal one.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
     }
 
     [Fact]
@@ -61748,17 +64563,18 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "Boars you control can't be blocked by more than one creature" is menace (CR 702.111a).
+    /// "Boars you control can't be blocked by more than one creature" is a ceiling (CR 509.1b).
     /// </summary>
     /// <remarks>
-    /// The spelling menace was made a keyword for, said about a group. It is the same flag rather
-    /// than a second rule, so the count is enforced where every printed menace is - and the
-    /// difference between menace and being unblockable is the whole of what this asserts: one
-    /// blocker is refused, two are allowed, and a card read as "can't be blocked" would let
-    /// neither through while looking exactly as complete.
+    /// The group spelling of the sentence, and this test asserted it was menace until round
+    /// twenty-one - one blocker refused, two allowed - which is the restriction turned round.
+    /// Menace is a floor of two (CR 702.111b) and this is a ceiling of one, so Rocksteady's Boars
+    /// were being made harder to block by a card that says they are easier. What separates the two
+    /// readings is the same pair of declarations, with the answers swapped: two blockers refused,
+    /// one allowed.
     /// </remarks>
     [Fact]
-    public void A_group_that_cant_be_blocked_by_more_than_one_creature_is_menace_and_not_evasion()
+    public void A_group_that_cant_be_blocked_by_more_than_one_creature_is_held_to_one_blocker()
     {
         var rocksteady = Card(
             "Test Rocksteady",
@@ -61780,13 +64596,18 @@ public sealed class CompiledCardBehaviourTests
         var first = game.Create(bob, TestCards.Creature("Test Rocksteady Guard", 1, 4), Zone.Battlefield);
         var second = game.Create(bob, TestCards.Creature("Test Rocksteady Watch", 1, 4), Zone.Battlefield);
 
-        Assert.True(Characteristics
+        Assert.Equal(
+            1,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(boar)).MaxBlockers);
+
+        Assert.False(Characteristics
             .Of(game.State, Pool, game.State.GetObject(boar))
             .Has(KeywordAbility.Menace));
 
-        Assert.False(Characteristics
-            .Of(game.State, Pool, game.State.GetObject(bear))
-            .Has(KeywordAbility.Menace));
+        // The control: the tribe clause is read, so the Bear beside the Boar is untouched.
+        Assert.Equal(
+            0,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).MaxBlockers);
 
         PassTo(game, 3, TurnStep.DeclareAttackers);
         game.DeclareAttackers(
@@ -61796,13 +64617,14 @@ public sealed class CompiledCardBehaviourTests
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
-            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first] }));
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first, second] }));
 
-        Assert.Contains("702.111b", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("509.1b", ex.Message, StringComparison.Ordinal);
 
-        // The control, and the half that tells menace from evasion: two creatures may block it.
+        // The control, and the half that tells a ceiling from menace: one creature may block it.
         game.DeclareBlockers(
-            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first, second] });
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first] });
 
         Settle(game);
 
@@ -62706,27 +65528,25 @@ public sealed class CompiledCardBehaviourTests
     /// The rider is refused when it has no damage of its own line to modify.
     /// </summary>
     /// <remarks>
-    /// Gandalf's Sanction is the corpus's one case: "~ deals X damage to target creature, where X
-    /// is the number of instant and sorcery cards in your graveyard" is read as a counted
-    /// variable wrapping the damage, so the rider's search for a top-level hit to modify finds
-    /// nothing.
+    /// Gandalf's Sanction was this test's card and is no longer: its damage sits inside the
+    /// counted-variable box that sizes X, which the rider now looks into one level and one level
+    /// only. What is left is the refusal that box was standing in for — a line whose rider has
+    /// nothing at all in front of it.
     /// <para>
     /// A rider that quietly found nothing would leave a card printing a redirect and performing
-    /// none — the whole five damage on the creature, and a player who should have taken three
-    /// taking nothing. Refusing puts the card back in the work queue under its own name, which is
-    /// where the next round will find it.
+    /// none, which is the failure this whole family is arranged around. The card that now plays
+    /// instead of being refused is
+    /// <see cref="A_redirect_finds_the_damage_inside_the_variable_that_sizes_it"/>.
     /// </para>
     /// </remarks>
     [Fact]
     public void An_excess_rider_with_no_damage_to_modify_leaves_its_line_unread()
     {
-        var sanction = Card(
+        var rider = Card(
             "Excess Counted Test",
-            "~ deals X damage to target creature, where X is the number of instant and sorcery "
-                + "cards in your graveyard. Excess damage is dealt to that creature's controller "
-                + "instead.");
+            "Draw a card. Excess damage is dealt to that creature's controller instead.");
 
-        var compiled = CardCompiler.Compile(sanction);
+        var compiled = CardCompiler.Compile(rider);
         Assert.Contains(
             compiled.Unhandled, l => l.Contains("Excess damage", StringComparison.Ordinal));
     }

@@ -435,6 +435,7 @@ public static partial class CardCompiler
         var libraryTopPermissions = ImmutableList.CreateBuilder<LibraryTopPermission>();
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
+        var combatTaxes = ImmutableList.CreateBuilder<CombatTax>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
         // the loop for the reason the one-line form is built as a pair: an exile that compiles
@@ -561,6 +562,9 @@ public static partial class CardCompiler
                 continue;
 
             if (TryCountedCostReduction(line, ref costReduction))
+                continue;
+
+            if (TryVariableCostReduction(line, card, ref costReduction))
                 continue;
 
             if (TryConditionalCostReduction(line, card, ref costReduction))
@@ -1571,6 +1575,14 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain, noCounter))
                 continue;
 
+            // The price a permanent puts on a declaration, filed with those bans because it is
+            // one: the printed sentence forbids the attack and the payment is the only way out.
+            // Refused on an instant or sorcery for its neighbours' reason — every floating
+            // printing of this ("This turn, creatures can't attack unless…") has a duration this
+            // has nowhere to keep, and one filed here would be a toll gate nothing took down.
+            if (!isSpell && TryCombatTax(line, combatTaxes))
+                continue;
+
             // The permission a permanent holds up beside those bans, and refused on an instant
             // or sorcery for exactly their reason: "You may cast spells this turn as though they
             // had flash" is a one-shot, and filed here it would be a window nothing ever closed.
@@ -1941,7 +1953,7 @@ public static partial class CardCompiler
             {
                 Id = "saga-enters-with-lore",
                 FunctionsFrom = null,
-                Applies = (e, _, source) => Arriving(e, source) is not null,
+                Applies = (e, _, _, source) => Arriving(e, source) is not null,
                 Replace = (e, _, source) =>
                     [e, new CountersChanged(Arriving(e, source)!.Value, CounterKinds.Lore, 1)],
             });
@@ -1992,6 +2004,7 @@ public static partial class CardCompiler
                 NoCounter = noCounter.ToImmutable(),
                 NoCastingNamed = noCastingNamed.ToImmutable(),
                 NoActivatingNamed = noActivatingNamed.ToImmutable(),
+                CombatTaxes = combatTaxes.ToImmutable(),
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
@@ -2630,8 +2643,9 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "solved" + r.Id,
-                Applies = (e, state, source) =>
-                    source?.Permanent is { IsSolved: true } && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    source?.Permanent is { IsSolved: true }
+                    && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -2772,8 +2786,8 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "l" + need.ToString(CultureInfo.InvariantCulture) + r.Id,
-                Applies = (e, state, source) =>
-                    AtLeastLevel(source, need) && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    AtLeastLevel(source, need) && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -3031,8 +3045,8 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "l" + floor + r.Id,
-                Applies = (e, state, source) =>
-                    reached.Covers(LevelsOn(source)) && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    reached.Covers(LevelsOn(source)) && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -3372,6 +3386,44 @@ public static partial class CardCompiler
                 cleaned,
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["colours"].Value
                     + " mana symbols among the mana costs of permanents you control");
+
+            // "Equal to the greatest power among creatures you control", "where X is the total
+            // mana value of Dragons you control" — an aggregate over a group, and the counting
+            // vocabulary reads numbers written as "the number of …". Spelled into that shape
+            // here, in the same place and for the same reason devotion is: six wrappers hardcode
+            // "the number of" between them, and one rewrite puts every aggregate behind all of
+            // them at once rather than teaching each wrapper a second spelling.
+            //
+            // The words it inserts are not a tally of the group and are not read as one — the
+            // reader behind them matches "greatest power among …" whole and folds the set. A
+            // tally reading is precisely what these lines were left unread rather than given:
+            // three Dragons costing {5} are a total mana value of fifteen and a count of three,
+            // and on "~ costs {X} less to cast" that is a card twelve mana cheaper or dearer
+            // than it prints, which coverage scores as a win either way.
+            //
+            // Only where the phrase is a quantity, which is what the lead says. "Sacrifice a
+            // creature with the greatest power among creatures they control" is a *choice* among
+            // the group rather than a number taken from it, and belongs to the target grammar;
+            // rewriting it here would take the sentence away from the reader it is for.
+            cleaned = AggregateAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
+                    + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
+
+            // "Equal to 2 plus the number of cards named ~ in all graveyards", "where X is one
+            // plus the number of other creatures you control" — a count with a constant added to
+            // it. Every wrapper that reads a count anchors on the literal words "the number of",
+            // so a constant printed in front of them hides the count from all of them at once;
+            // moved to the other side, all of them read it and the group grammar behind them
+            // takes the constant off again.
+            //
+            // The lead does the work it does for the aggregate above: it is what says the phrase
+            // is a quantity. "Change this creature's base toughness to 1 plus the number of
+            // creature cards in your graveyard" has no reader waiting for it either way, and
+            // rewriting it would only move an unread line's words about.
+            cleaned = AdditiveCountAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " the number of " + m.Groups["n"].Value + " plus ");
 
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
@@ -5176,7 +5228,7 @@ public static partial class CardCompiler
             Id = $"dredge:{many}",
             FunctionsFrom = Zone.Graveyard,
             IsOptional = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is Events.ObjectMoved { To: Zone.Hand, Cause: Events.MoveCause.Draw } drawn
                 && drawn.ControllerId == source.OwnerId
                 && state.GetPlayer(source.OwnerId).Library.Count >= many,
@@ -5234,7 +5286,7 @@ public static partial class CardCompiler
         {
             Id = "umbra-armor",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.ObjectMoved { To: Zone.Graveyard, Cause: Events.MoveCause.Destroy } gone
                 && source.Permanent?.AttachedTo == gone.OldId,
             Replace = (_, _, source) =>
@@ -5843,13 +5895,37 @@ public static partial class CardCompiler
     /// </remarks>
     private static string? CostFilterFor(string phrase)
     {
-        var what = phrase.Trim();
+        ArgumentNullException.ThrowIfNull(phrase);
+
+        // "Elemental spells and Warrior spells you cast cost {1} less to cast" prints the noun
+        // twice, and the template's "what" group therefore arrives as "Elemental spells and
+        // Warrior" - a phrase the filter vocabulary cannot read, so the reader recognised the
+        // line, refused it and left it unread on thirteen cards whose one-noun twin
+        // ("Elemental spells you cast cost {1} less") reads perfectly.
+        //
+        // The repeat is taken out rather than the line read as two modifiers, because two would
+        // be a different card: "Red spells and white spells you cast cost {1} less" takes one
+        // generic off a red-and-white spell, not two, and a disjunctive filter is what says so.
+        // The vocabulary already reads "Red or white", so this is one rewrite in front of it
+        // rather than a second grammar beside it.
+        var what = RepeatedCostNoun().Replace(phrase.Trim(), " ${join} ");
 
         return what.Length == 0
             ? SearchFilters.AnyCard
             : EffectPhrase.SearchFilterFor(
                 what.Replace(" and ", " or ", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>The noun printed twice in "Elemental spells and Warrior spells".</summary>
+    /// <remarks>
+    /// Only between two halves of one conjunction, and only for the nouns these templates put
+    /// there. "Spells you cast and abilities you activate" is not this shape - the words either
+    /// side are not the same noun - and does not match.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s+spells\s+(?<join>and|or)\s+",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex RepeatedCostNoun();
 
     /// <summary>The same phrase with its last word singular, for a template printed plural.</summary>
     private static string Singular(string phrase) =>
@@ -5898,7 +5974,7 @@ public static partial class CardCompiler
             // silently did nothing whenever a board was set up with `Game.Create`, which is the
             // path the behaviour suite and the corpus soak both take. Nothing failed: the
             // permanent simply arrived with no counters and then never left.
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6456,7 +6532,7 @@ public static partial class CardCompiler
         {
             Id = "fading",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6531,7 +6607,7 @@ public static partial class CardCompiler
             // exactly the one the cast marked. Reaching for the permanent it is about to become
             // finds nothing: the replacement runs before the move, so that object does not exist
             // yet.
-            Applies = (e, _, source) => Arriving(e, source) is not null && source.WasEscaped,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && source.WasEscaped,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6568,7 +6644,7 @@ public static partial class CardCompiler
         {
             Id = "echo-owed",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6642,9 +6718,9 @@ public static partial class CardCompiler
         {
             Id = "bloodthirst",
             FunctionsFrom = null,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
-                && bloodied(state, EmptyAbilities.Instance, source, null),
+                && bloodied(state, abilities, source, null),
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6697,7 +6773,7 @@ public static partial class CardCompiler
         {
             Id = "ravenous",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -7066,7 +7142,7 @@ public static partial class CardCompiler
             ? CounterKinds.PlusOnePlusOne
             : CounterKinds.Loyalty;
 
-        bool Applies(GameEvent e, GameState state, GameObject source) =>
+        bool Applies(GameEvent e, GameState state, IAbilitySource _, GameObject source) =>
             Entering(e, state) is { } arriving
             && arriving.Id != source.Id
             && arriving.ControllerId == source.ControllerId
@@ -7147,7 +7223,7 @@ public static partial class CardCompiler
         {
             Id = $"enters-counters-per:{card.Name}:{m.Groups["group"].Value.Trim()}",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -7233,7 +7309,7 @@ public static partial class CardCompiler
         {
             Id = "enters-with-counters",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -7870,6 +7946,7 @@ public static partial class CardCompiler
             || TryExtraBlocks(line, card, statics)
             || TryMustBeBlocked(line, card, statics)
             || TryMinimumBlockers(line, card, statics)
+            || TryMaximumBlockers(line, card, statics)
             || TryCantBeTheTargetOf(line, card, statics)
             || TryHexproofFrom(line, card, statics)
             || TryCantBeBlockedExceptBy(line, card, statics)
@@ -7882,6 +7959,7 @@ public static partial class CardCompiler
             || TryAttachedCountedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
             || TryAttachedTypeAddition(line, statics)
+            || TryAttachedLegendary(line, statics)
             || TryGrantedAbility(line, card, statics)
             || TryDefinedPowerToughness(line, card, statics)
             || TryCountingStatic(line, card, statics)
@@ -8290,6 +8368,40 @@ public static partial class CardCompiler
             Layer = EffectLayer.Type,
             Applies = OnTheHost,
             Apply = (_, _, builder) => builder.CardTypes |= added,
+        });
+
+        return true;
+    }
+
+    /// <summary>"Enchanted permanent is legendary" - a supertype in layer 4 (CR 205.4a, 613.1d).</summary>
+    /// <remarks>
+    /// A supertype and not a card type, so it goes to the flag the computed characteristics
+    /// already keep for it rather than into <c>CardTypes</c>: the Ring makes its bearer
+    /// legendary the same way, and the legend rule reads that one flag. The card that prints it
+    /// is In Bolas's Clutches, whose whole point is the state-based action the flag turns on
+    /// (CR 704.5j) - stealing a permanent and then making it legendary kills the copy its
+    /// original controller still has.
+    /// <para>
+    /// Only "legendary" is admitted. The other supertypes a sentence could name are a different
+    /// amount of work each: nothing in the engine computes snow or basic, so "enchanted land is
+    /// snow" would set a flag no reader consults - every snow test still reads the printed card -
+    /// and would be coverage bought with a lie. It stays in the work queue.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedLegendary(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedLegendaryLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "attached:supertype:legendary",
+            Layer = EffectLayer.Type,
+            Applies = (_, source, target) =>
+                source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host,
+            Apply = (_, _, builder) => builder.IsLegendary = true,
         });
 
         return true;
@@ -8859,6 +8971,60 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "~ can't be blocked by more than one creature" - a ceiling on the block, not a floor
+    /// (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="TryMinimumBlockers"/>, and it needs its own characteristic for
+    /// the reason that one does: the sentence is a count and not a filter, so the block
+    /// restriction vocabulary - which asks a yes/no question of one blocker at a time - has no
+    /// way to express it.
+    /// <para>
+    /// It was not an unread line. The keyword synonym table read it as <b>menace</b>, which is
+    /// the opposite rule - CR 702.111b is a floor of two blockers and this sentence is a
+    /// ceiling of one - so twenty cards compiled complete and played it backwards, and the
+    /// coverage census counted every one of them as done. That is the shape of defect a
+    /// complete/incomplete count cannot show and an effect diff can: the cards did not gain
+    /// an ability when this landed, they gained the right one in place of a wrong one.
+    /// </para>
+    /// <para>
+    /// The subject words are the pair the two block-restriction readers beside it take, so an
+    /// Aura or an Equipment saying it about its host arrives supported. The group spellings -
+    /// "Each creature you control can't be blocked by more than one creature" - are deliberately
+    /// not here: they are the mass-static grammar's sentence, and reading them with a private
+    /// copy of a group vocabulary is the drift this file has paid for before.
+    /// </para>
+    /// </remarks>
+    private static bool TryMaximumBlockers(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = MaximumBlockersLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var most = NumberWordOrDigits(m.Groups["n"].Value);
+        if (most < 1)
+            return false;
+
+        var who = m.Groups["who"].Value.Trim().ToLowerInvariant();
+        var onSelf = who == "~";
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"max-blockers:{card.Name}:{most}",
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, target) =>
+                source is not null
+                && (onSelf
+                    ? target.Subject.Id == source.Id
+                    : source.Permanent?.AttachedTo == target.Subject.Id),
+            Apply = (_, _, builder) => builder.RestrictBlockersTo(most),
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "[This] can't be blocked except by [creatures ...]" — the same rule, said the other way.
     /// </summary>
     /// <remarks>
@@ -9417,13 +9583,80 @@ public static partial class CardCompiler
         if (EffectPhrase.Specs.Parse($"target {singular}") is not
             { Kind: Abilities.TargetKind.Permanent } spec)
         {
-            return null;
+            return ReadBlockRestrictionList(phrase);
         }
 
         // The filter is asked about the blocker with the blocker's own controller, because the
         // phrase describes a creature and not a creature belonging to anybody in particular.
         return (state, abilities, _, blocker) =>
             spec.ObjectFilter?.Invoke(state, abilities, blocker, blocker.ControllerId) != true;
+    }
+
+    /// <summary>
+    /// "Creatures with flying or reach", "artifact creatures or white creatures" - a list.
+    /// </summary>
+    /// <remarks>
+    /// The phrase after "blocked by" is one description on most cards and a disjunction on a
+    /// dozen, and the disjunction is what defeated the reader above: it recognised the line,
+    /// handed the whole phrase to the target grammar, got nothing back and left the line unread.
+    /// Nothing else claims that line, so the refusal was the end of it - "~ can't be blocked
+    /// except by creatures with flying or reach" is printed on cards whose one-quality twin
+    /// ("can't be blocked by creatures with flying") reads perfectly.
+    /// <para>
+    /// A <see cref="BlockRestriction"/> answers "may this creature block", so a disjunction of
+    /// forbidden descriptions is the <em>conjunction</em> of the two answers: a blocker is
+    /// allowed only if it is neither. The "except by" caller negates the whole thing, which
+    /// turns it back into "one of the two may block" - the printed meaning of both spellings.
+    /// </para>
+    /// <para>
+    /// <strong>Split from the right.</strong> "Creatures with power 2 or less or Walls" contains
+    /// two "or"s and only the last one joins the list; cutting at the first would leave
+    /// "creatures with power 2", which the target grammar reads happily and which means
+    /// something else. Taking the rightmost split that leaves two readable halves is what keeps
+    /// the comparison forms intact.
+    /// </para>
+    /// <para>
+    /// The second half is offered twice: as printed, and with the first half's noun in front of
+    /// it. "Creatures with flying or reach" leaves the noun out of the second description
+    /// (CR 509.1b puts no requirement on the wording), and "reach" describes nothing on its own.
+    /// Distributing the head is the whole of that reading, and it is tried only after the bare
+    /// form has failed, so "artifact creatures or white creatures" is still two descriptions.
+    /// </para>
+    /// </remarks>
+    private static BlockRestriction? ReadBlockRestrictionList(string phrase)
+    {
+        const string Join = " or ";
+
+        for (var cut = phrase.LastIndexOf(Join, StringComparison.OrdinalIgnoreCase);
+             cut > 0;
+             cut = phrase.LastIndexOf(Join, cut - 1, StringComparison.OrdinalIgnoreCase))
+        {
+            var head = phrase[..cut].Trim();
+            var tail = phrase[(cut + Join.Length)..].Trim();
+
+            if (head.Length == 0 || tail.Length == 0)
+                continue;
+
+            if (ReadBlockRestriction(head) is not { } first)
+                continue;
+
+            var second = ReadBlockRestriction(tail) ?? Distributed(head, tail);
+            if (second is null)
+                continue;
+
+            return (state, abilities, attacker, blocker) =>
+                first(state, abilities, attacker, blocker)
+                && second(state, abilities, attacker, blocker);
+        }
+
+        return null;
+    }
+
+    /// <summary>The second half of a list read with the first half's noun put back in front.</summary>
+    private static BlockRestriction? Distributed(string head, string tail)
+    {
+        var at = head.LastIndexOf(" with ", StringComparison.OrdinalIgnoreCase);
+        return at < 0 ? null : ReadBlockRestriction(head[..(at + " with ".Length)] + tail);
     }
 
     /// <summary>
@@ -11158,27 +11391,40 @@ public static partial class CardCompiler
         // A spelling this cannot map leaves the whole line unread. A prohibition read too
         // broadly makes a board unattackable or a creature unblockable and looks like coverage
         // while it does it, so the switch fails closed rather than defaulting.
+        var mostBlockers = 0;
+
         if (m.Groups["cant"].Success)
         {
-            var forbidden = m.Groups["cant"].Value.ToLowerInvariant() switch
+            var prohibited = m.Groups["cant"].Value.ToLowerInvariant();
+
+            // The one prohibition in this list that is not a keyword. It read as menace until
+            // round twenty-one, which is the opposite rule: menace is a floor of two blockers
+            // (CR 702.111b) and this is a ceiling of one, so Familiar Ground made its own
+            // creatures unblockable by a lone blocker when the card says only a lone blocker
+            // may block them. It goes to the same characteristic the single-creature reader
+            // writes, so the group and the individual spelling cannot disagree.
+            if (prohibited == "be blocked by more than one creature")
             {
-                "attack" => KeywordAbility.Defender,
-                "block" => KeywordAbility.CantBlock,
-                "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
-                "be blocked" => KeywordAbility.CantBeBlocked,
+                mostBlockers = 1;
+            }
+            else
+            {
+                var forbidden = prohibited switch
+                {
+                    "attack" => KeywordAbility.Defender,
+                    "block" => KeywordAbility.CantBlock,
+                    "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
+                    "be blocked" => KeywordAbility.CantBeBlocked,
+                    _ => KeywordAbility.None,
+                };
 
-                // Menace is this rule with a minimum of two (CR 702.111a), and the cards that
-                // spell it out print exactly that number.
-                "be blocked by more than one creature" => KeywordAbility.Menace,
-                _ => KeywordAbility.None,
-            };
+                if (forbidden == KeywordAbility.None)
+                    return false;
 
-            if (forbidden == KeywordAbility.None)
-                return false;
-
-            keywords = keywords is { } alreadyForbidden
-                ? alreadyForbidden | forbidden
-                : forbidden;
+                keywords = keywords is { } alreadyForbidden
+                    ? alreadyForbidden | forbidden
+                    : forbidden;
+            }
         }
 
         // "Creatures you control can't be the targets of blue spells or abilities from blue
@@ -11345,6 +11591,17 @@ public static partial class CardCompiler
                     source is null
                         ? builder.ControllerId
                         : Characteristics.ControllerOf(state, builder.Abilities, source))),
+            });
+        }
+
+        if (mostBlockers > 0)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:max-blockers:{mostBlockers}",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (_, _, builder) => builder.RestrictBlockersTo(mostBlockers),
             });
         }
 
@@ -11917,6 +12174,49 @@ public static partial class CardCompiler
         var each = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
 
         into = (state, playerId, _) => Math.Max(0, each * count(state, playerId));
+        return true;
+    }
+
+    /// <summary>
+    /// "~ costs {X} less to cast, where X is the number of Dragons you control" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The same discount as the "for each" form beside it with the amount written as a defined
+    /// variable rather than a printed number — one lot of X, not X per thing — and it reads
+    /// through the same <see cref="DefinedCount"/>, so every phrase that vocabulary knows arrives
+    /// working. That is where the aggregates land: the cards printing this sentence overwhelmingly
+    /// spell X as a total or a greatest rather than a tally, and "where X is the number of
+    /// creatures you control" is a card nobody prints.
+    /// <para>
+    /// Refused outright when the card's own mana cost has an {X} in it. CR 107.3i makes every
+    /// instance of X on an object the same number, and a caster who announced X for the cost
+    /// (CR 107.3a) has already fixed it; a second definition would be two answers to one
+    /// question, so the line stays unread rather than being decided here. No corpus card prints
+    /// both, which is what makes the refusal free.
+    /// </para>
+    /// </remarks>
+    private static bool TryVariableCostReduction(
+        string line,
+        CardDefinition card,
+        ref Func<GameState, Guid, IReadOnlyList<Target>, int>? into)
+    {
+        var m = VariableCostReductionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (card.ManaCostRaw.Contains("{X}", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // The whole of what the sentence says X is, handed on as it stands. DefinedCount is the
+        // gate: it reads "the number of …" and nothing else, so a definition it does not know
+        // leaves the line unread rather than discounted by a number nobody worked out.
+        if (DefinedCount(m.Groups["what"].Value.Trim()) is not { } count)
+            return false;
+
+        // Clamped at zero and not at the spell's cost, for the reason the counted form beside
+        // this one is: a reduction larger than the cost pays all of the generic there is
+        // (CR 601.2f), and the payment code is where that is decided.
+        into = (state, playerId, _) => Math.Max(0, count(state, playerId));
         return true;
     }
 
@@ -14085,7 +14385,7 @@ public static partial class CardCompiler
                 : bottom ? "graveyard-to-library"
                 : "graveyard-to-exile",
             FunctionsFrom = null,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.ObjectMoved { To: Zone.Graveyard } bound && bound.OldId == source.Id,
             Replace = (e, _, source) =>
             {
@@ -14132,7 +14432,7 @@ public static partial class CardCompiler
             Id = "shockland",
             FunctionsFrom = null,
             IsOptional = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
                 && state.GetPlayer(source.ControllerId).Life >= life,
 
@@ -14176,7 +14476,7 @@ public static partial class CardCompiler
         {
             Id = "enters-prepared",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) => [e, new BecamePrepared(Arriving(e, source)!.Value)],
         });
 
@@ -14243,7 +14543,7 @@ public static partial class CardCompiler
             // Once the copy effect naming this permanent exists, this effect is done with the
             // arrival - the branches not taken must not be offered again against the very event
             // the chosen one re-emitted.
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is { } arriving && !AlreadyACopy(state, arriving),
 
             // Never reached: an effect with branches is applied through one of them. It is the
@@ -14899,12 +15199,12 @@ public static partial class CardCompiler
             // same words is on the stack. Pinning this to the stack made every enters-tapped land
             // arrive untapped.
             FunctionsFrom = null,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
                 // CR 614.1c: the replacement simply does not apply when the condition is met, so
                 // the land arrives upright and nothing has to untap it afterwards.
                 && (unless is null
-                    || !unless(state, EmptyAbilities.Instance, source, null)),
+                    || !unless(state, abilities, source, null)),
             Replace = (e, _, source) => [e, new PermanentTapped(Arriving(e, source)!.Value)],
         });
 
@@ -14994,7 +15294,7 @@ public static partial class CardCompiler
             // FunctionsFrom is left at its default, which is the battlefield, and that is
             // load-bearing rather than incidental: the gathering loop walks objects in every
             // zone, so a Kismet in hand would otherwise tap the board it is not on.
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Entering(e, state) is { } arriving
                 && arriving.Id != source.Id
                 && (!theirs || arriving.ControllerId != source.ControllerId)
@@ -15086,7 +15386,7 @@ public static partial class CardCompiler
         {
             Id = "phantom-damage",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) => e is DamageMarked marked && marked.Id == source.Id,
+            Applies = (e, _, _, source) => e is DamageMarked marked && marked.Id == source.Id,
             Replace = (_, _, source) =>
                 [new CountersChanged(source.Id, CounterKinds.PlusOnePlusOne, -1)],
         });
@@ -15411,6 +15711,200 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>
+    /// "Creatures can't attack you unless their controller pays {2} for each creature they
+    /// control that's attacking you" — a price on a declaration (CR 508.1h, 509.1d).
+    /// </summary>
+    /// <remarks>
+    /// The family this exists for was measured and declined twice, and the declines were right
+    /// about the reason: the combat step had no way to charge anything. It has one now
+    /// (<see cref="CombatTaxes"/>), and what is read here is deliberately narrow.
+    /// <para>
+    /// <b>The counted price is not counted.</b> "{2} for each creature they control that's
+    /// attacking you" and "{1} for each of those creatures" both mean one price per creature this
+    /// tax covers, which is exactly the arithmetic the declaration already does — so the tail is
+    /// matched as a fixed phrase rather than handed to the counting vocabulary. A tail that says
+    /// anything else ("{1} for each card in your hand", "{X}, where X is …") counts something
+    /// this cannot see at declaration time and leaves the line unread.
+    /// </para>
+    /// <para>
+    /// <b>Fail closed in both directions.</b> A price that parses to nothing, or to a symbol the
+    /// pool arithmetic cannot settle without asking a question — {X}, a hybrid, Norn's Annex's
+    /// Phyrexian {W/P} — leaves the whole line unread. Reading the restriction without a
+    /// chargeable price would make the card <em>stronger</em> than printed (nobody could ever
+    /// attack); reading the price without the restriction would make it a blank. Neither half
+    /// ever reaches the compiled card alone, because both come out of this one match.
+    /// </para>
+    /// <para>
+    /// "Attack or block" is two taxes from one line, and that is why the block half exists at
+    /// all: read as an attack tax only, Qal Sisma Behemoth would block for free while its printed
+    /// text says otherwise.
+    /// </para>
+    /// </remarks>
+    private static bool TryCombatTax(string line, ImmutableList<CombatTax>.Builder into)
+    {
+        if (DefenceTaxLine().Match(line) is { Success: true } group)
+        {
+            if (TaxPrice(group.Groups["price"].Value, group.Groups["count"]) is not { } priced)
+                return false;
+
+            var (price, count) = priced;
+
+            // The three printed subjects are three different questions about who is being
+            // attacked, and there is no default that means "guess": a spelling this switch does
+            // not know leaves the line unread rather than picking the nearest.
+            var subject = group.Groups["what"].Value.ToUpperInvariant() switch
+            {
+                "YOU" => TaxedCreatures.Defending,
+                "YOU OR PLANESWALKERS YOU CONTROL" => TaxedCreatures.DefendingWithPlaneswalkers,
+                "PLANESWALKERS YOU CONTROL" => TaxedCreatures.DefendingPlaneswalkersOnly,
+                _ => (TaxedCreatures?)null,
+            };
+
+            if (subject is not { } who)
+                return false;
+
+            into.Add(new CombatTax
+            {
+                Id = "attack-tax:" + who + ":" + price + (count is null ? string.Empty : ":counted"),
+                Price = price,
+                Count = count,
+                Declaration = TaxedDeclaration.Attack,
+                Subject = who,
+            });
+
+            return true;
+        }
+
+        var self = SelfCombatTaxLine().Match(line);
+        var attached = self.Success ? Match.Empty : AttachedCombatTaxLine().Match(line);
+
+        if (!self.Success && !attached.Success)
+            return false;
+
+        var m = self.Success ? self : attached;
+        if (TaxPrice(m.Groups["price"].Value, m.Groups["count"]) is not { } charged)
+            return false;
+
+        var (toll, per) = charged;
+
+        var subjectHere = self.Success ? TaxedCreatures.Host : TaxedCreatures.Attached;
+        var what = m.Groups["what"].Value.ToUpperInvariant();
+        var counted = per is null ? string.Empty : ":counted";
+
+        if (what is "ATTACK" or "ATTACK OR BLOCK")
+        {
+            into.Add(new CombatTax
+            {
+                Id = "attack-tax:" + subjectHere + ":" + toll + counted,
+                Price = toll,
+                Count = per,
+                Declaration = TaxedDeclaration.Attack,
+                Subject = subjectHere,
+            });
+        }
+
+        if (what is "BLOCK" or "ATTACK OR BLOCK")
+        {
+            into.Add(new CombatTax
+            {
+                Id = "block-tax:" + subjectHere + ":" + toll + counted,
+                Price = toll,
+                Count = per,
+                Declaration = TaxedDeclaration.Block,
+                Subject = subjectHere,
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A declaration's price, or null for one the engine cannot charge (CR 508.1j).
+    /// </summary>
+    /// <remarks>
+    /// CR 508.1j forbids a partial payment and there is no stack object to hang a question on, so
+    /// every symbol here has to be one the pool arithmetic can settle on its own. {X} has no
+    /// announced value at a declaration, a hybrid is a choice nobody can be asked for, and a
+    /// Phyrexian symbol is a choice between mana and life. A price of nothing is refused too: a
+    /// tax of {0} is a prohibition with a free way out, which is not a card.
+    /// </remarks>
+    private static (ManaCostSpec Price, BoardCount? Count)? TaxPrice(string printed, Group counted)
+    {
+        var price = ManaCostSpec.Parse(printed);
+
+        // A counted price is a unit times something on the board, so the unit has to be a number
+        // this can multiply. "{X}, where X is the number of enchantments you control" prints no
+        // unit at all and means one apiece (CR 107.3), which is the {1} substituted here rather
+        // than a second field nothing else would ever set.
+        if (counted.Success)
+        {
+            var phrase = counted.Value.Trim();
+            if (phrase.StartsWith(TaxCountPreamble, StringComparison.OrdinalIgnoreCase))
+                phrase = phrase[TaxCountPreamble.Length..].Trim();
+
+            // hasSource: true — the permanent printing the line is standing on the battlefield
+            // when the declaration is made, so "+1/+1 counter on it" has something to point at.
+            // CountSeats.Host and no lookup: a declaration settles "you" and "its controller" and
+            // nothing else, and a phrase naming a seat it cannot reach is refused there rather
+            // than answered with nought.
+            if (EffectPhrase.Counting(phrase, hasSource: true, EffectPhrase.CountSeats.Host)
+                is not { } count)
+            {
+                return null;
+            }
+
+            var unit = price.HasVariable ? ManaCostSpec.Parse("{1}") : price;
+
+            // The unit is multiplied, so it has to be generic: CR 107.3 says nothing about what
+            // three times a coloured pip would be, and no card asks.
+            return unit.Symbols.IsEmpty
+                || unit.GenericPart <= 0
+                || unit.ManaValue != unit.GenericPart
+                ? null
+                : (unit,
+                    (state, abilities, you, source) => count(state, abilities, you, source, null));
+        }
+
+        return price.Symbols.IsEmpty
+            || price.ManaValue <= 0
+            || price.Symbols.Any(s => s.IsVariable || s.IsHybrid || s.IsPhyrexian)
+            ? null
+            : (price, null);
+    }
+
+    /// <summary>The words "the number of", which a counted group phrase is read without.</summary>
+    private const string TaxCountPreamble = "the number of ";
+
+    /// <summary>"Creatures can't attack you unless their controller pays {2} for each …"</summary>
+    /// <remarks>
+    /// The per-creature tail is an alternation of the three phrases the corpus prints rather than
+    /// a wildcard, because that multiplication is the declaration's own and has to be recognised
+    /// rather than counted. What follows it — Sphere of Safety's "where X is the number of
+    /// enchantments you control" — is a genuine board count and goes to the shared vocabulary.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Creatures can't attack (?<what>you or planeswalkers you control|you|planeswalkers you control) "
+            + @"unless their controller pays (?<price>\{[^{}]+\}) for each "
+            + @"(?:of those creatures|creature they control that's attacking (?:you|a planeswalker you control))"
+            + @"(?:, where X is (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DefenceTaxLine();
+
+    /// <summary>"~ can't attack or block unless you pay {2}." — Qal Sisma Behemoth.</summary>
+    [GeneratedRegex(
+        @"^~ can't (?<what>attack or block|attack|block) unless you pay (?<price>\{[^{}]+\})"
+            + @"(?: for each (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfCombatTaxLine();
+
+    /// <summary>"Enchanted creature can't attack unless its controller pays {3}." — Brainwash.</summary>
+    [GeneratedRegex(
+        @"^Enchanted creature can't (?<what>attack or block|attack|block) "
+            + @"unless its controller pays (?<price>\{[^{}]+\})(?: for each (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedCombatTaxLine();
 
     /// <summary>
     /// "Creature spells you control can't be countered" (CR 701.6a).
@@ -15767,12 +16261,22 @@ public static partial class CardCompiler
     /// </para>
     /// <para>
     /// The controller is read through the control-only layer reader so that a stolen permanent
-    /// shields its new controller's creatures (CR 613.1b). It is asked with no ability source,
-    /// which is the compiler's standing compromise everywhere a replacement predicate needs one:
-    /// <see cref="ReplacementEffectDefinition.Applies"/> is handed a state and an object and no
-    /// abilities, so a control effect <em>granted</em> to a permanent rather than printed on it
-    /// is invisible here. Threading an <c>IAbilitySource</c> through that signature is the fix,
-    /// and it is forty-two call sites wide.
+    /// shields its new controller's creatures (CR 613.1b), and every board question here — that
+    /// reader, the condition, and the two filter predicates — is asked with the game's real
+    /// <see cref="IAbilitySource"/>. It used to be asked with none, which is not a small
+    /// approximation but a different rule: the layer walk gathers its candidates <em>through</em>
+    /// that source, so with an empty one it gathers no continuous effects at all. Counters and
+    /// the face-down rules still applied and nothing else did — an Aura granting first strike
+    /// was invisible to "prevent all combat damage that would be dealt by creatures with first
+    /// strike", and a control effect granted to a permanent rather than printed on it could not
+    /// move the shield to its new controller either.
+    /// </para>
+    /// <para>
+    /// It cannot recurse. The predicate runs from the replacement loop rather than from inside a
+    /// layer computation, and the two readers it reaches are each bounded the way CR 613.8b
+    /// bounds a dependency loop it cannot order: <see cref="SearchFilters"/> answers a nested ask
+    /// from the printed card, and <see cref="Characteristics.ControllerOf"/> from the stored
+    /// controller, rather than either looping.
     /// </para>
     /// </remarks>
     private static ReplacementEffectDefinition StaticShield(
@@ -15804,7 +16308,7 @@ public static partial class CardCompiler
         // The shield with its object slots filled from the board, or null when a slot names
         // something that is not there. An Aura that has come unattached shields nobody rather
         // than falling back to shielding itself.
-        PreventionEffect? Bind(GameState state, GameObject source)
+        PreventionEffect? Bind(GameState state, IAbilitySource abilities, GameObject source)
         {
             ObjectId? Anchored(PreventionAnchor which) => which switch
             {
@@ -15831,7 +16335,7 @@ public static partial class CardCompiler
 
             return template with
             {
-                ControllerId = Characteristics.ControllerOf(state, EmptyAbilities.Instance, source),
+                ControllerId = Characteristics.ControllerOf(state, abilities, source),
                 Permanent = shielded,
                 Source = dealing,
                 Excludes = described.Other ? source.Id : null,
@@ -15854,25 +16358,23 @@ public static partial class CardCompiler
             // the state-held shields. Without the flag the two halves of the prevention family
             // would answer a Skullcrack differently, and only one of them would be right.
             IsPrevention = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
             {
-                if (when is not null && !when(state, EmptyAbilities.Instance, source, null))
+                if (when is not null && !when(state, abilities, source, null))
                     return false;
 
-                if (Bind(state, source) is not { } shield)
+                if (Bind(state, abilities, source) is not { } shield)
                     return false;
 
                 return e switch
                 {
                     Events.DamageMarked marked =>
                         Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, marked.IsCombat,
-                            marked.SourceId)
+                            shield, state, abilities, marked.IsCombat, marked.SourceId)
                         && state.TryGetObject(marked.Id, out var damaged)
-                        && Preventions.Covers(shield, state, EmptyAbilities.Instance, damaged),
+                        && Preventions.Covers(shield, state, abilities, damaged),
                     Events.PlayerDamaged hit =>
-                        Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, hit.IsCombat, hit.SourceId)
+                        Preventions.Watches(shield, state, abilities, hit.IsCombat, hit.SourceId)
                         && Preventions.CoversPlayer(shield, state, hit.PlayerId),
                     _ => false,
                 };
@@ -15995,7 +16497,7 @@ public static partial class CardCompiler
                 + m.Groups["dir"].Value + m.Groups["n"].Value,
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 DamageIn(e) is { } damage
                 && damage.Amount > 0
                 && (combat is null || combat == damage.IsCombat)
@@ -16256,7 +16758,7 @@ public static partial class CardCompiler
                 + ":" + m.Groups["group"].Value.Trim().ToLowerInvariant(),
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is CountersChanged { Delta: > 0 } put
                 && string.Equals(put.Kind, kind, StringComparison.OrdinalIgnoreCase)
                 && holds(state, source, put.Id),
@@ -16341,7 +16843,7 @@ public static partial class CardCompiler
         {
             Id = "life-gain-amount:" + who + ":" + how,
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is LifeChanged { Delta: > 0 } gained
                 && (who is "a player"
                     || (gained.PlayerId == ControllerIn(state, source)) == mine),
@@ -16392,7 +16894,7 @@ public static partial class CardCompiler
         {
             Id = "extra-die",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.DiceRollRequested roll && roll.PlayerId == source.ControllerId,
             Replace = (e, _, _) =>
             {
@@ -16455,7 +16957,7 @@ public static partial class CardCompiler
                 + ":" + who.ToLowerInvariant(),
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard } gone
                 && dying(state, source, gone.OldId),
 
@@ -16657,7 +17159,7 @@ public static partial class CardCompiler
         {
             Id = cost is null ? "kicked-counters" : "kicked-counters-" + cost,
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null && paid(source),
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && paid(source),
             Replace = (e, _, source) =>
             [
                 e,
@@ -16725,7 +17227,7 @@ public static partial class CardCompiler
         {
             Id = "multikicked-counters",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null && source.TimesKicked > 0,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && source.TimesKicked > 0,
             Replace = (e, _, source) =>
             [
                 e,
@@ -16768,7 +17270,7 @@ public static partial class CardCompiler
         {
             Id = "sunburst",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -17293,6 +17795,24 @@ public static partial class CardCompiler
                 Math.Max(0, each * count(state, abilities, you, source.Id, null));
 
             text = SelfCountedCostReductionLine().Replace(text, string.Empty).Trim();
+            return true;
+        }
+
+        if (SelfVariableCostReductionLine().Match(text) is { Success: true } variable)
+        {
+            // One lot of X rather than N per thing, so there is no multiplier to read - and the
+            // count is asked with the source, exactly as the "for each" arm above asks it, so an
+            // aggregate over "other" and a count of the permanent's own counters both work.
+            if (EffectPhrase.Counting(
+                    variable.Groups["what"].Value.Trim(), hasSource: true) is not { } count)
+            {
+                return false;
+            }
+
+            reduction = (state, abilities, source, you) =>
+                Math.Max(0, count(state, abilities, you, source.Id, null));
+
+            text = SelfVariableCostReductionLine().Replace(text, string.Empty).Trim();
             return true;
         }
 
@@ -18414,10 +18934,14 @@ public static partial class CardCompiler
             ["Whenever ~ deals damage, you gain that much life."] = KeywordAbility.Lifelink,
             ["Whenever ~ deals damage, you gain that much life"] = KeywordAbility.Lifelink,
 
-            // Menace, spelled out. Cards printed before the keyword existed say it in full,
-            // and it is the same rule (CR 702.111a) rather than an approximation of it.
-            ["~ can't be blocked by more than one creature."] = KeywordAbility.Menace,
-            ["~ can't be blocked by more than one creature"] = KeywordAbility.Menace,
+            // "~ can't be blocked by more than one creature" was here as a spelling of menace
+            // until round twenty-one, and it is the opposite restriction. CR 702.111b makes
+            // menace "can't be blocked except by two or more creatures" - a floor of two -
+            // while this sentence is a ceiling of one, so Charging Rhino and nineteen others
+            // compiled complete and played the rule backwards: unblockable by a lone creature
+            // instead of blockable only by one. Nothing caught it because a wrong keyword is
+            // still coverage. The sentence is now read by TryMaximumBlockers, which builds
+            // the characteristic the rule actually needs.
             ["~ attacks each combat if able."] = KeywordAbility.MustAttack,
             ["~ attacks each combat if able"] = KeywordAbility.MustAttack,
             ["~ can't block and can't be blocked."] =
@@ -18602,6 +19126,42 @@ public static partial class CardCompiler
             + @"(?: and (?:white|blue|black|red|green))?)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex DevotionAsANumber();
+
+    /// <summary>
+    /// "Equal to the greatest power among …", "where X is the total mana value of …".
+    /// </summary>
+    /// <remarks>
+    /// The lead does the same work it does for devotion above: it is what says the phrase is
+    /// being used as a number rather than as a way of choosing one permanent out of a group. Every
+    /// corpus line naming an aggregate is one or the other, and the selection form — "sacrifice a
+    /// creature with the greatest power among creatures they control", 40-odd lines of it — never
+    /// carries either word.
+    /// <para>
+    /// The fold, the field and the joining word are all carried through into the rewritten phrase
+    /// rather than normalised away, because the reader behind it needs all three: dropping the
+    /// fold would leave a tally, which is the one reading these lines may not have.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) the (?<how>total|greatest|least|highest|lowest) "
+            + @"(?<field>power|toughness|mana value) (?<join>of|among) ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AggregateAsANumber();
+
+    /// <summary>
+    /// "Equal to 2 plus the number of …", "where X is one plus the number of …".
+    /// </summary>
+    /// <remarks>
+    /// The constant is carried through into the rewritten phrase rather than dropped, which is
+    /// the whole point: a reader that threw it away would compile 18 of the 35 corpus cards
+    /// carrying one as complete while playing a number smaller than the card prints — Kindle
+    /// dealing 0 rather than 2 the first time it is cast.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) (?<n>\d{1,2}|one|two|three|four|five|six|seven|eight"
+            + @"|nine|ten) plus the number of ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AdditiveCountAsANumber();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.
@@ -18885,6 +19445,17 @@ public static partial class CardCompiler
             + @" is an? (?<what>[A-Za-z][A-Za-z'-]*) in addition to its other types\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedTypeAdditionLine();
+
+    /// <summary>"Enchanted permanent is legendary" (CR 205.4a).</summary>
+    /// <remarks>
+    /// The noun is a run of words rather than a fixed list because the subject of an attached
+    /// sentence is whatever the Aura enchants - permanent, creature, land - and the sentence
+    /// means the same thing whichever it is. What is fixed is the supertype: see
+    /// <see cref="TryAttachedLegendary"/> for why the others are not here.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:enchanted|equipped) [a-z]+ is legendary\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedLegendaryLine();
 
     /// <remarks>
     /// The same sentence without the clause, which is what makes it CR 205.1a rather than 205.1b.
@@ -19425,15 +19996,33 @@ public static partial class CardCompiler
     /// Read as {1} generic the card would be dearer than printed; read as two generic it would be
     /// cheaper. Neither is the card, so it stays unread.
     /// <para>
-    /// It also refuses "costs {X} less to activate, where X is …" — five cards whose amount is a
-    /// defined variable rather than a printed number, and whose sentence continues past the point
-    /// this one ends.
+    /// It also refuses "costs {X} less to activate, where X is …", whose amount is a defined
+    /// variable rather than a printed number and whose sentence continues past the point this one
+    /// ends. <see cref="SelfVariableCostReductionLine"/> is that form; the two are separate
+    /// patterns so that neither can half-match the other.
     /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"\s*This ability costs \{(?<n>\d+)\} less to activate for each (?<what>[^.]+?)\.?\s*$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCountedCostReductionLine();
+
+    /// <summary>
+    /// "This ability costs {X} less to activate, where X is the greatest power among Wurms you
+    /// control" (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The variable form of the sentence above, which that pattern deliberately refused because
+    /// its own sentence ends where this one carries on. It is a separate pattern rather than an
+    /// optional tail on that one so that neither can half-match the other: a line whose amount is
+    /// a variable and whose definition this cannot read has to stay unread, not be read as a
+    /// discount of nothing.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s*This ability costs \{X\} less to activate, where X is the number of "
+            + @"(?<what>[^.]+?)\.?\s*$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfVariableCostReductionLine();
 
     /// <summary>
     /// "This ability costs {2} less to activate if you control a legendary creature" (CR 601.2f).
@@ -19917,6 +20506,23 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalCostReductionLine();
 
+    /// <remarks>
+    /// The amount is the variable and the sentence goes on to define it, which is the whole of
+    /// the difference from <see cref="CountedCostReductionLine"/> — so there is no number to
+    /// parse and no multiplication to do.
+    /// <para>
+    /// The definition is taken whole rather than anchored on "the number of", because the phrase
+    /// a card actually prints here is "the total power of creatures you control" or "the greatest
+    /// mana value among Elementals you control" — the compiler spells those into the counting
+    /// words before a line reaches this, and a pattern written against the spelled-out form would
+    /// match no printed line, which is a shape no behaviour test can play.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ costs \{X\} less to cast, where X is (?<what>[^.]+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableCostReductionLine();
+
     [GeneratedRegex(@"^Retrace\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RetraceLine();
 
@@ -20090,6 +20696,18 @@ public static partial class CardCompiler
             + @"or more creatures\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MinimumBlockersLine();
+
+    /// <summary>"…can't be blocked by more than N creatures" (CR 509.1b).</summary>
+    /// <remarks>
+    /// "Creature" is allowed to stay singular because the printed line almost always names
+    /// one - "can't be blocked by more than one creature" - and a pattern that demanded the
+    /// plural would read none of them.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>~|enchanted creature|equipped creature) can't be blocked by more than "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) creatures?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MaximumBlockersLine();
 
     [GeneratedRegex(@"^creatures? with greater power$", RegexOptions.IgnoreCase)]
     private static partial Regex GreaterPowerBlockers();

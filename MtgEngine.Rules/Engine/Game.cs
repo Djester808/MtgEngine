@@ -3798,6 +3798,30 @@ public sealed class Game
         if (CombatRules.IllegalAttackSet(State, _abilities, playerId, [.. attackers.Keys]) is { } broken)
             throw new InvalidOperationException(broken);
 
+        // CR 508.1h/j: what it costs to attack is totalled over the whole declaration and locked
+        // in, and there are no partial payments — so it is worked out and refused *before* a
+        // single event is emitted. A declaration the player cannot pay for leaves the game
+        // exactly as it was, mana included, which is what CR 508.1's "the game returns to the
+        // moment before the declaration" says and the only reading a caller can recover from.
+        //
+        // No question is asked. CR 508.1i lets the active player make mana here and this engine
+        // has no sub-step inside a turn-based action to hold one, so the mana has to be floating
+        // already — the same shape as every other payment the engine takes with the action rather
+        // than suspending it (see "A cost is not paid by asking"). The board's job is to quote
+        // the price with CombatTaxes.ToAttack before it offers the button.
+        var tax = CombatTaxes.ToAttack(State, _abilities, attackers);
+        if (!tax.Symbols.IsEmpty)
+        {
+            if (!ManaPayment.CanPay(State.GetPlayer(playerId).ManaPool, tax))
+            {
+                throw new InvalidOperationException(
+                    $"Attacking costs {tax} and you have {State.GetPlayer(playerId).ManaPool} "
+                        + "(CR 508.1h).");
+            }
+
+            PayMana(playerId, tax);
+        }
+
         Emit(new AttackersDeclared(attackers.ToImmutableDictionary()));
 
         // CR 508.1f: attacking taps the creatures. It is not a cost, so vigilance simply skips
@@ -3868,6 +3892,23 @@ public sealed class Game
             blocks.ToDictionary(kv => kv.Key, kv => new ImmutableListOfBlockers(kv.Value)));
         if (illegal is not null)
             throw new InvalidOperationException($"Illegal blocks: {illegal}.");
+
+        // CR 509.1d/f: the other half of the same rule, charged to the declaring player and
+        // refused whole for the same reason. The two are separate calls rather than one shared
+        // one because the two declarations are made by different players at different moments,
+        // and a tax that reached the wrong one of them would be free every other turn.
+        var toll = CombatTaxes.ToBlock(State, _abilities, blocks.Values.SelectMany(b => b));
+        if (!toll.Symbols.IsEmpty)
+        {
+            if (!ManaPayment.CanPay(State.GetPlayer(playerId).ManaPool, toll))
+            {
+                throw new InvalidOperationException(
+                    $"Blocking costs {toll} and you have {State.GetPlayer(playerId).ManaPool} "
+                        + "(CR 509.1d).");
+            }
+
+            PayMana(playerId, toll);
+        }
 
         Emit(new BlockersDeclared(
             blocks.ToImmutableDictionary(kv => kv.Key, kv => kv.Value.ToImmutableList())));
@@ -11709,7 +11750,7 @@ public sealed class Game
                 if (effect.FunctionsFrom is { } zone && source.Zone != zone)
                     continue;
 
-                if (!effect.Applies(e, State, source))
+                if (!effect.Applies(e, State, _abilities, source))
                     continue;
 
                 // CR 615.12, for the half of the prevention family that lives out here. A
@@ -11754,7 +11795,7 @@ public sealed class Game
             if (effect.FunctionsFrom is { } zone && made.Zone != zone)
                 continue;
 
-            if (!effect.Applies(e, State, arriving))
+            if (!effect.Applies(e, State, _abilities, arriving))
                 continue;
 
             foreach (var candidate in Branches(e, made.Id, effect, arriving, applied))
@@ -13602,12 +13643,34 @@ public sealed class Game
         // back-references ask about.
         var record = ResolutionRecord.Empty;
 
+        // How much of the damage this resolution has dealt was excess (CR 120.4a) - the third
+        // back-reference, beside the magnitude and the record. It is derived from the events the
+        // way both of those are, so nothing about it is stored and nothing about it is logged:
+        // whatever the next sentence does with the number lands in the log as its own event.
+        var excess = (Any: 0, ToCreature: 0);
+
         foreach (var effect in effects)
         {
             // Each effect sees the state the previous one left behind (CR 608.2c), so the
             // context is rebuilt rather than captured once.
-            var emitted = effect.Resolve(
-                context with { State = State, SubjectAmount = produced, Record = record });
+            var running = context with
+            {
+                State = State,
+                SubjectAmount = produced,
+                Record = record,
+                ExcessDealt = excess.Any,
+                ExcessDealtToCreature = excess.ToCreature,
+            };
+
+            var emitted = effect.Resolve(running);
+
+            // Measured against the state from before the batch is applied, which is the state
+            // CR 120.4a asks "what would be lethal" about. An effect that marked no damage at
+            // all leaves the number where it was; one that marked damage replaces it, because
+            // "excess damage dealt this way" points at the sentence that dealt the damage and
+            // not at the sum of every sentence that ever did.
+            if (ExcessDamage.InBatch(running, emitted) is { } over)
+                excess = over;
 
             // Read before the batch is applied, because the record keeps each object's card and
             // an id that has moved names nothing afterwards (CR 400.7). The id it *stores* is

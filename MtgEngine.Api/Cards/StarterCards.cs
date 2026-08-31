@@ -183,7 +183,7 @@ public static class StarterCards
                     // CR 614.1c: "as this enters" is a replacement applied to the move itself, and
                     // it functions from the stack, where the card still is at that moment.
                     FunctionsFrom = Zone.Stack,
-                    Applies = (e, state, source) =>
+                    Applies = (e, state, _, source) =>
                         e is ObjectMoved { To: Zone.Battlefield } m && m.OldId == source.Id,
                     Replace = (e, state, source) =>
                     {

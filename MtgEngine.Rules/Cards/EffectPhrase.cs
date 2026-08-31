@@ -3282,10 +3282,38 @@ public static partial class EffectPhrase
         if (ExcessToControllerLine().IsMatch(sentence))
         {
             var last = effects.FindLastIndex(e => e is DealDamage);
-            if (last < 0)
+            if (last >= 0)
+            {
+                effects[last] = ((DealDamage)effects[last]) with
+                {
+                    ExcessToTargetsController = true,
+                };
+
+                return true;
+            }
+
+            // One step down, and one step only. A spell that defines its own X compiles to the
+            // damage inside a "where X is ..." box, so the rider that found nothing at the top
+            // level is looking one level too high rather than at a card it cannot read - which
+            // is what left Gandalf's Sanction unread when this branch was written. The box has
+            // to hold exactly one effect and that effect has to be the damage, so the rider
+            // still refuses rather than guessing which of several hits the sentence meant.
+            var boxed = effects.FindLastIndex(
+                e => e is WithCountedVariable { Effects: [DealDamage] });
+
+            if (boxed < 0)
                 return false;
 
-            effects[last] = ((DealDamage)effects[last]) with { ExcessToTargetsController = true };
+            var box = (WithCountedVariable)effects[boxed];
+
+            effects[boxed] = box with
+            {
+                Effects =
+                [
+                    ((DealDamage)box.Effects[0]) with { ExcessToTargetsController = true },
+                ],
+            };
+
             return true;
         }
 
@@ -4852,6 +4880,61 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Conjure a duplicate of X into your hand" (CR 701.55, 701.56) - the reachable half of
+        // Alchemy's conjure, and it is the token-copy reader with a zone instead of a mint. The
+        // three ways of naming X are the same three, read by the same code path, because the
+        // difference between the two families is where the object lands and whether it is a
+        // token - never who is copied.
+        var conjured = ConjureDuplicateLine().Match(sentence);
+        if (conjured.Success && ConjuredZone(conjured.Groups["into"].Value) is { } into)
+        {
+            var of = conjured.Groups["of"].Value.Trim().TrimEnd('.');
+
+            if (of == "~")
+            {
+                effects.Add(new ConjureDuplicate(into));
+                return true;
+            }
+
+            if (Specs.Parse(of) is
+                { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard } duplicated)
+            {
+                targets.Add(duplicated);
+                effects.Add(new ConjureDuplicate(
+                    into,
+                    targets.Count - 1,
+                    CopiesACard: duplicated.Kind is TargetKind.CardInGraveyard));
+
+                return true;
+            }
+
+            if (ConjuredPronouns.Contains(of, StringComparer.OrdinalIgnoreCase))
+            {
+                if (targets.Count == 0)
+                {
+                    effects.Add(new ConjureDuplicate(
+                        into, Subject: EffectSubject.TriggeringObject));
+
+                    return true;
+                }
+
+                // Told nothing, the effect would take the pronoun for a permanent and find it
+                // somewhere else - the same silent blank the token copy was caught doing.
+                var kind = targets[^1].Kind;
+                if (kind is not (TargetKind.Permanent or TargetKind.CardInGraveyard))
+                    return false;
+
+                effects.Add(new ConjureDuplicate(
+                    into,
+                    targets.Count - 1,
+                    CopiesACard: kind is TargetKind.CardInGraveyard));
+
+                return true;
+            }
+
+            return false;
+        }
+
         // "Create [N] [tapped] token(s) that's a copy of ..." — of this permanent, of something
         // targeted, or of whatever the sentence before named. Three sources, one effect, because
         // the only thing that differs is which permanent's card is taken.
@@ -5940,7 +6023,8 @@ public static partial class EffectPhrase
             // filter carries one. Read as a single name it compiles to a search that matches
             // nothing at all - a card that reads, passes the deck gate and then quietly finds
             // nothing, which this compiler treats as worse than a line it refuses outright.
-            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase))
+            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase)
+            && !RunsOnPastTheName(m.Groups["named"].Value))
         {
             // A name is a filter of its own and cannot be combined with a kind here: "a Goblin
             // card named X" would need both, and the one card printing that shape is not worth
@@ -6040,7 +6124,10 @@ public static partial class EffectPhrase
         // this cannot build, and each stops matching at the tail rather than being read as the
         // plain seek it is not.
         m = SeekLine().Match(sentence);
-        if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
+        if (m.Success
+            && m.Groups["named"].Success
+            && !m.Groups["what"].Success
+            && !RunsOnPastTheName(m.Groups["named"].Value))
         {
             effects.Add(new Seek(
                 NamedFilter(m.Groups["named"].Value),
@@ -6951,9 +7038,23 @@ public static partial class EffectPhrase
         // Only loss and damage: "the damage prevented this way" is deliberately not read, because
         // prevention is a shield here and nothing records how much of it was spent. Reading it
         // would gain nothing rather than the printed amount, which is a wrong card either way.
-        if (LifeLostThisWayLine().IsMatch(sentence))
+        var lifeThisWay = LifeLostThisWayLine().Match(sentence);
+        if (lifeThisWay.Success)
         {
-            effects.Add(new ChangeLife(ThatMany()));
+            // "You gain life equal to the excess damage dealt this way" is the same grammar one
+            // adjective along, and the adjective changes the number: Razor Rings gains what got
+            // through past lethal and not the four it dealt. Refused when nothing in front of it
+            // deals damage, for the reason the guard above is.
+            if (!lifeThisWay.Groups["excess"].Success)
+            {
+                effects.Add(new ChangeLife(ThatMany()));
+                return true;
+            }
+
+            if (!effects.Any(DealsDamage))
+                return false;
+
+            effects.Add(new ChangeLife(ThatMuchExcess()));
             return true;
         }
 
@@ -7146,17 +7247,14 @@ public static partial class EffectPhrase
         // built from the vocabulary every other group reader shares. A dead reader with its own
         // private effect is a second implementation waiting for a reordering to wake it up.
 
-        // "Enchanted creature gets +0/+1 until end of turn" — an Aura pumping what it is on,
-        // on demand rather than continuously. It names no target: "enchanted creature" is
-        // whatever the Aura is already attached to.
-        m = HostPumpLine().Match(sentence);
-        if (m.Success)
-        {
-            var (hostId, hostSize) = PumpSizeOf(m);
-
-            effects.Add(new PumpHostUntilEndOfTurn(hostId) { Size = hostSize });
-            return true;
-        }
+        // "Enchanted creature gets +0/+1 until end of turn" had a reader of its own here, with a
+        // private effect behind it, and it could never run: AttachedSubjectFirstLine claims the
+        // same sentence 1,400 lines earlier, rewrites it to "target creature gets +0/+1 until
+        // end of turn" and wraps the ordinary targeted pump in an OnAttached. Nothing in the
+        // corpus ever reached this, which is how it was found - no compiled card carried the
+        // effect it built. The general route is also the better one: it inherits every size,
+        // every duration and every rider the targeted pump learns, where this had to be widened
+        // by hand and once was not.
 
         // "~ can't be blocked this turn" — the same self-grant written as a rule rather than a
         // keyword. It reaches the same flag the blocking rules already ask for, because the two
@@ -7712,6 +7810,39 @@ public static partial class EffectPhrase
         // is not the board at all, it is what the previous sentence of this resolution just did
         // (CR 608.2c). The clause goes to the same reader the counting grammar uses, so the two
         // can never disagree about what "exiled this way" means.
+        // "If excess damage was dealt this way, create a Lander token." The same sentence again
+        // with a clause about *how hard* the resolution just hit rather than what it touched
+        // (CR 120.4a) - so it is read before the recorded-set arm below, which would see the
+        // words "this way", find no participle it knows and refuse the line outright.
+        //
+        // Refused when nothing in front of it in this same line deals damage. A guard whose
+        // number can only ever be nought is a card that compiles, resolves and does nothing for
+        // ever, which is the failure this whole family is arranged around; a rider that quietly
+        // found nothing to modify is the same mistake one branch up.
+        if (conditional.Success && ThisWay.Excess(conditional.Groups["cond"].Value.Trim()) is { } scope)
+        {
+            if (!effects.Any(DealsDamage))
+                return false;
+
+            var guarded = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(
+                    conditional.Groups["effect"].Value.Trim(),
+                    targets,
+                    guarded,
+                    objectNamedByTrigger)
+                || guarded.Count == 0
+                || guarded.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIfExcessDealt(
+                scope == ThisWay.ExcessScope.Creature, AtLeast: 1, guarded.ToImmutable()));
+
+            return true;
+        }
+
         if (conditional.Success && ThisWay.Mentions(conditional.Groups["cond"].Value))
         {
             if (ThisWay.Condition(conditional.Groups["cond"].Value.Trim()) is not { } clause)
@@ -8836,7 +8967,19 @@ public static partial class EffectPhrase
     /// </remarks>
     internal static KeywordAbility? Keywords(string words)
     {
+        ArgumentNullException.ThrowIfNull(words);
+
         var all = KeywordAbility.None;
+
+        // "Protection from black and from red" is two protection abilities with the word
+        // "protection" printed once (CR 702.16f), and the split below reads the second half as
+        // the keyword "from red" - which is in no table, so the whole list came back null and
+        // the line went unread. The word is put back before anything is split, in the one place
+        // every granting reader asks, because the compiler already had a reader for the
+        // conjunction as a whole line (ProtectionConjunctionLine) and the two disagreed: a card
+        // printing "Protection from black and from red" on its own line read perfectly while the
+        // same words after "Enchanted creature has" did not.
+        words = ElidedProtection().Replace(words, " and protection from ");
 
         foreach (var word in words.Split([" and ", ","], StringSplitOptions.RemoveEmptyEntries))
         {
@@ -8852,6 +8995,16 @@ public static partial class EffectPhrase
 
         return all == KeywordAbility.None ? null : all;
     }
+
+    /// <summary>The repeat in "protection from black and from red", with the noun left out.</summary>
+    /// <remarks>
+    /// Anchored on a preceding "protection from [quality]" so that the words are only put back
+    /// where they were taken out. "Hexproof from black and from red" is a different ability with
+    /// its own reader (CR 702.11f) and does not match, because the lookbehind names the noun.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<=\bprotection from [A-Za-z]+),? and from ", RegexOptions.IgnoreCase)]
+    private static partial Regex ElidedProtection();
 
     private static readonly Dictionary<string, KeywordAbility> GrantableKeywords =
         new(StringComparer.OrdinalIgnoreCase)
@@ -9409,6 +9562,26 @@ public static partial class EffectPhrase
     /// worth more than one that happens to be right about the current printing.
     /// </para>
     /// </remarks>
+    /// <summary>Whether a captured name has run on into the sentence around it.</summary>
+    /// <remarks>
+    /// A card name is a name, not a clause. Arachnus Spinner searches "for a card named Arachnus
+    /// Web <em>and put it onto the battlefield attached to target creature</em>", and the capture
+    /// took the rider with the name - so the card compiled complete and searched every library
+    /// for a card called all of that, which is nothing. That is the failure this compiler treats
+    /// as worse than an unread line, and it is the same shape as the two-name search refused
+    /// beside it.
+    /// <para>
+    /// This is a guard, not a reader: what these lines actually want is the rider lifted off
+    /// before the name is captured, the way <c>SearchToTopLine</c> already amends a search. Until
+    /// then the line stays in the work queue, which is the honest place for it.
+    /// </para>
+    /// </remarks>
+    private static bool RunsOnPastTheName(string named) =>
+        named.Contains(" and put ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" attached to ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" target ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" onto the ", StringComparison.OrdinalIgnoreCase);
+
     private static string NamedFilter(string printed)
     {
         var named = printed.Trim();
@@ -10574,7 +10747,15 @@ public static partial class EffectPhrase
             .Where(colour => colour is not null)
             .Select(colour => colour!.Value);
 
-    /// <summary>One of the five colour words, or null for anything else (CR 105.1).</summary>
+    /// <summary>One of the colour words, or null for anything else (CR 105.1).</summary>
+    /// <remarks>
+    /// "Colorless" is one of them. CR 105.2c makes it the absence of colour rather than a
+    /// sixth colour, and <c>ManaColor.Colorless</c> is the name this codebase gives that
+    /// absence - so every reader taking a colour word takes this one too, and the single
+    /// place that has to know the difference is where the word becomes an effect. Leaving it
+    /// out did not make the sentences safe: the older animation reader dropped the word
+    /// silently, so "becomes a colorless artifact" kept every colour it had.
+    /// </remarks>
     private static ManaColor? ColourNamed(string word) => word.ToLowerInvariant() switch
     {
         "white" => ManaColor.White,
@@ -10582,6 +10763,7 @@ public static partial class EffectPhrase
         "black" => ManaColor.Black,
         "red" => ManaColor.Red,
         "green" => ManaColor.Green,
+        "colorless" => ManaColor.Colorless,
         _ => null,
     };
 
@@ -10623,10 +10805,11 @@ public static partial class EffectPhrase
     /// <remarks>
     /// The guard the older animation reader does not have, and the reason the new shapes get it:
     /// a run is read by picking out the words that are understood, so a word that is <em>not</em>
-    /// — "colorless", "basic", "nonlegendary" — is silently dropped and the card compiles as
-    /// complete while doing something else. "Becomes a colorless artifact in addition to its
-    /// other types" would have kept every colour it had. Refusing the whole sentence leaves it in
-    /// the work queue, where it can be seen.
+    /// — "basic", "nonlegendary" — is silently dropped and the card compiles as complete
+    /// while doing something else. Refusing the whole sentence leaves it in the work queue,
+    /// where it can be seen. "Colorless" used to head that list; it is now a word the colour
+    /// table knows, so "becomes a colorless artifact in addition to its other types" is read
+    /// rather than refused - and no longer keeps every colour it had.
     /// </remarks>
     private static bool ModifiersUnderstood(string mods) =>
         mods.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
@@ -10926,6 +11109,23 @@ public static partial class EffectPhrase
         PlayerLookup? players);
 
     /// <summary>
+    /// The objects a counted group phrase names, before anything is asked about them.
+    /// </summary>
+    /// <remarks>
+    /// The same five arguments a <see cref="CountFn"/> takes and for the same reasons - a set can
+    /// need the source to exclude ("other creatures you control") and the seats to find a pile
+    /// ("cards in that player's hand") exactly as a count can. It exists so that "how many" and
+    /// "how much, totalled" are one question about the group and two folds over the answer,
+    /// rather than two group grammars that would drift on which permanents they admit.
+    /// </remarks>
+    internal delegate IEnumerable<GameObject> SetFn(
+        GameState state,
+        IAbilitySource abilities,
+        Guid you,
+        ObjectId source,
+        PlayerLookup? players);
+
+    /// <summary>
     /// The players a scope names, answered by whoever is asking the count (CR 109.5).
     /// </summary>
     /// <remarks>
@@ -10981,6 +11181,22 @@ public static partial class EffectPhrase
         // three of the five ways the corpus spells this reference, for one branch.
         if (ThisWay.Mentions(groupPhrase))
         {
+            // "Equal to the total mana value of cards milled this way", "where X is the greatest
+            // power among creature cards put into your graveyard this way" - an *aggregate* over
+            // what this resolution just did rather than a tally of it, and the third source for
+            // the fold that already reads a board group and a zone pile. The compiler has spelled
+            // the aggregate into the counting words by the time it reaches here, exactly as it
+            // does for a board group, so the same wrappers carry both.
+            //
+            // It cannot be read as a tally and that is why these lines were left unread rather
+            // than approximated: two 4/4s milled are a count of two and a total power of eight,
+            // and "~ deals damage equal to the total power of the cards exiled this way" read as
+            // a count is a card doing a quarter of what it prints. The set is the one
+            // ThisWay.Counted names for the tally beside it, so neither can drift about which
+            // touches the phrase admits.
+            if (TouchedAggregate(groupPhrase) is { } folded)
+                return each with { Counter = folded };
+
             return ThisWay.Counted(groupPhrase) is not { } touched
                 ? null
                 : each with { Counter = touched.In };
@@ -10997,6 +11213,51 @@ public static partial class EffectPhrase
                     context.PhysicalSourceId,
                     scope => PlayerScopes.Resolve(scope, context)),
             };
+    }
+
+    /// <summary>
+    /// An aggregate over the set this resolution has touched, or null when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// The same two patterns the board aggregate is read through - the fold and the field come
+    /// off <see cref="AggregateOverGroupLine"/>, and what is left is a "this way" phrase read by
+    /// the one reader every other grammar of the family asks. Nothing here knows a noun or a
+    /// participle of its own: a phrase the tally would refuse is a phrase this refuses too, which
+    /// is what stops a card totalling a set it could not have counted.
+    /// <para>
+    /// The "each" some callers put in front comes off first, because those callers disagree about
+    /// whether it belongs to the phrase in exactly the way <see cref="Counting"/> records - and
+    /// "each greatest power among ..." is not a phrase the aggregate pattern would match.
+    /// </para>
+    /// </remarks>
+    private static Func<ResolutionContext, int>? TouchedAggregate(string groupPhrase)
+    {
+        var phrase = groupPhrase.Trim();
+
+        if (phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase))
+            phrase = phrase[5..].Trim();
+
+        if (AggregateOverGroupLine().Match(phrase) is not { Success: true } aggregate)
+            return null;
+
+        if (ThisWay.Counted(aggregate.Groups["group"].Value.Trim()) is not { } over)
+            return null;
+
+        var stat = aggregate.Groups["field"].Value.ToLowerInvariant() switch
+        {
+            "power" => TouchStat.Power,
+            "toughness" => TouchStat.Toughness,
+            _ => TouchStat.ManaValue,
+        };
+
+        var fold = aggregate.Groups["how"].Value.ToLowerInvariant() switch
+        {
+            "total" => TouchFold.Total,
+            "least" or "lowest" => TouchFold.Least,
+            _ => TouchFold.Greatest,
+        };
+
+        return context => over.AggregateIn(context, stat, fold);
     }
 
     /// <summary>
@@ -11019,6 +11280,56 @@ public static partial class EffectPhrase
     {
         ArgumentNullException.ThrowIfNull(groupPhrase);
 
+        // "X is 2 plus the number of cards named ~ in all graveyards" - a count with a constant
+        // added to it. It is taken off here, in front of the group grammar, and the obvious
+        // alternative - a third term on `Amount`, beside the fixed part it multiplies the count
+        // by - was tried and is wrong twice over.
+        //
+        // It does not reach the amount. The commonest printing of this family is "where X is
+        // ...", which compiles through `WithCountedVariable`, and that reader takes the amount's
+        // `Counter` delegate and drops the amount around it - so a constant stored beside the
+        // delegate goes nowhere and Kindle deals nought. The behaviour test below caught it at
+        // once, 2 damage becoming 0, which is the shape of every failure in this round.
+        //
+        // And where it does reach one, adding after the multiplication is the wrong arithmetic.
+        // "For each" distributes over the whole quantity: "gain 2 life for each 3 plus the
+        // number of Islands you control" is two life per thing counted, and there are three plus
+        // the Islands of them. Folded into the count, that comes out right at every multiplier;
+        // added afterwards it is right only while the multiplier is the implicit one every card
+        // printing this happens to leave off today.
+        //
+        // Half the family has no amount anywhere near it in any case. "~'s power and toughness
+        // are each equal to 1 plus the number of lands you control" is a characteristic-defining
+        // ability, and so is every cost reduction and every board condition that counts.
+        //
+        // Dropping the term instead is the fail-open this vocabulary exists to refuse: 18 of the
+        // 35 corpus cards blocked on one compile as complete with the constant simply thrown
+        // away, and each of them then plays a smaller number than it prints, for ever, on a card
+        // coverage scores as read.
+        var phrase = groupPhrase.Trim();
+
+        var lead = phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase)
+            ? "each "
+            : string.Empty;
+
+        if (AdditiveCountTerm().Match(phrase[lead.Length..]) is not { Success: true } more)
+            return CountedGroup(phrase, hasSource, seats);
+
+        if (AdditiveNumber(more.Groups["n"].Value) is not { } extra)
+            return null;
+
+        var rest = lead + phrase[(lead.Length + more.Length)..].Trim();
+
+        return CountedGroup(rest, hasSource, seats) is not { } counted
+            ? null
+            : (state, abilities, you, source, players) =>
+                counted(state, abilities, you, source, players) + extra;
+    }
+
+    /// <summary>The group itself, with any constant added to its count already taken off.</summary>
+    private static CountFn? CountedGroup(
+        string groupPhrase, bool hasSource, CountSeats seats)
+    {
         var phrase = groupPhrase.Trim();
 
         // "For each creature on the battlefield" is "for each creature". The count at the bottom
@@ -11305,6 +11616,62 @@ public static partial class EffectPhrase
             };
         }
 
+        // "The greatest power among creatures you control", "the total mana value of Dragons you
+        // control" - an *aggregate* over a group rather than a tally of it. The set is the same
+        // set the count beside it walks; only the fold differs, so this asks the same vocabulary
+        // for the members and adds a fold rather than growing a second group grammar.
+        //
+        // It cannot be read as a tally, and that is the whole reason these lines were left
+        // unread rather than approximated. Three Dragons costing {5} are a total mana value of
+        // fifteen and a count of three; on "~ costs {X} less to cast" the tally reading is a card
+        // twelve mana dearer than it prints, and coverage scores a card that compiles as a win
+        // either way. Only a reader that knows the difference may claim the sentence.
+        //
+        // Placed above the two set arms rather than below them so that the aggregate's own group
+        // - "creatures you control" inside "the greatest power among creatures you control" - is
+        // offered to those arms as a group, which is what it is.
+        var aggregate = AggregateOverGroupLine().Match(people);
+        if (aggregate.Success)
+        {
+            var over = aggregate.Groups["group"].Value.Trim();
+
+            if (MatchedSet("each " + over, over, seats) is not { } members)
+                return null;
+
+            var fold = aggregate.Groups["how"].Value.ToLowerInvariant();
+            var field = aggregate.Groups["field"].Value.ToLowerInvariant();
+
+            return (state, abilities, you, source, players) => Folded(
+                fold,
+                field,
+                state,
+                abilities,
+                members(state, abilities, you, source, players));
+        }
+
+        return MatchedSet(phrase, people, seats) is not { } counted
+            ? null
+            : (state, abilities, you, source, players) =>
+                counted(state, abilities, you, source, players).Count();
+    }
+
+    /// <summary>
+    /// The objects a counted group phrase names, or null when it names a set this cannot find.
+    /// </summary>
+    /// <remarks>
+    /// The tail of <see cref="Counting"/>, lifted out whole so that the tally and the aggregate
+    /// fold over one answer to "which objects?" rather than two. Every refusal below is a refusal
+    /// of the <em>set</em>, and both folds inherit it: a phrase the tally would not count is a
+    /// phrase the aggregate may not total either.
+    /// <para>
+    /// Two arguments for one phrase because the two arms want it spelled differently - the pile
+    /// arm reads the bare noun run and the group grammar wants the "each" in front - and the
+    /// caller already has both spellings in hand. Deriving one from the other here would put the
+    /// guess in the one place that cannot check it.
+    /// </para>
+    /// </remarks>
+    private static SetFn? MatchedSet(string phrase, string people, CountSeats seats)
+    {
         // "The number of creature cards in your graveyard", "the number of cards in your hand" -
         // counting a *zone* rather than the battlefield, which is the same question about a
         // different pile and had no answer at all. The battlefield count below walks
@@ -11370,7 +11737,7 @@ public static partial class EffectPhrase
 
             return (state, _, you, _, players) =>
                 (players is null ? PlayerScopes.Around(whose, state, you) : players(whose))
-                .Sum(who =>
+                .SelectMany(who =>
                 {
                     var player = state.GetPlayer(who);
 
@@ -11381,20 +11748,22 @@ public static partial class EffectPhrase
                         _ => player.Graveyard,
                     };
 
-                    return zone.Count(id =>
-                        state.TryGetObject(id, out var card)
-                        && types.Exists(set => set.All(
-                            type => card.Card.CardTypes.HasFlag(type)))
+                    return zone
+                        .Where(id =>
+                            state.TryGetObject(id, out var card)
+                            && types.Exists(set => set.All(
+                                type => card.Card.CardTypes.HasFlag(type)))
 
-                        // The printed name, not a computed one. CR 400.7 keeps a new object in
-                        // a new zone and the continuous effects that could rename one apply on
-                        // the battlefield and the stack; a card in a graveyard, a hand or a
-                        // library is its printed self.
-                        && (pileName is null
-                            || string.Equals(
-                                card.Card.Name,
-                                pileName,
-                                StringComparison.OrdinalIgnoreCase) != notNamed));
+                            // The printed name, not a computed one. CR 400.7 keeps a new
+                            // object in a new zone and the continuous effects that could
+                            // rename one apply on the battlefield and the stack; a card in a
+                            // graveyard, a hand or a library is its printed self.
+                            && (pileName is null
+                                || string.Equals(
+                                    card.Card.Name,
+                                    pileName,
+                                    StringComparison.OrdinalIgnoreCase) != notNamed))
+                        .Select(state.GetObject);
                 });
         }
 
@@ -11421,9 +11790,9 @@ public static partial class EffectPhrase
 
         if (counted.SourceFilter is null)
         {
-            return (state, abilities, you, _, _) => state.Battlefield.Count(
-                id => counted.ObjectFilter?.Invoke(
-                    state, abilities, state.GetObject(id), you) != false);
+            return (state, abilities, you, _, _) => state.Battlefield
+                .Select(state.GetObject)
+                .Where(obj => counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false);
         }
 
         // "For each other Equipment you control". <see cref="Specs.ParseGroup"/> reads the word
@@ -11438,19 +11807,98 @@ public static partial class EffectPhrase
         // fourteen "gets +1/+1 for each other attacking Goblin" cards, whose count is made by a
         // floating effect that genuinely has no source to exclude - a real defect, but a
         // different one from this, and one this arm is not where you fix.
-        return (state, abilities, you, source, _) => state.Battlefield.Count(
-            id =>
-            {
-                var obj = state.GetObject(id);
+        return (state, abilities, you, source, _) => state.Battlefield
+            .Select(state.GetObject)
+            .Where(obj =>
+                counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false
+                && counted.SourceFilter(
+                    state,
+                    abilities,
+                    obj,
+                    state.TryGetObject(source, out var itself) ? itself : null,
+                    you));
+    }
 
-                return counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false
-                    && counted.SourceFilter(
-                        state,
-                        abilities,
-                        obj,
-                        state.TryGetObject(source, out var itself) ? itself : null,
-                        you);
-            });
+    /// <summary>
+    /// An aggregate over a matched set: the total, the greatest or the least of one field.
+    /// </summary>
+    /// <remarks>
+    /// Zero for an empty set, which is what the rules say a value that cannot be determined is
+    /// (CR 107.2) and what every printed "the greatest power among creatures you control" comes
+    /// to when you control none.
+    /// <para>
+    /// Clamped at zero on the way out (CR 107.1b): a game value may be negative - a 3/4 that has
+    /// been given -5/-0 has power -2 - but a calculation that decides the result of an effect
+    /// uses zero instead when it comes out below it. The rule's carve-out is for effects that
+    /// double, triple or <em>set</em> a life total or a creature's power and toughness, and no
+    /// aggregate this reads reaches one: the P/T-defining cards that print an aggregate all
+    /// print a mana value, which cannot be negative.
+    /// </para>
+    /// </remarks>
+    private static int Folded(
+        string fold,
+        string field,
+        GameState state,
+        IAbilitySource abilities,
+        IEnumerable<GameObject> members)
+    {
+        var values = new List<int>();
+
+        foreach (var member in members)
+        {
+            if (FieldOf(state, abilities, member, field) is { } value)
+                values.Add(value);
+        }
+
+        if (values.Count == 0)
+            return 0;
+
+        var answer = fold switch
+        {
+            "total" => values.Sum(),
+            "least" or "lowest" => values.Min(),
+            _ => values.Max(),
+        };
+
+        return Math.Max(0, answer);
+    }
+
+    /// <summary>One object's power, toughness or mana value, or null when it has none.</summary>
+    /// <remarks>
+    /// Null is not zero here. A permanent that is not a creature has no power at all, and
+    /// folding it in as a zero would drag "the least power among creatures you control" down to
+    /// nought the moment the group admitted an artifact - so it is left out of the fold instead.
+    /// <para>
+    /// A card outside the battlefield is read off the printed card and not through the layers:
+    /// continuous effects apply to permanents, and a card in a graveyard has the characteristics
+    /// its printing gives it (CR 613.1, CR 202.3). A printed star is nought everywhere but the
+    /// battlefield (CR 208.2b), which is exactly what the missing value means here.
+    /// </para>
+    /// </remarks>
+    private static int? FieldOf(
+        GameState state, IAbilitySource abilities, GameObject obj, string field)
+    {
+        if (obj.Permanent is null)
+        {
+            return field switch
+            {
+                "power" => obj.Card.Power ?? 0,
+                "toughness" => obj.Card.Toughness ?? 0,
+                _ => obj.Card.Cmc,
+            };
+        }
+
+        var now = Characteristics.Of(state, abilities, obj);
+
+        return field switch
+        {
+            "power" => now.Power,
+            "toughness" => now.Toughness,
+
+            // The *computed* card, not the printed one: a permanent that has become a copy of
+            // something else has that card's mana cost, and its mana value with it (CR 707.2).
+            _ => now.Card.Cmc,
+        };
     }
 
     /// <summary>
@@ -11647,6 +12095,43 @@ public static partial class EffectPhrase
         @"^colou?rs? among (?<group>[A-Za-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ColorsAmongLine();
 
+    /// <summary>
+    /// "Greatest power among creatures you control", "total mana value of Dragons you control".
+    /// </summary>
+    /// <remarks>
+    /// The fold and the field are captured separately because they are independent: every one of
+    /// the three folds is printed on every one of the three fields somewhere in the corpus, and a
+    /// pattern per printed phrase would be nine.
+    /// <para>
+    /// "Highest" and "lowest" are the same two folds under the words a handful of cards prefer -
+    /// "the highest mana value among cards in your library" is "the greatest" - so they are read
+    /// here rather than left to a second reader that would have to agree with this one.
+    /// </para>
+    /// <para>
+    /// "Of" and "among" are interchangeable in the printed lines and neither narrows the group:
+    /// the corpus writes "the total power <em>of</em> creatures you control" and "the greatest
+    /// power <em>among</em> creatures you control" about the same set.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<how>total|greatest|least|highest|lowest) (?<field>power|toughness|mana value) "
+            + @"(?:of|among) (?<group>.+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AggregateOverGroupLine();
+
+    /// <summary>"2 plus …", "one plus …" - a constant added to the count behind it.</summary>
+    /// <remarks>
+    /// Anchored at the start of the phrase, because that is the only place the compiler's rewrite
+    /// puts it: the printed word order is "2 plus the number of X" and the wrappers that read a
+    /// count all anchor on "the number of", so the constant is moved across those words before
+    /// anything reads them. A number found anywhere else in a group phrase is part of the group -
+    /// "creatures with power 2 or greater" - and is nothing to do with this.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten) plus ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AdditiveCountTerm();
+
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
     /// <remarks>
     /// A name clause may follow it - "each other creature on the battlefield named Relentless
@@ -11788,6 +12273,38 @@ public static partial class EffectPhrase
     private static Amount ThatMany() => new(1)
     {
         Counter = context => Math.Max(0, context.SubjectAmount ?? 0),
+    };
+
+    /// <summary>
+    /// "The excess damage dealt this way" as an amount (CR 120.4a).
+    /// </summary>
+    /// <remarks>
+    /// The magnitude twin of <see cref="ThatMany"/>: the resolution loop carries both forward,
+    /// and the printed sentences ask for them in the same grammar one adjective apart.
+    /// </remarks>
+    private static Amount ThatMuchExcess() => new(1)
+    {
+        Counter = context => Math.Max(0, context.ExcessDealt),
+    };
+
+    /// <summary>
+    /// Whether an effect already read from this line is one that deals damage.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed gate on every excess reader. "Excess damage dealt this way" points back at
+    /// a sentence of the same line, and a card where the reader cannot see one would compile a
+    /// clause whose number is nought for ever - complete, castable and silent, which is the exact
+    /// shape of card the redirect rider one file along refuses to print.
+    /// <para>
+    /// One step down through the "where X is ..." wrapper as well, because a spell that defines
+    /// its own X keeps its damage inside that box and the sentence after it still means the box.
+    /// </para>
+    /// </remarks>
+    private static bool DealsDamage(IEffect effect) => effect switch
+    {
+        DealDamage => true,
+        WithCountedVariable wrapped => wrapped.Effects.Any(DealsDamage),
+        _ => false,
     };
 
     /// <summary>
@@ -12117,6 +12634,31 @@ public static partial class EffectPhrase
     private static bool IsThatMany(string word) =>
         word.Trim().Equals("that many", StringComparison.OrdinalIgnoreCase)
         || word.Trim().Equals("that much", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The constant in front of a count, or null for a word this may not guess at.</summary>
+    /// <remarks>
+    /// Its own table rather than <see cref="Number"/>, which answers one for every word it does
+    /// not know. That default is right where it stands - an article is one - and wrong here: a
+    /// constant read as one on a card that printed three is a card two short of what it says,
+    /// on a line that compiled, with nothing downstream able to tell.
+    /// </remarks>
+    private static int? AdditiveNumber(string word) =>
+        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var digits)
+            ? digits
+            : word.ToLowerInvariant() switch
+            {
+                "one" => 1,
+                "two" => 2,
+                "three" => 3,
+                "four" => 4,
+                "five" => 5,
+                "six" => 6,
+                "seven" => 7,
+                "eight" => 8,
+                "nine" => 9,
+                "ten" => 10,
+                _ => null,
+            };
 
     internal static Amount Number(string word)
     {
@@ -12518,11 +13060,38 @@ public static partial class EffectPhrase
             // with "All Mountains are Plains", which became a lord for the creature type
             // Mountain. So the clause comes off first, before any of that vocabulary runs, and
             // goes back on as a test of its own that is told it is about a name.
+            //
+            // <strong>One name per phrase, or none.</strong> The capture cannot cross a second
+            // "named", but refusing to cross one is not enough on its own: the match simply
+            // moves to the later clause, and "target card named Boulderfoot Merc or a card named
+            // Igneous Cur" came back as one spec demanding both names at once - a card that
+            // compiles, plays, and can never find anything. Two audits this round found dozens
+            // of that kind already in the tree, and this is how they get made. So a head that
+            // still holds the word is refused and the line stays unread, which is the honest
+            // answer until the grammar can hold two names.
             if (NamedTail().Match(text) is { Success: true } byName
-                && Parse(text[..byName.Index]) is { Kind: TargetKind.Permanent } thing)
+                && !HoldsAnotherName(text[..byName.Index])
+                && Parse(text[..byName.Index]) is { } thing
+                && thing.Kind is TargetKind.Permanent or TargetKind.CardInGraveyard)
             {
                 return WithPrintedName(
                     thing, byName.Groups["name"].Value.Trim(), byName.Groups["not"].Success);
+            }
+
+            // "Target card named Groffskithur from your graveyard" - the same clause with the
+            // zone printed after it rather than before. The tail above is anchored at the end of
+            // the phrase because that is where a name usually sits; a card outside the
+            // battlefield says where it is *after* saying what it is, so the name is in the
+            // middle and that anchor never matched one. The zone clause is lifted off with the
+            // name and put straight back, so the noun grammar sees the phrase it already reads
+            // and the name arrives as its own test - exactly the order the battlefield form uses.
+            if (NamedZoneTail().Match(text) is { Success: true } inZone
+                && !HoldsAnotherName(text[..inZone.Index])
+                && Parse(text[..inZone.Index] + inZone.Groups["zone"].Value) is { } filed
+                && filed.Kind is TargetKind.Permanent or TargetKind.CardInGraveyard)
+            {
+                return WithPrintedName(
+                    filed, inZone.Groups["name"].Value.Trim(), inZone.Groups["not"].Success);
             }
 
             // "Up to one target creature" is an ordinary target that may be left unchosen
@@ -13158,6 +13727,17 @@ public static partial class EffectPhrase
             };
         }
 
+        /// <summary>Whether a phrase still names a second printed name (CR 201.2a).</summary>
+        /// <remarks>
+        /// Asked of what is left once one name clause has been lifted off. A spec holds one name
+        /// test, so a second name in the residue can only be folded into the first one's filter,
+        /// and a filter demanding two names at once matches nothing at any table. The line is
+        /// worth more unread than read that way: unread, a deck check refuses the card; read, it
+        /// is a card that plays and quietly does nothing.
+        /// </remarks>
+        private static bool HoldsAnotherName(string head) =>
+            head.Contains(" named ", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>Whether one object answers to a name right now (CR 201.2a).</summary>
         /// <remarks>
         /// A face-down permanent has no name at all (CR 708.2), and CR 201.2a says an object
@@ -13188,8 +13768,33 @@ public static partial class EffectPhrase
         /// sits - "creatures you control named ~", "a creature named Bogbrew Witch" - and a
         /// clause taken from the middle would cut a noun phrase in half.
         /// </remarks>
-        [GeneratedRegex(@"(?<not>\s+not)?\s+named\s+(?<name>[A-Z][^.]*?)\s*$")]
+        /// <remarks>
+        /// <strong>A name may not run through a second "named".</strong> "A card named Boulderfoot
+        /// Merc or a card named Igneous Cur" is two names, and a capture that crossed the second
+        /// word produced one filter naming both - a complete card searching for a card no library
+        /// holds. That is the worst failure this compiler has, because it looks like coverage.
+        /// The lookahead is what refuses the phrase instead.
+        /// </remarks>
+        [GeneratedRegex(@"(?<not>\s+not)?\s+named\s+(?<name>[A-Z](?:(?!\snamed\s)[^.])*?)\s*$")]
         private static partial Regex NamedTail();
+
+        /// <summary>
+        /// "…named Groffskithur from your graveyard" - a name with the zone printed behind it.
+        /// </summary>
+        /// <remarks>
+        /// The determiner list is what keeps the name whole. A printed name may itself contain
+        /// the word "from" - Rise from the Grave - and the only thing telling that apart from
+        /// the zone clause is what follows: a zone is spelled "from <em>your</em> graveyard",
+        /// "in <em>a</em> graveyard", never "from the grave". So the tail must open with one of
+        /// the determiners a zone clause uses and end on a zone word, and the name is free to
+        /// run through anything else. Both runs are lazy, so a name that swallowed the clause
+        /// would leave the anchor unmatched and the engine gives the words back.
+        /// </remarks>
+        [GeneratedRegex(
+            @"(?<not>\s+not)?\s+named\s+(?<name>[A-Z](?:(?!\snamed\s)[^.])*?)"
+                + @"(?<zone>\s+(?:from|in)\s+(?:a|an|any|your|their|each|its owner's)\s+"
+                + @"(?:\w+\s+)?(?:graveyard|exile|library|hand)s?)\s*$")]
+        private static partial Regex NamedZoneTail();
 
         [GeneratedRegex(@"^(all|each|every)\s+", RegexOptions.IgnoreCase)]
         private static partial Regex GroupOpener();
@@ -15512,14 +16117,14 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?(?<t>[Tt]arget [A-Za-z0-9'’ ]+?) becomes "
-            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+            + @"(?<colour>white|blue|black|red|green|colorless)(?<ueot> until end of turn)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BecomesColourLine();
 
     /// <summary>The same sentence said about the source (CR 105.2).</summary>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?~ becomes "
-            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+            + @"(?<colour>white|blue|black|red|green|colorless)(?<ueot> until end of turn)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfBecomesColourLine();
 
@@ -15960,6 +16565,21 @@ public static partial class EffectPhrase
         ["it", "that creature", "that permanent", "that artifact", "that token"];
 
     /// <summary>
+    /// The pronouns a conjure sentence points at what it duplicates (CR 701.56a).
+    /// </summary>
+    /// <remarks>
+    /// The shared <see cref="Pronouns"/> plus the two spellings the conjure family uses and
+    /// nothing else does in this position - "that card", because what a conjure duplicates is
+    /// usually a card rather than a permanent, and "that spell", because two of them duplicate
+    /// something on the stack. Kept local rather than widened into the shared list: "that card"
+    /// after a search or a reveal names something the token-copy reader would then take for a
+    /// permanent, which is the silent-blank failure that list is already documented as having
+    /// had once.
+    /// </remarks>
+    private static readonly string[] ConjuredPronouns =
+        [.. Pronouns, "that card", "that spell"];
+
+    /// <summary>
     /// The keywords a printed "can't ..." names (CR 509.1b, 702.3b).
     /// </summary>
     /// <remarks>
@@ -16186,6 +16806,36 @@ public static partial class EffectPhrase
             + @"(?<of>.+?)(?:,? except (?<except>.+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TokenCopyLine();
+
+    /// <summary>Where a conjured duplicate lands (CR 701.55a).</summary>
+    /// <remarks>
+    /// A closed list rather than a parse, and it fails closed for the reason the whole family
+    /// does: a duplicate that arrived in the wrong zone is a card better or worse than the one
+    /// printed, and an unread line is the cheaper failure. The library forms - "into your
+    /// library, then shuffle", "into the top five cards of your library at random" - are
+    /// deliberately absent, because where in the library is the whole of what those sentences say.
+    /// </remarks>
+    private static State.Zone? ConjuredZone(string into) => into.ToLowerInvariant() switch
+    {
+        "into your hand" => State.Zone.Hand,
+        "into your graveyard" => State.Zone.Graveyard,
+        "into exile" => State.Zone.Exile,
+        "onto the battlefield" => State.Zone.Battlefield,
+        _ => null,
+    };
+
+    /// <remarks>
+    /// Deliberately narrower than <see cref="TokenCopyLine"/>: no count, because every printed
+    /// conjure of a duplicate makes exactly one, and no "except" clause, because none of them
+    /// carries one. Widening either without a card that says it would be a template guessing at
+    /// wording, which this compiler has been caught doing and pays for in cards that read and
+    /// play as something else.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^conjure a duplicate of (?<of>.+?) "
+            + @"(?<into>into your hand|into your graveyard|into exile|onto the battlefield)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ConjureDuplicateLine();
 
     [GeneratedRegex(
         @"^(?<who>you|each opponent|each player) (?<verb>gains?|loses?) "
@@ -16997,6 +17647,16 @@ public static partial class EffectPhrase
     /// the quotation for a keyword completed nothing, because what refused the line was never the
     /// prohibition.
     /// </para>
+    /// <para>
+    /// <strong>The name has two seats, because the printed card puts it in two places.</strong>
+    /// "A 1/1 green Wolf creature token named Wolves of the Hunt" names the token before its
+    /// abilities and "a 1/1 colorless Insect artifact creature token with flying named Hornet"
+    /// names it after them, and both are the same instruction. Only the first seat existed, so
+    /// every token whose card printed a keyword in front of the name went unread — Hornet
+    /// Cannon, The Hive, Wall of Kelp, Jungle Patrol and ten more, each of them one line short.
+    /// The second seat is optional and anchored on the end of the line, so the lazy keyword list
+    /// gives back exactly the words "named …" needs and no more.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent"
@@ -17008,6 +17668,7 @@ public static partial class EffectPhrase
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
             + @"(?: named " + TOKENNAME + @")?"
             + @"(?: with (?<kw>[a-z][a-z0-9 ,]*?))?"
+            + @"(?: named " + TOKENNAME + @")?"
             + @"(?:(?:,? and)?(?: with)? ""(?<text>[^""]+)"")*"
             + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.None)]
@@ -17345,7 +18006,7 @@ public static partial class EffectPhrase
     private static partial Regex GainLife();
 
     [GeneratedRegex(
-        @"^you gain life equal to the (life lost|damage dealt) this way$",
+        @"^you gain life equal to the (life lost|(?<excess>excess )?damage dealt) this way$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LifeLostThisWayLine();
 
@@ -17409,12 +18070,6 @@ public static partial class EffectPhrase
             + @" and can't (?<what>be blocked|block) this turn\.",
         RegexOptions.None)]
     private static partial Regex ConjoinedProhibitionLine();
-
-    [GeneratedRegex(
-        @"^enchanted (creature|permanent) gets " + PT + @" "
-            + @"until end of turn$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex HostPumpLine();
 
     [GeneratedRegex(
         @"^return it to its owner's hand$", RegexOptions.IgnoreCase)]
