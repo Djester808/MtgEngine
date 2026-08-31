@@ -11013,12 +11013,26 @@ public static partial class EffectPhrase
         ArgumentNullException.ThrowIfNull(groupPhrase);
 
         // "X is 2 plus the number of cards named ~ in all graveyards" - a count with a constant
-        // added to it. It is peeled off here, in front of the group grammar, rather than put on
-        // the amount that scales by the count: an Amount is a fixed part times a count and has
-        // nowhere to add a term once, and half the corpus lines that print this are not amounts
-        // at all. "~'s power and toughness are each equal to 1 plus the number of lands you
-        // control" is a characteristic-defining ability whose count reaches this method with no
-        // Amount anywhere near it, and so is every cost reduction and every board condition.
+        // added to it. It is taken off here, in front of the group grammar, and the obvious
+        // alternative - a third term on `Amount`, beside the fixed part it multiplies the count
+        // by - was tried and is wrong twice over.
+        //
+        // It does not reach the amount. The commonest printing of this family is "where X is
+        // ...", which compiles through `WithCountedVariable`, and that reader takes the amount's
+        // `Counter` delegate and drops the amount around it - so a constant stored beside the
+        // delegate goes nowhere and Kindle deals nought. The behaviour test below caught it at
+        // once, 2 damage becoming 0, which is the shape of every failure in this round.
+        //
+        // And where it does reach one, adding after the multiplication is the wrong arithmetic.
+        // "For each" distributes over the whole quantity: "gain 2 life for each 3 plus the
+        // number of Islands you control" is two life per thing counted, and there are three plus
+        // the Islands of them. Folded into the count, that comes out right at every multiplier;
+        // added afterwards it is right only while the multiplier is the implicit one every card
+        // printing this happens to leave off today.
+        //
+        // Half the family has no amount anywhere near it in any case. "~'s power and toughness
+        // are each equal to 1 plus the number of lands you control" is a characteristic-defining
+        // ability, and so is every cost reduction and every board condition that counts.
         //
         // Dropping the term instead is the fail-open this vocabulary exists to refuse: 18 of the
         // 35 corpus cards blocked on one compile as complete with the constant simply thrown
