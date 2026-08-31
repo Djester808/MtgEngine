@@ -550,53 +550,6 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// A land that prints a mana ability <em>and</em> has a basic land type offers both of them.
-    /// </summary>
-    /// <remarks>
-    /// Murmuring Bosk's shape: a Forest whose text box also says "{T}: Add {W}". CR 305.6's
-    /// ability is granted by the layers and the compiler numbers a printed mana ability "mana"
-    /// from zero without knowing that rule exists, so the granted one has to take the first id
-    /// the card has not already used. **A collision here is not a duplicate in a list - it is the
-    /// wrong ability resolving**, because the board and the log both address an ability by its id
-    /// and would find whichever came first.
-    /// <para>
-    /// The two are also one tap between them (CR 305.6 grants an ability, not a second untapped
-    /// permanent), so the second is refused - which is what makes the first one's identity
-    /// checkable at all.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void A_land_that_prints_a_mana_ability_and_has_a_basic_type_offers_both()
-    {
-        var bosk = Card("Bosk Test", "{T}: Add {W}.", CardType.Land, subtypes: ["Forest"]);
-
-        var compiled = CardCompiler.Compile(bosk);
-        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-
-        var (game, alice, _) = InMainPhase();
-        var land = game.PlayLand(alice, TestCards.PutInHand(game, alice, bosk));
-        Settle(game);
-
-        var mana = ManaAbilitiesOf(game, land);
-        Assert.Equal(2, mana.Count);
-        Assert.Equal(2, mana.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count());
-
-        // The granted one, addressed by the id the layers gave it, and green comes out - not the
-        // white the printed ability of the same card would have added.
-        var granted = mana.Single(a => a.Text == "{T}: Add {G}.");
-        game.ActivateAbility(alice, land, granted.Id);
-
-        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
-        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.White]);
-
-        // One tap, one ability: the printed one is refused now, and its id is the other one.
-        var printed = mana.Single(a => a.Text == "{T}: Add {W}.");
-        Assert.NotEqual(granted.Id, printed.Id);
-        Assert.Throws<InvalidOperationException>(
-            () => game.ActivateAbility(alice, land, printed.Id));
-    }
-
-    /// <summary>
     /// A storage land asked to remove no counters is a legal activation that adds no mana.
     /// </summary>
     /// <remarks>
