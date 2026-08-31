@@ -17322,7 +17322,11 @@ public static partial class CardCompiler
         var iffy = InterveningIf().Match(effectText);
         if (iffy.Success)
         {
-            intervening = BoardConditions.Parse(iffy.Groups["cond"].Value.Trim());
+            // ParseAbout, not Parse: CR 603.4 checks this clause when the ability would trigger
+            // and again as it resolves, and both of those know which player the event was about
+            // - so "if that player has one or fewer cards in hand" is a question here and
+            // nowhere a static could ask it.
+            intervening = BoardConditions.ParseAbout(iffy.Groups["cond"].Value.Trim());
             if (intervening is null)
             {
                 unhandled.Add(line);

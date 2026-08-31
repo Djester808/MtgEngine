@@ -882,7 +882,7 @@ public static partial class EffectPhrase
         if (!kicked && DeicticCondition().IsMatch(condition))
             return false;
 
-        var holds = kicked ? null : BoardConditions.Parse(condition);
+        var holds = kicked ? null : BoardConditions.ParseAbout(condition);
 
         if (!kicked && holds is null)
             return false;
@@ -1092,7 +1092,7 @@ public static partial class EffectPhrase
     {
         var opening = ConditionalSentence().Match(conditional.Trim());
         if (!opening.Success
-            || BoardConditions.Parse(opening.Groups["cond"].Value.Trim()) is not { } holds)
+            || BoardConditions.ParseAbout(opening.Groups["cond"].Value.Trim()) is not { } holds)
         {
             return false;
         }
@@ -7197,7 +7197,7 @@ public static partial class EffectPhrase
                 return true;
             }
 
-            if (BoardConditions.Parse(gate) is not { } holds)
+            if (BoardConditions.ParseAbout(gate) is not { } holds)
                 return false;
 
             effects.Add(new OnlyIf(holds, [new OfferHiddenCard()]));
@@ -7497,7 +7497,8 @@ public static partial class EffectPhrase
         }
 
         if (conditional.Success
-            && BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is { } required)
+            && BoardConditions.ParseAbout(conditional.Groups["cond"].Value.Trim())
+                is { } required)
         {
             var guarded = ImmutableList.CreateBuilder<IEffect>();
 
@@ -7542,7 +7543,8 @@ public static partial class EffectPhrase
         // would do its worst arm every time.
         var negative = UnlessSentence().Match(sentence);
         if (negative.Success
-            && BoardConditions.Parse(negative.Groups["cond"].Value.Trim()) is { } forbidden)
+            && BoardConditions.ParseAbout(negative.Groups["cond"].Value.Trim())
+                is { } forbidden)
         {
             var otherwise = ImmutableList.CreateBuilder<IEffect>();
 
@@ -16964,8 +16966,8 @@ public static partial class TriggerConditions
             // "While saddled" has no subject, because the sentence already named one: the
             // permanent whose trigger this is. Asked plainly first, so a clause that does name
             // its own subject still reaches the reader that expects one.
-            var holds = BoardConditions.Parse(meanwhile)
-                ?? BoardConditions.Parse("~ is " + meanwhile);
+            var holds = BoardConditions.ParseAbout(meanwhile)
+                ?? BoardConditions.ParseAbout("~ is " + meanwhile);
 
             if (Parse(qualified.Groups["when"].Value.Trim()) is not { } fires || holds is null)
                 return null;

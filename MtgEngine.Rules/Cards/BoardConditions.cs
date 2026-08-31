@@ -30,7 +30,30 @@ public static partial class BoardConditions
     /// by the controls-a-noun reader, which then cannot name that noun - so a combinator sitting
     /// after them would never be reached by the clauses it exists for.
     /// </remarks>
-    public static BoardCondition? Parse(string condition)
+    public static BoardCondition? Parse(string condition) =>
+        Read(condition, aboutASeat: false);
+
+    /// <summary>
+    /// The same reading, for a caller whose sentence has already named a player.
+    /// </summary>
+    /// <remarks>
+    /// Two entry points rather than a flag with a default, because the difference is which
+    /// <em>cards</em> a caller may read and not a detail of how. "That player has one or fewer
+    /// cards in hand" is only a question where somebody has said which player - an
+    /// intervening-if under a scoped step trigger (CR 603.4), a guarded sentence inside a
+    /// triggered ability - and everywhere else it is a sentence this compiler must not pretend
+    /// to have understood.
+    /// <para>
+    /// <see cref="Parse"/> refuses those subjects outright, so the line stays unread. It is the
+    /// stronger half of the same promise the seat argument makes at run time: a condition whose
+    /// seat cannot be resolved answers false rather than asking about the controller, and a
+    /// condition whose seat could never be supplied is never compiled at all.
+    /// </para>
+    /// </remarks>
+    public static BoardCondition? ParseAbout(string condition) =>
+        Read(condition, aboutASeat: true);
+
+    private static BoardCondition? Read(string condition, bool aboutASeat)
     {
         ArgumentNullException.ThrowIfNull(condition);
 
@@ -47,11 +70,11 @@ public static partial class BoardConditions
         if (text.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
             text = text["if ".Length..];
 
-        return Single(text) ?? Joined(text);
+        return Single(text, aboutASeat) ?? Joined(text, aboutASeat);
     }
 
     /// <summary>One condition, with no "and" or "or" holding two of them together.</summary>
-    private static BoardCondition? Single(string condition)
+    private static BoardCondition? Single(string condition, bool aboutASeat)
     {
         var text = condition;
 
@@ -279,7 +302,7 @@ public static partial class BoardConditions
             // "At the beginning of each opponent's upkeep, if that player has one or fewer cards
             // in hand" - twenty-two corpus lines, and the seat is the only thing that was ever
             // missing from them. It arrives as the fourth argument now rather than being guessed.
-            if (ReadWhose(held.Groups["who"].Value) is not { } handSeats)
+            if (ReadWhose(held.Groups["who"].Value, aboutASeat) is not { } handSeats)
                 return null;
 
             bool Holds(int count) => compare switch
@@ -349,7 +372,7 @@ public static partial class BoardConditions
             // names no subject at all and asks about the controller's pile, which is "you" said
             // by leaving the word out (CR 608.2).
             var pile = theirs
-                ? ReadWhose(graveyard.Groups["who"].Value)
+                ? ReadWhose(graveyard.Groups["who"].Value, aboutASeat)
                 : new Whose(PlayerScope.You, true);
 
             if (pile is not { } whoseGraveyard)
@@ -471,7 +494,7 @@ public static partial class BoardConditions
             // anyone at all does, the controller included; "each opponent has ..." is true only
             // of all of them. Three answers the subject vocabulary now gives rather than three
             // branches written out here (CR 109.5).
-            if (ReadWhose(life.Groups["who"].Value) is not { } lifeSeats)
+            if (ReadWhose(life.Groups["who"].Value, aboutASeat) is not { } lifeSeats)
                 return null;
 
             return (state, _, source, subject) => lifeSeats.Of(
@@ -567,7 +590,7 @@ public static partial class BoardConditions
             // difference between the last two is the whole point of Howltooth Hollow: "a player"
             // pays out the moment one seat is empty, "each player" only when every one is. Both
             // are the subject vocabulary's answer now, and "that player" came free with them.
-            if (ReadWhose(emptyHand.Groups["who"].Value) is not { } emptySeats)
+            if (ReadWhose(emptyHand.Groups["who"].Value, aboutASeat) is not { } emptySeats)
                 return null;
 
             return (state, _, source, subject) => emptySeats.Of(
@@ -646,7 +669,7 @@ public static partial class BoardConditions
         var bloodied = DamagedThisTurnLine().Match(text);
         if (bloodied.Success)
         {
-            if (ReadWhose(bloodied.Groups["who"].Value) is not { } bloodiedSeats)
+            if (ReadWhose(bloodied.Groups["who"].Value, aboutASeat) is not { } bloodiedSeats)
                 return null;
 
             return (state, _, source, subject) => bloodiedSeats.Of(
@@ -918,7 +941,7 @@ public static partial class BoardConditions
         if (poisoned.Success)
         {
             var wantedPoison = Number(poisoned.Groups["n"].Value);
-            if (ReadWhose(poisoned.Groups["who"].Value) is not { } poisonedSeats)
+            if (ReadWhose(poisoned.Groups["who"].Value, aboutASeat) is not { } poisonedSeats)
                 return null;
 
             return (state, _, source, subject) => poisonedSeats.Of(
@@ -939,7 +962,7 @@ public static partial class BoardConditions
             // "Defending player" needed a branch of its own here and no longer does: the shared
             // resolver reads it off the combat, and names nobody outside one - which is the same
             // false this used to reach by hand.
-            if (ReadWhose(envenomed.Groups["who"].Value) is not { } envenomedSeats)
+            if (ReadWhose(envenomed.Groups["who"].Value, aboutASeat) is not { } envenomedSeats)
                 return null;
 
             return (state, _, source, subject) => envenomedSeats.Of(
@@ -1208,7 +1231,7 @@ public static partial class BoardConditions
         var banished = OwnsExiledLine().Match(text);
         if (banished.Success)
         {
-            if (ReadWhose(banished.Groups["who"].Value) is not { } exileSeats)
+            if (ReadWhose(banished.Groups["who"].Value, aboutASeat) is not { } exileSeats)
                 return null;
 
             return (state, _, source, subject) => exileSeats.Of(
@@ -1225,7 +1248,7 @@ public static partial class BoardConditions
         var blessed = CitysBlessingLine().Match(text);
         if (blessed.Success)
         {
-            if (ReadWhose(blessed.Groups["who"].Value) is not { } blessedSeats)
+            if (ReadWhose(blessed.Groups["who"].Value, aboutASeat) is not { } blessedSeats)
                 return null;
 
             return (state, _, source, subject) => blessedSeats.Of(
@@ -1275,7 +1298,7 @@ public static partial class BoardConditions
             if (crowned.Groups["nobody"].Success)
                 return (state, _, _, _) => state.MonarchId is null;
 
-            if (ReadWhose(crowned.Groups["who"].Value) is not { } crownSeats)
+            if (ReadWhose(crowned.Groups["who"].Value, aboutASeat) is not { } crownSeats)
                 return null;
 
             return (state, _, source, subject) => crownSeats.Of(
@@ -1376,7 +1399,7 @@ public static partial class BoardConditions
         var connected = DealtCombatDamageLine().Match(text);
         if (connected.Success)
         {
-            if (ReadWhose(connected.Groups["who"].Value) is not { } connectedSeats)
+            if (ReadWhose(connected.Groups["who"].Value, aboutASeat) is not { } connectedSeats)
                 return null;
 
             return (state, _, source, subject) => connectedSeats.Of(
@@ -1401,7 +1424,7 @@ public static partial class BoardConditions
                     id => !state.GetPlayer(id).AttackedThisTurn);
             }
 
-            if (ReadWhose(attacked.Groups["who"].Value) is not { } attackerSeats)
+            if (ReadWhose(attacked.Groups["who"].Value, aboutASeat) is not { } attackerSeats)
                 return null;
 
             var negated = attacked.Groups["not"].Success;
@@ -1420,7 +1443,7 @@ public static partial class BoardConditions
             var least = moved.Groups["n"].Success ? Number(moved.Groups["n"].Value) : 1;
             var gained = !moved.Groups["dir"].Value.StartsWith("lost", StringComparison.OrdinalIgnoreCase);
             var either = moved.Groups["dir"].Value.Contains(" or ", StringComparison.OrdinalIgnoreCase);
-            if (ReadWhose(moved.Groups["who"].Value) is not { } movedSeats)
+            if (ReadWhose(moved.Groups["who"].Value, aboutASeat) is not { } movedSeats)
                 return null;
 
             return (state, _, source, subject) => movedSeats.Of(
@@ -1718,7 +1741,7 @@ public static partial class BoardConditions
             // Everything else - yours, an opponent's, each opponent's, that player's, the
             // defending player's - is one word list and one seat resolver. "Defending player"
             // had a branch of its own here and no longer needs one.
-            var subjectWord = anyone ? null : ReadWhose(controls.Groups["who"].Value);
+            var subjectWord = anyone ? null : ReadWhose(controls.Groups["who"].Value, aboutASeat);
             if (!anyone && subjectWord is null)
                 return null;
 
@@ -1889,7 +1912,7 @@ public static partial class BoardConditions
     /// one part of a condition that used not to have it: a subject silently read as "you" is a
     /// land that comes in untapped when it should not, told about a player instead of a board.
     /// </remarks>
-    private static Whose? ReadWhose(string printed)
+    private static Whose? ReadWhose(string printed, bool aboutASeat)
     {
         var word = printed.Trim().ToLowerInvariant();
 
@@ -1924,9 +1947,17 @@ public static partial class BoardConditions
         // compiling into a condition that is false for the rest of the game.
         var scope = EffectPhrase.ScopeOf(word);
 
-        return scope is PlayerScope.SubjectController or PlayerScope.GiftRecipient
-            ? null
-            : new Whose(scope, true);
+        if (scope is PlayerScope.SubjectController or PlayerScope.GiftRecipient)
+            return null;
+
+        // "That player", and the pronouns that mean the same. A caller who cannot say which
+        // player gets no condition at all rather than one that is false forever: a static
+        // ability gated on a seat nothing will ever name is a card that compiles and does
+        // nothing, which is exactly what the unread list exists to keep visible.
+        if (!aboutASeat && scope is PlayerScope.TriggerSubject or PlayerScope.NamedPlayer)
+            return null;
+
+        return new Whose(scope, true);
     }
 
     /// <summary>Every subject a printed condition can be about, as one alternation.</summary>
@@ -1955,7 +1986,7 @@ public static partial class BoardConditions
     /// can do to a card is what was already happening to it.</item>
     /// </list>
     /// </remarks>
-    private static BoardCondition? Joined(string text)
+    private static BoardCondition? Joined(string text, bool aboutASeat)
     {
         var viable = new List<(bool All, BoardCondition Left,
             BoardCondition Right)>();
@@ -1963,12 +1994,15 @@ public static partial class BoardConditions
         foreach (Match join in JoinWord().Matches(text))
         {
             var leftText = text[..join.Index];
-            if (Parse(leftText) is not { } left)
+            if (Read(leftText, aboutASeat) is not { } left)
                 continue;
 
             var rightText = text[(join.Index + join.Length)..];
-            if ((Parse(rightText) ?? Elided(leftText, rightText)) is not { } right)
+            if ((Read(rightText, aboutASeat) ?? Elided(leftText, rightText, aboutASeat))
+                is not { } right)
+            {
                 continue;
+            }
 
             viable.Add((join.Groups["and"].Success, left, right));
         }
@@ -2001,15 +2035,14 @@ public static partial class BoardConditions
     /// mangled into a question about controlling a turn, and the subject must be one of the
     /// phrases that can carry a bare noun after it.
     /// </remarks>
-    private static BoardCondition? Elided(
-        string left, string right)
+    private static BoardCondition? Elided(string left, string right, bool aboutASeat)
     {
         if (!ElidedTail().IsMatch(right))
             return null;
 
         var subject = SubjectPrefix().Match(left);
 
-        return subject.Success ? Parse(subject.Value + right) : null;
+        return subject.Success ? Read(subject.Value + right, aboutASeat) : null;
     }
 
     /// <remarks>
