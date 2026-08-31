@@ -10859,3 +10859,106 @@ corpus is exactly those 8 rows and nothing else.
 gathers no continuous effects at all — counters and the face-down rules still apply, a granted
 keyword does not. And a *spell on the stack* is still asked of its printed card, deliberately:
 the object is a card, and the readers that describe one say so.
+
+### Round twenty-one: the durations, and how much of the decline was really a duration
+
+Seven agents across two rounds declined work in six unrelated families for what looked like one
+missing concept — a window the engine could not express. Measured corpus-wide against the
+compiler's own text, with a substitution control (rewrite **only** the duration clause into a
+duration that already reads, and recompile) and a line control (drop a *different* unread line
+from the same card), the six families are not one population and four of them are not about a
+duration at all.
+
+| unread lines naming a window | lines | cards | sole blocker | excision | line control | **substitution** |
+|---|---:|---:|---:|---:|---:|---:|
+| `until your next turn` | 121 | 119 | 64 | 56 | 0 | **5** |
+| `until the end of your next turn` | 63 | 62 | 42 | 39 | 0 | **1** |
+| `until <its controller>'s next untap step` | 59 | 59 | 53 | 52 | 0 | **1** |
+| `for as long as …` | 177 | 175 | 128 | 126 | 0 | **14** |
+| `until ~ leaves the battlefield` | 68 | 68 | 49 | 45 | 0 | **1** |
+| `the next spell you cast this turn` | 14 | 14 | 12 | 12 | 0 | 0 |
+| `as though it had flash` | 54 | 53 | 41 | 39 | 0 | 0 |
+| `once each turn` / `without paying its mana cost` | 232 | 232 | 167 | 164 | 0 | 0 |
+| an attack tax carrying a duration | 23 | 23 | 15 | 15 | 0 | 0 |
+| **any unread line naming a window** | **432** | **424** | **300** | **287** | **0** | **21** |
+
+**Excision over-counts this family by 13.7×** — 287 against 21 — because dropping the line takes
+the sentence's verb with it. The line control is 0 everywhere, which is what makes the
+substitution number worth reading. (A naive control that drops any line from any multi-line card
+completes 1,340 and measures nothing: the control has to be a *different unread* line on a card in
+the family.)
+
+**The honest ceiling for the whole concept is 21 cards, and four of the six declined families are
+worth nothing to it.** The flash windows, the free casts, the once-per-turn static and the attack
+taxes complete **0** when their duration is rewritten into one that already reads. Those seven
+refusals were right, but the blocker they each named was not the duration: for the taxes it is
+that a floating tax has nowhere to live at all, at any duration, and for the flash and free-cast
+families it is the permission itself. Nothing below widens any of them, and the count to carry
+forward for them is zero-from-a-duration rather than 9, 7, 6 and 3.
+
+#### Three of the four are readings, not shapes
+
+The engine already told `until end of turn` (CR 514.2, the cleanup of the turn that made it) apart
+from `until your next turn` (CR 611.2b, that player's next untap step) on a floating effect. What
+it could not do was **read the second off a printed line**: every group reader spelled "until end
+of turn" out literally, so five cards whose whole sentence was otherwise understood — Bond of
+Revival, Kardur's Vicious Return, Mouth of the Storm, Song of Freyalise, For the Common Good —
+were refused over three words. One shared `DUR` fragment now serves the mass pump, the mass grant,
+the pump-and-grant, both quoted-ability grants and the reanimation tail, and the same group name
+is used at both ends of a sentence because .NET collects the two positions into one group.
+
+`until its controller's next untap step` is the same moment read around a *different player*, and
+on Orcish Farmer's card the two are hardly ever the same person. The player is read when the
+effect resolves and kept as an identity, for the reason a prevention's source is: control is layer
+2 and moves, so a duration re-derived from the permanent later would follow it to a new controller
+and end on the wrong turn. A subject that cannot be read produces **no effect at all** rather than
+one with no duration — an unreadable window must not become permanent.
+
+`for as long as you control ~ and ~ remains tapped` is one duration with two questions in it, and
+had to be a fourth `ControlHeldWhile` rather than the first clause with the rest dropped. Read as
+`Controlled` alone, Rubinia Soulsinger keeps what she took when she untaps, which is a strictly
+better card than the printed one; read as `Tapped` alone the thief could itself be stolen and go
+on holding it. The tail's conjoined alternative is written first because .NET alternation is
+leftmost-first.
+
+#### The fourth is a shape, and it is a whole turn from either neighbour
+
+`until the end of your next turn` is neither of the other two. It runs through the cleanup step
+that ends "until end of turn", through the untap step that ends "until your next turn", and stops
+a turn after either — the difference between a creature you get to attack with and one you do not.
+`FloatingEffect.UntilEndOfTurnOf` is the field, stored as the player it is read around **plus** the
+turn it began on, never as a deadline: whose turn comes next depends on the turn order and an
+extra turn taken in between would move a stored number. The turn it began on is what lets the
+cleanup of *this* turn pass when this turn is already that player's, and the cleanup sweep asks
+for a strictly later one. It is the same shape `GameObject.MayPlayThroughOwnersNextTurn` already
+uses for the exile play window, and the ending is an event, so `Replay(log) == State` holds.
+
+#### Result
+
+**18,293 → 18,306 complete cards, +13, none lost.** Diffed as a set and again as a per-card
+fingerprint of every compiled spell, trigger, activated ability, static and unread line. Once the
+new records' print-only fields are normalised away, the effect diff is **15 cards**: the 13 that
+became complete, plus Elspeth, Storm Slayer and Wyll, Pact-Bound Duelist, which each gained the
+duration clause and are still short on another line. **No card that was complete before changed
+what it compiles to.**
+
+The thirteen are Bond of Revival, Kardur's Vicious Return, Mouth of the Storm, Song of Freyalise,
+For the Common Good, Emeria's Call, Karvanista, Loyal Lupari, Behold the Unspeakable (the five the
+substitution named, plus three more the shared fragment reached), Helm of Possession, Rubinia
+Soulsinger, Willow Satyr, Orcish Farmer and Power of Persuasion.
+
+#### What is still declined, with the count behind it
+
+- **`for as long as …` on a verb that has no held tail — 10 cards.** Rewriting the tail into one
+  that *reads* completes 4; rewriting it into `until end of turn` completes 14. The difference is
+  the verb, not the duration: `becomes a 4/5 green Treefolk creature`, `becomes an artifact
+  creature with base power and toughness 5/5`, `loses all abilities`, a quoted-ability grant, `you
+  may play that card`, and `all creatures get +2/+2` all refuse the tail the four verbs above
+  accept. That is a held-tail-for-more-verbs job and not a duration one.
+- **`for as long as that creature is enchanted` — 1 card** (Rootwater Matriarch). The condition is
+  about the *affected* object rather than about the effect's source, which is a different subject
+  from any the `while:` id can carry.
+- **`until ~ leaves the battlefield` — 0 on its own.** It is `for as long as ~ remains on the
+  battlefield` spelled the other way and worth nothing until the `becomes` verbs take a tail;
+  Graceful Antelope, its only sole-blocked card, needs both.
+- **The four families that are not duration work at all — 0 each**, as measured above.

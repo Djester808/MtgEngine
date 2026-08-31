@@ -1897,6 +1897,281 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains("A spell is cast from hand", refused.Message, StringComparison.Ordinal);
     }
 
+    // ---- Three turn boundaries an effect can end at (CR 611.2b) --------------
+
+    /// <summary>
+    /// Mouth of the Storm: a group effect that runs through a whole turn and ends at an untap.
+    /// </summary>
+    /// <remarks>
+    /// The engine has kept "until end of turn" and "until your next turn" apart on a floating
+    /// effect for some time — one comes off in the cleanup step of the turn that made it
+    /// (CR 514.2) and the other as that player's next untap step begins — and what was missing
+    /// was the ability to <em>read</em> the second off a printed line. Every group reader spelled
+    /// "until end of turn" out literally, so five cards whose whole sentence was otherwise
+    /// understood were refused over three words.
+    /// <para>
+    /// The third assertion is the one that matters and it is not about the duration at all. A
+    /// longer window makes CR 611.2c easier to get wrong, not harder: the affected set is fixed
+    /// when the effect is created, so a creature that arrives during the turn cycle is <em>not</em>
+    /// shrunk however long the effect runs. A reader that answered this by re-asking the board
+    /// each time would look identical on the first two assertions and wrong on the third.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_effect_until_your_next_turn_outlives_a_turn_and_ends_at_your_untap_step()
+    {
+        var mouth = Card(
+            "Storm Mouth Test",
+            "When ~ enters, creatures your opponents control get -3/-0 until your next turn.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(mouth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var standing = game.Create(
+            bob, TestCards.Creature("Storm Standing Test", 4, 4), Zone.Battlefield);
+
+        game.Create(alice, mouth, Zone.Battlefield);
+        Settle(game);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power!.Value;
+
+        Assert.Equal(1, PowerOf(standing));
+
+        // Bob's whole turn happens inside the window. An "until end of turn" reading of the same
+        // sentence would have let go in the cleanup step behind us.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        Assert.Equal(1, PowerOf(standing));
+
+        // CR 611.2c: the set was fixed when the effect was created, so this one is not in it.
+        var arrival = game.Create(
+            bob, TestCards.Creature("Storm Arrival Test", 4, 4), Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(4, PowerOf(arrival));
+        Assert.Equal(1, PowerOf(standing));
+
+        // CR 611.2b: it ends as Alice's next untap step begins, which is now behind us.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.Equal(4, PowerOf(standing));
+        Assert.Equal(4, PowerOf(arrival));
+    }
+
+    /// <summary>
+    /// Power of Persuasion: a theft that ends at the end of a later turn, not the start of one.
+    /// </summary>
+    /// <remarks>
+    /// The third duration, and it is neither of its neighbours rather than a spelling of one of
+    /// them: it runs through the cleanup step that ends "until end of turn", through the untap
+    /// step that ends "until your next turn", and stops a whole turn after either. That is the
+    /// difference between a creature you get to attack with and one you do not, which is the
+    /// whole of what the printed sentence buys.
+    /// <para>
+    /// It is stored as the player it is read around plus the turn it began on, and never as a
+    /// deadline, for the reason the exile play window is: whose turn comes next depends on the
+    /// turn order, and an extra turn taken in between would move a stored number. The turn it
+    /// began on is what lets the cleanup of <em>this</em> turn pass when this turn is already
+    /// that player's — the assertion immediately after the activation is the one that catches a
+    /// sweep written without it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Control_taken_until_the_end_of_your_next_turn_ends_a_whole_turn_later()
+    {
+        var engine = Card(
+            "Persuasion Engine Test",
+            "{T}: Gain control of target creature until the end of your next turn.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(engine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var thief = game.Create(alice, engine, Zone.Battlefield);
+        var borrowed = game.Create(
+            bob, TestCards.Creature("Persuaded Test", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, thief, "a", [Target.ToPermanent(borrowed)]);
+        Settle(game);
+
+        Guid ControllerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).ControllerId;
+
+        Assert.Equal(alice, ControllerOf(borrowed));
+
+        // Boundary one: the cleanup of the turn that made it. "Until end of turn" stops here.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(alice, ControllerOf(borrowed));
+
+        // Boundary two: Alice's next untap step. "Until your next turn" stops here.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.Equal(alice, ControllerOf(borrowed));
+
+        // Boundary three: the cleanup of that turn, which is this duration's own.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 4 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(bob, ControllerOf(borrowed));
+    }
+
+    /// <summary>
+    /// Orcish Farmer: a window ending at the <em>subject's</em> controller's untap step.
+    /// </summary>
+    /// <remarks>
+    /// The same moment CR 611.2b's other turn-boundary duration names, read around a different
+    /// player — and on this card the two are hardly ever the same person, because the land being
+    /// retyped is usually an opponent's. Both wrong readings are refuted on one board, which is
+    /// why two lands are retyped by the same sentence in the same turn:
+    /// <list type="bullet">
+    /// <item>Bob's land stops being a Swamp at Bob's untap step, one turn before Alice's — so a
+    /// reading that used the <em>caster's</em> next turn would still have it retyped there.</item>
+    /// <item>Alice's land is still a Swamp a whole turn after it was retyped — so a reading that
+    /// took this for "until end of turn" would have let go in the cleanup behind us.</item>
+    /// </list>
+    /// <para>
+    /// The player is read when the effect resolves and kept as an identity. Control is layer 2
+    /// and moves; a duration re-derived from the permanent later would follow it to a new
+    /// controller and end on the wrong turn.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_retyping_until_its_controllers_untap_step_is_read_around_that_controller()
+    {
+        var farmer = Card(
+            "Orcish Farmer Test",
+            "{T}: Target land becomes a Swamp until its controller's next untap step.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+
+            // Haste only so both abilities can be used the turn they arrive (CR 302.6). The
+            // template under test is the sentence; the keyword is no part of it.
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(farmer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, farmer, Zone.Battlefield);
+        var other = game.Create(alice, farmer, Zone.Battlefield);
+        var myForest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var theirForest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, mine, "a", [Target.ToPermanent(myForest)]);
+        Settle(game);
+        game.ActivateAbility(alice, other, "a", [Target.ToPermanent(theirForest)]);
+        Settle(game);
+
+        string ManaOf(ObjectId id) => Assert.Single(ManaAbilitiesOf(game, id)).Text;
+
+        Assert.Equal("{T}: Add {B}.", ManaOf(myForest));
+        Assert.Equal("{T}: Add {B}.", ManaOf(theirForest));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Bob's untap step has been and gone, so his land is a Forest again. Alice's has not, so
+        // hers is still a Swamp a whole turn after the sentence resolved.
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        Assert.Equal("{T}: Add {G}.", ManaOf(theirForest));
+        Assert.Equal("{T}: Add {B}.", ManaOf(myForest));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal("{T}: Add {G}.", ManaOf(myForest));
+        Assert.Equal("{T}: Add {G}.", ManaOf(theirForest));
+    }
+
+    /// <summary>
+    /// Helm of Possession: a "for as long as" duration with two clauses, and either one ends it.
+    /// </summary>
+    /// <remarks>
+    /// The held tail's fourth spelling, and it had to become a condition of its own rather than
+    /// widen into the one it starts with. Read as "for as long as you control this artifact"
+    /// alone — the reading the tail's first alternative gives it, because a regex anchored at the
+    /// end of the sentence merely refuses the rest — the Helm untaps in Alice's untap step and
+    /// she keeps the creature anyway, which is a strictly better card than the printed one.
+    /// <para>
+    /// So the assertions are the two sides of the conjunction. It survives a turn boundary with
+    /// both halves true, which is what a duration read as "until end of turn" would fail; and it
+    /// ends the moment the second half stops, with the first half still true and the Helm still
+    /// on the battlefield under Alice's control. CR 611.2b makes that an ending rather than a
+    /// pause, so the creature does not come back when the Helm is tapped again.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_held_duration_with_two_clauses_ends_when_either_one_stops_holding()
+    {
+        var helm = Card(
+            "Possession Helm Test",
+            "{T}: Gain control of target creature for as long as you control ~ and ~ remains"
+                + " tapped.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(helm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The conjunction is its own condition and not the first clause with the rest dropped.
+        Assert.Equal(
+            GenerativeEffects.ControlHeldWhile.ControlledAndTapped,
+            compiled.Activated.Single().Effects.OfType<GainControlWhileSourceHolds>().Single()
+                .Until);
+
+        var (game, alice, bob) = InMainPhase();
+        var thief = game.Create(alice, helm, Zone.Battlefield);
+        var borrowed = game.Create(
+            bob, TestCards.Creature("Possessed Test", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, thief, "a", [Target.ToPermanent(borrowed)]);
+        Settle(game);
+
+        Guid ControllerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).ControllerId;
+
+        Assert.Equal(alice, ControllerOf(borrowed));
+        Assert.True(game.State.GetObject(thief).Permanent?.IsTapped);
+
+        // Bob's whole turn, with both halves of the condition still true.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(alice, ControllerOf(borrowed));
+
+        // Alice's untap step unTaps the Helm, which is the half the first clause cannot see.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.False(game.State.GetObject(thief).Permanent?.IsTapped);
+        Assert.Contains(thief, game.State.Battlefield);
+        Assert.Equal(alice, ControllerOf(thief));
+        Assert.Equal(bob, ControllerOf(borrowed));
+    }
+
     // ---- An Aura on a player keeps that player's clock (CR 303.4) ------------
 
     [Fact]
