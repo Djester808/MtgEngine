@@ -15347,7 +15347,7 @@ public static partial class CardCompiler
     /// in.
     /// </para>
     /// </remarks>
-    private static string? ChosenNameFilterFor(string qualifier)
+    internal static string? ChosenNameFilterFor(string qualifier)
     {
         var said = qualifier.Trim().Trim(',').Trim();
         if (said.Length == 0)

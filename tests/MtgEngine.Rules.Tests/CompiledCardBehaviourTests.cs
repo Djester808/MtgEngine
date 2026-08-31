@@ -3904,6 +3904,586 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Naming a card while a spell resolves (CR 201.4, 701.23a) ------------
+
+    /// <summary>Cranial Extraction's printed wording, built once for the tests that play it.</summary>
+    private static CardDefinition CranialExtraction() => Card(
+        "Cranial Extraction Test",
+        "Choose a nonland card name. Search target player's graveyard, hand, and library for "
+            + "all cards with that name and exile them. Then that player shuffles.",
+        CardType.Sorcery);
+
+    /// <summary>
+    /// A card named while the spell resolves leaves every zone the spell reaches, and its
+    /// neighbour does not (CR 201.4, 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The whole family in one game. What is new here is not the search — three zones of somebody
+    /// else's, everything exiled, has read for a round — but where the filter comes from: the
+    /// sentence in front of it asks a <em>question</em>, so the search is queued before anybody
+    /// has said what it is looking for.
+    /// <para>
+    /// The control is a differently named card sitting in all three of the same zones. It is the
+    /// assertion that matters, because every plausible way of getting this wrong — never filling
+    /// the sentinel in, filling it with the wrong answer, taking the whole zone — shows up as the
+    /// control moving and as nothing else. A test that only checked the named card had gone would
+    /// pass against a spell that exiled Bob's library.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_named_as_a_spell_resolves_leaves_every_zone_the_spell_names()
+    {
+        var sought = Card("Extracted Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unextracted Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extraction = CranialExtraction();
+        var compiled = CardCompiler.Compile(extraction);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // One copy of each in each of the three zones the card names.
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            game.Create(bob, sought, zone);
+            game.Create(bob, spared, zone);
+        }
+
+        var card = TestCards.PutInHand(game, alice, extraction);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        var named = NameAndTakeEverything(game, sought.Name);
+        Assert.Equal(alice, named);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            Assert.DoesNotContain(CardsIn(game, bob, zone), o => o.Card.Name == sought.Name);
+
+            // The control never moved.
+            Assert.Contains(CardsIn(game, bob, zone), o => o.Card.Name == spared.Name);
+        }
+
+        Assert.Equal(
+            3,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        // The name that was chosen is in the log, on the spell that asked for it, so a replay
+        // reaches the same answer rather than asking again.
+        Assert.Contains(game.Log, e => e is NameChosen { Value: "Extracted Bear Test" });
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// The names on offer never come out of the opponent whose zones are about to be searched
+    /// (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// This is the fail-closed assertion the whole feature turns on, and it is the one place the
+    /// two halves of the card pull in opposite directions. The <em>search</em> is allowed to look
+    /// through Bob's hand — CR 701.23a says so, and the question it asks is how Alice legally sees
+    /// what matched. The <em>naming</em> is not: it happens first, and Cranial Extraction spends
+    /// no text on the words "look at an opponent's hand", where Sorcerous Spyglass and Anointed
+    /// Peacekeeper spend several. An offer built by scanning every zone would hand Alice the
+    /// contents of Bob's hand a beat before she names, and turn a blind guess into a certainty.
+    /// <para>
+    /// Asserted from the projected view as well as from the option list, because the two are
+    /// different leaks. The option list is what Alice reads; the view is what her client is sent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_offer_to_name_a_card_never_contains_the_hand_about_to_be_searched()
+    {
+        var secret = Card("Concealed Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var known = Card("Revealed Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // The only copy of each: one hidden in Bob's hand, one in Bob's graveyard, which is
+        // public and may be read by anybody.
+        game.Create(bob, secret, Zone.Hand);
+        game.Create(bob, known, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.NameCharacteristic, choice!.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+
+        var offered = choice.Options.Select(o => o.Id).ToList();
+        Assert.Contains(known.Name, offered, StringComparer.Ordinal);
+        Assert.DoesNotContain(secret.Name, offered, StringComparer.Ordinal);
+
+        // And Bob's hand is absent from the board Alice is sent while she answers.
+        var forAlice = PlayerViewProjector.Project(game.State, alice, Pool);
+        Assert.Null(forAlice.Players.Single(p => p.PlayerId == bob).Hand);
+        Assert.NotNull(forAlice.Choice?.Options);
+        Assert.DoesNotContain(forAlice.Choice!.Options!, o => o.Label == secret.Name);
+    }
+
+    /// <summary>
+    /// A name that was never on the menu is refused, and extracts nothing (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// The narrowing above is only worth what its enforcement is worth. Every other selection in
+    /// this engine answers with an object's id and is unambiguous by construction; a card name is
+    /// a <em>word</em>, so it is the one answer that could arrive from outside the engine naming
+    /// something the offer never held — which for this card means naming the card in the hand
+    /// the offer is written to hide. If that were taken, the narrowing would be decorative: a
+    /// client that ignored the list could extract anything.
+    /// <para>
+    /// It is refused at the door, by the same check every other question gets, and the game stays
+    /// on the same question rather than proceeding with a wrong answer or with none. The card in
+    /// Bob's hand and the copy in his library are both still there afterwards.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_name_that_was_not_offered_is_refused_and_extracts_nothing()
+    {
+        var secret = Card("Offmenu Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var known = Card("Onmenu Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(bob, secret, Zone.Hand);
+        game.Create(bob, secret, Zone.Library);
+        game.Create(bob, known, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+        Assert.DoesNotContain(
+            game.State.Choice!.Options.Select(o => o.Id).ToList(),
+            id => string.Equals(id, secret.Name, StringComparison.Ordinal));
+
+        // Named anyway, the way a client that ignored the option list would.
+        Assert.Throws<InvalidOperationException>(() => game.Choose(alice, [secret.Name]));
+
+        // The game did not move on: the same question is still on the table.
+        Assert.Equal(ChoiceKind.NameCharacteristic, game.State.Choice!.Kind);
+        Assert.DoesNotContain(game.Log, e => e is NameChosen);
+
+        // Answered legally, the spell takes what it was allowed to name and nothing else.
+        game.Choose(alice, [known.Name]);
+        Run(game);
+
+        Assert.Contains(CardsIn(game, bob, Zone.Hand), o => o.Card.Name == secret.Name);
+        Assert.Contains(CardsIn(game, bob, Zone.Library), o => o.Card.Name == secret.Name);
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == secret.Name);
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// The question is put to the caster and answered before the search is offered (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// Two orderings, and both of them are the mechanism rather than a nicety.
+    /// <para>
+    /// <strong>Who.</strong> The caster names the card and the caster does the searching; the
+    /// player whose zones are emptied is asked nothing. A card that asked its victim to choose
+    /// what they lose is a different card.
+    /// </para>
+    /// <para>
+    /// <strong>When.</strong> The name is asked before the search, because the search was queued
+    /// during the same resolution holding a sentinel where its filter should be, and the answer is
+    /// what fills it in. Asked the other way round the search would run against a filter no card
+    /// answers to, and the spell would report itself as having looked and found nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_name_is_asked_of_the_caster_and_before_the_search_it_feeds()
+    {
+        var sought = Card("Ordered Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A copy in the graveyard, which is public, so the name can be offered at all; and one in
+        // the library, which is what the search has to reach. The offer is not the search: it is
+        // narrowed to what the chooser is allowed to know, and every card in this family names
+        // one thing and then goes looking for the rest of them.
+        game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        Assert.Equal(ChoiceKind.NameCharacteristic, game.State.Choice.Kind);
+
+        // The search was queued by the same resolution and is waiting behind this question, still
+        // holding the sentinel where its filter should be. That is the mechanism in one line: the
+        // spell asked for a search before anybody had said what it was looking for.
+        var queued = Assert.Single(game.Log.OfType<LibrarySearchRequested>());
+        Assert.Equal(SearchFilters.NamedPrefix + SearchFilters.ChosenName, queued.FilterId);
+        Assert.Equal(bob, queued.Searched);
+
+        // And nothing has been taken out of Bob's library yet.
+        Assert.Contains(CardsIn(game, bob, Zone.Library), o => o.Card.Name == sought.Name);
+
+        game.Choose(alice, [sought.Name]);
+
+        // And now it is the search, put to the same player.
+        RunUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        Assert.Contains(game.State.Choice.Options, o => o.Label == sought.Name);
+    }
+
+    /// <summary>
+    /// "A nonland card name" is offered no land, and the offer travels with the printed
+    /// qualifier (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// The qualifier is the only thing between Slaughter Games and a Slaughter Games that can name
+    /// Island, and the same between Dispossess and a Dispossess that can name anything at all.
+    /// Both directions are asserted, because a filter that refused everything would satisfy the
+    /// negative half on its own.
+    /// </remarks>
+    [Fact]
+    public void The_qualifier_on_a_name_chosen_mid_resolution_narrows_what_may_be_named()
+    {
+        var land = TestCards.BasicLand("Qualified Forest Test");
+        var relic = Card("Qualified Relic Test", string.Empty, CardType.Artifact);
+        var bear = Card("Qualified Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, land, Zone.Graveyard);
+        game.Create(bob, relic, Zone.Graveyard);
+        game.Create(bob, bear, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        RunUntilNameAsked(game);
+
+        var nonland = game.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(bear.Name, nonland, StringComparer.Ordinal);
+        Assert.Contains(relic.Name, nonland, StringComparer.Ordinal);
+        Assert.DoesNotContain(land.Name, nonland, StringComparer.Ordinal);
+
+        // Dispossess's wording, which narrows further still.
+        var dispossess = Card(
+            "Dispossess Test",
+            "Choose an artifact card name. Search target opponent's graveyard, hand, and "
+                + "library for any number of cards with the chosen name and exile them. Then "
+                + "that player shuffles.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(dispossess);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (other, carol, dave) = InMainPhase();
+        other.Create(dave, relic, Zone.Graveyard);
+        other.Create(dave, bear, Zone.Graveyard);
+
+        var second = TestCards.PutInHand(other, carol, dispossess);
+        other.CastSpell(carol, second, [Target.ToPlayer(dave)]);
+        RunUntilNameAsked(other);
+
+        var artifactsOnly = other.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(relic.Name, artifactsOnly, StringComparer.Ordinal);
+        Assert.DoesNotContain(bear.Name, artifactsOnly, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// "That player's" is read only where the sentence in front of it named a player by target
+    /// (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The pronoun is the trap in this family. On Lobotomy and Thought Hemorrhage "that player" is
+    /// the player the spell targeted; on Kotose it is the owner of a card exiled from a graveyard,
+    /// and on Shimian Specter it is whoever was just dealt combat damage. Those two are not
+    /// targets at all, and read as the target the spell would search a player it never named — a
+    /// card that plays perfectly and empties the wrong person's library. Nothing about the parse
+    /// would look wrong, and coverage would go up.
+    /// <para>
+    /// So the reading is refused unless the sentences before it declared exactly one player
+    /// target, and both directions are asserted here: refusing everything would satisfy the
+    /// negative half on its own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_search_of_that_players_zones_is_refused_when_no_target_named_them()
+    {
+        // A trigger whose subject is a player the ability was about rather than one it targeted.
+        var specter = Card(
+            "Pronoun Specter Test",
+            "Whenever this creature deals combat damage to a player, that player reveals their "
+                + "hand. Search that player's graveyard, hand, and library for any number of "
+                + "cards with that name and exile them.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.Contains(
+            CardCompiler.Compile(specter).Unhandled,
+            line => line.Contains("that player's", StringComparison.Ordinal));
+
+        // The same sentence behind one that declares a player target, which is the one case in
+        // which "that player" and "the player this spell targets" are provably the same person.
+        var declared = Card(
+            "Pronoun Extraction Test",
+            "Choose a nonland card name. Target opponent reveals their hand. Search that "
+                + "player's graveyard, hand, and library for all cards with that name and exile "
+                + "them. Then that player shuffles.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(declared);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var search = Assert.Single(compiled.Spell!.Effects.OfType<SearchLibrary>());
+
+        Assert.Equal(SearchWhoseZones.TargetPlayer, search.Whose);
+        Assert.Equal(TargetKind.Player, compiled.Spell.Targets[search.TargetIndex].Kind);
+    }
+
+    /// <summary>
+    /// A sentence that named a player one way and a card the other is left unread (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The two halves of this family have to agree: either the name comes off an object the spell
+    /// picked out and the zones belong to that object's owner, or the name comes off a question
+    /// and the zones belong to a player the spell targeted. A sentence mixing them needs the
+    /// search's one target index to point at two different things, and no printed card asks for
+    /// it. Refusing it costs nothing; guessing which of the two the index meant would search a
+    /// player the card never named.
+    /// </remarks>
+    [Fact]
+    public void A_search_that_names_a_player_and_a_card_two_different_ways_is_left_unread()
+    {
+        var mixed = Card(
+            "Mixed Extraction Test",
+            "Exile target nonbasic land. Search target player's graveyard, hand, and library "
+                + "for all cards with the same name as that land and exile them.",
+            CardType.Sorcery);
+
+        Assert.Contains(
+            CardCompiler.Compile(mixed).Unhandled,
+            line => line.Contains("target player's", StringComparison.Ordinal));
+
+        // The other way round, and refused for the same reason.
+        var alsoMixed = Card(
+            "Mixed Owner Extraction Test",
+            "Choose a nonland card name. Exile target nonbasic land. Search its controller's "
+                + "graveyard, hand, and library for all cards with that name and exile them.",
+            CardType.Sorcery);
+
+        Assert.Contains(
+            CardCompiler.Compile(alsoMixed).Unhandled,
+            line => line.Contains("its controller's", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Extirpate's wording: a card in a graveyard is pointed at, and every copy of it goes
+    /// (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The other half of this family, where the name comes off an object rather than off a
+    /// question. The search half has read for a round; what was missing was the opening sentence,
+    /// which declares a target and does nothing with it — the card it names is not moved by that
+    /// sentence at all, it is simply one of the copies the search finds.
+    /// <para>
+    /// The control is again a differently named card in all three zones, because "took the right
+    /// card" and "took the zone" look identical without one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_pointed_at_in_a_graveyard_is_extracted_along_with_every_copy_of_it()
+    {
+        var sought = Card("Extirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unextirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extirpate = Card(
+            "Extirpate Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(extirpate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var pointedAt = game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Library);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+            game.Create(bob, spared, zone);
+
+        var card = TestCards.PutInHand(game, alice, extirpate);
+        game.CastSpell(alice, card, [Target.ToCard(pointedAt)]);
+
+        // No name is asked for: this half of the family reads the name off the card it was
+        // pointed at, so the only question is the search, and it goes to the caster.
+        Assert.Equal(alice, SettleTakingEverything(game));
+        Assert.DoesNotContain(game.Log, e => e is CardNameChoiceRequested);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            Assert.DoesNotContain(CardsIn(game, bob, zone), o => o.Card.Name == sought.Name);
+            Assert.Contains(CardsIn(game, bob, zone), o => o.Card.Name == spared.Name);
+        }
+
+        Assert.Equal(
+            3,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "Other than a basic land card" refuses a basic land and nothing else (CR 205.4a).
+    /// </summary>
+    /// <remarks>
+    /// The clause is the whole reason Extirpate is not a Stone Rain: without it, pointing at a
+    /// Forest in a graveyard exiles every Forest its owner has, which is a card nobody printed.
+    /// <para>
+    /// A basic land card is one with the supertype Basic, not one with a basic land type
+    /// (CR 205.4a), and the difference is Dryad Arbor — a Forest with no supertype, which
+    /// Extirpate is perfectly entitled to name. Both directions are asserted, because a clause
+    /// that refused every land would satisfy the first half on its own.
+    /// </remarks>
+    [Fact]
+    public void A_card_named_other_than_a_basic_land_may_not_be_a_basic_land()
+    {
+        var extirpate = Card(
+            "Extirpate Clause Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var basic = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Graveyard);
+
+        // A land with a basic land type and no Basic supertype: Dryad Arbor's shape.
+        var arbor = game.Create(
+            bob,
+            Card("Dryad Arbor Test", string.Empty, CardType.Land, subtypes: "Forest"),
+            Zone.Graveyard);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(basic)]));
+
+        // The land that is not a basic land card is a legal choice.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(arbor)]);
+
+        Run(game);
+
+        Assert.Contains(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Dryad Arbor Test");
+
+        // And the Forest is still where it was.
+        Assert.Contains(CardsIn(game, bob, Zone.Graveyard), o => o.Card.Name == "Forest");
+    }
+
+    /// <summary>Everything a player holds in one zone, as objects.</summary>
+    private static IEnumerable<GameObject> CardsIn(Game game, Guid player, Zone zone) =>
+        (zone switch
+        {
+            Zone.Graveyard => game.State.GetPlayer(player).Graveyard,
+            Zone.Hand => game.State.GetPlayer(player).Hand,
+            _ => game.State.GetPlayer(player).Library,
+        }).Select(game.State.GetObject);
+
+    /// <summary>Plays on until a card name is the question on the table, and stops there.</summary>
+    private static void RunUntilNameAsked(Game game) =>
+        RunUntil(game, () => game.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+    /// <summary>Plays on until the given question is outstanding, answering anything else.</summary>
+    private static void RunUntil(Game game, Func<bool> asked)
+    {
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (asked())
+                return;
+
+            if (game.State.Choice is { } other)
+            {
+                game.Choose(
+                    other.PlayerId,
+                    [.. other.Options.Take(Math.Max(other.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                return;
+
+            game.PassPriority(holder);
+        }
+    }
+
+    /// <summary>
+    /// Plays on, naming one card and then taking every copy the search offers.
+    /// </summary>
+    /// <remarks>
+    /// The shared <see cref="Run"/> answers every question with its first option and the smallest
+    /// legal number of picks, which here would name whichever card sorted first and then exile one
+    /// copy of it. An extraction that took one copy and left the other two would pass every
+    /// assertion about the zone it happened to take from.
+    /// </remarks>
+    /// <returns>Who was asked to name the card, or the empty id if nobody was.</returns>
+    private static Guid NameAndTakeEverything(Game game, string name)
+    {
+        var named = Guid.Empty;
+        var passedOnce = false;
+
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                if (choice.Kind == ChoiceKind.NameCharacteristic)
+                {
+                    named = choice.PlayerId;
+                    game.Choose(choice.PlayerId, [name]);
+                    continue;
+                }
+
+                game.Choose(
+                    choice.PlayerId,
+                    [.. choice.Options
+                        .Take(Math.Max(choice.MinPicks, choice.Kind == ChoiceKind.SearchLibrary
+                            ? choice.MaxPicks
+                            : 1))
+                        .Select(o => o.Id)]);
+                continue;
+            }
+
+            if (passedOnce && game.State.Stack.IsEmpty && game.State.PendingTriggers.IsEmpty)
+                break;
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+            passedOnce = true;
+        }
+
+        return named;
+    }
+
     // ---- "The basic land type of your choice" (CR 305.6, 305.7) --------------
 
     [Fact]

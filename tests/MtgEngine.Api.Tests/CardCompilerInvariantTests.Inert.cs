@@ -78,13 +78,23 @@ public sealed partial class CardCompilerInvariantTests
                 if (filter.Length == 0)
                     continue;
 
-                // The sentinel a search leaves where a target's name will go. It is filled in
-                // at resolution from the target the search actually got (SearchFilters
-                // .TargetsName), so it is *meant* to select nothing at compile time - asking a
-                // corpus about it is asking the wrong question, the same way "name:~" is.
+                // The two sentinels a search leaves where a name will go. One is filled in at
+                // resolution from the target the search actually got (SearchFilters.TargetsName);
+                // the other from the name a player was asked for while the spell was resolving
+                // (SearchFilters.ChosenName). Both are *meant* to select nothing at compile time,
+                // so asking a corpus about either is asking the wrong question, the same way
+                // "name:~" is.
+                //
+                // Neither exemption lets an inert card through, which is the thing this check is
+                // for. A search whose sentinel is never filled in is dropped rather than run
+                // (Game.AskOwedSearch), so what it cannot become is a card that reports itself as
+                // having searched and found nothing - which is exactly what a dead filter is.
                 if (filter.Contains(
-                    MtgEngine.Rules.Abilities.SearchFilters.TargetsName,
-                    StringComparison.Ordinal))
+                        MtgEngine.Rules.Abilities.SearchFilters.TargetsName,
+                        StringComparison.Ordinal)
+                    || filter.Contains(
+                        MtgEngine.Rules.Abilities.SearchFilters.ChosenName,
+                        StringComparison.Ordinal))
                 {
                     continue;
                 }

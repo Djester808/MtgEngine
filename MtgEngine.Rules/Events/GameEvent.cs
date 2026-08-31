@@ -3006,6 +3006,36 @@ public sealed record NameChosen(ObjectId Id, string Value) : GameEvent
     public override string Describe() => $"{Id} named {Value}.";
 }
 
+/// <summary>
+/// A resolving spell or ability has asked its controller to name a card (CR 201.4).
+/// </summary>
+/// <remarks>
+/// The request, not the answer: the answer is a <see cref="NameChosen"/> emitted once the player
+/// has spoken. Two events rather than one because the question is asked from the settle after
+/// the resolution rather than inside it — the same shape as
+/// <see cref="LibrarySearchRequested"/>, and for the same reason.
+/// <para>
+/// <paramref name="SourceId"/> is the spell that asked, so the answer lands on the object that
+/// posed the question and a game log reads as the card doing something rather than as a name
+/// appearing from nowhere. It may well have left the stack by the time the answer arrives —
+/// a sorcery is in its owner's graveyard a moment later — and that costs nothing: the fold
+/// leaves an event about an object that is gone alone, identically on the first run and on the
+/// replay.
+/// </para>
+/// <para>
+/// <paramref name="FilterId"/> is what the printed card allows to be named (CR 201.4a), and it
+/// travels on the request rather than being looked up when the question is asked, because the
+/// card that asked may no longer be anywhere the asker can consult.
+/// </para>
+/// </remarks>
+public sealed record CardNameChoiceRequested(
+    Guid ChooserId, ObjectId SourceId, string FilterId) : GameEvent
+{
+    public override string Rule => "201.4";
+
+    public override string Describe() => $"{ChooserId:N} is to name a {FilterId} card.";
+}
+
 /// <summary>Mana was added to a player's pool (CR 106.1).</summary>
 /// <param name="RestrictedTo">
 /// A card filter the mana may only be spent on, beyond the type mask on
