@@ -7726,6 +7726,42 @@ public sealed record SearchLibrary(
 }
 
 /// <summary>
+/// Name a card while this spell resolves (CR 201.4).
+/// </summary>
+/// <remarks>
+/// The extraction family's first sentence — "Choose a nonland card name." — and the
+/// resolution-time twin of <c>ChoiceOnEntry.CardName</c>, which asks the same question of a
+/// permanent as it arrives. Both narrow the offer the same way and both land the answer in
+/// <c>GameObject.ChosenName</c>; what differs is only when the game stops to ask.
+/// <para>
+/// It records that the question is owed rather than asking it, like a scry or a search: a
+/// resolution is never stopped half way through, so the request goes in the log and the settle
+/// that follows puts it to the player. The sentence after it — the search — is queued
+/// in the same resolution still holding <see cref="SearchFilters.ChosenName"/>, and the settle
+/// asks this question first, which is what lets one sentence's answer be the next sentence's
+/// filter without either of them being a continuation the log could not rebuild.
+/// </para>
+/// <para>
+/// <see cref="FilterId"/> is the qualifier the card printed, and it fails closed: "a nonland
+/// card name" that compiled to "any card name" would be a strictly better card than the one
+/// printed, and a Slaughter Games that could name Island is not Slaughter Games.
+/// </para>
+/// </remarks>
+public sealed record ChooseCardName(string FilterId) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new CardNameChoiceRequested(
+                context.ControllerId, context.PhysicalSourceId, FilterId),
+        ];
+    }
+}
+
+/// <summary>
 /// Seek a card: one taken at random from among the cards in a library that match, put where the
 /// card says, without revealing or shuffling the library.
 /// </summary>
@@ -7840,6 +7876,30 @@ public static class SearchFilters
     /// </para>
     /// </remarks>
     public const string TargetsName = "*target*";
+
+    /// <summary>
+    /// Stands in for the name a player chose while the spell was resolving — "search target
+    /// player's graveyard, hand, and library for all cards with that name".
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TargetsName"/>'s sibling, and the difference between them is where the name
+    /// comes from rather than what is done with it. That one reads the name off an object the
+    /// spell targeted, which is known the moment the effect resolves; this one reads it off a
+    /// <em>question</em>, which by definition is not — the game halts, a player answers, and
+    /// only then does the search know what it is looking for. So this sentinel outlives the
+    /// resolution: the search is queued still holding it, and
+    /// <c>Game.ResolveCardNameChoice</c> fills it in when the answer arrives, before the search
+    /// is ever asked. A search still holding it when its turn comes is a search whose question
+    /// was never answered, and is dropped rather than run — an unfilled sentinel matches no
+    /// card, and a card that reports itself as having searched and found nothing is exactly the
+    /// silent wrong answer this compiler refuses everywhere else.
+    /// <para>
+    /// Not a word, for <see cref="TargetsName"/>'s reason: a card name is capitalised and a
+    /// capital is how <see cref="Matches(string, Domain.Models.CardDefinition)"/> tells a
+    /// subtype from everything else.
+    /// </para>
+    /// </remarks>
+    public const string ChosenName = "*chosen*";
 
     /// <summary>Whether a printed card answers to a filter name.</summary>
     /// <remarks>

@@ -4065,6 +4065,12 @@ public sealed class Game
                 }
 
                 _entryChoiceBeingAsked = null;
+
+                // The third question this kind now carries: a card name asked from a spell that
+                // is resolving rather than from a permanent that is arriving. The two cannot both
+                // be outstanding - a settle asks one question and stops - so which is being
+                // answered is decided by which slot is filled, not by a word on the choice.
+                ResolveCardNameChoice(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -4985,6 +4991,9 @@ public sealed class Game
     private readonly List<HandChoiceRequested> _handChoicesOwed = [];
 
     private readonly List<ColorChoiceRequested> _colorChoicesOwed = [];
+
+    /// <summary>Card names a resolving spell has asked for and not yet been given (CR 201.4).</summary>
+    private readonly List<CardNameChoiceRequested> _cardNameChoicesOwed = [];
 
     /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
     private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
@@ -6763,7 +6772,9 @@ public sealed class Game
             {
                 ChoiceOnEntry.Color =>
                     (IReadOnlyList<string>)["white", "blue", "black", "red", "green"],
-                ChoiceOnEntry.CardName => CardNamesOffered(obj),
+                ChoiceOnEntry.CardName => CardNamesOffered(
+                    ControllerOf(obj),
+                    _abilities.ChosenNameFilterOf(obj.Card) ?? SearchFilters.AnyCard),
                 _ => CreatureTypesInPlay(),
             };
 
@@ -6797,7 +6808,7 @@ public sealed class Game
     private ObjectId? _entryChoiceBeingAsked;
 
     /// <summary>
-    /// The card names this permanent's controller may be offered (CR 201.4).
+    /// The card names a player may be offered (CR 201.4).
     /// </summary>
     /// <remarks>
     /// CR 201.4 lets a player name any card in the Oracle reference — thirty-odd thousand of
@@ -6820,10 +6831,8 @@ public sealed class Game
     /// standing between the two.
     /// </para>
     /// </remarks>
-    private IReadOnlyList<string> CardNamesOffered(GameObject chooser)
+    private IReadOnlyList<string> CardNamesOffered(Guid controller, string filter)
     {
-        var filter = _abilities.ChosenNameFilterOf(chooser.Card) ?? SearchFilters.AnyCard;
-        var controller = ControllerOf(chooser);
         var seen = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var obj in State.Objects.Values)
@@ -6847,6 +6856,125 @@ public sealed class Game
         }
 
         return [.. seen];
+    }
+
+    private CardNameChoiceRequested? _cardNameChoiceBeingAsked;
+
+    /// <summary>
+    /// Asks the oldest owed card name, if any (CR 201.4).
+    /// </summary>
+    /// <returns>True when a question was asked and the settle has to stop.</returns>
+    /// <remarks>
+    /// The entry choice's question asked from a resolution instead of from a permanent arriving,
+    /// and deliberately the <em>same</em> question: one offer, one <see cref="ChoiceKind"/>, one
+    /// prompt shape. Sharing <see cref="CardNamesOffered"/> is not tidiness — that method is
+    /// where the rule lives that an offer never contains a card in an opponent's hand, and a
+    /// second list built here would have been a second place for that rule to be got wrong.
+    /// Sorcerous Spyglass and Anointed Peacekeeper pay printed text for the words "look at an
+    /// opponent's hand" before they name; Cranial Extraction does not, and names blind.
+    /// <para>
+    /// <see cref="ChoiceKind.NameCharacteristic"/> rather than a kind of its own, for the reason
+    /// that kind's own remarks give: the board renders a prompt and a list of strings, and which
+    /// of the questions it is answering changes nothing it draws. <c>Resume</c> tells the two
+    /// apart by which of them is outstanding, which is a fact the engine already has, rather
+    /// than by a word every client would have had to learn.
+    /// </para>
+    /// <para>
+    /// An empty offer asks nothing. That is not a fail-open: the search queued behind this one
+    /// is still holding <see cref="SearchFilters.ChosenName"/>, and
+    /// <see cref="AskOwedSearch"/> drops a search that reaches it unfilled.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedCardNameChoice()
+    {
+        if (_cardNameChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _cardNameChoicesOwed[0];
+        _cardNameChoicesOwed.RemoveAt(0);
+
+        if (!State.Players.ContainsKey(owed.ChooserId))
+            return false;
+
+        var options = CardNamesOffered(owed.ChooserId, owed.FilterId);
+        if (options.Count == 0)
+            return false;
+
+        _cardNameChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"name:{owed.SourceId.Value:N}",
+            PlayerId = owed.ChooserId,
+            Kind = ChoiceKind.NameCharacteristic,
+            Prompt = "Choose a card name.",
+            Options = [.. options.Select(o => new ChoiceOption(o, o))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Records the name that was chosen, and hands it to the search that was waiting for it
+    /// (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// Two things happen here and they are for different readers. The
+    /// <see cref="NameChosen"/> is for the log and the board: it says which card was named, and
+    /// it lands on the spell that asked, so a replay reaches the same answer without asking
+    /// again. The rewrite is for the search sentence that has been queued behind this question
+    /// since the same resolution, still carrying <see cref="SearchFilters.ChosenName"/> where
+    /// its filter should be.
+    /// <para>
+    /// The rewrite is confined to searches <em>this</em> player is about to make, because the
+    /// chooser is the searcher: an extraction's controller does both. It is also confined to the
+    /// sentinel — an ordinary tutor's filter is a word and is left alone.
+    /// </para>
+    /// <para>
+    /// <strong>Only a name that was on the menu.</strong> The answer arrives from outside the
+    /// engine, and every other selection here answers with an object id and is unambiguous by
+    /// construction; a card name is a word, and a word can arrive naming something the offer
+    /// never contained. Taking it would let a client name a card out of the opponent's hand
+    /// — precisely the reading <see cref="CardNamesOffered"/> exists to refuse — and
+    /// extract it. So an answer off the menu names nothing, and the search behind it is dropped.
+    /// </para>
+    /// </remarks>
+    private void ResolveCardNameChoice(IReadOnlyList<string> picks)
+    {
+        if (_cardNameChoiceBeingAsked is not { } owed)
+            return;
+
+        _cardNameChoiceBeingAsked = null;
+
+        if (picks.Count == 0
+            || !CardNamesOffered(owed.ChooserId, owed.FilterId)
+                .Contains(picks[0], StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var named = picks[0];
+
+        Emit(new NameChosen(owed.SourceId, named));
+
+        for (var i = 0; i < _searchesOwed.Count; i++)
+        {
+            var search = _searchesOwed[i];
+
+            if (search.PlayerId != owed.ChooserId
+                || !search.FilterId.Contains(SearchFilters.ChosenName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            _searchesOwed[i] = search with
+            {
+                FilterId = search.FilterId.Replace(
+                    SearchFilters.ChosenName, named, StringComparison.Ordinal),
+            };
+        }
     }
 
     /// <summary>
@@ -8704,6 +8832,14 @@ public sealed class Game
         var owed = _searchesOwed[0];
         _searchesOwed.RemoveAt(0);
 
+        // A search still holding the chosen-name sentinel is one whose question was never
+        // answered - no name could be offered, or the answer was not one of the names on the
+        // menu. It does not happen, and if it did the filter would match nothing, so the search
+        // would silently "find nothing" and shuffle a library the card never told it to touch.
+        // CR 608.2b: an effect that cannot work out what it means does nothing at all.
+        if (owed.FilterId.Contains(SearchFilters.ChosenName, StringComparison.Ordinal))
+            return false;
+
         var found = SearchCandidates(owed);
 
         if (found.Count == 0)
@@ -10161,6 +10297,14 @@ public sealed class Game
                 didSomething = true;
                 continue;
             }
+
+            // Before the search, and that order is the whole mechanism: the extraction family
+            // prints "Choose a nonland card name." and then searches for cards with that name,
+            // and the search is queued holding a sentinel the answer fills in. Asked the other
+            // way round, the search would run against a filter no card answers to and the
+            // spell would report itself as having looked and found nothing.
+            if (AskOwedCardNameChoice())
+                return true;
 
             if (AskOwedSearch())
                 return true;
@@ -13846,6 +13990,9 @@ public sealed class Game
 
         if (e is ColorChoiceRequested naming)
             _colorChoicesOwed.Add(naming);
+
+        if (e is CardNameChoiceRequested namingACard)
+            _cardNameChoicesOwed.Add(namingACard);
 
         if (e is CreatureTypeChoiceRequested retyping)
             _creatureTypeChoicesOwed.Add(retyping);

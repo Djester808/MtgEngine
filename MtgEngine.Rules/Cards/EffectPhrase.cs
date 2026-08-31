@@ -6108,11 +6108,42 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Choose a nonland card name." - the extraction family's first sentence, and a question
+        // rather than an effect (CR 201.4). It reads here, beside the search that consumes its
+        // answer, because the two are one instruction split across two sentences: this one names
+        // the card and the next one goes and gets every copy of it.
+        //
+        // The qualifier goes through the *same* reader the entry choice uses, rather than a
+        // second list written here. That reader fails closed on a word it does not know, which is
+        // the only thing standing between Slaughter Games and a Slaughter Games that can name
+        // Island - and two copies of a closed vocabulary is two chances to leave a word out of
+        // one of them.
+        m = ChooseCardNameLine().Match(sentence);
+        if (m.Success
+            && CardCompiler.ChosenNameFilterFor(m.Groups["qualifier"].Value) is { } nameable)
+        {
+            // "A card name other than a basic land card name" - Necromentia and Desperate
+            // Research say it the long way round, and it is the same prohibition the qualifier
+            // vocabulary already spells "nonbasic". Written as the intersection rather than
+            // replacing the qualifier, so a card that one day prints both keeps both.
+            if (m.Groups["nonbasic"].Success)
+            {
+                nameable = string.Equals(
+                    nameable, Abilities.SearchFilters.AnyCard, StringComparison.Ordinal)
+                    ? "nonbasic"
+                    : nameable + "&nonbasic";
+            }
+
+            effects.Add(new ChooseCardName(nameable));
+            return true;
+        }
+
         // "Search its controller's graveyard, hand, and library for all cards with the same name
         // as that spell and exile them" - the extraction family, and the reason the zone list
         // exists (CR 701.23a). Three zones at once, somebody else's, and the name is not written
-        // on the card: it is whatever the sentence before this one countered or exiled, which is
-        // why the filter carries a sentinel rather than a word.
+        // on the card: it is either whatever the sentence before this one countered or exiled, or
+        // whatever it asked a player to name, which is why the filter carries a sentinel rather
+        // than a word.
         //
         // Written as its own matcher rather than as more alternatives in the tutor grammar above.
         // The two share a zone list and a filter vocabulary and nothing else - this one names no
@@ -6121,18 +6152,54 @@ public static partial class EffectPhrase
         m = ExtractionSearchLine().Match(sentence);
         if (m.Success && SearchedZones(m.Groups["zones"].Value) is { } takenFrom)
         {
+            var whose = m.Groups["whose"].Value;
+
+            // Which of the two halves of this family it is, asked twice and made to agree. The
+            // name either comes off an object the spell picked out ("the same name as that card")
+            // or off a question it asked ("that name", "the chosen name"), and whose zones are
+            // searched is named the matching way round: through the object, or through a player.
+            //
+            // The pairing is enforced rather than assumed because the two readings need *different
+            // targets*, and the effect carries one index. A sentence that mixed them - "search
+            // target player's library for cards with the same name as that card" - would point
+            // one index at two things, and the corpus prints no such sentence. Refusing it is
+            // free; guessing which of the two the index meant would extract from a player the
+            // card never named.
+            var byObject = m.Groups["name"].Value.StartsWith(
+                "the same name as", StringComparison.OrdinalIgnoreCase);
+            var byPlayer = !whose.StartsWith("its ", StringComparison.OrdinalIgnoreCase);
+
+            if (byObject == byPlayer)
+                return false;
+
+            // "All cards with that name" and "any number of cards" are the same ceiling here:
+            // however many the zones turn out to hold. "Up to four" is the one printed bound.
+            var howMany = m.Groups["n"].Success ? SearchCount(m.Groups["n"].Value) : AnyNumber;
+
+            if (byObject)
+            {
+                effects.Add(new SearchLibrary(
+                    Abilities.SearchFilters.NamedPrefix + Abilities.SearchFilters.TargetsName,
+                    Zone.Exile,
+                    Zones: takenFrom,
+                    Whose: whose.StartsWith("its owner", StringComparison.OrdinalIgnoreCase)
+                        ? Abilities.SearchWhoseZones.TargetsOwner
+                        : Abilities.SearchWhoseZones.TargetsController,
+                    Count: howMany));
+
+                return true;
+            }
+
+            if (WhoseZonesAreSearched(whose, targets) is not { } extracted)
+                return false;
+
             effects.Add(new SearchLibrary(
-                Abilities.SearchFilters.NamedPrefix + Abilities.SearchFilters.TargetsName,
+                Abilities.SearchFilters.NamedPrefix + Abilities.SearchFilters.ChosenName,
                 Zone.Exile,
                 Zones: takenFrom,
-                Whose: m.Groups["whose"].Value.StartsWith(
-                    "its owner", StringComparison.OrdinalIgnoreCase)
-                    ? Abilities.SearchWhoseZones.TargetsOwner
-                    : Abilities.SearchWhoseZones.TargetsController,
-
-                // "All cards with that name" and "any number of cards" are the same ceiling here:
-                // however many the zones turn out to hold. "Up to four" is the one printed bound.
-                Count: m.Groups["n"].Success ? SearchCount(m.Groups["n"].Value) : AnyNumber));
+                Whose: Abilities.SearchWhoseZones.TargetPlayer,
+                TargetIndex: extracted,
+                Count: howMany));
 
             return true;
         }
@@ -10546,6 +10613,61 @@ public static partial class EffectPhrase
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Which target names the player whose zones an extraction searches, or null when the
+    /// sentence names nobody this reader may point at (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// Two spellings, and they are answered very differently.
+    /// <para>
+    /// "Target player's" and "target opponent's" declare the target themselves, so the spec is
+    /// added here and the search points at the one it just made. Nothing else in the sentence
+    /// could have meant it.
+    /// </para>
+    /// <para>
+    /// <strong>"That player's" points backwards and is the one worth being careful about.</strong>
+    /// It means whoever an <em>earlier</em> sentence named - a player who revealed their hand, an
+    /// opponent whose graveyard was picked from - which is not the same question as "who does
+    /// this spell target", and on Kotose and Shimian Specter it is not a target at all. Read as
+    /// the target it would extract from the wrong player's library: a card that plays perfectly
+    /// and empties the wrong person's deck, which no test that only checks the card compiles
+    /// would catch. So it is answered only when the sentences before it have declared exactly
+    /// one player target, which is the only case where "that player" and "the player this spell
+    /// targets" are provably the same person. Two player targets is an ambiguity and none is a
+    /// pronoun with no antecedent; both leave the line unread.
+    /// </para>
+    /// </remarks>
+    private static int? WhoseZonesAreSearched(
+        string whose, ImmutableList<TargetSpec>.Builder targets)
+    {
+        if (whose.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Specs.Parse(whose.Replace("'s", string.Empty, StringComparison.Ordinal).Trim())
+                is not { Kind: TargetKind.Player } aimed)
+            {
+                return null;
+            }
+
+            targets.Add(aimed);
+            return targets.Count - 1;
+        }
+
+        int? only = null;
+
+        for (var i = 0; i < targets.Count; i++)
+        {
+            if (targets[i].Kind != TargetKind.Player)
+                continue;
+
+            if (only is not null)
+                return null;
+
+            only = i;
+        }
+
+        return only;
     }
 
     /// <summary>Where a search puts what it found (CR 701.23).</summary>
@@ -17810,12 +17932,32 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^search (?<whose>its controller's|its owner's) "
+        @"^search (?<whose>its controller's|its owner's"
+            + @"|target player's|target opponent's|that player's) "
             + @"(?<zones>(library|graveyard|hand)(,? (and/or |or |and )?(library|graveyard|hand))*)"
             + @" for (all|any number of|up to (?<n>one|two|three|four|five)) "
-            + @"cards with the same name as that [a-z]+ and exile them$",
+            + @"cards with (?<name>the same name as that [a-z]+|that name|the chosen name)"
+            + @" and exile them$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExtractionSearchLine();
+
+    /// <remarks>
+    /// "Choose a nonland card name", "Choose an artifact card name", "Choose a card name other
+    /// than a basic land card name" (CR 201.4a). The qualifier is captured and handed to the
+    /// entry choice's reader, which is closed and refuses a word it does not know - the whole
+    /// point of the phrase is that it is narrower than "any card", and a qualifier quietly
+    /// dropped is a strictly better card than the printed one.
+    /// <para>
+    /// Anchored at both ends, so "choose a card name that hasn't been chosen this way" and the
+    /// rest of the family this cannot build stop matching at the tail rather than being read as
+    /// the plain choice they are not.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^choose an? (?<qualifier>[a-z, ]*?)card name"
+            + @"(?<nonbasic> other than a basic land card name)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChooseCardNameLine();
 
     /// <remarks>
     /// The filter is optional: "search your library for a card" has none at all, and requiring
