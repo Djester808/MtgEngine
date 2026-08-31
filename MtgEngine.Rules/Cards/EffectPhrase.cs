@@ -4593,9 +4593,13 @@ public static partial class EffectPhrase
                 ? Specs.Parse(bite.Groups["mine"].Value.Trim())
                 : null;
 
+            // The dealer has to be a creature; the recipient may be anything the sentence
+            // is allowed to aim at. "Any target" is its own kind (CR 115.4) and resolves to a
+            // player or a permanent when the target is chosen, which is why both are accepted
+            // here and told apart at resolution rather than at compile time.
             if ((bite.Groups["mine"].Success && dealer is not { Kind: TargetKind.Permanent })
                 || Specs.Parse(bite.Groups["theirs"].Value.Trim()) is not
-                { Kind: TargetKind.Permanent } bitten)
+                { Kind: TargetKind.Permanent or TargetKind.Any } bitten)
             {
                 return false;
             }
@@ -4623,7 +4627,18 @@ public static partial class EffectPhrase
                     mineSubject = biter.Subject;
             }
 
-            targets.Add(bitten);
+            // "Another target creature" is CR 115.3 asked of the sibling this sentence chose,
+            // and only this sentence knows which one that is. Specs.Parse gives the word its
+            // other half - not the permanent whose ability is asking - and on an instant that
+            // exclusion is vacuous, because the source is the spell and never a creature. Left
+            // at that, Fall of the Hammer would let a creature deal its power to itself.
+            targets.Add(
+                mineIndex2 is { } sibling
+                && bite.Groups["theirs"].Value.TrimStart()
+                    .StartsWith("another", StringComparison.OrdinalIgnoreCase)
+                    ? bitten with { PeerIndex = sibling }
+                    : bitten);
+
             effects.Add(new Fight(
                 targets.Count - 1, mineIndex2, BothWays: false, MySubject: mineSubject));
 
@@ -9441,6 +9456,159 @@ public static partial class EffectPhrase
 
     /// <summary>The articles a chosen source's noun phrase can open with.</summary>
     private static readonly string[] Articles = ["a ", "an ", "the "];
+
+    /// <summary>
+    /// A CR 615.10 partial prevention taken apart - "If a source would deal damage to you,
+    /// prevent 1 of that damage."
+    /// </summary>
+    /// <param name="Kind">Combat, noncombat, or any (CR 615.1).</param>
+    /// <param name="Sources">The "if ..." clause: what has to be dealing the damage.</param>
+    /// <param name="Victims">The "to ..." clause, normalised for the shared victim vocabulary.</param>
+    /// <param name="Amount">The cap this takes off <em>each</em> damage event (CR 615.10).</param>
+    internal readonly record struct PartialPreventionSentence(
+        DamageKind Kind, string Sources, string Victims, int Amount);
+
+    /// <summary>
+    /// Reads "If a red source would deal damage to you, prevent 2 of that damage" (CR 615.10).
+    /// </summary>
+    /// <remarks>
+    /// A different sentence from the blanket shield <see cref="ReadPreventionSentence"/> reads,
+    /// and a different <em>effect</em>: this one is a cap on every damage event that answers it,
+    /// applied again to the next one, rather than a wall the damage never gets past. The engine
+    /// has carried <see cref="State.PreventionEffect.Amount"/> for exactly this and nothing was
+    /// filling it in.
+    /// <para>
+    /// <strong>Only the numbered form.</strong> "Prevent all but 1 of that damage" is the
+    /// inverse - a floor on what gets through rather than a cap on what is stopped - and this
+    /// engine has no field for it, so Temple Altisaur and Hyperion stay unread rather than
+    /// becoming cards that prevent one point. "Prevent half that damage" is a third shape, and
+    /// "prevent that damage and ..." carries a rider nothing here can size. All three fail the
+    /// pattern rather than being rounded into it, because a prevention read wider than printed
+    /// is the failure this family produces that looks most like success.
+    /// </para>
+    /// <para>
+    /// The tail is anchored, so a sentence that continues past "of that damage" is refused.
+    /// Swans of Bryn Argoll draws cards for the damage prevented, which is a quantity this
+    /// engine does not carry anywhere a later clause could read - and a Swans that prevented the
+    /// damage and drew nothing would be complete, castable and wrong.
+    /// </para>
+    /// </remarks>
+    internal static PartialPreventionSentence? ReadPartialPreventionSentence(string sentence)
+    {
+        ArgumentNullException.ThrowIfNull(sentence);
+
+        var text = sentence.Trim().TrimEnd('.').Trim();
+
+        if (PartialPreventionLine().Match(text) is not { Success: true } read)
+            return null;
+
+        if (!int.TryParse(
+                read.Groups["n"].Value,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var amount)
+            || amount <= 0)
+        {
+            return null;
+        }
+
+        var kind = read.Groups["kind"].Value.Trim().ToLowerInvariant() switch
+        {
+            "combat" => DamageKind.Combat,
+            "noncombat" => DamageKind.Noncombat,
+            _ => DamageKind.Any,
+        };
+
+        return new PartialPreventionSentence(
+            kind,
+            read.Groups["by"].Value.Trim(),
+            NormalisedVictim(read.Groups["to"].Value.Trim()),
+            amount);
+    }
+
+    /// <summary>
+    /// The victim phrase of a partial prevention, said the way the shared vocabulary says it.
+    /// </summary>
+    /// <remarks>
+    /// Two words of grammar and nothing else. This sentence names its victim in the singular
+    /// with an article ("a Cleric creature you control") where the blanket shield names a set
+    /// without one ("creatures you control"), and it spells CR 109.5's exclusion "another" where
+    /// the other spells it "other". Both are said to <see cref="PreventVictim"/> in its own
+    /// words rather than being taught to it, so there is still one vocabulary deciding what
+    /// "creatures you control" covers.
+    /// </remarks>
+    private static string NormalisedVictim(string phrase)
+    {
+        var what = phrase.Trim();
+
+        if (what.StartsWith("another ", StringComparison.OrdinalIgnoreCase))
+            return "other " + what["another ".Length..].Trim();
+
+        foreach (var article in Articles)
+        {
+            if (what.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+                return what[article.Length..].Trim();
+        }
+
+        return what;
+    }
+
+    /// <summary>
+    /// What the "if ..." clause of a partial prevention describes - the filter its source answers.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PreventSource"/> reads the same kind of description out of a "by" clause, and
+    /// this hands the phrase to it once two things this grammar prints and that one does not
+    /// have been taken off: the article, and "an opponent controls".
+    /// <para>
+    /// "A source" on its own is every source in the game, which that reader refuses outright
+    /// because no "by" clause means it - there, a bare noun with no description and no
+    /// possessive is a mis-parse. Here it is Urza's Armor, so it is answered with no filter and
+    /// no scope, which is what "any source at all" is in <see cref="State.PreventionEffect"/>.
+    /// </para>
+    /// <para>
+    /// A spell is refused. <see cref="SearchFilters"/> answers about a card, and the two corpus
+    /// cards whose source is a spell both print a differently-shaped sentence anyway - so the
+    /// word is turned away here rather than becoming a filter asked of a permanent.
+    /// </para>
+    /// </remarks>
+    internal static (string? Filter, PlayerScope? Who, CombatRole? Combat)? PartialPreventionSource(
+        string phrase)
+    {
+        ArgumentNullException.ThrowIfNull(phrase);
+
+        var what = phrase.Trim();
+        PlayerScope? whose = null;
+
+        if (TrimTail(ref what, " an opponent controls")
+            || TrimTail(ref what, " your opponents control")
+            || TrimTail(ref what, " you don't control"))
+        {
+            whose = PlayerScope.EachOpponent;
+        }
+        else if (TrimTail(ref what, " you control"))
+        {
+            whose = PlayerScope.You;
+        }
+
+        foreach (var article in Articles)
+        {
+            if (what.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+            {
+                what = what[article.Length..].Trim();
+                break;
+            }
+        }
+
+        if (string.Equals(what, "source", StringComparison.OrdinalIgnoreCase))
+            return (null, whose, null);
+
+        if (string.Equals(what, "spell", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return PreventSource(what) is { Chosen: false } described
+            ? (described.Filter, described.Who ?? whose, described.Combat)
+            : null;
+    }
 
     /// <summary>
     /// The combat adjectives a prevention clause can open with, taken off and reported.
@@ -17010,7 +17178,8 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^((?<mine>[Tt]arget [a-z’' ]+?)|~|(?<pronoun>[Ii]t|[Tt]hat creature)) "
-            + @"deals damage equal to its power to (?<theirs>target [a-z’' ]+?)\.?$",
+            + @"deals damage equal to its power to "
+            + @"(?<theirs>(?:another |up to one )?target [a-z’', ]+?|any target)\.?$",
         RegexOptions.None)]
     private static partial Regex BiteLine();
 
@@ -19725,6 +19894,20 @@ public static partial class EffectPhrase
         @"^the next time (?<by>.+?) would deal damage(?<rest>[^,.]*), prevent that damage$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PreventNextInstanceLine();
+
+    /// <summary>
+    /// "If a red source would deal damage to you, prevent 2 of that damage" (CR 615.10).
+    /// </summary>
+    /// <remarks>
+    /// Anchored at both ends. The tail has to be the whole of the sentence, so "prevent all but
+    /// 1", "prevent half that damage" and every wording that carries a rider past the shield
+    /// fail the pattern instead of matching its first half.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^If (?<by>[^,]+?) would deal (?<kind>combat |noncombat )?damage to (?<to>[^,]+?), "
+            + @"prevent (?<n>\d+) of that damage$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PartialPreventionLine();
 
     /// <remarks>
     /// Anchored at both ends on purpose. A ban that runs on into another clause — Lava Burst's

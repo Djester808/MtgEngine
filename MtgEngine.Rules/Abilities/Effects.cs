@@ -3598,6 +3598,27 @@ public sealed record Fight(
                 : (ObjectId?)null
             : Subjects.Resolve(context, MySubject, 0);
 
+        // "Any target" is a player as readily as a permanent (CR 115.4), and the one-way half
+        // of this effect is how "target creature you control deals damage equal to its power to
+        // any target" is read. The damage still names the creature as its source, which is the
+        // whole reason those cards are read here and not as a DealDamage: CR 120.2b makes the
+        // source the object that dealt it, and a spell in the dealer's seat is the wrong source
+        // for lifelink, for protection, and for anything that asks who hit it.
+        //
+        // Only the one-way half. A player cannot fight (CR 701.12a), so a two-way fight that
+        // found a player is a mis-parse and deals nothing rather than dealing half.
+        if (mine is { } dealerId
+            && context.TargetAt(TheirIndex) is { Kind: TargetKind.Player } victim
+            && context.State.TryGetObject(dealerId, out var dealer)
+            && dealer.Zone == Zone.Battlefield)
+        {
+            var dealt = Characteristics.Of(context.State, context.Abilities, dealer).Power ?? 0;
+
+            return !BothWays && dealt > 0 && context.State.Players.ContainsKey(victim.Player)
+                ? [new PlayerDamaged(victim.Player, dealerId, dealt, IsCombat: false)]
+                : [];
+        }
+
         if (mine is not { } myId
             || context.TargetAt(TheirIndex) is not { Kind: TargetKind.Permanent } theirs
             || !context.State.TryGetObject(myId, out var me)

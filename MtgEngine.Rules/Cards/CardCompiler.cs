@@ -443,6 +443,7 @@ public static partial class CardCompiler
         var overloadEffects = ImmutableList<IEffect>.Empty;
         var suspendCount = 0;
         string? attacksOnlyIf = null;
+        string? cantBlockMatching = null;
         ManaCostSpec? foretell = null;
         string? madness = null;
         var additionalCosts = ImmutableList.CreateBuilder<ChosenCost>();
@@ -1032,6 +1033,12 @@ public static partial class CardCompiler
                 continue;
             }
 
+            if (CantBlockFilter(line) is { } barred)
+            {
+                cantBlockMatching = barred;
+                continue;
+            }
+
             if (TryCumulativeUpkeep(line, card, triggers))
                 continue;
 
@@ -1595,6 +1602,12 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticPrevention(line, replacements))
                 continue;
 
+            // CR 615.10's numbered shield, beside the blanket one and refused on a spell for the
+            // same reason: a cap with no duration is a permanent's static ability, and one filed
+            // from an instant would be armour nothing ever took off.
+            if (!isSpell && TryStaticPartialPrevention(line, replacements))
+                continue;
+
             // The two prohibitions a permanent prints, refused on an instant or sorcery for the
             // same reason the shield above is: on a spell the same words say "this turn" and
             // belong to the sentence parser, and a ban filed here would be one no permanent is
@@ -2035,6 +2048,7 @@ public static partial class CardCompiler
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
+            CantBlockMatching = cantBlockMatching,
             HasGift = hasGift,
             Unhandled = unhandled.ToImmutable(),
         };
@@ -10055,6 +10069,51 @@ public static partial class CardCompiler
     /// attacker as well as the blocker, and both powers are read computed so a pump on either
     /// side changes who may block.
     /// </remarks>
+    /// <summary>
+    /// "This creature can't block creatures with power 2 or greater" - one creature's blocking
+    /// restriction, described (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Nine corpus cards, and none of them expressible as a keyword: what the restriction asks
+    /// about is the <em>attacker</em>, and the answer changes with the board. So it is stored as
+    /// a filter name and asked at declaration, exactly as the attack restriction beside it is.
+    /// <para>
+    /// <strong>Everything the shared vocabulary cannot say is refused, and the refusals are the
+    /// point.</strong> A blocking restriction read one word too wide is a creature that cannot
+    /// block at all, and read one word too narrow it is a creature with no restriction - both
+    /// compile, and both make the card complete. So:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>"Unless you pay {1}" is a price on the restriction and not part of the description;
+    /// Hipparion stays unread rather than becoming a creature that simply cannot block.</item>
+    /// <item>"Or be blocked by" is two restrictions in one sentence and only one of them is
+    /// this; Sneaky Homunculus stays unread rather than losing its evasion half.</item>
+    /// <item>"Creatures with power greater than this creature's power" is a relation between the
+    /// two creatures rather than a description of one, which no filter name can hold. Spitfire
+    /// Handler and Ironclaw Curse stay unread.</item>
+    /// <item>Only "~" is the subject. "Enchanted creature can't block ..." grants the
+    /// restriction to something else, which is a continuous effect and not a fact about the card
+    /// printing the words.</item>
+    /// </list>
+    /// </remarks>
+    private static string? CantBlockFilter(string line)
+    {
+        if (CantBlockFilterLine().Match(line) is not { Success: true } read)
+            return null;
+
+        var what = read.Groups["what"].Value.Trim();
+
+        // Two refusals spelled out rather than left to the filter vocabulary, because both
+        // phrases have a head this one *can* read and a tail it would drop.
+        if (what.Contains(" unless ", StringComparison.OrdinalIgnoreCase)
+            || what.StartsWith("or be blocked", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return EffectPhrase.CardFilterNamed(EffectPhrase.Singular(what));
+    }
+
     private static bool TrySmallCreaturesCantBlock(
         string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
     {
@@ -16593,6 +16652,74 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "If a red source would deal damage to you, prevent 2 of that damage" (CR 615.10).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="TryStaticPrevention"/> and deliberately a second entry point
+    /// rather than one more branch inside it: the two sentences share their two noun clauses and
+    /// nothing else. This one is a per-event cap that applies again to the next event, the other
+    /// is a wall, and folding them together would mean one reader with a flag deciding which
+    /// card it was compiling.
+    /// <para>
+    /// Only a permanent's static ability. A spell saying these words would be a shield nothing
+    /// ever took down, which is the reason every prohibition and shield beside this one is
+    /// refused on an instant or sorcery.
+    /// </para>
+    /// <para>
+    /// Every clause has to read. A partial prevention whose victim the vocabulary cannot name is
+    /// left unread rather than widened - "prevent 1 of that damage" covering every permanent on
+    /// the board instead of the Clerics is a strictly better card than the printed one, and one
+    /// that no count of compiled cards can tell from the right answer.
+    /// </para>
+    /// </remarks>
+    private static bool TryStaticPartialPrevention(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var sentence = line;
+        BoardCondition? when = null;
+
+        // The same guard clause the blanket shield reads, and read the same way: a condition the
+        // shared vocabulary cannot say leaves the line unread rather than producing a shield
+        // that is always up.
+        if (ConditionalPartialPreventionLine().Match(line) is { Success: true } guarded)
+        {
+            when = BoardConditions.Parse(guarded.Groups["cond"].Value.Trim());
+            if (when is null)
+                return false;
+
+            sentence = guarded.Groups["rest"].Value;
+        }
+
+        if (EffectPhrase.ReadPartialPreventionSentence(sentence) is not { } read)
+            return false;
+
+        if (EffectPhrase.PartialPreventionSource(read.Sources) is not { } from)
+            return false;
+
+        // "Equipped creature" and "~" name one object each and are only meaningful to a
+        // permanent, exactly as they are for the blanket shield next door.
+        if (StaticPreventionAnchor(read.Victims) is var anchor and not PreventionAnchor.None)
+        {
+            into.Add(
+                StaticShield(
+                    read.Kind, anchor, (null, null, false, null), PreventionAnchor.None, from,
+                    PreventionRelation.None, when, read.Amount));
+
+            return true;
+        }
+
+        if (EffectPhrase.PreventVictim(read.Victims) is not { } who)
+            return false;
+
+        into.Add(
+            StaticShield(
+                read.Kind, PreventionAnchor.None, who, PreventionAnchor.None, from,
+                PreventionRelation.None, when, read.Amount));
+
+        return true;
+    }
+
     /// <summary>Which object a static prevention's clause names, when it names one.</summary>
     private enum PreventionAnchor
     {
@@ -16756,7 +16883,7 @@ public static partial class CardCompiler
             built.Add(
                 StaticShield(
                     kind, PreventionAnchor.None, (null, null, false, null), dealer, from,
-                    relation, when));
+                    relation, when, cap: null));
             return true;
         }
 
@@ -16769,7 +16896,8 @@ public static partial class CardCompiler
             {
                 built.Add(
                     StaticShield(
-                        kind, anchor, (null, null, false, null), dealer, from, relation, when));
+                        kind, anchor, (null, null, false, null), dealer, from, relation, when,
+                        cap: null));
                 continue;
             }
 
@@ -16777,7 +16905,8 @@ public static partial class CardCompiler
                 return false;
 
             built.Add(
-                StaticShield(kind, PreventionAnchor.None, who, dealer, from, relation, when));
+                StaticShield(
+                    kind, PreventionAnchor.None, who, dealer, from, relation, when, cap: null));
         }
 
         return built.Count > before;
@@ -16827,7 +16956,8 @@ public static partial class CardCompiler
         PreventionAnchor dealer,
         (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
         PreventionRelation relation,
-        BoardCondition? when)
+        BoardCondition? when,
+        int? cap)
     {
         var template = new PreventionEffect
         {
@@ -16892,7 +17022,7 @@ public static partial class CardCompiler
 
         return new ReplacementEffectDefinition
         {
-            Id = StaticShieldId(kind, victim, described, dealer, from, relation),
+            Id = StaticShieldId(kind, victim, described, dealer, from, relation, cap),
             FunctionsFrom = Zone.Battlefield,
 
             // CR 615.12: unpreventable damage has to walk past this the same way it walks past
@@ -16921,11 +17051,26 @@ public static partial class CardCompiler
                 };
             },
 
-            // Nothing comes back: the damage event is replaced by no events at all, which is
-            // what preventing all of it means (CR 615.1). Every line read here says "prevent
-            // all"; CR 615.10's numbered form is a differently-shaped sentence this does not
-            // claim, so the amount is never partial.
-            Replace = (_, _, _) => [],
+            // Nothing comes back for the blanket wording: the damage event is replaced by no
+            // events at all, which is what preventing all of it means (CR 615.1).
+            //
+            // CR 615.10's numbered form is the same shield with a cap, and it has to put the
+            // rest of the damage back - "prevent 1 of that damage" against a 3-point hit marks
+            // two. A cap that dropped the whole event would be a card that reads correctly,
+            // compiles, and quietly plays as total immunity; nothing in a coverage count can see
+            // the difference, which is why the remainder is emitted here rather than left to the
+            // caller. The cap applies again to the next event on its own, because a replacement
+            // effect is applied once per event and this state is never written back.
+            Replace = (e, _, _) => cap is not { } most
+                ? []
+                : e switch
+                {
+                    Events.DamageMarked marked when marked.Amount > most =>
+                        [marked with { Amount = marked.Amount - most }],
+                    Events.PlayerDamaged hit when hit.Amount > most =>
+                        [hit with { Amount = hit.Amount - most }],
+                    _ => [],
+                },
         };
     }
 
@@ -16942,7 +17087,8 @@ public static partial class CardCompiler
         (string? Filter, PlayerScope? Who, bool Other, CombatRole? Combat) described,
         PreventionAnchor dealer,
         (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
-        PreventionRelation relation)
+        PreventionRelation relation,
+        int? cap)
     {
         var to = victim switch
         {
@@ -16970,7 +17116,8 @@ public static partial class CardCompiler
                     + (relation is PreventionRelation.None ? string.Empty : ":" + relation),
         };
 
-        return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}";
+        return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}"
+            + (cap is { } most ? ":cap=" + most.ToString(CultureInfo.InvariantCulture) : string.Empty);
     }
 
     /// <summary>
@@ -21357,6 +21504,17 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex SmallCantBlockLine();
 
+    /// <summary>
+    /// "~ can't block creatures with power 2 or greater." (CR 509.1b)
+    /// </summary>
+    /// <remarks>
+    /// The description has to be the whole of the sentence. A trailing clause - a price, a
+    /// second restriction, a condition on the blocker - is a card this cannot compile, and a
+    /// pattern that stopped short of it would compile the half it understood.
+    /// </remarks>
+    [GeneratedRegex(@"^~ can't block (?<what>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex CantBlockFilterLine();
+
     [GeneratedRegex(
         @"^(?<who>~|Enchanted creature|Equipped creature) can block "
         + @"(?:(?<any>any number of creatures)|an additional creature|"
@@ -21418,6 +21576,19 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(?<cond>[Dd]uring [^,]+|[Aa]s long as [^,]+), (?<rest>[Pp]revent all .+)$")]
     private static partial Regex ConditionalPreventionLine();
+
+    /// <summary>
+    /// The same guard in front of CR 615.10's numbered shield - "As long as this artifact is
+    /// untapped, if a creature would deal combat damage to you, prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// A pattern of its own because the sentence behind the comma opens with "if" rather than
+    /// with "prevent", and widening the shared one to accept either would let the blanket reader
+    /// take the first half of a numbered sentence.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<cond>[Dd]uring [^,]+|[Aa]s long as [^,]+), (?<rest>[Ii]f .+)$")]
+    private static partial Regex ConditionalPartialPreventionLine();
 
     [GeneratedRegex(
         @"^~ costs \{(?<n>\d+)\} less to cast if it targets an? (?<what>.+?)\.?$",
@@ -22793,6 +22964,11 @@ public sealed record CompiledCard
     /// <summary>The land type this creature may only attack a controller of (CR 506.3).</summary>
     public string? AttacksOnlyIfDefenderControls { get; init; }
 
+    /// <summary>
+    /// The attackers this creature may not block, as a filter name (CR 509.1b).
+    /// </summary>
+    public string? CantBlockMatching { get; init; }
+
     public ImmutableList<string> Unhandled { get; init; } = [];
 
     /// <summary>Whether every line of the card was understood.</summary>
@@ -22826,5 +23002,6 @@ public sealed record CompiledCard
         || !Bans.IsEmpty
         || !FlashPermissions.IsEmpty
         || !LibraryTopPermissions.IsEmpty
-        || AttacksOnlyIfDefenderControls is not null;
+        || AttacksOnlyIfDefenderControls is not null
+        || CantBlockMatching is not null;
 }

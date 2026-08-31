@@ -6104,6 +6104,546 @@ public sealed class CompiledCardBehaviourTests
     private static CardDefinition EqualToGiant(string name) =>
         Card(name, string.Empty, CardType.Creature, 3, 3, KeywordAbility.None, "Giant");
 
+    // ---- A numbered prevention shield (CR 615.10) ---------------------------
+
+    /// <summary>A burn spell of a named colour, for the shields that ask what dealt the damage.</summary>
+    private static CardDefinition NumberedShieldBolt(
+        string name, int damage, params ManaColor[] colours) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = "~ deals " + damage.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " damage to any target.",
+            CardTypes = CardType.Instant,
+            Colors = colours,
+            ColorIdentity = colours,
+        };
+
+    /// <summary>
+    /// Urza's Armor: "If a source would deal damage to you, prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The number is a cap on each damage event and not a pool that runs out (CR 615.10), which
+    /// is the whole difference between this sentence and "prevent the next 1 damage". The second
+    /// bolt is the control and it is the assertion that matters: a shield read as a countdown
+    /// soaks one point in the game and none afterwards, and a shield read as the blanket wording
+    /// beside it soaks all three - both of those compile, and both make the card complete.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_caps_every_damage_event_rather_than_running_out()
+    {
+        var armour = Card(
+            "Numbered Armour Test",
+            "If a source would deal damage to you, prevent 1 of that damage.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(armour);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, armour, Zone.Battlefield);
+        SettleIn(game);
+
+        var bolt = NumberedShieldBolt("Numbered Armour Bolt Test", 3, ManaColor.Red);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+
+        // The cap applies again, in full, to the next event.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Sphere of Law: "If a red source would deal damage to you, prevent 2 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The description of the source is the control, and it is the half this family is dangerous
+    /// in: a Sphere read without it is Urza's Armor with a bigger number and stops everything at
+    /// the table. So the same three damage is cast twice from two spells that differ in nothing
+    /// but their colour, and the two boards give two different life totals.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_only_watches_the_sources_it_names()
+    {
+        var sphere = Card(
+            "Numbered Sphere Test",
+            "If a red source would deal damage to you, prevent 2 of that damage.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sphere);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, sphere, Zone.Battlefield);
+        SettleIn(game);
+
+        var red = NumberedShieldBolt("Numbered Sphere Red Test", 3, ManaColor.Red);
+        var white = NumberedShieldBolt("Numbered Sphere White Test", 3, ManaColor.White);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, red), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, white), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Daunting Defender: "If a source would deal damage to a Cleric creature you control,
+    /// prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The victim is a described set of permanents rather than a player, which is a different
+    /// field on the shield and a different event to watch. The Bear beside the Cleric is the
+    /// control: it takes the same two damage from the same spell and dies, so the shield is the
+    /// filter it prints and not one that covers the board.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_around_a_described_set_covers_only_that_set()
+    {
+        var defender = Card(
+            "Numbered Defender Test",
+            "If a source would deal damage to a Cleric creature you control, prevent 1 of that damage.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(defender);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, defender, Zone.Battlefield);
+
+        var cleric = game.Create(
+            alice,
+            Card("Numbered Cleric Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Cleric"),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Numbered Bear Test", 2, 2), Zone.Battlefield);
+
+        SettleIn(game);
+
+        var bolt = NumberedShieldBolt("Numbered Defender Bolt Test", 2, ManaColor.Red);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(cleric)]);
+        Settle(game);
+
+        Assert.Contains(cleric, game.State.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The three neighbouring wordings this reader refuses, and why each stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Every one of them would compile to the shield above if the pattern were one word looser,
+    /// and every one of them would then be a strictly better card than the printed one. "All but
+    /// 1" is the inverse of a cap - a floor on what gets through - and there is no field for it;
+    /// "half" is a third arithmetic; and a rider past the shield is a clause this engine cannot
+    /// size, because the amount prevented is not carried anywhere a later sentence could read.
+    /// </remarks>
+    [Fact]
+    public void The_wordings_a_numbered_shield_cannot_size_stay_unread()
+    {
+        foreach (var text in new[]
+        {
+            "If a source would deal damage to you, prevent all but 1 of that damage.",
+            "If a source would deal damage to you, prevent half that damage, rounded up.",
+            "If a source would deal damage to ~, prevent that damage. "
+                + "The source's controller draws cards equal to the damage prevented this way.",
+        })
+        {
+            var refused = Card("Numbered Refusal Test " + text.Length, text, CardType.Enchantment);
+            Assert.NotEmpty(CardCompiler.Compile(refused).Unhandled);
+        }
+    }
+
+    // ---- A described blocking restriction (CR 509.1b) ------------------------
+
+    /// <summary>Ironclaw Orcs and its eight siblings, on a board that has both answers.</summary>
+    private static CardDefinition RestrictedBlocker(string name, string bars) =>
+        Card(name, "~ can't block " + bars + ".", CardType.Creature, 2, 2);
+
+    /// <summary>
+    /// Ironclaw Orcs: "This creature can't block creatures with power 2 or greater."
+    /// </summary>
+    /// <remarks>
+    /// The restriction is about the <em>attacker</em>, which is why it cannot be a keyword and
+    /// why the small creature attacking beside the big one is the control rather than a second
+    /// case: a restriction read as the blanket "can't block" refuses both declarations, and a
+    /// restriction dropped entirely allows both. Only the printed card allows exactly one.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_refuses_only_the_attackers_it_names()
+    {
+        var orcs = RestrictedBlocker(
+            "Restricted Orcs Test", "creatures with power 2 or greater");
+
+        var compiled = CardCompiler.Compile(orcs);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var big = game.Create(alice, TestCards.Creature("Restricted Ogre Test", 2, 2), Zone.Battlefield);
+        var small = game.Create(alice, TestCards.Creature("Restricted Mouse Test", 1, 1), Zone.Battlefield);
+        var orc = game.Create(bob, orcs, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [big] = AttackTarget.Player(bob),
+                [small] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var refused = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [big] = [orc] }));
+
+        Assert.Contains("509.1b", refused.Message, StringComparison.Ordinal);
+
+        // The control: the same blocker, the same combat, an attacker one point smaller.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [small] = [orc] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The 1/1 was stopped and the 2/2 was not, so exactly two points got through.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(1, game.State.GetObject(orc).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// Hunted Ghoul: "This creature can't block Humans."
+    /// </summary>
+    /// <remarks>
+    /// The second half of the family describes the attacker by what it <em>is</em> rather than
+    /// by a number, and it goes through the same shared filter vocabulary. Kept as its own test
+    /// because a reader that answered only the numeric wording would still pass the one above.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_reads_a_tribe_as_well_as_a_number()
+    {
+        var ghoul = RestrictedBlocker("Restricted Ghoul Test", "Humans");
+
+        var compiled = CardCompiler.Compile(ghoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var human = game.Create(
+            alice,
+            Card("Restricted Human Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Human"),
+            Zone.Battlefield);
+
+        var goblin = game.Create(
+            alice,
+            Card("Restricted Goblin Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Goblin"),
+            Zone.Battlefield);
+
+        var ghoulId = game.Create(bob, ghoul, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [human] = AttackTarget.Player(bob),
+                [goblin] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [human] = [ghoulId] }));
+
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [goblin] = [ghoulId] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The restriction asks what the attacker is <em>now</em>, not what it was printed as.
+    /// </summary>
+    /// <remarks>
+    /// Two games, one printed attacker, two boards. A 1/1 is blockable; the same 1/1 standing
+    /// next to a lord is a 2/2 and is not. This is the assertion that the filter runs through
+    /// <see cref="SearchFilters"/>'s board-aware ask rather than reading the corner of the card -
+    /// and a reader that read the print instead would pass every other test in this section.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_asks_the_board_and_not_the_print()
+    {
+        var orcs = RestrictedBlocker(
+            "Restricted Layer Orcs Test", "creatures with power 2 or greater");
+
+        var lord = Card(
+            "Restricted Lord Test",
+            "Other creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.True(
+            CardCompiler.Compile(lord).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(lord).Unhandled));
+
+        // Board one: a printed 1/1 that is a 2/2 while the lord stands, and cannot be blocked.
+        var (pumped, alice, bob) = InMainPhase();
+        var raised = pumped.Create(
+            alice, TestCards.Creature("Restricted Layer Mouse Test", 1, 1), Zone.Battlefield);
+
+        pumped.Create(alice, lord, Zone.Battlefield);
+        SettleIn(pumped);
+
+        Assert.Equal(2, Now(pumped, raised).Power);
+
+        var guard = pumped.Create(bob, orcs, Zone.Battlefield);
+
+        PassTo(pumped, 3, TurnStep.DeclareAttackers);
+        pumped.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [raised] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(pumped, () => pumped.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => pumped.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [raised] = [guard] }));
+
+        // Board two: the same printed creature with no lord beside it, and the block is legal.
+        var (plain, carol, dave) = InMainPhase();
+        var mouse = plain.Create(
+            carol, TestCards.Creature("Restricted Layer Mouse Test", 1, 1), Zone.Battlefield);
+
+        var watcher = plain.Create(dave, orcs, Zone.Battlefield);
+
+        PassTo(plain, 3, TurnStep.DeclareAttackers);
+        plain.DeclareAttackers(
+            carol,
+            new Dictionary<ObjectId, AttackTarget> { [mouse] = AttackTarget.Player(dave) });
+
+        TestCards.PassUntil(plain, () => plain.State.CurrentStep == TurnStep.DeclareBlockers);
+        plain.DeclareBlockers(
+            dave, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [mouse] = [watcher] });
+
+        TestCards.PassUntil(plain, () => plain.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(plain);
+
+        Assert.Equal(20, plain.State.GetPlayer(dave).Life);
+        Assert.Equal(1, plain.State.GetObject(watcher).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The three neighbouring sentences this reader refuses, and what each would have cost.
+    /// </summary>
+    /// <remarks>
+    /// Every one of them is "~ can't block " followed by words, and every one of them carries
+    /// something a filter name cannot hold. Read loosely, Hipparion loses the price that is the
+    /// whole point of it, Sneaky Homunculus loses its evasion, and Spitfire Handler gets a
+    /// restriction measured against a creature that is not the one the sentence means.
+    /// </remarks>
+    [Fact]
+    public void The_blocking_restrictions_a_filter_name_cannot_hold_stay_unread()
+    {
+        foreach (var text in new[]
+        {
+            "~ can't block creatures with power 3 or greater unless you pay {1}.",
+            "~ can't block or be blocked by creatures with power 2 or greater.",
+            "~ can't block creatures with power greater than ~'s power.",
+        })
+        {
+            var refused = Card(
+                "Restricted Refusal Test " + text.Length, text, CardType.Creature, 2, 2);
+
+            Assert.NotEmpty(CardCompiler.Compile(refused).Unhandled);
+        }
+    }
+
+    // ---- Half a fight, aimed somewhere a fight cannot go (CR 115.4) ---------
+
+    /// <summary>
+    /// Soul's Fire: "Target creature you control deals damage equal to its power to any target."
+    /// </summary>
+    /// <remarks>
+    /// The recipient is a player, which is the half a fight has no room for - CR 701.12a puts
+    /// two creatures in a fight and a player is neither. It is still read as the one-way fight
+    /// rather than as ordinary damage, and that is a rule and not a convenience: CR 120.2b makes
+    /// the <em>creature</em> the source, so lifelink, protection and every "dealt damage by"
+    /// trigger see the creature. Read as a DealDamage the instant would be in the dealer's seat,
+    /// the life would not be gained, and the card would look implemented.
+    /// <para>
+    /// The lord is the control. The same spell aimed by the same player at the same creature
+    /// deals two on one board and three on the next, because power is computed (CR 613) - and a
+    /// reader that took the printed number would pass every other assertion here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_can_be_aimed_at_a_player_and_deals_the_creatures_power()
+    {
+        var fire = Card(
+            "Bitten Fire Test",
+            "Target creature you control deals damage equal to its power to any target.");
+
+        var compiled = CardCompiler.Compile(fire);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var lord = Card(
+            "Bitten Lord Test",
+            "Other creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var bear = game.Create(
+            alice,
+            Card("Bitten Bear Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Lifelink),
+            Zone.Battlefield);
+
+        SettleIn(game);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // The creature dealt it, not the instant: lifelink is a quality of the source (CR 702.15b).
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        // Same spell, same creature, one more lord on the board.
+        game.Create(alice, lord, Zone.Battlefield);
+        SettleIn(game);
+
+        Assert.Equal(3, Now(game, bear).Power);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same sentence aimed at a permanent, which is the arm that already worked.
+    /// </summary>
+    /// <remarks>
+    /// "Any target" is one spec covering both, so the permanent half is the control that says
+    /// the widening did not cost the reading it already had.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_aimed_at_any_target_still_reaches_a_creature()
+    {
+        var fire = Card(
+            "Bitten Aim Test",
+            "Target creature you control deals damage equal to its power to any target.");
+
+        Assert.True(CardCompiler.Compile(fire).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Bitten Aim Bear Test", 2, 2), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Bitten Aim Wall Test", 0, 5), Zone.Battlefield);
+        SettleIn(game);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPermanent(wall)]);
+
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(wall).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// Fall of the Hammer: "... deals damage equal to its power to another target creature."
+    /// </summary>
+    /// <remarks>
+    /// "Another" is CR 109.5 asked of a sibling target rather than of the source, and the target
+    /// grammar has carried that filter for a while - this sentence simply could not say it,
+    /// because the pattern wanted the recipient to start with the word "target". The illegal
+    /// declaration is the assertion: without the exclusion the card is a creature dealing its
+    /// power to itself, which is a different and much worse card that compiles just as cleanly.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_at_another_target_cannot_choose_its_own_dealer()
+    {
+        var hammer = Card(
+            "Bitten Hammer Test",
+            "Target creature you control deals damage equal to its power to another target creature.");
+
+        var compiled = CardCompiler.Compile(hammer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ogre = game.Create(alice, TestCards.Creature("Bitten Hammer Ogre Test", 3, 3), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Bitten Hammer Wall Test", 0, 5), Zone.Battlefield);
+        SettleIn(game);
+
+        Assert.ThrowsAny<InvalidOperationException>(() => game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, hammer),
+            [Target.ToPermanent(ogre), Target.ToPermanent(ogre)]));
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, hammer),
+            [Target.ToPermanent(ogre), Target.ToPermanent(wall)]);
+
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(wall).Permanent!.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(ogre).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The recipient this reader still refuses: a player named by relation rather than targeted.
+    /// </summary>
+    /// <remarks>
+    /// Backlash and its two siblings say "to its controller" - a player the sentence never
+    /// targets, found from whichever creature the spell tapped. Every recipient this reader can
+    /// say is a target slot, and a player that is not a target has nowhere to be chosen; three
+    /// cards stay unread rather than being aimed at somebody the sentence did not name.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_at_an_untargeted_player_stays_unread()
+    {
+        var backlash = Card(
+            "Bitten Backlash Test",
+            "Tap target untapped creature. It deals damage equal to its power to its controller.",
+            CardType.Sorcery);
+
+        Assert.NotEmpty(CardCompiler.Compile(backlash).Unhandled);
+    }
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]
