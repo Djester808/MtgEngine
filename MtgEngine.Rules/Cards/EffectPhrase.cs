@@ -13754,7 +13754,7 @@ public static partial class EffectPhrase
     /// <strong>A name is not a type, and this class is what says so.</strong> Everywhere else in
     /// this compiler a capitalised word next to a type line <em>is</em> a subtype - that is how
     /// <c>CreatureTokenLine</c> finds "Soldier" without a vocabulary of type names, and how
-    /// <see cref="Abilities.SearchFilters.Matches"/> decides what a filter id means. A token name
+    /// <see cref="Abilities.SearchFilters.Matches(string, Domain.Models.CardDefinition)"/> decides what a filter id means. A token name
     /// arrives in exactly that position and means something else, so it is captured by a group of
     /// its own, put in <see cref="Domain.Models.CardDefinition.Name"/> and never in
     /// <c>Subtypes</c>, and refused outright when it cannot be told from a type.

@@ -4823,7 +4823,7 @@ public sealed class CompiledCardBehaviourTests
     /// </summary>
     /// <remarks>
     /// The fail-closed half of the rule above. Handed to
-    /// <see cref="SearchFilters.Matches"/> - the reader that decides what a capitalised word in a
+    /// <see cref="SearchFilters.Matches(string, CardDefinition)"/> - the reader that decides what a capitalised word in a
     /// filter means - "Elf" answers as the subtype, so nothing downstream could tell the name
     /// from the type and the sentence is refused rather than compiled into whichever reading
     /// happened to win. No printed card names a token after its own creature type, so this costs
