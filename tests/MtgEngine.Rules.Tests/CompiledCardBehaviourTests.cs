@@ -11735,6 +11735,303 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(standing.IsComplete, string.Join(" | ", standing.Unhandled));
     }
 
+    // ---- A card-type list of three or more (CR 109.4) ------------------------
+
+    /// <summary>
+    /// "Counter target enchantment, instant, or sorcery spell" - Swan Song's third kind.
+    /// </summary>
+    /// <remarks>
+    /// Every reader in the compiler that reads a list of kinds splits on " or ", so a card
+    /// naming two read and the same card naming three did not - defeated by the comma in front
+    /// of the last one and nothing else. The list is normalised before any reader sees it, which
+    /// is why this test is about the <em>last</em> member: it is the one the comma hid.
+    /// </remarks>
+    [Fact]
+    public void A_counter_naming_three_kinds_of_spell_stops_the_last_one()
+    {
+        var song = Card(
+            "Swan Song List Test", "Counter target enchantment, instant, or sorcery spell.");
+
+        var compiled = CardCompiler.Compile(song);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A sorcery is sorcery speed, so Bob needs his own main phase with an empty stack.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == bob);
+
+        // The control, first: a creature spell is not one of the three kinds the card names, and
+        // aiming at it is refused outright rather than fizzling later (CR 601.2c). A list read as
+        // "every spell" would take this one, which is the direction the comma could have failed in.
+        var refused = TestCards.PutInHand(game, alice, song);
+        var bear = TestCards.PutInHand(game, bob, TestCards.Creature("Sung Bear List Test"));
+        game.CastSpell(bob, bear, targets: null);
+        game.PassPriority(bob);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, refused, [Target.ToSpell(game.State.Stack.Single())]));
+
+        // Let the bear through, so the counter below is answering an empty board's worth of
+        // stack rather than two spells at once.
+        game.PassPriority(alice);
+        Assert.Empty(game.State.Stack);
+
+        var held = game.State.GetPlayer(bob).Hand.Count;
+        var wrath = TestCards.PutInHand(
+            game, bob, Card("Sung Sorcery List Test", "Draw a card.", CardType.Sorcery));
+
+        game.CastSpell(bob, wrath, targets: null);
+        game.PassPriority(bob);
+
+        var answer = TestCards.PutInHand(game, alice, song);
+        game.CastSpell(alice, answer, [Target.ToSpell(game.State.Stack.Single())]);
+        Settle(game);
+
+        // The third kind was a legal target and the spell never resolved: it is in the graveyard
+        // and Bob drew nothing. The count is taken against the hand as it stood before the
+        // sorcery was dealt, so a card that was countered is one card down, not level.
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Sung Sorcery List Test");
+
+        Assert.Equal(held, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Return target artifact, enchantment, or planeswalker card from your graveyard to the
+    /// battlefield" - Repair and Recharge, whose last kind was hidden the same way.
+    /// </summary>
+    [Fact]
+    public void A_graveyard_target_naming_three_kinds_takes_the_last_one()
+    {
+        var repair = Card(
+            "Repair List Test",
+            "Return target artifact, enchantment, or planeswalker card from your graveyard to "
+                + "the battlefield. Create a tapped Powerstone token.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(repair);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var walker = game.Create(
+            alice, Walker("Repaired Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Repaired Bear List Test"), Zone.Graveyard);
+
+        // The control: a creature card is not one of the three kinds, and the card in the
+        // graveyard beside the planeswalker is what proves the filter is still a filter.
+        var wrong = TestCards.PutInHand(game, alice, repair);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(bear)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, repair), [Target.ToCard(walker)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Repaired Walker List Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Repaired Bear List Test");
+    }
+
+    /// <summary>
+    /// "Return all artifact, enchantment, and planeswalker cards from your graveyard to the
+    /// battlefield" - Triumphant Reckoning, where the list is joined by "and" and still means
+    /// any one of them (CR 109.4).
+    /// </summary>
+    /// <remarks>
+    /// The printed conjunction is put back between every pair rather than normalised to "or",
+    /// because a group reader collects with "and" and a target reader chooses with "or". This is
+    /// the "and" half; the two tests above are the "or" half.
+    /// </remarks>
+    [Fact]
+    public void A_group_return_naming_three_kinds_takes_all_three_and_nothing_else()
+    {
+        var reckoning = Card(
+            "Reckoning List Test",
+            "Return all artifact, enchantment, and planeswalker cards from your graveyard to "
+                + "the battlefield.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice, Card("Reckoned Relic List Test", string.Empty, CardType.Artifact), Zone.Graveyard);
+
+        game.Create(
+            alice,
+            Card("Reckoned Ward List Test", string.Empty, CardType.Enchantment),
+            Zone.Graveyard);
+
+        game.Create(alice, Walker("Reckoned Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        // The control: a creature card, named by nothing in the list, in the same graveyard the
+        // spell empties. A list read as "every permanent card" would take it too.
+        game.Create(alice, TestCards.Creature("Reckoned Bear List Test"), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reckoning), targets: null);
+        Settle(game);
+
+        var back = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Select(o => o.Card.Name)
+            .ToList();
+
+        Assert.Contains("Reckoned Relic List Test", back);
+        Assert.Contains("Reckoned Ward List Test", back);
+        Assert.Contains("Reckoned Walker List Test", back);
+        Assert.DoesNotContain("Reckoned Bear List Test", back);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Reckoned Bear List Test");
+    }
+
+    // ---- The last member of a keyword list (CR 702.16e) ----------------------
+
+    /// <summary>
+    /// "Flying, first strike, vigilance, trample, haste, protection from black and from red" -
+    /// Akroma, Angel of Wrath's whole line.
+    /// </summary>
+    /// <remarks>
+    /// The plain keyword reader splits a line on commas and looks each part up as a flag the
+    /// printed card carries. A protection conjunction is neither: the bulk data carries the bare
+    /// word "Protection" and the loader recovers each colour by looking for "protection from red"
+    /// in the text, which a conjunction never writes. So the last member had no name, and the
+    /// whole-or-nothing rule took the five keywords in front of it down with it.
+    /// </remarks>
+    [Fact]
+    public void The_protection_at_the_end_of_a_keyword_list_grants_both_its_colours()
+    {
+        var akroma = Card(
+            "Wrath List Test",
+            "Flying, first strike, vigilance, trample, haste, protection from black and from red",
+            CardType.Creature,
+            6,
+            6,
+            KeywordAbility.Flying | KeywordAbility.FirstStrike | KeywordAbility.Vigilance
+                | KeywordAbility.Trample | KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(akroma);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var angel = game.Create(alice, akroma, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(angel));
+
+        // Both halves of the conjunction, neither of which is a flag on the printed card: the
+        // line is what says it has them.
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromBlack));
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromRed));
+
+        // And the five keywords printed in front of it are still there. Reading the list as far
+        // as the part it could name would have been the other way to be wrong here.
+        Assert.True(computed.Has(KeywordAbility.Flying));
+        Assert.True(computed.Has(KeywordAbility.FirstStrike));
+        Assert.True(computed.Has(KeywordAbility.Vigilance));
+        Assert.True(computed.Has(KeywordAbility.Trample));
+        Assert.True(computed.Has(KeywordAbility.Haste));
+
+        // It reaches the rule it exists for: neither named colour can block it (CR 702.16e).
+        // The blockers fly, because the angel does - a grounded one is refused by the flying
+        // rule first and would prove nothing about the protection.
+        static CardDefinition Flier(string name, ManaColor colour) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [colour],
+            ColorIdentity = [colour],
+            Keywords = KeywordAbility.Flying,
+        };
+
+        foreach (var colour in new[] { ManaColor.Black, ManaColor.Red })
+        {
+            var blocker = game.Create(
+                bob, Flier($"Wrath {colour} Test", colour), Zone.Battlefield);
+
+            var why = CombatRules.CannotBlock(
+                game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(angel), bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // The control: a colour the line did not name gets through. A list read as a blanket
+        // protection would pass every assertion above and fail this one.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Flier("Wrath Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(angel), bob));
+    }
+
+    /// <summary>
+    /// "Protection from white, from blue, from black, and from red" - Oversoul of Dusk.
+    /// </summary>
+    /// <remarks>
+    /// The conjunction is the one keyword whose printed phrase contains commas of its own, so a
+    /// list reader that splits on commas cuts it into four parts, three of which name no keyword
+    /// at all. This card is the reason the split folds "from …" back into the member in front of
+    /// it: teaching the reader Akroma's line without it would have taken this one away, and a
+    /// coverage count nets that out to nothing.
+    /// </remarks>
+    [Fact]
+    public void A_protection_conjunction_written_with_commas_survives_the_list_split()
+    {
+        var oversoul = Card(
+            "Dusk List Test",
+            "Protection from white, from blue, from black, and from red",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(oversoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var beast = game.Create(alice, oversoul, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(beast));
+
+        foreach (var colour in new[]
+        {
+            KeywordAbility.ProtectionFromWhite,
+            KeywordAbility.ProtectionFromBlue,
+            KeywordAbility.ProtectionFromBlack,
+            KeywordAbility.ProtectionFromRed,
+        })
+        {
+            Assert.True(computed.Has(colour), colour.ToString());
+        }
+
+        // The control, and the card's whole point: green is the one colour it did not name.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Coloured("Dusk Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(beast), bob));
+    }
+
     // ---- Auras and equipment -------------------------------------------------
 
     [Fact]
