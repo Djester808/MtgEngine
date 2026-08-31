@@ -69671,7 +69671,12 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(rat);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-        Assert.Contains("A deck can have any number of cards named ~", compiled.DeckRules);
+        // The name, not "~". Deck construction is the reader that wants these lines, and the
+        // question it asks is "how many cards with this name" (CR 100.2a) - so the recorded rule
+        // has to carry the name. The self-name substitution used to blank it and this assertion
+        // was written around the blank.
+        Assert.Contains(
+            "A deck can have any number of cards named Rat Colony Test", compiled.DeckRules);
 
         var planeswalker = CardCompiler.Compile(Card(
             "Commodore Guff Test",
