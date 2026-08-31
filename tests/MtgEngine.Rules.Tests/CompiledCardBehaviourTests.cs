@@ -3150,23 +3150,24 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// A multiplier the X clause has no room for leaves the line unread.
+    /// A multiplier the X clause had no room for is carried across the count instead.
     /// </summary>
     /// <remarks>
-    /// "Equal to <em>twice</em> the number of" is the same sentence with a factor in front of the
-    /// count, and <c>WithCountedVariable</c> has nowhere to put one — it defines X as the count
-    /// and nothing else. So the rewrite refuses the phrase rather than dropping the word, which
-    /// is the whole discipline of this vocabulary: a card that read this at one-per would be a
-    /// card at half strength, complete, castable, and quietly wrong every time it resolved.
+    /// This line was refused for a round, and the refusal was right at the time: a factor read
+    /// as one is a card at half strength, complete, castable and quietly wrong every time it
+    /// resolves. What was wrong was where the factor was being looked for.
     /// <para>
-    /// The targeted subject is what makes the refusal visible. The life family's own arm reads a
-    /// multiplier and would have taken this sentence, but only for the three subjects it knows;
-    /// "target opponent" is not one of them, so nothing else catches the line and it stays in
-    /// <c>Unhandled</c> where it belongs.
+    /// <c>WithCountedVariable</c> defines X as a count and holds nothing beside it, so no field
+    /// added there could have carried a factor — and half the family never reaches it anyway.
+    /// The factor belongs in the count, and the compiler moves it across "the number of" so that
+    /// every wrapper reading a count gets it at once. The section beside "That many" below plays
+    /// out the rest of the family; this one stays here because it is the card the refusal was
+    /// recorded on, and it now loses the six life it prints rather than the three a dropped
+    /// factor would have taken.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_multiplied_count_written_as_equal_to_is_left_unread()
+    public void A_multiplied_count_written_as_equal_to_loses_twice_the_count()
     {
         var doubled = Card(
             "Equal To Doubled Test",
@@ -3174,11 +3175,20 @@ public sealed class CompiledCardBehaviourTests
             CardType.Sorcery);
 
         var compiled = CardCompiler.Compile(doubled);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            compiled.Unhandled,
-            u => u.Contains("twice the number of Elves", StringComparison.Ordinal));
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var n in new[] { 1, 2, 3 })
+            game.Create(alice, EqualToElf("Equal To Doubled Kin " + n), Zone.Battlefield);
+
+        game.Create(bob, EqualToElf("Equal To Doubled Rival"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doubled), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
     }
 
     /// <summary>A creature of one tribe, for the counts that name one.</summary>
@@ -4887,6 +4897,228 @@ public sealed class CompiledCardBehaviourTests
         var shield = Assert.IsType<PreventDescribedDamage>(one.Spell?.Effects.Single());
         Assert.Equal(CombatRole.Attacking, shield.SourceCombat);
         Assert.NotNull(shield.SourceFilter);
+    }
+
+    // ---- A count with a factor in front of it (CR 107.3) ---------------------
+
+    /// <summary>
+    /// "~ deals X damage to any target, where X is twice the number of Islands you control" -
+    /// Sky Cycle (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// Three Islands and a factor of two, so the answer is six and is not either of the numbers
+    /// a half-read line would give: a reader that dropped the factor deals three, and one that
+    /// dropped the count deals two. The second board moves the count without moving the factor,
+    /// which is what stops a fixed six passing.
+    /// <para>
+    /// Bob's Island is on the board for the possessive, not for the arithmetic. A factor
+    /// multiplies whatever the group grammar counted, so a count that had quietly widened would
+    /// be multiplied too - eight rather than six - and the factor is what makes that visible.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_factor_in_front_multiplies_the_count()
+    {
+        var cycle = Card(
+            "Factored Cycle Test",
+            "~ deals X damage to any target, where X is twice the number of Islands you control.");
+
+        var compiled = CardCompiler.Compile(cycle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, cycle), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Three Islands twice over: six, not the three the count alone is worth and not the two
+        // the factor alone is worth.
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+
+        // The same card on a board with two, so nothing here can be a constant.
+        var (control, carol, dave) = InMainPhase();
+        control.Create(carol, TestCards.BasicLand("Island"), Zone.Battlefield);
+        control.Create(carol, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        control.CastSpell(
+            carol, TestCards.PutInHand(control, carol, cycle), [Target.ToPlayer(dave)]);
+        Settle(control);
+
+        Assert.Equal(16, control.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to twice the number of Islands you control" -
+    /// Masumaro, First to Live (CR 604.3).
+    /// </summary>
+    /// <remarks>
+    /// Why the factor is folded into the count rather than kept beside an amount. This sentence
+    /// is a characteristic-defining ability and has no amount anywhere in it - seven of the
+    /// corpus cards blocked on a multiplied count print exactly this shape - so a factor stored
+    /// on <c>Amount</c> could never have reached it, and one stored on
+    /// <c>WithCountedVariable</c> could not either: that record holds a bare count delegate and
+    /// nothing else.
+    /// <para>
+    /// It keeps answering as the board moves, which is the second assertion: a fourth Island
+    /// takes it to eight, so the factor travels with the count rather than having been worked
+    /// out once when the creature arrived.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_with_a_factor_multiplies_the_count()
+    {
+        var maro = Card(
+            "Factored Maro Test",
+            "Factored Maro Test's power and toughness are each equal to twice the number of "
+                + "Islands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(maro);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var it = game.Create(alice, maro, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Contains(it, game.State.Battlefield);
+        Assert.Equal(6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+        Assert.Equal(
+            6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(it)));
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Equal(8, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to 1 plus twice the number of age counters on
+    /// it" - Mwonvuli Ooze, the one corpus card printing both terms (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The order the two terms are applied in is the whole of this test, and three Islands make
+    /// every wrong order a different number: the factor first is seven, adding first is eight,
+    /// the constant alone is four and the factor alone is six.
+    /// <para>
+    /// It is also what says the two rewrites compose. The constant is carried across "the number
+    /// of" by one of them and the factor by the other, and a card printing both would have been
+    /// left behind by either alone.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_factor_and_a_constant_multiplies_before_it_adds()
+    {
+        var ooze = Card(
+            "Factored Ooze Test",
+            "Factored Ooze Test's power and toughness are each equal to 1 plus twice the "
+                + "number of Islands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(ooze);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var it = game.Create(alice, ooze, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(7, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// "~ deals damage to any target equal to three times the number of …" - Burn at the Stake
+    /// (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The factor is read rather than assumed. Every other test in this section prints "twice",
+    /// and all of them would pass on a reader that had learnt the one word - nine damage from
+    /// three Islands is a number only the printed factor gives.
+    /// </remarks>
+    [Fact]
+    public void A_factor_other_than_two_is_the_factor_the_card_printed()
+    {
+        var stake = Card(
+            "Factored Stake Test",
+            "~ deals damage to any target equal to three times the number of Islands you "
+                + "control.");
+
+        var compiled = CardCompiler.Compile(stake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, stake), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(11, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A factor the compiler cannot name leaves the line unread rather than reading as one.
+    /// </summary>
+    /// <remarks>
+    /// The fail-open this whole family is judged by. A factor quietly read as one is a card that
+    /// deals or gains half or a third of what it prints while compiling as complete, and no
+    /// coverage number can tell that apart from a card that printed no factor at all - the same
+    /// shape as the {X} cost that let eleven counterspells be paid for nothing.
+    /// <para>
+    /// The two cards differ by one word. "Ten times" is in the table and deals thirty; "twelve
+    /// times" is not, and the line stays in <c>Unhandled</c> - so the boundary is the table of
+    /// factor words rather than the pattern that finds them, which is why the pattern is allowed
+    /// to be wide.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_factor_the_compiler_cannot_name_leaves_the_line_unread()
+    {
+        var unnamed = CardCompiler.Compile(
+            Card(
+                "Unnamed Factor Test",
+                "~ deals X damage to any target, where X is twelve times the number of Islands "
+                    + "you control."));
+
+        Assert.False(unnamed.IsComplete);
+        Assert.Contains(
+            unnamed.Unhandled,
+            line => line.Contains("times", StringComparison.Ordinal));
+
+        // The same sentence with a factor the table does name, so the refusal above is about the
+        // word rather than about the shape - and it plays the number it prints.
+        var named = Card(
+            "Named Factor Test",
+            "~ deals X damage to any target, where X is ten times the number of Islands you "
+                + "control.");
+
+        var read = CardCompiler.Compile(named);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, named), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(-10, game.State.GetPlayer(bob).Life);
     }
 
     // ---- "That many" (CR 603.2) ----------------------------------------------

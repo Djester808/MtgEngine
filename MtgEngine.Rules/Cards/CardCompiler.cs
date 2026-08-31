@@ -3410,6 +3410,24 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
                     + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
 
+            // "Equal to twice the number of Vehicles you control", "where X is 1 plus twice the
+            // number of age counters on it" - a count with a factor in front of it, and the same
+            // move for the same reason: the six wrappers that read a count all anchor on the
+            // literal words "the number of", so a factor printed in front of them hides the
+            // count from every one of them at once. Carried across those words rather than given
+            // to each wrapper as an optional group - four of them had been taught that group one
+            // at a time, which is why "deals damage equal to twice the number of" read while the
+            // characteristic-defining spelling of the same arithmetic did not.
+            //
+            // Any constant is carried across with it and stays in front, so "1 plus twice the
+            // number of X" becomes "1 plus the number of twice X" and the additive rewrite below
+            // finishes the move. The group grammar takes the two terms off in the order they are
+            // written and applies the factor before the constant, which is what the card says.
+            cleaned = MultipliedCountAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " " + m.Groups["plus"].Value + "the number of "
+                    + m.Groups["f"].Value + " ");
+
             // "Equal to 2 plus the number of cards named ~ in all graveyards", "where X is one
             // plus the number of other creatures you control" — a count with a constant added to
             // it. Every wrapper that reads a count anchors on the literal words "the number of",
@@ -19268,6 +19286,32 @@ public static partial class CardCompiler
             + @"|nine|ten) plus the number of ",
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditiveCountAsANumber();
+
+    /// <summary>
+    /// "Equal to twice the number of …", "where X is 1 plus three times the number of …".
+    /// </summary>
+    /// <remarks>
+    /// The lead does the work it does for devotion, for the aggregate and for the constant: it is
+    /// what says the phrase is being used as a number. Those two words are the only leads the 39
+    /// corpus cards printing a multiplied count use.
+    /// <para>
+    /// The factor itself is matched widely and named narrowly, by
+    /// <c>EffectPhrase.MultiplyingNumber</c>, which is the only list of factor words there is. A
+    /// word that list cannot name leaves the line unread: moving the words about does not make a
+    /// phrase readable, and a factor guessed at as one is a card playing half what it prints.
+    /// </para>
+    /// <para>
+    /// The optional constant is matched and re-emitted in front rather than left behind, because
+    /// the additive rewrite that follows anchors on the lead too and could not see past a factor
+    /// sitting between them - which is the whole of why Mwonvuli Ooze, the one card printing
+    /// both, was unread while every card printing one of them alone was not.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) (?<plus>(?:\d{1,2}|one|two|three|four|five|six|seven"
+            + @"|eight|nine|ten) plus )?(?<f>twice|thrice|[A-Za-z]+ times) the number of ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MultipliedCountAsANumber();
 
     /// <summary>
     /// "…equal to the number of …" — a count written as a quantity rather than as a "for each".
