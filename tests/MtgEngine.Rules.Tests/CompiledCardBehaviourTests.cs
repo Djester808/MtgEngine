@@ -7115,6 +7115,397 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(self, game.State.Battlefield);
     }
 
+    // ---- Aggregates over a counted group (CR 107.1b) ---------------------------
+
+    /// <summary>
+    /// "~ costs {X} less to cast, where X is the total power of creatures you control"
+    /// — Ghalta, Primal Hunger (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The whole reason this family was left unread rather than approximated: a total is not a
+    /// tally, and the counting vocabulary could only say how many things matched. Two boards make
+    /// that the thing under test — both carry exactly two creatures, so every reading that counts
+    /// permanents answers the same number twice, and only a reading that adds their power tells
+    /// them apart. Read as a count the spell would be four mana dearer than it prints on the
+    /// first board, and a card that is dearer than printed compiles and scores as a win.
+    /// </remarks>
+    [Fact]
+    public void A_total_power_discount_adds_the_group_up_rather_than_counting_it()
+    {
+        var giant = new CardDefinition
+        {
+            OracleId = "oracle-total-power-discount-test",
+            Name = "Total Power Discount Test",
+            OracleText =
+                "~ costs {X} less to cast, where X is the total power of creatures you control.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{7}",
+            Cmc = 7,
+            Power = 6,
+            Toughness = 6,
+        };
+
+        var compiled = CardCompiler.Compile(giant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Two 3/3s: total power six, so {7} becomes {1} and one mana pays for it. An opponent's
+        // creature is not "creatures you control" and is on the board to say so — counted in, the
+        // total would be eleven and the spell would cost nothing.
+        var (big, alice, bob) = InMainPhase();
+        big.Create(alice, TestCards.Creature("Total Power Ox One", 3, 3), Zone.Battlefield);
+        big.Create(alice, TestCards.Creature("Total Power Ox Two", 3, 3), Zone.Battlefield);
+        big.Create(bob, TestCards.Creature("Total Power Rival", 5, 5), Zone.Battlefield);
+
+        TapForestsFor(big, alice, 1);
+        big.CastSpell(alice, TestCards.PutInHand(big, alice, giant), []);
+        Settle(big);
+
+        Assert.Contains(
+            big.State.Battlefield,
+            id => big.State.GetObject(id).Card.Name == "Total Power Discount Test");
+
+        // The control board. The same two creatures by count and a different total: two 1/1s are
+        // a total power of two, so {7} becomes {5} and the one mana that paid above does not.
+        var (small, carol, _) = InMainPhase();
+        small.Create(carol, TestCards.Creature("Total Power Mouse One", 1, 1), Zone.Battlefield);
+        small.Create(carol, TestCards.Creature("Total Power Mouse Two", 1, 1), Zone.Battlefield);
+
+        TapForestsFor(small, carol, 1);
+        var held = TestCards.PutInHand(small, carol, giant);
+        Assert.Throws<InvalidOperationException>(() => small.CastSpell(carol, held, []));
+
+        // And it is a real discount rather than a refusal: four more mana is five, which is what
+        // the printed cost less the printed total comes to.
+        TapForestsFor(small, carol, 4);
+        small.CastSpell(carol, held, []);
+        Settle(small);
+
+        Assert.Contains(
+            small.State.Battlefield,
+            id => small.State.GetObject(id).Card.Name == "Total Power Discount Test");
+    }
+
+    /// <summary>
+    /// "You gain life equal to the greatest power among creatures you control" — Huatli,
+    /// Warrior Poet (CR 107.1b).
+    /// </summary>
+    /// <remarks>
+    /// The other fold, and the one a tally reading is closest to: on a board of three creatures a
+    /// count says three, and so does the power of any of them if they happen to be 3/3s. So the
+    /// board is deliberately lopsided — two 1/1s beside a 5/5 — and it is asked twice, before and
+    /// after the big one leaves, because the number has to move with the board rather than with
+    /// how many things are on it. A count answers three then two; the greatest answers five then
+    /// one, and the two never agree.
+    /// </remarks>
+    [Fact]
+    public void A_greatest_power_is_the_largest_in_the_group_and_not_how_many_there_are()
+    {
+        var gift = Card(
+            "Greatest Power Gift Test",
+            "You gain life equal to the greatest power among creatures you control.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Greatest Power Runt One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Greatest Power Runt Two", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Greatest Power Champion", 5, 5), Zone.Battlefield);
+
+        // Bob's is the biggest creature in the game and belongs to the wrong player, so a reader
+        // that walked the battlefield without asking who controls what would say nine.
+        game.Create(bob, TestCards.Creature("Greatest Power Rival", 9, 9), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gift));
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+
+        // The control board: the runts without the champion. One creature fewer, so a count falls
+        // by one; the greatest falls from five to one, and the two answers cross.
+        var (runts, carol, _) = InMainPhase();
+        runts.Create(carol, TestCards.Creature("Greatest Power Runt Three", 1, 1), Zone.Battlefield);
+        runts.Create(carol, TestCards.Creature("Greatest Power Runt Four", 1, 1), Zone.Battlefield);
+
+        runts.CastSpell(carol, TestCards.PutInHand(runts, carol, gift));
+        Settle(runts);
+
+        Assert.Equal(21, runts.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// "~ enters with X +1/+1 counters on it, where X is the greatest power among <em>other</em>
+    /// creatures you control" — Prime Speaker Zegana (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The word "other" is put on the group spec's <em>source</em> filter, not its object filter,
+    /// and a reader that asks only the object filter parses the word, drops it, and lets the
+    /// permanent answer about itself. On a tally that is one too many; on an aggregate it is
+    /// worse, because the thing asking is usually the biggest thing there — this creature is a
+    /// 9/9 beside a 4/4, so the two readings differ by five counters rather than by one.
+    /// <para>
+    /// The empty board is the second half. With nothing else to measure the answer is nought
+    /// (CR 107.2), and a reader that had quietly included the source would say nine.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_other_aggregate_leaves_out_the_permanent_that_is_asking()
+    {
+        var speaker = Card(
+            "Other Greatest Speaker Test",
+            "~ enters with X +1/+1 counters on it, where X is the greatest power among other "
+                + "creatures you control.",
+            CardType.Creature, 9, 9);
+
+        var compiled = CardCompiler.Compile(speaker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Other Greatest Friend", 4, 4), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Other Greatest Rival", 8, 8), Zone.Battlefield);
+
+        var entered = game.Create(alice, speaker, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            4, game.State.GetObject(entered).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+
+        // The control board: nothing else to measure at all.
+        var (empty, carol, _) = InMainPhase();
+        var alone = empty.Create(carol, speaker, Zone.Battlefield);
+        Settle(empty);
+
+        Assert.Equal(
+            0,
+            empty.State.GetObject(alone).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to the total mana value of artifacts you control"
+    /// — Karn, Legacy Reforged (CR 604.3, 202.3).
+    /// </summary>
+    /// <remarks>
+    /// A characteristic-defining ability, so it has to keep answering as the board moves rather
+    /// than take a number once. Three things on the board each break a different wrong reading: a
+    /// creature of the same controller that is not an artifact, an opponent's artifact, and —
+    /// after the first assertion — one of the two artifacts leaving. A count of artifacts says two
+    /// then one; the total says seven then three.
+    /// </remarks>
+    [Fact]
+    public void A_power_defined_by_a_total_mana_value_tracks_the_group_it_names()
+    {
+        static CardDefinition Relic(string name, int cmc) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{" + cmc.ToString(CultureInfo.InvariantCulture) + "}",
+            Cmc = cmc,
+        };
+
+        var karn = Card(
+            "Total Mana Value Golem Test",
+            "~'s power and toughness are each equal to the total mana value of artifacts you "
+                + "control.",
+            CardType.Creature, 0, 0);
+
+        var compiled = CardCompiler.Compile(karn);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var four = game.Create(alice, Relic("Total Mana Value Anvil", 4), Zone.Battlefield);
+        game.Create(alice, Relic("Total Mana Value Lens", 3), Zone.Battlefield);
+
+        // Alice's, and dear, and not an artifact. Bob's, and an artifact, and not hers.
+        game.Create(alice, TestCards.Costed("Total Mana Value Squire", "{5}", 5), Zone.Battlefield);
+        game.Create(bob, Relic("Total Mana Value Rival Anvil", 6), Zone.Battlefield);
+
+        var golem = game.Create(alice, karn, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(7, Characteristics.Of(game.State, Pool, game.State.GetObject(golem)).Power);
+
+        game.Move(four, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(golem)).Power);
+    }
+
+    /// <summary>
+    /// "You gain life equal to the least toughness among creatures you control" (CR 107.2).
+    /// </summary>
+    /// <remarks>
+    /// The third fold. It is the one that most needs the empty case written down, because a
+    /// minimum over nothing has no answer at all and the rules say a value that cannot be
+    /// determined is nought — which is also what a count of an empty board comes to, so the two
+    /// agree there and only there. The two boards before it are where they part: three creatures
+    /// whose least toughness is two, then two creatures whose least toughness is three.
+    /// </remarks>
+    [Fact]
+    public void A_least_toughness_is_the_smallest_in_the_group_and_nothing_over_an_empty_one()
+    {
+        var gift = Card(
+            "Least Toughness Gift Test",
+            "You gain life equal to the least toughness among creatures you control.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (three, alice, _) = InMainPhase();
+        three.Create(alice, TestCards.Creature("Least Toughness Wall", 1, 4), Zone.Battlefield);
+        three.Create(alice, TestCards.Creature("Least Toughness Scout", 2, 2), Zone.Battlefield);
+        three.Create(alice, TestCards.Creature("Least Toughness Ox", 3, 3), Zone.Battlefield);
+
+        three.CastSpell(alice, TestCards.PutInHand(three, alice, gift));
+        Settle(three);
+
+        Assert.Equal(22, three.State.GetPlayer(alice).Life);
+
+        // The control board: the smallest one is not there, so the smallest that is left is
+        // bigger — which is the direction a count of a shrinking board cannot move in. Two
+        // creatures, and three life rather than two.
+        var (two, carol, _) = InMainPhase();
+        two.Create(carol, TestCards.Creature("Least Toughness Keep", 1, 4), Zone.Battlefield);
+        two.Create(carol, TestCards.Creature("Least Toughness Bull", 3, 3), Zone.Battlefield);
+
+        two.CastSpell(carol, TestCards.PutInHand(two, carol, gift));
+        Settle(two);
+
+        Assert.Equal(23, two.State.GetPlayer(carol).Life);
+
+        // And nothing at all to measure: a least over an empty group is nought (CR 107.2).
+        var (none, dave, _) = InMainPhase();
+        none.CastSpell(dave, TestCards.PutInHand(none, dave, gift));
+        Settle(none);
+
+        Assert.Equal(20, none.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "…, where X is the total mana value of instant and sorcery cards in your graveyard"
+    /// — Inferno Project (CR 202.3).
+    /// </summary>
+    /// <remarks>
+    /// The same fold over a pile rather than over the battlefield, which is the point of asking
+    /// the shared vocabulary for the set instead of growing a second group grammar beside it: the
+    /// zone arm, the noun it filters by and the possessive all arrive already working, and the
+    /// aggregate only adds the fold.
+    /// <para>
+    /// The graveyard holds a creature card too, and the opponent's holds an instant, because both
+    /// are ways for the wrong reading to come out bigger than the card. Cards of mana value nought
+    /// would tell none of these apart, so every card here is worth something.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aggregate_over_a_graveyard_totals_only_the_cards_it_names()
+    {
+        static CardDefinition Buried(string name, CardType type, int cmc) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = type,
+            ManaCostRaw = "{" + cmc.ToString(CultureInfo.InvariantCulture) + "}",
+            Cmc = cmc,
+        };
+
+        var project = Card(
+            "Graveyard Total Project Test",
+            "~ enters with X +1/+1 counters on it, where X is the total mana value of instant and "
+                + "sorcery cards in your graveyard.",
+            CardType.Creature, 1, 1);
+
+        var compiled = CardCompiler.Compile(project);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, Buried("Graveyard Total Bolt", CardType.Instant, 3), Zone.Graveyard);
+        game.Create(alice, Buried("Graveyard Total Rite", CardType.Sorcery, 4), Zone.Graveyard);
+        game.Create(alice, Buried("Graveyard Total Beast", CardType.Creature, 5), Zone.Graveyard);
+        game.Create(bob, Buried("Graveyard Total Rival Bolt", CardType.Instant, 6), Zone.Graveyard);
+
+        var entered = game.Create(alice, project, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            7, game.State.GetObject(entered).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+
+        // The control board: the same two cards by count, and six less mana value between them.
+        var (cheap, carol, _) = InMainPhase();
+        cheap.Create(carol, Buried("Graveyard Total Spark", CardType.Instant, 1), Zone.Graveyard);
+        cheap.Create(carol, Buried("Graveyard Total Chant", CardType.Sorcery, 1), Zone.Graveyard);
+
+        var lesser = cheap.Create(carol, project, Zone.Battlefield);
+        Settle(cheap);
+
+        Assert.Equal(
+            2, cheap.State.GetObject(lesser).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+    }
+
+    /// <summary>
+    /// "This ability costs {X} less to activate, where X is the greatest power among Wurms you
+    /// control" — Baru, Wurmspeaker (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The variable form of the discount, which both cost-reduction readers refused because their
+    /// patterns end where this sentence carries on — and the form nearly every printed aggregate
+    /// discount uses, since no card prints "costs {X} less, where X is the number of".
+    /// <para>
+    /// Two Wurms whose greatest power is four make the difference between the readings two mana
+    /// wide, and the refusal is the half that matters: a discount read too generously still pays,
+    /// and only the failure tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_variable_activation_discount_reads_the_greatest_rather_than_the_count()
+    {
+        static CardDefinition Wurm(string name, int power) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Subtypes = ["Wurm"],
+            Power = power,
+            Toughness = power,
+        };
+
+        // An artifact rather than the creature the card is, so that the ability can be activated
+        // the turn it arrives: {T} on a creature that has not been controlled since the turn
+        // began is refused for summoning sickness (CR 302.6), which is a rule about the cost and
+        // has nothing to say about the discount under test.
+        var baru = Card(
+            "Variable Wurm Discount Test",
+            "{6}, {T}: Draw a card. This ability costs {X} less to activate, where X is the "
+                + "greatest power among Wurms you control.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(baru);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var speaker = game.Create(alice, baru, Zone.Battlefield);
+
+        game.Create(alice, Wurm("Variable Wurm Elder", 4), Zone.Battlefield);
+        game.Create(alice, Wurm("Variable Wurm Whelp", 1), Zone.Battlefield);
+
+        // Bob's is the biggest Wurm in the game. Counted in, the ability would be free.
+        game.Create(bob, Wurm("Variable Wurm Rival", 6), Zone.Battlefield);
+
+        // {6} less the greatest power among her own Wurms is {2}. One mana is one short, and a
+        // reading that counted the Wurms instead of measuring them would want four.
+        TapForestsFor(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, speaker, "a"));
+
+        TapForestsFor(game, alice, 1);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, speaker, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
     // ---- Can't attack or block alone -------------------------------------------
 
     /// <summary>
