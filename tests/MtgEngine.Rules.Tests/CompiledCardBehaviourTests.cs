@@ -6120,6 +6120,311 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.Battlefield);
     }
 
+    // ---- A static shield computed from the board (CR 613, 615) ---------------
+
+    /// <summary>
+    /// A shield naming a keyword answers to one an Aura granted, not to the printed card.
+    /// </summary>
+    /// <remarks>
+    /// Tresserhorn Skyknight, and the card the previous round named as still wrong. Its filter
+    /// was asked of the permanent already - that half landed - but through an empty
+    /// <c>IAbilitySource</c>, and the layer walk gathers its candidates through that source. With
+    /// an empty one it gathers nothing: counters and the face-down rules still applied and no
+    /// continuous effect did, so "creatures with first strike" meant creatures with first strike
+    /// <em>printed on them</em> and the Aura beside it was invisible.
+    /// <para>
+    /// Both pingers are on the board for the whole test and only one of them is enchanted, so the
+    /// control is the same creature under the same shield in the same turn.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_naming_first_strike_answers_to_a_keyword_an_aura_granted()
+    {
+        var knight = Card(
+            "R2130 Skyknight Test",
+            "Prevent all damage that would be dealt to ~ by creatures with first strike.",
+            CardType.Creature,
+            power: 2,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(knight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var blade = Card(
+            "R2130 First Strike Aura Test",
+            "Enchant creature" + (char)10 + "Enchanted creature has first strike.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(blade).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, knight, Zone.Battlefield);
+        var plain = game.Create(bob, Pinger("R2130 Plain Pinger Test"), Zone.Battlefield);
+        var quick = game.Create(bob, Pinger("R2130 Quick Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        // Neither pinger has first strike yet, so the shield watches neither of them.
+        game.ActivateAbility(bob, plain, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, quick, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(2, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, blade), [Target.ToPermanent(quick)]);
+        ResolveStack(game);
+
+        // Granted rather than printed, which is the whole of the test.
+        Assert.True(Now(game, quick).Keywords.HasFlag(KeywordAbility.FirstStrike));
+        Assert.False(Now(game, plain).Keywords.HasFlag(KeywordAbility.FirstStrike));
+
+        game.ActivateAbility(bob, quick, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        // Still two: the enchanted pinger is now a creature with first strike and the shield
+        // covers its damage.
+        Assert.Equal(2, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        // The control, and it runs after the aura rather than before it, so a shield that had
+        // simply started preventing everything would fail here.
+        game.ActivateAbility(bob, plain, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(3, game.State.GetObject(shielded).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// A shield naming a power reads CR 613.4's number rather than the corner of the card.
+    /// </summary>
+    /// <remarks>
+    /// The same defect said with a quality no card can carry at all. A 1/1 pumped to 3/3 by an
+    /// Aura is a creature with power 3 or greater, and the printed reading has no way to say so.
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_naming_a_power_reads_the_one_an_aura_gave()
+    {
+        var wall = Card(
+            "R2130 Power Shield Test",
+            "Prevent all damage that would be dealt to ~ by creatures with power 3 or greater.",
+            CardType.Creature,
+            power: 0,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var muscle = Card(
+            "R2130 Muscle Aura Test",
+            "Enchant creature" + (char)10 + "Enchanted creature gets +2/+2.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, wall, Zone.Battlefield);
+        var small = game.Create(bob, Pinger("R2130 Small Pinger Test"), Zone.Battlefield);
+        var grown = game.Create(bob, Pinger("R2130 Grown Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, muscle), [Target.ToPermanent(grown)]);
+        ResolveStack(game);
+
+        Assert.Equal(3, PowerNow(game, grown));
+        Assert.Equal(1, PowerNow(game, small));
+
+        // The one the Aura grew is over the line and the one beside it is not.
+        game.ActivateAbility(bob, grown, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(0, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        game.ActivateAbility(bob, small, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Creatures you control" follows a permanent that was taken, not the one that printed it.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the same argument, and the half the report called degraded: the shield's
+    /// own <c>ControllerId</c> comes from the control-only layer reader, which gathers control
+    /// effects <em>through</em> the ability source too. Asked with an empty one it found none, so
+    /// it always answered the stored controller - where control started rather than where it is
+    /// (CR 613.1b) - and a stolen shield went on shielding its old controller's creatures while
+    /// leaving its new controller's open.
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_over_creatures_you_control_follows_the_permanent_when_it_is_taken()
+    {
+        var aegis = Card(
+            "R2130 Aegis Test",
+            "Prevent all noncombat damage that would be dealt to creatures you control.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var compiled = CardCompiler.Compile(aegis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var theft = Card(
+            "R2130 Theft Aura Test",
+            "Enchant creature" + (char)10 + "You control enchanted creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(theft).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var shield = game.Create(alice, aegis, Zone.Battlefield);
+        var hers = game.Create(
+            alice, TestCards.Creature("R2130 Her Bear Test", 2, 9), Zone.Battlefield);
+        var his = game.Create(
+            bob, TestCards.Creature("R2130 His Bear Test", 2, 9), Zone.Battlefield);
+        var pinger = game.Create(bob, Pinger("R2130 Theft Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 6);
+
+        // While Alice has it: her creature is covered and Bob's is not.
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(hers)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(his)]);
+        ResolveStack(game);
+
+        Assert.Equal(0, game.State.GetObject(hers).Permanent?.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(his).Permanent?.DamageMarked);
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, theft), [Target.ToPermanent(shield)]);
+        ResolveStack(game);
+
+        // Granted by an Aura rather than printed on the permanent, which is exactly the control
+        // effect the empty source could not see.
+        Assert.Equal(
+            bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(shield)));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(hers)]);
+        ResolveStack(game);
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(his)]);
+        ResolveStack(game);
+
+        // The two swap: Alice's creature now takes the point and Bob's does not.
+        Assert.Equal(1, game.State.GetObject(hers).Permanent?.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(his).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// The shield asks the board from a board that asks back, and settles (CR 613.8b).
+    /// </summary>
+    /// <remarks>
+    /// This is the failure the widening had to not create. A shield's filter now runs a full CR
+    /// 613 computation of the permanent it is asked about, and that computation walks every
+    /// static on the battlefield - each of which may ask its own question about a permanent that
+    /// is not the one being computed. Two lords with an ownership clause is the shape that
+    /// overflowed the stack when the control reader was first written as a full computation: each
+    /// lord's filter would compute the other without bottom.
+    /// <para>
+    /// It is bounded the way CR 613.8b bounds a dependency loop it cannot order, and by two
+    /// separate guards rather than one: a nested filter question is answered from the printed
+    /// card, and a nested control question from the stored controller. Neither guard was
+    /// reachable from a shield before, because an empty ability source gathered nothing to nest.
+    /// </para>
+    /// <para>
+    /// The two lands are here for the same reason: they retype each other, so the layer walk the
+    /// shield starts has a mutual dependency in it as well as a stolen lord.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_asking_the_board_settles_when_the_board_asks_back()
+    {
+        var wall = Card(
+            "R2130 Recursion Shield Test",
+            "Prevent all damage that would be dealt to ~ by creatures with power 3 or greater.",
+            CardType.Creature,
+            power: 0,
+            toughness: 9);
+
+        // Creatures rather than enchantments, so the Aura below can take one: the point is a
+        // lord whose ownership clause has to be re-read after control of it moves.
+        var herLordCard = Card(
+            "R2130 Recursion Lord One Test",
+            "Creatures you control get +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var hisLordCard = Card(
+            "R2130 Recursion Lord Two Test",
+            "Creatures you control get +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 9);
+
+        var theft = Card(
+            "R2130 Recursion Theft Test",
+            "Enchant creature" + (char)10 + "You control enchanted creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var swamps = Card(
+            "R2130 Swampbenders Test",
+            "Lands you control are Swamps in addition to their other types.",
+            CardType.Land);
+
+        var forests = Card(
+            "R2130 Yavimaya Test",
+            "Each land is a Forest in addition to its other land types.",
+            CardType.Land);
+
+        foreach (var card in new[] { wall, herLordCard, hisLordCard, theft, swamps, forests })
+            Assert.True(CardCompiler.Compile(card).IsComplete, card.Name);
+
+        var (game, alice, bob) = InMainPhase();
+        var shielded = game.Create(alice, wall, Zone.Battlefield);
+        var herLord = game.Create(alice, herLordCard, Zone.Battlefield);
+        game.Create(bob, hisLordCard, Zone.Battlefield);
+        game.Create(alice, swamps, Zone.Battlefield);
+        game.Create(bob, forests, Zone.Battlefield);
+
+        var pinger = game.Create(bob, Pinger("R2130 Recursion Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TapLands(game, bob, 4);
+
+        // One lord is Bob's, so the pinger is a 2/2 and under the line. The whole question is
+        // asked and answered rather than running away.
+        Assert.Equal(2, PowerNow(game, pinger));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        // Bob takes Alice's lord, so both lords are his and the pinger is a 3/3 - and the
+        // shield's filter has to run the layer walk that says so from inside its own predicate.
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, theft), [Target.ToPermanent(herLord)]);
+        ResolveStack(game);
+
+        Assert.Equal(
+            bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(herLord)));
+        Assert.Equal(3, PowerNow(game, pinger));
+
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        // Still one, and the test returned: the shield covered the second point.
+        Assert.Equal(1, game.State.GetObject(shielded).Permanent?.DamageMarked);
+    }
+
     // ---- Cycling -------------------------------------------------------------
 
     [Fact]
