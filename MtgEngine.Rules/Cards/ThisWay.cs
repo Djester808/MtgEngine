@@ -42,6 +42,57 @@ namespace MtgEngine.Rules.Cards;
 /// </remarks>
 internal static partial class ThisWay
 {
+    /// <summary>
+    /// Which permanents an excess-damage clause was asked about (CR 120.4a).
+    /// </summary>
+    /// <remarks>
+    /// Two arms and not one, because the corpus prints both and they are different questions: a
+    /// planeswalker whose loyalty is overshot has been dealt excess damage and is not a creature.
+    /// Bottle-Cap Blast and Vikya both aim at any target and differ in exactly this word.
+    /// </remarks>
+    internal enum ExcessScope
+    {
+        /// <summary>"Excess damage was dealt this way", "... to a permanent this way".</summary>
+        AnyPermanent,
+
+        /// <summary>"Excess damage was dealt to a creature this way".</summary>
+        Creature,
+    }
+
+    /// <summary>
+    /// "Excess damage was dealt to a creature this way" - the clause, or null when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// Read here beside the record's own condition rather than in the caller, because both are
+    /// "this way" clauses and a caller that reached one would otherwise have to know which of the
+    /// two vocabularies a phrase belongs to before asking either.
+    /// <para>
+    /// <b>A pronoun is refused.</b> "If excess damage was dealt to <em>that creature</em> this
+    /// way" names one particular permanent, and the number this reader can answer with is about
+    /// every permanent the effect hit. On a spell with one target the two agree and on a fight
+    /// they do not, and the sentence gives nothing to tell those apart - so it is left unread,
+    /// the same refusal the recorded-set condition makes one file along and for the same reason.
+    /// </para>
+    /// </remarks>
+    internal static ExcessScope? Excess(string clause)
+    {
+        if (clause is null)
+            return null;
+
+        var m = ExcessClause().Match(Normalise(clause).Trim());
+        if (!m.Success)
+            return null;
+
+        return m.Groups["what"].Value.Equals("a creature", StringComparison.OrdinalIgnoreCase)
+            ? ExcessScope.Creature
+            : ExcessScope.AnyPermanent;
+    }
+
+    [GeneratedRegex(
+        @"^excess damage (was|is) dealt( to (?<what>a creature|a permanent))? this way$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ExcessClause();
+
     /// <summary>Whether a phrase is one of these at all, before anything tries to read it.</summary>
     internal static bool Mentions(string phrase) =>
         phrase is not null

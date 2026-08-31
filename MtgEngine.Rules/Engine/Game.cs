@@ -13633,12 +13633,34 @@ public sealed class Game
         // back-references ask about.
         var record = ResolutionRecord.Empty;
 
+        // How much of the damage this resolution has dealt was excess (CR 120.4a) - the third
+        // back-reference, beside the magnitude and the record. It is derived from the events the
+        // way both of those are, so nothing about it is stored and nothing about it is logged:
+        // whatever the next sentence does with the number lands in the log as its own event.
+        var excess = (Any: 0, ToCreature: 0);
+
         foreach (var effect in effects)
         {
             // Each effect sees the state the previous one left behind (CR 608.2c), so the
             // context is rebuilt rather than captured once.
-            var emitted = effect.Resolve(
-                context with { State = State, SubjectAmount = produced, Record = record });
+            var running = context with
+            {
+                State = State,
+                SubjectAmount = produced,
+                Record = record,
+                ExcessDealt = excess.Any,
+                ExcessDealtToCreature = excess.ToCreature,
+            };
+
+            var emitted = effect.Resolve(running);
+
+            // Measured against the state from before the batch is applied, which is the state
+            // CR 120.4a asks "what would be lethal" about. An effect that marked no damage at
+            // all leaves the number where it was; one that marked damage replaces it, because
+            // "excess damage dealt this way" points at the sentence that dealt the damage and
+            // not at the sum of every sentence that ever did.
+            if (ExcessDamage.InBatch(running, emitted) is { } over)
+                excess = over;
 
             // Read before the batch is applied, because the record keeps each object's card and
             // an id that has moved names nothing afterwards (CR 400.7). The id it *stores* is

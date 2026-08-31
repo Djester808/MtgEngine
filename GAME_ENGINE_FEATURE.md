@@ -513,6 +513,116 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: how much damage was excess
+
+**18,144 → 18,149 complete cards, +5, none lost, measured by set difference on this branch's own
+binary.** The per-card compiled-effect diff moved 6 rows: the five cards gained, and Cramped Vents,
+which now reads its life-gain sentence and is still short of the rest of the Room.
+
+Round twenty built CR 120.4a's subtraction and spent it on the redirect, which moves the excess
+without ever saying how much it was. This is the other half — the number — and the design it was
+written down with turns out to have been twice the size it needed to be.
+
+#### The measurement, and the control that decided the shape
+
+30 corpus cards are one line short with "excess" in the unread line. Three probes on that
+population, on this branch's own compiler:
+
+| probe | completes |
+|---|---|
+| **excision** — drop the sentence that says "excess" | **14** |
+| **line control** — drop a *different* sentence of the same line | **0** |
+| **substitution control** — rewrite only the excess phrase into a form already read | **4** |
+
+The line control at 0 says the excess sentence is the blocker on every one of the 14 and nothing
+else on those lines is. The substitution control at 4 says something the excision figure cannot:
+on ten of the fourteen the *rest* of the sentence is unread too, so an excess reader alone reaches
+four cards and not fourteen. The ten are short for siblings that have nothing to do with damage —
+"create a number of X tokens equal to N" is six of them on its own, and it does not read with a
+count the compiler already knows in the slot.
+
+**So the honest price of this family is four, and it was built for four.** The fifth card is the
+redirect refusal below.
+
+#### The number does not have to reach the log, and the trigger cards are why
+
+The design round twenty wrote down wanted an excess magnitude on `DamageMarked` — a field on a core
+event, so the log, the serializer and `Replay(log) == State` all carry it — plus a magnitude on
+`ResolutionRecord`. Neither is needed, and the measurement is what shows it.
+
+A field on the *event* would be wanted only by a **trigger** that asks about excess (CR 120.10):
+Aegar, Magmatic Galleon, Fall of Cair Andros, Toralf, Rith, Maarika, Overclocked Electromancer.
+Every one of those fails its substitution control — rewrite "is dealt excess damage" to "is dealt
+damage" and not one of them completes, because each is short for a batch trigger, an
+intervening-if, a delayed check or an unread tail as well. **No corpus card reachable today needs
+the number on the event.** So it lives on `ResolutionContext` instead: derived from the events an
+effect emitted, consumed by the next effect of the same resolution, and never stored. Whatever the
+next sentence does with it — life gained, tokens created — lands in the log as its own event with
+its own final number, which is exactly how `SubjectAmount`'s "that much" has always worked.
+
+**`ResolutionRecord` is left as round eighteen set it, and its reason still holds.** That record is
+kept to zone changes because an entry the readers cannot tell apart from another is how a count
+comes out too big. A magnitude has nothing to be told apart from — it is not a member of a set, it
+is a size — so the twin it belongs beside is `SubjectAmount`, not `Touches`. Widening the record
+would have been answering the right question in the wrong place.
+
+#### Three grammars, one gate, and one word that matters
+
+- **The amount** — "you gain life equal to the excess damage dealt this way" is the sentence the
+  compiler already read one adjective shorter, so it is that reader's regex with `excess` optional
+  and a different magnitude behind it.
+- **The guard** — "if excess damage was dealt this way, …" is `OnlyIfExcessDealt`, its own effect
+  for the reason `OnlyIfTouched` is one: `OnlyIf` is handed a state and a source, and every
+  condition it can express is a fact about the board. This one is a fact about the resolution.
+- **"That many" inside the guard is the excess, not the damage.** Bottle-Cap Blast prints "if
+  excess damage was dealt to a permanent this way, create that many tapped Treasure tokens", and
+  the running magnitude at that point is the five the spell dealt. A guard that only gated would
+  have made that card five Treasures off a 2/2 — compiling, resolving, logging plausibly and
+  paying out half as much again as it prints. The guard rebinds the magnitude for what it guards.
+- **"To a creature" and "to a permanent" are two numbers.** A planeswalker whose loyalty is
+  overshot has been dealt excess damage and is not a creature (CR 120.4a). Vikya says "creature",
+  Bottle-Cap Blast says "permanent", and both aim at anything, so one number for both would draw
+  Vikya a card off a planeswalker.
+- **The gate is a damage effect in the same line.** "Excess damage dealt this way" points back at
+  a sentence of the same instruction; a card where the reader cannot find one would compile a
+  clause whose number is nought for ever — complete, castable and silent. Both grammars are gated,
+  because a gate on one of them is a gate on neither. A pronoun ("to *that creature* this way") is
+  refused for the same reason the recorded-set condition refuses one: on a fight the reader's
+  number is about every permanent hit and the sentence names one.
+
+#### Gandalf's Sanction was refused for a reason that has moved
+
+Round twenty declined it precisely: its damage is inside the "where X is the number of instant and
+sorcery cards in your graveyard" box, the rider's search for a top-level hit found nothing, and a
+rider that quietly found nothing would print a redirect and perform none. That is still true of a
+rider that only looks at the top level — the fix is to **look one level down and one level only**,
+and to insist the box holds exactly the damage. The rider still declines rather than guessing which
+of several hits a sentence meant, and the test that asserted the refusal is now a game that plays
+the card, because a refusal that has become reachable is a game to be played and not a test to be
+flipped.
+
+#### What is declined, with counts
+
+- **Ram Through (1).** Its "target creature you control deals damage equal to its power to target
+  creature you don't control" compiles to `Fight`, not `DealDamage`, so the redirect rider cannot
+  reach it and the trample condition has nowhere to sit. Extending the excess split to `Fight`
+  was measured and is worth **0 cards today**: every other fight-shaped excess card — Rhino's
+  Rampage, Windswift Slice, Ravenous Pursuit, Contest of Claws, Intruder's Inquisition — fails its
+  substitution control for a reflexive trigger, a token count, "perpetually", discover or "the
+  greatest mana value". A mechanism no card can use is the thing this file spends most of its
+  space refusing.
+- **A general excess amount in `CountingAmount` (0).** "Where X is the amount of excess damage
+  dealt this way" and "equal to the amount of excess damage dealt this way" appear on eight cards
+  and the substitution control completes none of them: the host grammar is the blocker every time
+  (a group pump with a variable, a variable token count, an exile-that-many, a look-at-X). The
+  reader would have been correct and would have had nothing behind it.
+- **The seven trigger cards (7).** Measured above: none is reachable, and building the event field
+  for them would have been a core-event change with no card behind it.
+- **The token-count sibling (6).** "Create a number of &lt;token&gt; tokens equal to &lt;amount&gt;"
+  reads with no amount the compiler knows — Lacerate Flesh, Windswift Slice, Goblin Negotiation,
+  Hell to Pay are excess cards behind it, and it is a family of its own rather than part of this
+  one.
+
 ### Round twenty-one: the basic land type of your choice, and two neighbours re-measured
 
 Round twenty moved CR 305.6's intrinsic mana ability off the printed card and onto the land's

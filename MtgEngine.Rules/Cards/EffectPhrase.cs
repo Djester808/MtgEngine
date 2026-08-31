@@ -3282,10 +3282,38 @@ public static partial class EffectPhrase
         if (ExcessToControllerLine().IsMatch(sentence))
         {
             var last = effects.FindLastIndex(e => e is DealDamage);
-            if (last < 0)
+            if (last >= 0)
+            {
+                effects[last] = ((DealDamage)effects[last]) with
+                {
+                    ExcessToTargetsController = true,
+                };
+
+                return true;
+            }
+
+            // One step down, and one step only. A spell that defines its own X compiles to the
+            // damage inside a "where X is ..." box, so the rider that found nothing at the top
+            // level is looking one level too high rather than at a card it cannot read - which
+            // is what left Gandalf's Sanction unread when this branch was written. The box has
+            // to hold exactly one effect and that effect has to be the damage, so the rider
+            // still refuses rather than guessing which of several hits the sentence meant.
+            var boxed = effects.FindLastIndex(
+                e => e is WithCountedVariable { Effects: [DealDamage] });
+
+            if (boxed < 0)
                 return false;
 
-            effects[last] = ((DealDamage)effects[last]) with { ExcessToTargetsController = true };
+            var box = (WithCountedVariable)effects[boxed];
+
+            effects[boxed] = box with
+            {
+                Effects =
+                [
+                    ((DealDamage)box.Effects[0]) with { ExcessToTargetsController = true },
+                ],
+            };
+
             return true;
         }
 
@@ -6921,9 +6949,23 @@ public static partial class EffectPhrase
         // Only loss and damage: "the damage prevented this way" is deliberately not read, because
         // prevention is a shield here and nothing records how much of it was spent. Reading it
         // would gain nothing rather than the printed amount, which is a wrong card either way.
-        if (LifeLostThisWayLine().IsMatch(sentence))
+        var lifeThisWay = LifeLostThisWayLine().Match(sentence);
+        if (lifeThisWay.Success)
         {
-            effects.Add(new ChangeLife(ThatMany()));
+            // "You gain life equal to the excess damage dealt this way" is the same grammar one
+            // adjective along, and the adjective changes the number: Razor Rings gains what got
+            // through past lethal and not the four it dealt. Refused when nothing in front of it
+            // deals damage, for the reason the guard above is.
+            if (!lifeThisWay.Groups["excess"].Success)
+            {
+                effects.Add(new ChangeLife(ThatMany()));
+                return true;
+            }
+
+            if (!effects.Any(DealsDamage))
+                return false;
+
+            effects.Add(new ChangeLife(ThatMuchExcess()));
             return true;
         }
 
@@ -7679,6 +7721,39 @@ public static partial class EffectPhrase
         // is not the board at all, it is what the previous sentence of this resolution just did
         // (CR 608.2c). The clause goes to the same reader the counting grammar uses, so the two
         // can never disagree about what "exiled this way" means.
+        // "If excess damage was dealt this way, create a Lander token." The same sentence again
+        // with a clause about *how hard* the resolution just hit rather than what it touched
+        // (CR 120.4a) - so it is read before the recorded-set arm below, which would see the
+        // words "this way", find no participle it knows and refuse the line outright.
+        //
+        // Refused when nothing in front of it in this same line deals damage. A guard whose
+        // number can only ever be nought is a card that compiles, resolves and does nothing for
+        // ever, which is the failure this whole family is arranged around; a rider that quietly
+        // found nothing to modify is the same mistake one branch up.
+        if (conditional.Success && ThisWay.Excess(conditional.Groups["cond"].Value.Trim()) is { } scope)
+        {
+            if (!effects.Any(DealsDamage))
+                return false;
+
+            var guarded = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(
+                    conditional.Groups["effect"].Value.Trim(),
+                    targets,
+                    guarded,
+                    objectNamedByTrigger)
+                || guarded.Count == 0
+                || guarded.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIfExcessDealt(
+                scope == ThisWay.ExcessScope.Creature, AtLeast: 1, guarded.ToImmutable()));
+
+            return true;
+        }
+
         if (conditional.Success && ThisWay.Mentions(conditional.Groups["cond"].Value))
         {
             if (ThisWay.Condition(conditional.Groups["cond"].Value.Trim()) is not { } clause)
@@ -11900,6 +11975,38 @@ public static partial class EffectPhrase
     private static Amount ThatMany() => new(1)
     {
         Counter = context => Math.Max(0, context.SubjectAmount ?? 0),
+    };
+
+    /// <summary>
+    /// "The excess damage dealt this way" as an amount (CR 120.4a).
+    /// </summary>
+    /// <remarks>
+    /// The magnitude twin of <see cref="ThatMany"/>: the resolution loop carries both forward,
+    /// and the printed sentences ask for them in the same grammar one adjective apart.
+    /// </remarks>
+    private static Amount ThatMuchExcess() => new(1)
+    {
+        Counter = context => Math.Max(0, context.ExcessDealt),
+    };
+
+    /// <summary>
+    /// Whether an effect already read from this line is one that deals damage.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed gate on every excess reader. "Excess damage dealt this way" points back at
+    /// a sentence of the same line, and a card where the reader cannot see one would compile a
+    /// clause whose number is nought for ever - complete, castable and silent, which is the exact
+    /// shape of card the redirect rider one file along refuses to print.
+    /// <para>
+    /// One step down through the "where X is ..." wrapper as well, because a spell that defines
+    /// its own X keeps its damage inside that box and the sentence after it still means the box.
+    /// </para>
+    /// </remarks>
+    private static bool DealsDamage(IEffect effect) => effect switch
+    {
+        DealDamage => true,
+        WithCountedVariable wrapped => wrapped.Effects.Any(DealsDamage),
+        _ => false,
     };
 
     /// <summary>
@@ -17407,7 +17514,7 @@ public static partial class EffectPhrase
     private static partial Regex GainLife();
 
     [GeneratedRegex(
-        @"^you gain life equal to the (life lost|damage dealt) this way$",
+        @"^you gain life equal to the (life lost|(?<excess>excess )?damage dealt) this way$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LifeLostThisWayLine();
 

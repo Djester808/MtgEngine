@@ -7784,6 +7784,336 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, hit));
     }
 
+    // ---- How much damage was excess (CR 120.4a, CR 120.10) --------------------
+
+    /// <summary>
+    /// A later sentence of the same line gains life for the damage past lethal, and only that.
+    /// </summary>
+    /// <remarks>
+    /// Razor Rings' printed text. Round twenty built the subtraction and spent it on the redirect,
+    /// which moves the excess without ever saying how much it was; this is the other half - the
+    /// number itself, carried out of the damage event and into the sentence that asks for it.
+    /// <para>
+    /// It rides the same channel "that much" has ridden since the resolution loop was written,
+    /// which is why nothing about it reaches the log: the life gain is the event, and the excess
+    /// is only how the life gain got its size.
+    /// </para>
+    /// <para>
+    /// The 6/7 is the control and it is not optional. An implementation that handed the whole six
+    /// to the clause would look identical from the 2/2 alone - four is both "the excess" and
+    /// "some of the damage", and only a creature with nothing in excess tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Excess_damage_dealt_this_way_is_the_amount_past_lethal_and_not_the_whole_hit()
+    {
+        var rings = Card(
+            "Excess Rings Test",
+            "~ deals 6 damage to target creature. You gain life equal to the excess damage "
+                + "dealt this way.");
+
+        var compiled = CardCompiler.Compile(rings);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Rings Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rings), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Two of the six were lethal to a 2/2, so four were excess - not six, and not nothing.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var wall = game.Create(
+            bob, TestCards.Creature("Excess Rings Wall Test", 6, 7), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rings), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        // Nothing was in excess of lethal on a 6/7, so the clause gains nothing and the whole
+        // six is marked on the creature.
+        Assert.Contains(wall, game.State.Battlefield);
+        Assert.Equal(6, game.State.GetObject(wall).Permanent!.DamageMarked);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "If excess damage was dealt this way" fires on the overkill and not on the damage.
+    /// </summary>
+    /// <remarks>
+    /// Orbital Plunge and Vikya print the same clause round different tails. It is its own effect
+    /// rather than an arm of the board-condition guard for the reason <c>OnlyIfTouched</c> is:
+    /// that guard is handed a state and a source, and what this asks about is not the board at
+    /// all - it is how hard the sentence in front of it just hit.
+    /// </remarks>
+    [Fact]
+    public void A_guard_on_excess_damage_fires_only_when_there_was_some()
+    {
+        var plunge = Card(
+            "Excess Plunge Test",
+            "~ deals 6 damage to target creature. If excess damage was dealt this way, create a "
+                + "Treasure token.");
+
+        var compiled = CardCompiler.Compile(plunge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Plunge Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plunge), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Single(Treasures(game));
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var wall = game.Create(
+            bob, TestCards.Creature("Excess Plunge Wall Test", 6, 7), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plunge), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        // Six into a 6/7 is short of lethal, so the guard does not fire a second time.
+        Assert.Single(Treasures(game));
+        Assert.Equal(6, game.State.GetObject(wall).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "That many" inside the guard is the excess, not the damage the spell dealt.
+    /// </summary>
+    /// <remarks>
+    /// Bottle-Cap Blast, and the reason the guard rebinds the running magnitude rather than
+    /// merely reading it. The loop has carried "that much" forward as <em>the damage dealt</em>
+    /// since the day it was written, so a guard that only gated would have let this card make six
+    /// Treasures off a 2/2 - a card that compiles, resolves, logs plausibly and pays out half as
+    /// much again as it prints.
+    /// <para>
+    /// Four is the assertion that separates the two readings, and no other number does: six is
+    /// what the spell dealt, two is what was lethal, and only four is what got through.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void That_many_inside_an_excess_guard_is_the_excess_and_not_the_damage()
+    {
+        var blast = Card(
+            "Excess Blast Test",
+            "~ deals 6 damage to any target. If excess damage was dealt to a permanent this way, "
+                + "create that many tapped Treasure tokens.");
+
+        var compiled = CardCompiler.Compile(blast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Blast Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var made = Treasures(game);
+        Assert.Equal(4, made.Count);
+        Assert.All(made, t => Assert.True(t.Permanent!.IsTapped));
+    }
+
+    /// <summary>
+    /// The guard aimed at a player has no permanent to overshoot, so it never fires.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the control above, and the half a coverage number cannot see. "Any
+    /// target" includes a player, damage to a player is never excess (CR 120.4a is written about
+    /// permanents), and a reader that answered with the damage dealt would pay out on every burn
+    /// spell aimed at a face.
+    /// </remarks>
+    [Fact]
+    public void An_excess_guard_reads_nothing_from_damage_dealt_to_a_player()
+    {
+        var blast = Card(
+            "Excess Face Test",
+            "~ deals 6 damage to any target. If excess damage was dealt to a permanent this way, "
+                + "create that many tapped Treasure tokens.");
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+        Assert.Empty(Treasures(game));
+    }
+
+    /// <summary>
+    /// "To a creature" and "to a permanent" are different questions, and a planeswalker is why.
+    /// </summary>
+    /// <remarks>
+    /// A planeswalker whose loyalty is overshot has been dealt excess damage (CR 120.4a) and is
+    /// not a creature. Vikya prints "to a creature" and Bottle-Cap Blast prints "to a permanent",
+    /// and both aim at anything - so one number for both would draw Vikya a card off a
+    /// planeswalker, which is a card playing better than the one printed with nothing downstream
+    /// able to tell.
+    /// </remarks>
+    [Fact]
+    public void An_excess_guard_naming_a_creature_does_not_read_a_planeswalker()
+    {
+        var creatureOnly = Card(
+            "Excess Vikya Test",
+            "~ deals 6 damage to target creature or planeswalker. If excess damage was dealt to "
+                + "a creature this way, create a Treasure token.");
+
+        var anyPermanent = Card(
+            "Excess Permanent Test",
+            "~ deals 6 damage to target creature or planeswalker. If excess damage was dealt to "
+                + "a permanent this way, create a Treasure token.");
+
+        var read = CardCompiler.Compile(creatureOnly);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var walker = game.Create(
+            bob, Walker("Excess Walker Test", 3, "+1: You gain 1 life."), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, creatureOnly), [Target.ToPermanent(walker)]);
+
+        Settle(game);
+
+        // Three of the six were in excess of the walker's loyalty, and none of them were dealt to
+        // a creature.
+        Assert.DoesNotContain(walker, game.State.Battlefield);
+        Assert.Empty(Treasures(game));
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var second = game.Create(
+            bob, Walker("Excess Walker Two Test", 3, "+1: You gain 1 life."), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, anyPermanent), [Target.ToPermanent(second)]);
+
+        Settle(game);
+
+        // The same six at the same walker, read by the clause that says "permanent".
+        Assert.Single(Treasures(game));
+    }
+
+    /// <summary>
+    /// A redirect the compiler could not see is found one step down, inside its own X.
+    /// </summary>
+    /// <remarks>
+    /// Gandalf's Sanction, and the refusal round twenty wrote down rather than papered over. "~
+    /// deals X damage to target creature, where X is the number of instant and sorcery cards in
+    /// your graveyard" compiles to the damage <em>inside</em> a counted-variable box, so the
+    /// rider's search for a top-level hit found nothing - and a rider that quietly found nothing
+    /// would have left a card printing a redirect and performing none.
+    /// <para>
+    /// The answer is to look one level down and one level only, and to insist the box holds
+    /// exactly the damage: the rider still declines rather than guessing which of several hits a
+    /// sentence meant. This test plays the card, because a refusal that has become reachable is a
+    /// game to be played and not a test to be flipped.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_redirect_finds_the_damage_inside_the_variable_that_sizes_it()
+    {
+        var sanction = Card(
+            "Excess Sanction Test",
+            "~ deals X damage to target creature, where X is the number of instant and sorcery "
+                + "cards in your graveyard. Excess damage is dealt to that creature's controller "
+                + "instead.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(sanction);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Create(
+                alice,
+                Card("Excess Sanction Fuel " + i + " Test", "Draw a card."),
+                Zone.Graveyard);
+        }
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Sanction Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, sanction), [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        // Six instants in the graveyard is six damage; two were lethal to a 2/2 and the other
+        // four went to Bob as damage from the same source.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// An excess clause with no damage in front of it leaves its line unread.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed gate, and the reason this family is allowed to exist at all. "Excess damage
+    /// dealt this way" points back at a sentence of the same line; a card where the reader cannot
+    /// find one would compile a clause whose number is nought for ever - complete, castable and
+    /// silent, which is the exact shape of card two audits this round found forty-one and nine of
+    /// already in the tree.
+    /// <para>
+    /// Both grammars are gated, because a gate on one of them is a gate on neither.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Draw a card. If excess damage was dealt this way, create a Treasure token.")]
+    [InlineData("Draw a card. You gain life equal to the excess damage dealt this way.")]
+    public void An_excess_clause_with_no_damage_in_front_of_it_is_refused(string text)
+    {
+        var card = Card("Excess Ungated Test", text);
+
+        Assert.Contains(
+            CardCompiler.Compile(card).Unhandled,
+            line => line.Contains("excess", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// A clause naming one particular creature is refused rather than answered about all of them.
+    /// </summary>
+    /// <remarks>
+    /// "If excess damage was dealt to <em>that creature</em> this way" names one permanent, and
+    /// the number this reader holds is about every permanent the effect hit. On a spell with one
+    /// target the two agree; on a fight they do not, and nothing in the sentence tells the reader
+    /// which it is looking at. Refused for the reason the recorded-set condition refuses a
+    /// pronoun one file along.
+    /// </remarks>
+    [Fact]
+    public void An_excess_clause_naming_one_particular_creature_is_refused()
+    {
+        var card = Card(
+            "Excess Pronoun Test",
+            "~ deals 6 damage to target creature. If excess damage was dealt to that creature "
+                + "this way, create a Treasure token.");
+
+        Assert.Contains(
+            CardCompiler.Compile(card).Unhandled,
+            line => line.Contains("excess", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Every Treasure token on the battlefield, in the order the game made them.</summary>
+    private static List<GameObject> Treasures(Game game) =>
+        game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.Name == "Treasure")
+            .ToList();
+
     // ---- Changeling -----------------------------------------------------------
 
     [Fact]
@@ -63793,27 +64123,25 @@ public sealed class CompiledCardBehaviourTests
     /// The rider is refused when it has no damage of its own line to modify.
     /// </summary>
     /// <remarks>
-    /// Gandalf's Sanction is the corpus's one case: "~ deals X damage to target creature, where X
-    /// is the number of instant and sorcery cards in your graveyard" is read as a counted
-    /// variable wrapping the damage, so the rider's search for a top-level hit to modify finds
-    /// nothing.
+    /// Gandalf's Sanction was this test's card and is no longer: its damage sits inside the
+    /// counted-variable box that sizes X, which the rider now looks into one level and one level
+    /// only. What is left is the refusal that box was standing in for — a line whose rider has
+    /// nothing at all in front of it.
     /// <para>
     /// A rider that quietly found nothing would leave a card printing a redirect and performing
-    /// none — the whole five damage on the creature, and a player who should have taken three
-    /// taking nothing. Refusing puts the card back in the work queue under its own name, which is
-    /// where the next round will find it.
+    /// none, which is the failure this whole family is arranged around. The card that now plays
+    /// instead of being refused is
+    /// <see cref="A_redirect_finds_the_damage_inside_the_variable_that_sizes_it"/>.
     /// </para>
     /// </remarks>
     [Fact]
     public void An_excess_rider_with_no_damage_to_modify_leaves_its_line_unread()
     {
-        var sanction = Card(
+        var rider = Card(
             "Excess Counted Test",
-            "~ deals X damage to target creature, where X is the number of instant and sorcery "
-                + "cards in your graveyard. Excess damage is dealt to that creature's controller "
-                + "instead.");
+            "Draw a card. Excess damage is dealt to that creature's controller instead.");
 
-        var compiled = CardCompiler.Compile(sanction);
+        var compiled = CardCompiler.Compile(rider);
         Assert.Contains(
             compiled.Unhandled, l => l.Contains("Excess damage", StringComparison.Ordinal));
     }
