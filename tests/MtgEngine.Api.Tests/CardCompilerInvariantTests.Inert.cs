@@ -89,6 +89,14 @@ public sealed partial class CardCompilerInvariantTests
 
         foreach (var (filter, who) in carriers)
         {
+            // "A card named ~" is the card naming itself, and the compiler has no name to put
+            // there because it reads a sentence rather than a card. Both effects that can carry
+            // one - SearchLibrary and Seek - substitute the source's own name as they resolve, so
+            // this selects the right 23 cards at runtime and nothing here. Skipped by asking for
+            // the tilde rather than by listing the cards, because the substitution is the reason.
+            if (filter.Contains('~', StringComparison.Ordinal))
+                continue;
+
             if (TokenOnlyTypes.Overlaps(
                 filter.Split(['|', '&'], StringSplitOptions.RemoveEmptyEntries)))
             {
@@ -383,6 +391,207 @@ public sealed partial class CardCompilerInvariantTests
         PutCountersOnSource => Zone.Battlefield,
         _ => null,
     };
+
+    /// <summary>
+    /// A trigger may not be pinned to a zone its card can never be in (CR 603.6).
+    /// </summary>
+    /// <remarks>
+    /// <c>Game</c> asks one question before it offers any trigger the event: <c>if (obj.Zone !=
+    /// ability.FunctionsFrom) continue;</c>. A triggered ability on an instant or a sorcery that
+    /// says it functions from the battlefield is therefore asked about no event ever, because an
+    /// instant never becomes a permanent (CR 608.2m) — the card compiles, reads as complete, is
+    /// cast, and the ability it was compiled for is unreachable.
+    /// <para>
+    /// The default is the battlefield, which is what makes this worth a check rather than a
+    /// comment: a reader that forgets to set the zone produces exactly this, and produces it
+    /// silently. The card types are taken from the whole printed type line, so a card with any
+    /// permanent face at all — an adventure, a split half, a modal back — is outside the check.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void No_trigger_functions_from_a_zone_its_card_can_never_reach()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        const MtgEngine.Domain.Enums.CardType Permanents =
+            MtgEngine.Domain.Enums.CardType.Artifact
+            | MtgEngine.Domain.Enums.CardType.Creature
+            | MtgEngine.Domain.Enums.CardType.Enchantment
+            | MtgEngine.Domain.Enums.CardType.Land
+            | MtgEngine.Domain.Enums.CardType.Planeswalker
+            | MtgEngine.Domain.Enums.CardType.Battle;
+
+        var unreachable = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+
+        foreach (var card in corpus)
+        {
+            if ((card.CardTypes & Permanents) != 0)
+                continue;
+
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            foreach (var trigger in compiled.Triggers)
+            {
+                if (trigger.FunctionsFrom != Zone.Battlefield)
+                    continue;
+
+                Note(unreachable, $"\"{trigger.Text}\"", card.Name);
+            }
+        }
+
+        foreach (var (shape, who) in unreachable)
+            output.WriteLine($"  {shape} — {who.Count}: {string.Join(", ", who.Take(6))}");
+
+        Assert.True(
+            unreachable.Count == 0,
+            $"{unreachable.Sum(e => e.Value.Count)} triggers wait on the battlefield for a card "
+                + "that never gets there, so they are asked about no event ever:\n  "
+                + string.Join(
+                    "\n  ",
+                    unreachable.Take(40)
+                        .Select(e => $"{e.Key} — {string.Join(", ", e.Value.Take(4))}")));
+    }
+
+    /// <summary>
+    /// A modal ability has to choose at least one mode (CR 700.2).
+    /// </summary>
+    /// <remarks>
+    /// Modes are the whole of what a modal spell does: nothing is in the top-level effect list,
+    /// because every clause sits inside a mode. An ability that carries modes and asks for none
+    /// resolves by picking nothing and running nothing — the same silence as an empty effect
+    /// list, one indirection along, and invisible to the check that looks at the list.
+    /// </remarks>
+    [Fact]
+    public void Every_modal_ability_chooses_at_least_one_mode()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        var mute = new List<string>();
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            foreach (var trigger in compiled.Triggers)
+            {
+                if (!trigger.Modes.IsEmpty && trigger.ModesToChoose <= 0)
+                    mute.Add($"{card.Name}: trigger \"{trigger.Text}\"");
+            }
+
+            foreach (var spell in EverySpell(compiled))
+            {
+                if (!spell.Modes.IsEmpty && spell.ModesToChoose <= 0)
+                    mute.Add($"{card.Name}: {spell.Modes.Count} modes, none chosen");
+            }
+        }
+
+        Assert.True(
+            mute.Count == 0,
+            $"{mute.Count} modal abilities pick no mode, so they resolve and run nothing:\n  "
+                + string.Join("\n  ", mute.Take(40)));
+    }
+
+    /// <summary>Every castable spell definition a compiled card carries, alternates included.</summary>
+    /// <remarks>
+    /// Found by type over the record's own properties, the way <see cref="Slices"/> finds them,
+    /// so the sixth alternate casting is walked on the day it is added rather than on the day
+    /// somebody remembers this list.
+    /// </remarks>
+    private static IEnumerable<SpellDefinition> EverySpell(CompiledCard compiled)
+    {
+        foreach (var property in typeof(CompiledCard).GetProperties())
+        {
+            if (property.PropertyType == typeof(SpellDefinition)
+                && property.GetValue(compiled) is SpellDefinition spell)
+            {
+                yield return spell;
+            }
+        }
+
+        foreach (var half in compiled.Halves)
+        {
+            if (half.Spell is { } face)
+                yield return face;
+        }
+    }
+
+    /// <summary>
+    /// An effect whose whole size is a fixed zero — a report, and the reasoning behind it.
+    /// </summary>
+    /// <remarks>
+    /// <c>Amount.In</c> comes to a fixed zero in two shapes: a plain <c>0</c>, and <c>0</c> with a
+    /// "for each" multiplier, which multiplies the count by zero. Draw zero cards, gain zero life,
+    /// put zero counters — the effect resolves, emits its event with a zero in it, and nothing on
+    /// the board moves. That is the shape the counting phrase produced when it resolved
+    /// "Equipment" to a creature subtype nothing has and the card gained 0 life instead of 2.
+    /// <para>
+    /// <b>This asserts nothing.</b> An amount is not the whole of every effect that carries one,
+    /// and a zero can be deliberate; the honest form of the check is to print the shapes and let
+    /// a reader judge, which is what the untargeted-resolution report next door does for the same
+    /// reason. What it is for is the next zero, which will not be deliberate.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Effects_whose_whole_size_is_a_fixed_zero_are_reported()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        var zero = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            foreach (var effect in EveryCompiledEffect(compiled))
+            {
+                var amounts = effect.GetType().GetProperties()
+                    .Where(p => p.PropertyType == typeof(Amount)
+                        || p.PropertyType == typeof(Amount?))
+                    .Select(p => p.GetValue(effect) as Amount?)
+                    .Where(a => a is not null)
+                    .Select(a => a!.Value)
+                    .ToList();
+
+                if (amounts.Count == 0 || !amounts.TrueForAll(DeadZero))
+                    continue;
+
+                Note(zero, effect.GetType().Name, card.Name);
+            }
+        }
+
+        output.WriteLine("A report and not a gate: an amount is not the whole of every effect.");
+        foreach (var (shape, who) in zero)
+            output.WriteLine($"  {shape} — {who.Count}: {string.Join(", ", who.Take(8))}");
+    }
+
+    /// <summary>Whether this amount comes to zero however the game goes.</summary>
+    /// <remarks>
+    /// The "for each" arm is the one worth spelling out: <c>Amount.In</c> reads a counted amount
+    /// as <c>Fixed * count</c>, so a fixed part of zero is zero whatever the count comes to. Only
+    /// X escapes, because X is chosen as the spell is cast (CR 601.2b) and is not on the card.
+    /// </remarks>
+    private static bool DeadZero(Amount amount) => amount.Fixed == 0 && !amount.IsVariable;
 
     /// <summary>File one finding under the shape it has, so a class of them reads as one row.</summary>
     private static void Note(
