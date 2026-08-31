@@ -61,6 +61,15 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
             // somebody checked, one at a time, which is the point of naming them here.
             ["CascadeRequested.SourceId"] =
                 "log record; the choice that answers it is found by its own id, not by source",
+            ["CombatTax.Id"] =
+                "identity only; taxes are gathered by sweeping the battlefield at the moment a "
+                + "declaration is made, never looked up by id",
+            ["FlashPermission.Id"] =
+                "identity only; permissions are gathered by sweeping the battlefield when the "
+                + "timing question is asked, never looked up by id",
+            ["LibraryTopPermission.Id"] =
+                "identity only; gathered by sweeping the battlefield at the moment of the play, "
+                + "never looked up by id",
             ["ChoiceMade.ChoiceId"] =
                 "log record of which question was answered; the reducer folds the answer",
             ["CommanderDamageDealt.Amount"] =

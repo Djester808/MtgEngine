@@ -114,6 +114,20 @@ public sealed record Touch(
     MoveCause Cause,
     Guid? Controller)
 {
+    /// <summary>
+    /// What the object was called <em>before</em> the move, so the two halves of one zone change
+    /// can be joined up (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// The record was built for the participles — "each creature destroyed this way" asks what
+    /// happened, never which id it happened to — so only the arriving id was kept. A pronoun is
+    /// the other question: "return target creature card from your graveyard to the battlefield.
+    /// <em>It</em> gains haste" names the object the sentence already targeted, and the only way
+    /// to get from the id the player chose to the id the permanent arrived under is to have
+    /// written the pair down. Null on a touch nothing joined, which is none of them today.
+    /// </remarks>
+    public ObjectId? OldId { get; init; }
+
     /// <summary>What it last had for power, as it left (CR 608.2h).</summary>
     /// <remarks>
     /// Last known information rather than the printed number, because "X is the power of the
@@ -221,6 +235,7 @@ public sealed record ResolutionRecord
                 moved.Cause,
                 moved.LeavingControllerId ?? moved.ControllerId)
             {
+                OldId = moved.OldId,
                 Power = leaving?.Power,
                 Toughness = leaving?.Toughness,
             });

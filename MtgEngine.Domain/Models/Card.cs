@@ -34,6 +34,27 @@ public sealed class CardDefinition
     /// answers for the card.
     /// </remarks>
     public int? Defense { get; init; }
+
+    /// <summary>
+    /// The numbers lit up on an Attraction, from the column on the right of its text box
+    /// (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// Empty for everything that is not an Attraction, the way <see cref="Defense"/> is null off
+    /// a battle. It is not in the rules text and cannot be derived from it — two Attractions with
+    /// the same English name are printed with different numbers lit (CR 717.1) — so it is a
+    /// printed characteristic that only the data carries. Scryfall's <c>attraction_lights</c>, on
+    /// all 22 playable Attractions and all 50 in the bulk file.
+    /// <para>
+    /// <b>An empty list is what makes a visit ability unreadable, deliberately.</b> A roll only
+    /// visits an Attraction whose lights hold the result (CR 701.52a), so an Attraction that
+    /// arrived without them could be opened, sit on the battlefield, and never do anything on any
+    /// roll — a card reading perfectly and doing something other than it says. The compiler
+    /// refuses the <c>Visit —</c> line rather than compiling a trigger that can never fire.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<int> AttractionLights { get; init; } = [];
+
     public KeywordAbility Keywords { get; init; }
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
@@ -75,6 +96,34 @@ public sealed class CardDefinition
     /// </para>
     /// </remarks>
     public IReadOnlyList<CardFace> Faces { get; init; } = [];
+
+    /// <summary>
+    /// The versions this card can specialize into, when it has a specialize ability.
+    /// </summary>
+    /// <remarks>
+    /// Empty for all but nineteen cards. Specialize is an Alchemy mechanic and is in none of the
+    /// printed Comprehensive Rules — the file this repository ships has 702.157 as Squad — so the
+    /// authority for it is the Arena rules bulletin: "Specialize [cost]" is an activated ability
+    /// whose cost includes discarding a card of a colour, and paying it makes the permanent the
+    /// specialized version for that colour.
+    /// <para>
+    /// Six entries or none. Index 0 is the base card's own face, so unspecializing is the same
+    /// lookup as specializing, and indices 1-5 are the white, blue, black, red and green versions
+    /// in that order. This is <see cref="Faces"/>'s shape and deliberately not <see cref="Faces"/>
+    /// itself: every specialized version prints a mana cost, and a face with a printed cost is
+    /// how the compiler tells the half of a split card from the back of a transforming one — so
+    /// putting them in <c>Faces</c> would have given each of these nineteen cards five extra
+    /// castable halves.
+    /// </para>
+    /// <para>
+    /// The data behind it is complete and machine-readable: all 19 base cards carry
+    /// <c>all_parts</c> with exactly six entries, and each version's mana cost is the base's plus
+    /// exactly one coloured pip, which is what says which colour it is. The colour is not
+    /// readable off <c>colors</c> — Klement, Novice Acolyte is white and so is its white version.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardFace> Specializations { get; init; } = [];
+
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
     public string? SetCode { get; init; }

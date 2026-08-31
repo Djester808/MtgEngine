@@ -3825,10 +3825,18 @@ internal static class Subjects
 
         return subject switch
         {
-            EffectSubject.Target =>
-                context.TargetAt(targetIndex) is { Kind: TargetKind.Permanent } target
-                    ? target.Subject
-                    : null,
+            EffectSubject.Target => context.TargetAt(targetIndex) switch
+            {
+                { Kind: TargetKind.Permanent } permanent => permanent.Subject,
+
+                // The pronoun after a card that was never on the battlefield. CR 400.7 makes the
+                // card the player chose and the permanent that arrives two different objects, so
+                // the id on the target names nothing by the time the next sentence runs - which
+                // is why "return target creature card from your graveyard to the battlefield. It
+                // gains haste" put the haste nowhere at all, on every card that prints it.
+                { Kind: TargetKind.CardInGraveyard } card => Landed(context, card.Subject),
+                _ => null,
+            },
 
             EffectSubject.AttachedHost => Attachment.HostOf(context),
 
@@ -3849,6 +3857,63 @@ internal static class Subjects
 
             _ => context.PhysicalSourceId,
         };
+    }
+
+    /// <summary>
+    /// Where a card this same resolution moved has landed, or null (CR 400.7j).
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a move this resolution made.</b> CR 400.7j is a narrow exception to CR 400.7 —
+    /// "if an effect causes an object to move to a public zone, other parts of that effect can
+    /// find that object" — and everything outside it stays under the general rule. So a target
+    /// the resolution did not move answers null rather than answering itself: Feldon of the Third
+    /// Path targets a creature card in a graveyard, <em>copies</em> it, and says "it gains haste"
+    /// about the token, and a resolver that fell back to the targeted card would put the haste on
+    /// the corpse. Nothing in the record can tell a created object from a moved one, so the
+    /// honest answer is the one <see cref="EffectSubject.TriggeringObject"/> already gives —
+    /// nothing, rather than a guess.
+    /// <para>
+    /// <b>And only to a public zone</b>, which is the rule's own word and not a caution added on
+    /// top. A card returned to a hand or shuffled into a library is gone as far as the rest of
+    /// the sentence is concerned, and an engine that followed it there would be holding an id for
+    /// a hidden card — the one thing a continuous effect on a non-battlefield object must never
+    /// become a route to.
+    /// </para>
+    /// <para>
+    /// The chain is walked rather than looked up once, because one resolution can move the same
+    /// card twice ("exile it, then return it") and each hop is a fresh object under a fresh id.
+    /// The loop is bounded by the number of moves recorded, so a cycle cannot spin.
+    /// </para>
+    /// </remarks>
+    private static ObjectId? Landed(ResolutionContext context, ObjectId targeted)
+    {
+        var touches = context.Record.Touches;
+        var current = targeted;
+        var found = false;
+
+        for (var hop = 0; hop < touches.Count; hop++)
+        {
+            var moved = false;
+
+            foreach (var touch in touches)
+            {
+                if (touch.OldId != current)
+                    continue;
+
+                if (touch.To.IsHidden())
+                    return null;
+
+                current = touch.Id;
+                moved = true;
+                found = true;
+                break;
+            }
+
+            if (!moved)
+                break;
+        }
+
+        return found ? current : null;
     }
 }
 
@@ -7251,6 +7316,24 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
     /// </remarks>
     public bool UntilYourNextTurn { get; init; }
 
+    /// <summary>
+    /// The "for as long as …" condition holding the bonus up, when the card printed one
+    /// (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The third duration this effect can carry, and it is a different <em>kind</em> of clock
+    /// from the two flags beside it: those name a turn and end in a cleanup step, and this one is
+    /// a question re-asked of the board. So it is not a flag on the event — the condition has to
+    /// travel in the definition's id, which is what <see cref="Cards.GenerativeEffects.HeldWhileId"/>
+    /// is for, and the same wrapper the aimed form of this effect already rides.
+    /// <para>
+    /// CR 611.2c is untouched by it. The affected set is still fixed here, as the list is built,
+    /// so "all creatures get +2/+2 for as long as this remains tapped" does not reach a creature
+    /// that arrives while it is running — a longer duration makes that more visible, not less.
+    /// </para>
+    /// </remarks>
+    public Cards.GenerativeEffects.ControlHeldWhile? HeldWhile { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -7269,19 +7352,43 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
                 context.ControllerId, source, peer, context.VariableValue))
             .ToImmutableList();
 
-        return affected.IsEmpty
-            ? []
-            :
+        if (affected.IsEmpty)
+            return [];
+
+        if (HeldWhile is { } until)
+        {
+            // A held duration asks about the source, so a source that has already left does
+            // nothing rather than doing it for ever - the same guard the aimed form makes, and
+            // for the same reason: the id names an object, and an object that is gone is a
+            // different one (CR 400.7).
+            if (source is not { Zone: Zone.Battlefield })
+                return [];
+
+            return
             [
                 new ContinuousEffectCreated(
                     Guid.NewGuid(),
-                    Size?.DefinitionIdIn(context) ?? DefinitionId,
+                    Cards.GenerativeEffects.HeldWhileId(
+                        Size?.DefinitionIdIn(context) ?? DefinitionId,
+                        context.ControllerId,
+                        source.Id,
+                        until),
                     affected,
-                    UntilYourNextTurn ? null : context.State.TurnNumber)
-                {
-                    UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
-                },
+                    UntilEndOfTurn: null),
             ];
+        }
+
+        return
+        [
+            new ContinuousEffectCreated(
+                Guid.NewGuid(),
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
+                affected,
+                UntilYourNextTurn ? null : context.State.TurnNumber)
+            {
+                UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
+            },
+        ];
     }
 }
 
@@ -7827,6 +7934,42 @@ public sealed record SearchLibrary(
 }
 
 /// <summary>
+/// Name a card while this spell resolves (CR 201.4).
+/// </summary>
+/// <remarks>
+/// The extraction family's first sentence — "Choose a nonland card name." — and the
+/// resolution-time twin of <c>ChoiceOnEntry.CardName</c>, which asks the same question of a
+/// permanent as it arrives. Both narrow the offer the same way and both land the answer in
+/// <c>GameObject.ChosenName</c>; what differs is only when the game stops to ask.
+/// <para>
+/// It records that the question is owed rather than asking it, like a scry or a search: a
+/// resolution is never stopped half way through, so the request goes in the log and the settle
+/// that follows puts it to the player. The sentence after it — the search — is queued
+/// in the same resolution still holding <see cref="SearchFilters.ChosenName"/>, and the settle
+/// asks this question first, which is what lets one sentence's answer be the next sentence's
+/// filter without either of them being a continuation the log could not rebuild.
+/// </para>
+/// <para>
+/// <see cref="FilterId"/> is the qualifier the card printed, and it fails closed: "a nonland
+/// card name" that compiled to "any card name" would be a strictly better card than the one
+/// printed, and a Slaughter Games that could name Island is not Slaughter Games.
+/// </para>
+/// </remarks>
+public sealed record ChooseCardName(string FilterId) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new CardNameChoiceRequested(
+                context.ControllerId, context.PhysicalSourceId, FilterId),
+        ];
+    }
+}
+
+/// <summary>
 /// Seek a card: one taken at random from among the cards in a library that match, put where the
 /// card says, without revealing or shuffling the library.
 /// </summary>
@@ -7941,6 +8084,30 @@ public static class SearchFilters
     /// </para>
     /// </remarks>
     public const string TargetsName = "*target*";
+
+    /// <summary>
+    /// Stands in for the name a player chose while the spell was resolving — "search target
+    /// player's graveyard, hand, and library for all cards with that name".
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TargetsName"/>'s sibling, and the difference between them is where the name
+    /// comes from rather than what is done with it. That one reads the name off an object the
+    /// spell targeted, which is known the moment the effect resolves; this one reads it off a
+    /// <em>question</em>, which by definition is not — the game halts, a player answers, and
+    /// only then does the search know what it is looking for. So this sentinel outlives the
+    /// resolution: the search is queued still holding it, and
+    /// <c>Game.ResolveCardNameChoice</c> fills it in when the answer arrives, before the search
+    /// is ever asked. A search still holding it when its turn comes is a search whose question
+    /// was never answered, and is dropped rather than run — an unfilled sentinel matches no
+    /// card, and a card that reports itself as having searched and found nothing is exactly the
+    /// silent wrong answer this compiler refuses everywhere else.
+    /// <para>
+    /// Not a word, for <see cref="TargetsName"/>'s reason: a card name is capitalised and a
+    /// capital is how <see cref="Matches(string, Domain.Models.CardDefinition)"/> tells a
+    /// subtype from everything else.
+    /// </para>
+    /// </remarks>
+    public const string ChosenName = "*chosen*";
 
     /// <summary>Whether a printed card answers to a filter name.</summary>
     /// <remarks>
@@ -9738,6 +9905,58 @@ public sealed record OnlyIfRollAtLeast(int Least, ImmutableList<IEffect> Effects
     }
 }
 
+/// <summary>"Open an Attraction" — the top card of your Attraction deck (CR 701.51b).</summary>
+/// <remarks>
+/// One sentence for the whole keyword action, the way <see cref="VentureIntoTheDungeon"/> is:
+/// twenty-one corpus lines say it and none of them says what an Attraction deck is, because the
+/// deck is a rules object living in the command zone (CR 717.2). "Open two Attractions" is the
+/// same action twice and carries its count rather than being a second effect.
+/// <para>
+/// The move it emits is <see cref="MoveCause.OpenAttraction"/>, which is the only thing that
+/// tells an opening from any other card leaving the command zone — CR 701.51c's "whenever you
+/// open an Attraction" has nothing else to watch.
+/// </para>
+/// </remarks>
+public sealed record OpenAttraction(int Count = 1) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Attractions.OpenEvents(context.State, context.ControllerId, Count);
+    }
+}
+
+/// <summary>
+/// The half of "roll to visit your Attractions" that happens once the die has come down
+/// (CR 701.52a).
+/// </summary>
+/// <remarks>
+/// It is a <see cref="RollBranch"/> row covering every result rather than an effect that rolls,
+/// and that is the whole design: the roll itself is <see cref="RollDice"/>, which the engine
+/// already defers to the next settle, records as its outcome and replays from the log instead of
+/// re-rolling. What the row does with the number is the only new thing, and it reads the number
+/// out of <see cref="ResolutionContext.SubjectAmount"/> exactly as "you gain life equal to the
+/// result" does.
+/// <para>
+/// Nothing happens when there is no number, which is the same refusal
+/// <see cref="OnlyIfRollAtLeast"/> makes: a visit with no roll behind it is not a visit, and
+/// guessing a result would visit Attractions the die never lit.
+/// </para>
+/// </remarks>
+public sealed record VisitAttractions : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return context.SubjectAmount is not { } result
+            ? []
+            : Attractions.VisitEvents(
+                context.State, context.Abilities, context.ControllerId, result);
+    }
+}
+
 /// <summary>Makes a permanent monstrous, with the counters that come with it (CR 701.32a).</summary>
 /// <remarks>
 /// One effect and not two, because the rule is one action: a creature that is already monstrous
@@ -10266,6 +10485,43 @@ public sealed record TransformSource : IEffect
 
         var next = onBattlefield.FaceIndex == 0 ? 1 : 0;
         return [new PermanentTransformed(subject, next)];
+    }
+}
+
+/// <summary>
+/// The source becomes its specialized version for one colour (Alchemy: "specialize").
+/// </summary>
+/// <remarks>
+/// One effect per colour rather than one that reads the discarded card, because the colour is
+/// decided by the cost the player chose to pay and a cost is paid <em>with</em> the activation —
+/// so by the time this resolves the card is already in the graveyard and the branch has already
+/// been taken. Five abilities on the permanent is what the mechanic actually is: five prices for
+/// five different results, and the board can offer them side by side.
+/// <para>
+/// The permanent behind the ability, not the ability on the stack — the trap
+/// <see cref="TransformSource"/> fell into and the reason it is written down there.
+/// </para>
+/// <para>
+/// Silent when the permanent has no such version, the way an impossible transform is: the
+/// compiler refuses to emit this at all for a card whose versions the loader could not link, so
+/// reaching here without one is a bug at the throw site rather than something to crash a game
+/// over.
+/// </para>
+/// </remarks>
+public sealed record SpecializeSource(int Version) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var subject = context.PhysicalSourceId;
+
+        return context.State.TryGetObject(subject, out var permanent)
+            && permanent.Permanent is not null
+            && Version > 0
+            && Version < permanent.Card.Specializations.Count
+            ? [new PermanentSpecialized(subject, Version)]
+            : [];
     }
 }
 

@@ -507,6 +507,484 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.Battlefield);
     }
 
+    // ---- Attractions (CR 717, 701.51, 701.52, 702.159) ------------------------
+
+    /// <summary>
+    /// An Attraction: a card plus the column of numbers lit up beside its text box (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// The lights are the point. They appear in no sentence the card prints and cannot be derived
+    /// from one - two Attractions with the same English name are printed with different numbers
+    /// lit - so they are a printed characteristic that only the bulk data carries, and every one
+    /// of these fixtures uses the numbers its real printing has.
+    /// </remarks>
+    private static CardDefinition AttractionCard(
+        string name, string visitText, params int[] lights) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = visitText,
+            CardTypes = CardType.Artifact,
+            Subtypes = ["Attraction"],
+            AttractionLights = lights,
+        };
+
+    /// <summary>Information Booth, whose visit ability is the plainest one printed.</summary>
+    private static CardDefinition InformationBooth() =>
+        AttractionCard("Information Booth Test", "Visit — Draw a card.", 2, 6);
+
+    /// <summary>Clown Extruder: lit on 2 and 6, and on nothing else.</summary>
+    private static CardDefinition ClownExtruder() =>
+        AttractionCard(
+            "Clown Extruder Test",
+            "Visit — Create a 1/1 white Clown Robot artifact creature token.",
+            2,
+            6);
+
+    /// <summary>Kiddie Coaster: lit on 3 as well, which is what makes the pair worth playing.</summary>
+    private static CardDefinition KiddieCoaster() =>
+        AttractionCard(
+            "Kiddie Coaster Test",
+            "Visit — Creatures you control get +1/+0 until end of turn.",
+            2,
+            3,
+            6);
+
+    /// <summary>Deadbeat Attendant's wording, which twelve corpus cards share verbatim.</summary>
+    private static CardDefinition Attendant() =>
+        Card(
+            "Deadbeat Attendant Test",
+            "When this creature enters, open an Attraction. (Put the top card of your Attraction"
+                + " deck onto the battlefield.)",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+    /// <summary>Step Right Up, the only card in the corpus that opens two.</summary>
+    private static CardDefinition StepRightUp() =>
+        Card(
+            "Step Right Up Test",
+            "Open two Attractions. (Put the top two cards of your Attraction deck onto the"
+                + " battlefield.)",
+            CardType.Sorcery);
+
+    /// <summary>
+    /// A game in which Alice brought an Attraction deck (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// The deck is handed to the setup rather than shuffled into the library, because Attraction
+    /// cards do not begin the game in a deck and do not count towards its size (CR 717.2). The
+    /// seed is a parameter for the reason <c>InMainPhaseSeeded</c> takes one: the visit die is
+    /// the randomness under test, and one seed can only ever show one of its faces.
+    /// </remarks>
+    private static (Game Game, Guid Alice, Guid Bob) WithAttractions(
+        int seed, params CardDefinition[] attractions)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice"))
+                {
+                    AttractionDeck = attractions,
+                },
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(seed),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice, bob);
+    }
+
+    /// <summary>The Attractions this player controls on the battlefield, by name.</summary>
+    private static List<string> AttractionsOut(Game game, Guid who) =>
+        [.. game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.ControllerId == who && Attractions.Is(o.Card))
+            .Select(o => o.Card.Name)
+            .Order(StringComparer.Ordinal)];
+
+    /// <summary>How many Clown Robot tokens are on the table.</summary>
+    private static int RobotsOut(Game game) =>
+        game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Count(o => string.Equals(o.Card.Name, "Clown Robot", StringComparison.Ordinal));
+
+    /// <summary>
+    /// An Attraction deck is a supplementary deck that exists in the command zone (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// The whole feature rests on this being true rather than on a new zone: an Attraction is an
+    /// object in a zone the reducer has always folded, so opening one is an ordinary move and
+    /// nothing about the state had to grow a field. The middle assertions are the ones worth
+    /// having - an Attraction card is not a permanent and is not in the library, so nothing may
+    /// draw one, count it towards a deck's size, or sweep it away before it is ever opened.
+    /// </remarks>
+    [Fact]
+    public void An_attraction_deck_begins_in_the_command_zone()
+    {
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+
+        var deck = Attractions.DeckOf(game.State, alice);
+        Assert.Equal(2, deck.Count);
+        Assert.All(deck, card => Assert.Equal(Zone.Command, card.Zone));
+        Assert.All(deck, card => Assert.Null(card.Permanent));
+        Assert.All(deck, card => Assert.Contains(card.Id, game.State.Command));
+
+        Assert.Empty(AttractionsOut(game, alice));
+        Assert.Equal(
+            40,
+            game.State.GetPlayer(alice).Library.Count + game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Open an Attraction" moves the top card of the Attraction deck onto the battlefield
+    /// (CR 701.51b), and the move says it was an opening (CR 701.51c).
+    /// </summary>
+    /// <remarks>
+    /// The cause on the move is not decoration. "Whenever you open an Attraction" has nothing
+    /// else to watch: a commander and a dungeon leave the command zone too, and a trigger that
+    /// only asked where the card came from would fire on both of them.
+    /// </remarks>
+    [Fact]
+    public void Opening_an_attraction_takes_the_top_card_of_the_deck()
+    {
+        var attendant = Attendant();
+        var compiled = CardCompiler.Compile(attendant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+
+        game.Create(alice, attendant, Zone.Battlefield);
+        Settle(game);
+
+        var opened = Assert.Single(AttractionsOut(game, alice));
+        Assert.Single(Attractions.DeckOf(game.State, alice));
+
+        var move = Assert.Single(
+            game.Log.OfType<ObjectMoved>(), m => m.Cause == MoveCause.OpenAttraction);
+
+        Assert.Equal(Zone.Command, move.From);
+        Assert.Equal(Zone.Battlefield, move.To);
+        Assert.Equal(opened, game.State.GetObject(move.NewId).Card.Name);
+    }
+
+    /// <summary>
+    /// "Open two Attractions" takes two, and a player with no Attraction deck opens nothing
+    /// (CR 701.51a).
+    /// </summary>
+    /// <remarks>
+    /// The second half is the fail-closed one. CR 701.51a lets a player open an Attraction only
+    /// in a game they are playing with an Attraction deck, so an instruction with no deck behind
+    /// it is one that cannot be followed - and the card carries on to whatever it says next
+    /// rather than the game stopping. Every card in this family is legal in a deck that brought
+    /// no Attractions at all.
+    /// </remarks>
+    [Fact]
+    public void Opening_takes_what_the_deck_has_and_nothing_more()
+    {
+        var step = StepRightUp();
+        Assert.True(CardCompiler.Compile(step).IsComplete);
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, step), []);
+        Settle(game);
+
+        Assert.Equal(2, AttractionsOut(game, alice).Count);
+        Assert.Empty(Attractions.DeckOf(game.State, alice));
+
+        // The same card in a game nobody brought Attractions to.
+        var (bare, without, _) = WithAttractions(1);
+        bare.CastSpell(without, TestCards.PutInHand(bare, without, step), []);
+        Settle(bare);
+
+        Assert.Empty(AttractionsOut(bare, without));
+        Assert.DoesNotContain(
+            bare.Log.OfType<ObjectMoved>(), m => m.Cause == MoveCause.OpenAttraction);
+    }
+
+    /// <summary>
+    /// The precombat main phase rolls a d6, and only the Attractions whose lights hold the
+    /// result are visited (CR 505.5, 701.52a, 717.4).
+    /// </summary>
+    /// <remarks>
+    /// This is the test the round is for, and it is written against the number in the log rather
+    /// than a number the test chose: whatever came up, the board has to be what those lights say
+    /// and nothing else. Clown Extruder is lit on 2 and 6; Kiddie Coaster is lit on 2, 3 and 6.
+    /// So a 3 is a roll that visits one of them and not the other, a 2 or a 6 visits both, and a
+    /// 1, 4 or 5 visits neither - and every one of those cases is asserted by the same
+    /// expression.
+    /// <para>
+    /// It runs over twelve seeds and then asserts that the seeds between them produced a roll
+    /// that lit the Extruder and a roll that did not. Without that last assertion a dozen unlucky
+    /// seeds could all miss, every board would agree with its roll, and the test would pass
+    /// having never once shown an Attraction do anything - which is exactly the shape of a card
+    /// that compiles and can never fire.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_visit_roll_lights_only_the_attractions_whose_numbers_match()
+    {
+        var extruder = ClownExtruder();
+        var coaster = KiddieCoaster();
+
+        foreach (var card in new[] { extruder, coaster })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+            Assert.Single(compiled.Triggers);
+        }
+
+        var litExtruder = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed, extruder, coaster);
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+            Settle(game);
+
+            var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+            Assert.Equal(2, AttractionsOut(game, alice).Count);
+
+            // CR 717.4: the roll happens as the active player's precombat main phase begins and
+            // only when they control an Attraction, so turn one rolled nothing - the Attractions
+            // were still in the deck when it began - and Bob's turn rolls nothing either.
+            Assert.Empty(game.Log.OfType<DiceRolled>());
+
+            PassTo(game, 3, TurnStep.PrecombatMain);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            Assert.Equal(6, rolled.Sides);
+            Assert.Equal(alice, rolled.PlayerId);
+
+            var extruderLit = rolled.Result is 2 or 6;
+            var coasterLit = rolled.Result is 2 or 3 or 6;
+            litExtruder.Add(extruderLit);
+
+            var visited = game.Log
+                .OfType<AttractionVisited>()
+                .Select(v => game.State.GetObject(v.AttractionId).Card.Name)
+                .Order(StringComparer.Ordinal)
+                .ToList();
+
+            var expected = new List<string>();
+            if (extruderLit)
+                expected.Add("Clown Extruder Test");
+            if (coasterLit)
+                expected.Add("Kiddie Coaster Test");
+
+            Assert.Equal(expected, visited);
+
+            // The lit one did its thing, and the unlit one did nothing at all.
+            Assert.Equal(extruderLit ? 1 : 0, RobotsOut(game));
+            Assert.Equal(coasterLit ? 3 : 2, PowerNow(game, bear));
+        }
+
+        Assert.Equal([false, true], litExtruder.Order().ToList());
+    }
+
+    /// <summary>
+    /// The visit roll is in the log as its outcome, so a resumed game reads the number rather
+    /// than rolling a new one (CR 706.2's rule, applied to CR 701.52a's die).
+    /// </summary>
+    /// <remarks>
+    /// The same promise the shuffle and the coin flip make, and the reason this feature needed no
+    /// new machinery to keep it: a visit is computed from a <c>DiceRolled</c> the fold already
+    /// replays. Resumed with a different <c>GameRandom</c> the board has to come out identical -
+    /// and it is the board that is compared and not the log, so a visit recomputed from a fresh
+    /// number would show up as a missing token rather than as a matching list of events.
+    /// </remarks>
+    [Fact]
+    public void A_visit_replays_from_the_logged_roll_rather_than_rolling_again()
+    {
+        var (game, alice, _) = WithAttractions(4, ClownExtruder(), KiddieCoaster());
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<DiceRolled>());
+
+        var resumed = Game.Resume([.. game.Log], new GameRandom(987654), Pool);
+        Assert.Equal(game.State, resumed.State);
+    }
+
+    /// <summary>
+    /// Line Cutter: "When this creature enters, roll to visit your Attractions" is the same roll
+    /// the turn asks for, printed on a card (CR 701.52).
+    /// </summary>
+    /// <remarks>
+    /// The two reach it by different routes and must not come apart. The turn-based action rolls
+    /// in the engine because it has no card behind it; the printed sentence compiles to the
+    /// ordinary deferred roll, whose results table is one row covering every number and whose row
+    /// reads the result out of the resolution that ran it. What they share is
+    /// <c>Attractions.VisitEvents</c> - which lights answer to which number is decided in one
+    /// place, the way every venture in this engine goes through one method.
+    /// </remarks>
+    [Fact]
+    public void A_card_that_rolls_to_visit_reaches_the_same_lights()
+    {
+        var cutter = Card(
+            "Line Cutter Test",
+            "When this creature enters, roll to visit your Attractions.",
+            CardType.Creature,
+            power: 3,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(cutter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var seen = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed);
+            game.Create(alice, ClownExtruder(), Zone.Battlefield);
+            game.Create(alice, InformationBooth(), Zone.Battlefield);
+            Settle(game);
+
+            var before = game.State.GetPlayer(alice).Hand.Count;
+            game.Create(alice, cutter, Zone.Battlefield);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            Assert.Equal(6, rolled.Sides);
+
+            var lit = rolled.Result is 2 or 6;
+            seen.Add(lit);
+
+            Assert.Equal(lit ? 1 : 0, RobotsOut(game));
+            Assert.Equal(before + (lit ? 1 : 0), game.State.GetPlayer(alice).Hand.Count);
+        }
+
+        Assert.Equal([false, true], seen.Order().ToList());
+    }
+
+    /// <summary>
+    /// An Attraction that arrived without its lights keeps its visit line unread (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half of the feature, and the reason the compiler asks about data at all.
+    /// The lights are printed beside the text box and appear in no sentence, so a card that
+    /// reached the compiler without them is one that no result could ever match: it would open,
+    /// sit on the battlefield, and do nothing on every roll for the rest of the game while
+    /// counting as a card the engine had fully read. Left unread instead - a card a deck check
+    /// can refuse rather than one that quietly plays as a blank.
+    /// </remarks>
+    [Fact]
+    public void An_attraction_with_no_lights_leaves_its_visit_line_unread()
+    {
+        var dark = AttractionCard("Unlit Booth Test", "Visit — Draw a card.");
+        var compiled = CardCompiler.Compile(dark);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled, l => l.StartsWith("Visit —", StringComparison.Ordinal));
+
+        Assert.Empty(compiled.Triggers);
+
+        // The same words with the printing's own lights on them read whole.
+        Assert.True(CardCompiler.Compile(InformationBooth()).IsComplete);
+    }
+
+    /// <summary>
+    /// "Whenever you open an Attraction" fires on the opening and on nothing else (CR 701.51c).
+    /// </summary>
+    /// <remarks>
+    /// The negative half is the load-bearing one. Plenty of things enter the battlefield and a
+    /// commander leaves the command zone to do it, so a trigger that watched the zones rather
+    /// than the cause of the move would count both - a counter on a creature for something that
+    /// is not an Attraction and not an opening.
+    /// </remarks>
+    [Fact]
+    public void A_watcher_of_openings_counts_openings_and_not_arrivals()
+    {
+        var watcher = Card(
+            "Buttoneer Watch Test",
+            "Whenever you open an Attraction, put a +1/+1 counter on ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(watcher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+        var seen = game.Create(alice, watcher, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, PowerNow(game, seen));
+
+        // An ordinary permanent entering is not an opening.
+        game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, PowerNow(game, seen));
+
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, PowerNow(game, seen));
+    }
+
+    /// <summary>
+    /// A destroyed Attraction goes to its owner's junkyard in the command zone, never to a
+    /// graveyard (CR 717.6).
+    /// </summary>
+    /// <remarks>
+    /// Draconian Gate-Bot and Down for Repairs both print the reminder "It's put into their
+    /// junkyard", and without this rule that sentence would describe something the engine does
+    /// not do: the card would land in a graveyard where it could be counted, recurred and
+    /// targeted by cards that have never been able to see an Attraction. CR 717.6a is explicit
+    /// that the junkyard is a pile and not a zone of its own, so the command zone is where it
+    /// goes and there was nothing else to build.
+    /// <para>
+    /// The move still happens and still leaves the battlefield - only the destination changes -
+    /// so anything watching a permanent leave still sees it leave.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_destroyed_attraction_is_junked_rather_than_buried()
+    {
+        var wrecker = Card(
+            "Gate-Bot Test",
+            "Destroy target Attraction. (It's put into its owner's junkyard.)",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(wrecker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth());
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        var booth = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject), o => Attractions.Is(o.Card));
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, wrecker),
+            [Target.ToPermanent(booth.Id)]);
+
+        Settle(game);
+
+        Assert.Empty(AttractionsOut(game, alice));
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => Attractions.Is(o.Card));
+
+        Assert.Contains(
+            game.State.Command.Select(game.State.GetObject),
+            o => string.Equals(
+                o.Card.Name, "Information Booth Test", StringComparison.Ordinal));
+    }
+
     // ---- Removal -------------------------------------------------------------
 
     [Fact]
@@ -1120,6 +1598,229 @@ public sealed class CompiledCardBehaviourTests
         // Paid for, and worth nothing: the tap was spent and the pool is still empty.
         Assert.True(game.State.GetObject(id).Permanent!.IsTapped);
         Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    // ---- A pronoun that follows a card out of a graveyard (CR 400.7, 400.7j) ----
+
+    /// <summary>
+    /// "Return target creature card from your graveyard to the battlefield. It gains haste."
+    /// </summary>
+    /// <remarks>
+    /// The card the player targets is in a graveyard and the permanent that arrives is a
+    /// different object under a different id (CR 400.7), so the pronoun in the next sentence had
+    /// nothing to name: the subject resolver took a target only when it was already a permanent,
+    /// and a graveyard card is not one. Every card of this family — Goryo's Vengeance, Bond of
+    /// Revival, Foul Renewal, Macabre Mockery, Grave Upheaval, Fated Return, Dawn of the Dead,
+    /// Balduvian Atrocity, Kami of Industry, Kardur's Vicious Return — compiled clean, counted as
+    /// covered, and reanimated a creature that could not attack and was never exiled afterwards.
+    /// <para>
+    /// CR 400.7j is what makes this a fix rather than a convenience: "if an effect causes an
+    /// object to move to a public zone, other parts of that effect can find that object". The
+    /// resolution record already wrote down every zone change of the resolution; what it did not
+    /// keep was the id the object had <em>before</em> the move, which is the only way to get from
+    /// the id the player chose to the id the permanent arrived under.
+    /// </para>
+    /// <para>
+    /// Proved by attacking rather than by reading a keyword off the characteristics: a 4/4 that
+    /// arrived this turn may only be declared if it really has haste (CR 302.6), so the assertion
+    /// is the four damage.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Haste_follows_the_card_a_reanimation_moved_out_of_the_graveyard()
+    {
+        var vengeance = Card(
+            "Zone Pronoun Vengeance Test",
+            "Return target creature card from your graveyard to the battlefield. It gains haste. "
+                + "Exile it at the beginning of the next end step.");
+
+        var compiled = CardCompiler.Compile(vengeance);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, vengeance), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name == "Zone Pronoun Corpse Test");
+
+        // CR 400.7: a different object from the one the spell targeted, and that is the point.
+        Assert.NotEqual(corpse, arrived.Id);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [arrived.Id] = AttackTarget.Player(bob),
+        });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+
+        // The effect reached a card that was not on the battlefield when it was chosen, and it
+        // opened no window onto anything hidden: Bob still gets a count for Alice's hand and her
+        // library and the contents of neither (CR 400.2).
+        var theirs = PlayerViewProjector.Project(game.State, bob, Pool);
+        var hers = theirs.Players.Single(p => p.PlayerId == alice);
+        Assert.Null(hers.Hand);
+        Assert.Null(hers.TopOfLibrary);
+        Assert.Contains(
+            hers.Graveyard,
+            o => string.Equals(o.Name, "Zone Pronoun Vengeance Test", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The delayed half of the same sentence — "exile it at the beginning of the next end step".
+    /// </summary>
+    /// <remarks>
+    /// Its own test because it fails for the same reason at a different moment, and a reanimation
+    /// that keeps the creature for ever is a strictly better card than the printed one. The
+    /// delayed trigger is scheduled <em>during</em> the resolution, which is the only moment the
+    /// record exists, so the id it is handed has to be the one the permanent arrived under rather
+    /// than the one the graveyard card had.
+    /// </remarks>
+    [Fact]
+    public void The_delayed_exile_finds_the_permanent_the_spell_returned()
+    {
+        var vengeance = Card(
+            "Zone Pronoun Exile Test",
+            "Return target creature card from your graveyard to the battlefield. It gains haste. "
+                + "Exile it at the beginning of the next end step.");
+
+        var (game, alice, _) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Exiled Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, vengeance), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Exiled Corpse Test",
+                StringComparison.Ordinal));
+
+        Assert.Contains(
+            game.State.Exile,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Exiled Corpse Test",
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A card sent to a <em>hidden</em> zone is not followed there (CR 400.7j).
+    /// </summary>
+    /// <remarks>
+    /// The rule's own word is "public", and that is why this is not a caution bolted on
+    /// afterwards. Following a card into a hand would leave the resolution holding the id of a
+    /// card nobody but its owner may see, and every later sentence of the effect — and anything
+    /// that remembered the id — would be a route to it. The engine's answer is the one it gives
+    /// everywhere else it cannot see: nothing happens, rather than something happening to a card
+    /// the opponent is not entitled to know about.
+    /// <para>
+    /// So the delayed exile never fires, the creature card stays in the hand, and the opponent's
+    /// view still carries a hand count and no hand.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_returned_to_a_hand_is_not_followed_into_it()
+    {
+        var raise = Card(
+            "Zone Pronoun Hidden Test",
+            "Return target creature card from your graveyard to your hand. "
+                + "Exile it at the beginning of the next end step.");
+
+        var compiled = CardCompiler.Compile(raise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Hidden Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, raise), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        Assert.Empty(game.State.Exile);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Hidden Corpse Test",
+                StringComparison.Ordinal));
+
+        var theirs = PlayerViewProjector.Project(game.State, bob, Pool);
+        var hers = theirs.Players.Single(p => p.PlayerId == alice);
+        Assert.Null(hers.Hand);
+        Assert.Empty(hers.RevealedHand);
+        Assert.True(hers.HandCount > 0);
+    }
+
+    /// <summary>
+    /// A resolution that copied the card rather than moving it puts the effect nowhere.
+    /// </summary>
+    /// <remarks>
+    /// Feldon of the Third Path targets a creature card in a graveyard, creates a token copy of
+    /// it, and then says "it gains haste" about the <em>token</em>. Nothing in the resolution
+    /// record can tell a created object from a moved one — only zone changes are written down —
+    /// so the resolver answers nothing, exactly as <c>EffectSubject.TriggeringObject</c> does
+    /// when the event was about no object.
+    /// <para>
+    /// What this pins is the half that must never change: the corpse the ability targeted is
+    /// still lying in the graveyard, and it has not been handed the haste that belonged to the
+    /// token. A resolver that fell back to "the card you targeted" when it found no move would
+    /// pass every other test in this section and put the effect on the wrong object here.
+    /// </para>
+    /// <para>
+    /// The token's own haste is a separate gap and is deliberately not asserted either way: the
+    /// fix for it is a record of what a resolution <em>created</em>, and nothing here has one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_copy_leaves_the_card_it_was_copied_from_untouched()
+    {
+        var feldon = Card(
+            "Zone Pronoun Copy Test",
+            "{2}{R}, {T}: Create a token that's a copy of target creature card in your graveyard, "
+                + "except it's an artifact in addition to its other types. It gains haste. "
+                + "Sacrifice it at the beginning of the next end step.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(feldon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, feldon, Zone.Battlefield);
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Copied Corpse Test", 4, 4), Zone.Graveyard);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var mountain = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(alice, mountain, "mana");
+        }
+
+        var ability = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(source))
+            .Single(a => !a.IsManaAbility);
+
+        game.ActivateAbility(alice, source, ability.Id, [Target.ToCard(corpse)]);
+        Settle(game);
+
+        var stillDead = game.State.GetObject(corpse);
+        Assert.Equal(Zone.Graveyard, stillDead.Zone);
+        Assert.False(
+            Characteristics.Of(game.State, Pool, stillDead).Has(KeywordAbility.Haste),
+            "the pronoun named the token, and a fallback to the targeted card would land here");
     }
 
     // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
@@ -1905,6 +2606,471 @@ public sealed class CompiledCardBehaviourTests
 
         // Three of Alice's creatures, not the four on the battlefield.
         Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    // ---- The verbs a held duration wraps (CR 611.2b, 613.1) ------------------
+
+    /// <summary>
+    /// Awakener Druid: "becomes a 4/5 green Treefolk creature for as long as ~ remains on the
+    /// battlefield" (CR 205.1b, 611.2b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The duration was built a round before this and the verbs behind it were not: every one of
+    /// these sentences read with "until end of turn" and refused the clause the card actually
+    /// prints. So what this asserts is the join — the same run of layer effects the turn-long
+    /// reader builds, on the clock the card names.
+    /// <para>
+    /// The counter is what separates a layer-7b <em>set</em> from a pump, and on a land the
+    /// difference is not a number but whether there is one at all: a land has no printed power,
+    /// so "+4/+5" modifies nothing and the animation would leave a creature with no size. Set in
+    /// 7b and then modified by the counter in 7c it is a 5/6. Both readings compile; only one of
+    /// them is the printed card.
+    /// </para>
+    /// <para>
+    /// The trigger the printed card hangs this on is an activated ability here, so the source can
+    /// be removed independently of what it animated — the sentence under test is the card's word
+    /// for word, and the boundary is the point.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_animation_held_while_its_source_stands_sets_a_base_size_under_the_counters()
+    {
+        var druid = Card(
+            "Held Awakener Test",
+            "{T}: Target Forest becomes a 4/5 green Treefolk creature for as long as ~ remains "
+                + "on the battlefield. It's still a land.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(druid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var caster = game.Create(alice, druid, Zone.Battlefield);
+
+        // Put on before the animation, so the assertion also says the set does not wipe it.
+        game.ChangeCounters(forest, CounterKinds.PlusOnePlusOne, 1);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        var woken = Characteristics.Of(game.State, Pool, game.State.GetObject(forest));
+        Assert.True(woken.IsCreature);
+        Assert.True(woken.CardTypes.HasFlag(CardType.Land));
+        Assert.Contains("Treefolk", woken.Subtypes);
+        Assert.Contains(ManaColor.Green, woken.Colors);
+
+        // 4/5 set in 7b, then the counter in 7c. A pump would leave a land with no size at all.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(forest)));
+        Assert.Equal(
+            6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(forest)));
+
+        // It outlives the turn, which is the whole of what the held tail buys: an
+        // until-end-of-turn reading of the same sentence would have let go in the cleanup behind
+        // us, and this is a permanent the card means to keep animated.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(forest)));
+
+        // And the other side of the boundary. The source leaves, the condition names an object
+        // that is gone (CR 400.7), and the land is a land again.
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var asleep = Characteristics.Of(game.State, Pool, game.State.GetObject(forest));
+        Assert.False(asleep.IsCreature);
+        Assert.DoesNotContain("Treefolk", asleep.Subtypes);
+    }
+
+    /// <summary>
+    /// Skilled Animator: "becomes an artifact creature with base power and toughness 5/5 for as
+    /// long as ~ remains on the battlefield" (CR 205.1b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The same animation with its size printed after the noun instead of before it, which is a
+    /// second sentence shape and not a second effect — the card types live in the modifier run
+    /// here and outside it there. The counter makes the same point it makes above, on a permanent
+    /// that is an even clearer case: an artifact has no printed power either, so a 6/6 can only be
+    /// a set in 7b with the counter added in 7c.
+    /// </remarks>
+    [Fact]
+    public void An_artifact_animated_with_a_base_size_keeps_it_while_its_source_stands()
+    {
+        var animator = Card(
+            "Held Animator Test",
+            "{T}: Target artifact you control becomes an artifact creature with base power and "
+                + "toughness 5/5 for as long as ~ remains on the battlefield.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(animator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Held Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var caster = game.Create(alice, animator, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(relic)]);
+        Settle(game);
+        game.ChangeCounters(relic, CounterKinds.PlusOnePlusOne, 1);
+
+        var alive = Characteristics.Of(game.State, Pool, game.State.GetObject(relic));
+        Assert.True(alive.IsCreature);
+        Assert.True(alive.CardTypes.HasFlag(CardType.Artifact));
+        Assert.Equal(6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(relic)));
+        Assert.Equal(6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(relic)));
+
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).IsCreature);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).IsCreature);
+    }
+
+    /// <summary>
+    /// Tide Shaper: "target land becomes an Island for as long as ~ remains on the battlefield"
+    /// (CR 305.7, 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The retyping with no size, which makes it CR 305.7 rather than CR 613.4b: the land loses
+    /// the abilities its printed text gave it and gains the new type's mana ability. Read through
+    /// the mana ability rather than through the subtype, because the subtype is what an effect
+    /// says and the mana is what a player gets.
+    /// </remarks>
+    [Fact]
+    public void A_land_retyped_while_its_source_stands_taps_for_the_new_colour_until_it_goes()
+    {
+        var shaper = Card(
+            "Held Tide Shaper Test",
+            "{T}: Target land becomes an Island for as long as ~ remains on the battlefield.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(shaper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var caster = game.Create(alice, shaper, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        string ManaOf(ObjectId id) => Assert.Single(ManaAbilitiesOf(game, id)).Text;
+
+        Assert.Equal("{T}: Add {U}.", ManaOf(theirs));
+
+        // Bob's whole untap step and turn go by with the land still an Island, which an
+        // until-end-of-turn reading would not survive.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal("{T}: Add {U}.", ManaOf(theirs));
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal("{T}: Add {G}.", ManaOf(theirs));
+    }
+
+    /// <summary>
+    /// The Wondrous Wasp: "It loses all abilities for as long as ~ remains on the battlefield"
+    /// (CR 611.2b, 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// Layer 6, and the assertion that matters is the granted keyword rather than the printed
+    /// one. The engine already had a narrower removal for CR 305.7 — a land that becomes a basic
+    /// type loses the abilities <em>its own rules text</em> gave it and keeps anything an effect
+    /// handed it — and reading this sentence as that one would leave a silenced creature still
+    /// flying because a lord beside it said so. Both are asserted, off one board, so a removal
+    /// that reached only the printed half would fail here rather than look identical.
+    /// <para>
+    /// The pronoun is the printed subject: the sentence before it tapped a target, and this one
+    /// is about that same creature. It is read only because something has been targeted.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_removal_held_while_its_source_stands_takes_granted_abilities_too()
+    {
+        var wasp = Card(
+            "Held Wasp Test",
+            "{T}: Tap up to one target creature. It loses all abilities for as long as ~ remains "
+                + "on the battlefield.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var lord = Card(
+            "Held Wasp Lord Test",
+            "Other creatures you control have flying.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(wasp);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(
+            CardCompiler.Compile(lord).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(lord).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, lord, Zone.Battlefield);
+
+        var victim = game.Create(
+            alice,
+            Card(
+                "Held Wasp Victim Test",
+                "{T}: You gain 1 life.",
+                CardType.Creature,
+                power: 2,
+                toughness: 2,
+                KeywordAbility.FirstStrike),
+            Zone.Battlefield);
+
+        var caster = game.Create(alice, wasp, Zone.Battlefield);
+
+        // Flying is the lord's, first strike is the card's, and the activated ability is the
+        // card's too — three things a removal has to take, from two different places.
+        var armed = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.True(armed.Has(KeywordAbility.Flying));
+        Assert.True(armed.Has(KeywordAbility.FirstStrike));
+        Assert.NotEmpty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(victim)]);
+        Settle(game);
+
+        var silenced = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.True(silenced.HasLostAllAbilities);
+        Assert.False(silenced.Has(KeywordAbility.FirstStrike));
+        Assert.False(silenced.Has(KeywordAbility.Flying));
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+
+        // Still silent a turn later, where an until-end-of-turn reading would have given
+        // everything back in the cleanup step behind us.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(victim))
+                .HasLostAllAbilities);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var restored = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.False(restored.HasLostAllAbilities);
+        Assert.True(restored.Has(KeywordAbility.FirstStrike));
+        Assert.True(restored.Has(KeywordAbility.Flying));
+        Assert.NotEmpty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+    }
+
+    /// <summary>
+    /// Quicksmith Spy: an ability written out in quotation marks, held by the duration
+    /// (CR 611.2b, 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The grant already existed for a turn and for a turn cycle; the wrapper is what was
+    /// missing. The condition is asserted twice over — once on the compiled card, because the
+    /// four spellings of the tail are one alternation and taking the wrong arm ends the effect at
+    /// the wrong moment, and once by playing the granted ability, because a grant is invisible
+    /// from the card that gives it.
+    /// </remarks>
+    [Fact]
+    public void A_quoted_ability_granted_under_a_held_duration_can_be_played_and_then_goes()
+    {
+        var spy = Card(
+            "Held Quicksmith Test",
+            "{T}: Target artifact you control gains \"{T}: Draw a card\" for as long as you "
+                + "control ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(spy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        Assert.Equal(
+            GenerativeEffects.ControlHeldWhile.Controlled,
+            compiled.Activated.Single().Effects.OfType<HoldsWhileSourceHolds>().Single().Until);
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Held Spy Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var caster = game.Create(alice, spy, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(relic)]);
+        Settle(game);
+
+        // The relic is printed blank, so every ability it has is one this sentence gave it.
+        IReadOnlyList<ActivatedAbilityDefinition> AbilitiesOf(ObjectId id) =>
+            [.. Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(id))];
+
+        var granted = Assert.Single(AbilitiesOf(relic));
+        Assert.Equal("{T}: Draw a card", granted.Text);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, relic, granted.Id);
+        Settle(game);
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+
+        // A turn cycle later it is still there. The artifact untaps and can be tapped for it
+        // again, which is the difference between a lasting grant and one that expired in a
+        // cleanup step two turns ago.
+        PassToMainPhaseOfTurn(game, 3);
+        Assert.Single(AbilitiesOf(relic));
+
+        var again = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, relic, Assert.Single(AbilitiesOf(relic)).Id);
+        Settle(game);
+        Assert.Equal(again + 1, game.State.GetPlayer(alice).Hand.Count);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Empty(AbilitiesOf(relic));
+    }
+
+    /// <summary>
+    /// Thran Weaponry: "All creatures get +2/+2 for as long as ~ remains tapped" (CR 611.2b,
+    /// 611.2c).
+    /// </summary>
+    /// <remarks>
+    /// The one verb in this family that is not aimed at a target, so it cannot ride the wrapper
+    /// the others do: the group is gathered as the effect resolves, and CR 611.2c fixes it there.
+    /// The creature that arrives inside the window is the assertion that says so, and it is the
+    /// one a reader answering the duration by re-asking the board each time would fail — a longer
+    /// window makes that mistake easier to make, not harder.
+    /// <para>
+    /// The last two assertions are the two halves of CR 611.2b. Untapping the source ends the
+    /// effect through the ordinary untap step rather than by hand; tapping it again does not
+    /// bring the bonus back, because an effect whose duration has ended is over and does not
+    /// begin again.
+    /// </para>
+    /// <para>
+    /// The mana cost of the printed card is dropped so the ability can be used on turn one. The
+    /// sentence under test is the card's word for word.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_mass_pump_held_while_its_source_is_tapped_fixes_its_set_and_ends_at_the_untap()
+    {
+        var weaponry = Card(
+            "Held Thran Weaponry Test",
+            "{T}: All creatures get +2/+2 for as long as ~ remains tapped.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(weaponry);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(
+            alice, TestCards.Creature("Held Thran Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Held Thran Enemy Test", 2, 2), Zone.Battlefield);
+        var gear = game.Create(alice, weaponry, Zone.Battlefield);
+
+        game.ActivateAbility(alice, gear, "a");
+        Settle(game);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.PowerOf(game.State, Pool, game.State.GetObject(id))!.Value;
+
+        // "All creatures" is every creature on the battlefield, not the caster's own.
+        Assert.Equal(4, PowerOf(mine));
+        Assert.Equal(4, PowerOf(theirs));
+
+        // Bob's whole turn, inside the window an until-end-of-turn reading would have closed.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal(4, PowerOf(mine));
+
+        // CR 611.2c: the set was fixed when the effect was created, so this one is not in it.
+        var arrival = game.Create(
+            bob, TestCards.Creature("Held Thran Arrival Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, PowerOf(arrival));
+        Assert.Equal(4, PowerOf(theirs));
+
+        // Alice's untap step frees the Weaponry, which is what ends it.
+        TestCards.PassToTurn(game, 3);
+        Settle(game);
+        Assert.False(game.State.GetObject(gear).Permanent?.IsTapped);
+        Assert.Equal(2, PowerOf(mine));
+        Assert.Equal(2, PowerOf(theirs));
+
+        // Ended, not paused: the condition becoming true again does not restart it.
+        game.Tap(gear);
+        Settle(game);
+        Assert.Equal(2, PowerOf(mine));
+    }
+
+    /// <summary>
+    /// Every corpus card this family unblocked, compiled from the line it actually prints.
+    /// </summary>
+    /// <remarks>
+    /// The tests above play six sentences; this says which real cards those sentences are, and
+    /// keeps the readers anchored to printed wordings rather than to the paraphrases a test is
+    /// free to write. Each line is the card's own, with its self-reference written as the token
+    /// the compiler normalises the name to.
+    /// </remarks>
+    [Theory]
+    [InlineData(
+        "Held Corpus Awakener Test",
+        "When ~ enters, target Forest becomes a 4/5 green Treefolk creature for as long as ~ "
+            + "remains on the battlefield. It's still a land.")]
+    [InlineData(
+        "Held Corpus Hedge Test",
+        "{3}{G}, {T}: Target land you control becomes a 5/5 green Plant Boar creature with haste "
+            + "for as long as ~ remains tapped. It's still a land. Activate only as a sorcery.")]
+    [InlineData(
+        "Held Corpus Blackstaff Test",
+        "{1}{U}, {T}: Another target nontoken artifact you control becomes a 4/4 artifact "
+            + "creature for as long as ~ remains tapped. Activate only as a sorcery.")]
+    [InlineData(
+        "Held Corpus Skilled Animator Test",
+        "When ~ enters, target artifact you control becomes an artifact creature with base power "
+            + "and toughness 5/5 for as long as ~ remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Retrofitter Test",
+        "When ~ enters, up to one target artifact you control becomes an artifact creature with "
+            + "base power and toughness 4/4 for as long as ~ remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Tide Shaper Test",
+        "When ~ enters, target land becomes an Island for as long as ~ remains on the "
+            + "battlefield.")]
+    [InlineData(
+        "Held Corpus Wasp Test",
+        "When ~ enters, tap up to one target creature. It loses all abilities for as long as ~ "
+            + "remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Quicksmith Spy Test",
+        "When ~ enters, target artifact you control gains \"{T}: Draw a card\" for as long as "
+            + "you control ~.")]
+    [InlineData(
+        "Held Corpus Quicksmith Rebel Test",
+        "When ~ enters, target artifact you control gains \"{T}: ~ deals 2 damage to any target\""
+            + " for as long as you control ~.")]
+    [InlineData(
+        "Held Corpus Thran Weaponry Test",
+        "{2}, {T}: All creatures get +2/+2 for as long as ~ remains tapped.")]
+    public void Every_printed_line_the_held_verbs_unblocked_reads(string name, string text)
+    {
+        var card = Card(name, text, CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
     }
 
     // ---- Counting a life change (CR 118.3) -----------------------------------
@@ -2738,6 +3904,586 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Naming a card while a spell resolves (CR 201.4, 701.23a) ------------
+
+    /// <summary>Cranial Extraction's printed wording, built once for the tests that play it.</summary>
+    private static CardDefinition CranialExtraction() => Card(
+        "Cranial Extraction Test",
+        "Choose a nonland card name. Search target player's graveyard, hand, and library for "
+            + "all cards with that name and exile them. Then that player shuffles.",
+        CardType.Sorcery);
+
+    /// <summary>
+    /// A card named while the spell resolves leaves every zone the spell reaches, and its
+    /// neighbour does not (CR 201.4, 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The whole family in one game. What is new here is not the search — three zones of somebody
+    /// else's, everything exiled, has read for a round — but where the filter comes from: the
+    /// sentence in front of it asks a <em>question</em>, so the search is queued before anybody
+    /// has said what it is looking for.
+    /// <para>
+    /// The control is a differently named card sitting in all three of the same zones. It is the
+    /// assertion that matters, because every plausible way of getting this wrong — never filling
+    /// the sentinel in, filling it with the wrong answer, taking the whole zone — shows up as the
+    /// control moving and as nothing else. A test that only checked the named card had gone would
+    /// pass against a spell that exiled Bob's library.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_named_as_a_spell_resolves_leaves_every_zone_the_spell_names()
+    {
+        var sought = Card("Extracted Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unextracted Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extraction = CranialExtraction();
+        var compiled = CardCompiler.Compile(extraction);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // One copy of each in each of the three zones the card names.
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            game.Create(bob, sought, zone);
+            game.Create(bob, spared, zone);
+        }
+
+        var card = TestCards.PutInHand(game, alice, extraction);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        var named = NameAndTakeEverything(game, sought.Name);
+        Assert.Equal(alice, named);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            Assert.DoesNotContain(CardsIn(game, bob, zone), o => o.Card.Name == sought.Name);
+
+            // The control never moved.
+            Assert.Contains(CardsIn(game, bob, zone), o => o.Card.Name == spared.Name);
+        }
+
+        Assert.Equal(
+            3,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        // The name that was chosen is in the log, on the spell that asked for it, so a replay
+        // reaches the same answer rather than asking again.
+        Assert.Contains(game.Log, e => e is NameChosen { Value: "Extracted Bear Test" });
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// The names on offer never come out of the opponent whose zones are about to be searched
+    /// (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// This is the fail-closed assertion the whole feature turns on, and it is the one place the
+    /// two halves of the card pull in opposite directions. The <em>search</em> is allowed to look
+    /// through Bob's hand — CR 701.23a says so, and the question it asks is how Alice legally sees
+    /// what matched. The <em>naming</em> is not: it happens first, and Cranial Extraction spends
+    /// no text on the words "look at an opponent's hand", where Sorcerous Spyglass and Anointed
+    /// Peacekeeper spend several. An offer built by scanning every zone would hand Alice the
+    /// contents of Bob's hand a beat before she names, and turn a blind guess into a certainty.
+    /// <para>
+    /// Asserted from the projected view as well as from the option list, because the two are
+    /// different leaks. The option list is what Alice reads; the view is what her client is sent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_offer_to_name_a_card_never_contains_the_hand_about_to_be_searched()
+    {
+        var secret = Card("Concealed Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var known = Card("Revealed Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // The only copy of each: one hidden in Bob's hand, one in Bob's graveyard, which is
+        // public and may be read by anybody.
+        game.Create(bob, secret, Zone.Hand);
+        game.Create(bob, known, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.NameCharacteristic, choice!.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+
+        var offered = choice.Options.Select(o => o.Id).ToList();
+        Assert.Contains(known.Name, offered, StringComparer.Ordinal);
+        Assert.DoesNotContain(secret.Name, offered, StringComparer.Ordinal);
+
+        // And Bob's hand is absent from the board Alice is sent while she answers.
+        var forAlice = PlayerViewProjector.Project(game.State, alice, Pool);
+        Assert.Null(forAlice.Players.Single(p => p.PlayerId == bob).Hand);
+        Assert.NotNull(forAlice.Choice?.Options);
+        Assert.DoesNotContain(forAlice.Choice!.Options!, o => o.Label == secret.Name);
+    }
+
+    /// <summary>
+    /// A name that was never on the menu is refused, and extracts nothing (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// The narrowing above is only worth what its enforcement is worth. Every other selection in
+    /// this engine answers with an object's id and is unambiguous by construction; a card name is
+    /// a <em>word</em>, so it is the one answer that could arrive from outside the engine naming
+    /// something the offer never held — which for this card means naming the card in the hand
+    /// the offer is written to hide. If that were taken, the narrowing would be decorative: a
+    /// client that ignored the list could extract anything.
+    /// <para>
+    /// It is refused at the door, by the same check every other question gets, and the game stays
+    /// on the same question rather than proceeding with a wrong answer or with none. The card in
+    /// Bob's hand and the copy in his library are both still there afterwards.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_name_that_was_not_offered_is_refused_and_extracts_nothing()
+    {
+        var secret = Card("Offmenu Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var known = Card("Onmenu Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(bob, secret, Zone.Hand);
+        game.Create(bob, secret, Zone.Library);
+        game.Create(bob, known, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+        Assert.DoesNotContain(
+            game.State.Choice!.Options.Select(o => o.Id).ToList(),
+            id => string.Equals(id, secret.Name, StringComparison.Ordinal));
+
+        // Named anyway, the way a client that ignored the option list would.
+        Assert.Throws<InvalidOperationException>(() => game.Choose(alice, [secret.Name]));
+
+        // The game did not move on: the same question is still on the table.
+        Assert.Equal(ChoiceKind.NameCharacteristic, game.State.Choice!.Kind);
+        Assert.DoesNotContain(game.Log, e => e is NameChosen);
+
+        // Answered legally, the spell takes what it was allowed to name and nothing else.
+        game.Choose(alice, [known.Name]);
+        Run(game);
+
+        Assert.Contains(CardsIn(game, bob, Zone.Hand), o => o.Card.Name == secret.Name);
+        Assert.Contains(CardsIn(game, bob, Zone.Library), o => o.Card.Name == secret.Name);
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == secret.Name);
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// The question is put to the caster and answered before the search is offered (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// Two orderings, and both of them are the mechanism rather than a nicety.
+    /// <para>
+    /// <strong>Who.</strong> The caster names the card and the caster does the searching; the
+    /// player whose zones are emptied is asked nothing. A card that asked its victim to choose
+    /// what they lose is a different card.
+    /// </para>
+    /// <para>
+    /// <strong>When.</strong> The name is asked before the search, because the search was queued
+    /// during the same resolution holding a sentinel where its filter should be, and the answer is
+    /// what fills it in. Asked the other way round the search would run against a filter no card
+    /// answers to, and the spell would report itself as having looked and found nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_name_is_asked_of_the_caster_and_before_the_search_it_feeds()
+    {
+        var sought = Card("Ordered Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A copy in the graveyard, which is public, so the name can be offered at all; and one in
+        // the library, which is what the search has to reach. The offer is not the search: it is
+        // narrowed to what the chooser is allowed to know, and every card in this family names
+        // one thing and then goes looking for the rest of them.
+        game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        Assert.Equal(ChoiceKind.NameCharacteristic, game.State.Choice.Kind);
+
+        // The search was queued by the same resolution and is waiting behind this question, still
+        // holding the sentinel where its filter should be. That is the mechanism in one line: the
+        // spell asked for a search before anybody had said what it was looking for.
+        var queued = Assert.Single(game.Log.OfType<LibrarySearchRequested>());
+        Assert.Equal(SearchFilters.NamedPrefix + SearchFilters.ChosenName, queued.FilterId);
+        Assert.Equal(bob, queued.Searched);
+
+        // And nothing has been taken out of Bob's library yet.
+        Assert.Contains(CardsIn(game, bob, Zone.Library), o => o.Card.Name == sought.Name);
+
+        game.Choose(alice, [sought.Name]);
+
+        // And now it is the search, put to the same player.
+        RunUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        Assert.Contains(game.State.Choice.Options, o => o.Label == sought.Name);
+    }
+
+    /// <summary>
+    /// "A nonland card name" is offered no land, and the offer travels with the printed
+    /// qualifier (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// The qualifier is the only thing between Slaughter Games and a Slaughter Games that can name
+    /// Island, and the same between Dispossess and a Dispossess that can name anything at all.
+    /// Both directions are asserted, because a filter that refused everything would satisfy the
+    /// negative half on its own.
+    /// </remarks>
+    [Fact]
+    public void The_qualifier_on_a_name_chosen_mid_resolution_narrows_what_may_be_named()
+    {
+        var land = TestCards.BasicLand("Qualified Forest Test");
+        var relic = Card("Qualified Relic Test", string.Empty, CardType.Artifact);
+        var bear = Card("Qualified Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, land, Zone.Graveyard);
+        game.Create(bob, relic, Zone.Graveyard);
+        game.Create(bob, bear, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, CranialExtraction());
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        RunUntilNameAsked(game);
+
+        var nonland = game.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(bear.Name, nonland, StringComparer.Ordinal);
+        Assert.Contains(relic.Name, nonland, StringComparer.Ordinal);
+        Assert.DoesNotContain(land.Name, nonland, StringComparer.Ordinal);
+
+        // Dispossess's wording, which narrows further still.
+        var dispossess = Card(
+            "Dispossess Test",
+            "Choose an artifact card name. Search target opponent's graveyard, hand, and "
+                + "library for any number of cards with the chosen name and exile them. Then "
+                + "that player shuffles.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(dispossess);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (other, carol, dave) = InMainPhase();
+        other.Create(dave, relic, Zone.Graveyard);
+        other.Create(dave, bear, Zone.Graveyard);
+
+        var second = TestCards.PutInHand(other, carol, dispossess);
+        other.CastSpell(carol, second, [Target.ToPlayer(dave)]);
+        RunUntilNameAsked(other);
+
+        var artifactsOnly = other.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(relic.Name, artifactsOnly, StringComparer.Ordinal);
+        Assert.DoesNotContain(bear.Name, artifactsOnly, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// "That player's" is read only where the sentence in front of it named a player by target
+    /// (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The pronoun is the trap in this family. On Lobotomy and Thought Hemorrhage "that player" is
+    /// the player the spell targeted; on Kotose it is the owner of a card exiled from a graveyard,
+    /// and on Shimian Specter it is whoever was just dealt combat damage. Those two are not
+    /// targets at all, and read as the target the spell would search a player it never named — a
+    /// card that plays perfectly and empties the wrong person's library. Nothing about the parse
+    /// would look wrong, and coverage would go up.
+    /// <para>
+    /// So the reading is refused unless the sentences before it declared exactly one player
+    /// target, and both directions are asserted here: refusing everything would satisfy the
+    /// negative half on its own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_search_of_that_players_zones_is_refused_when_no_target_named_them()
+    {
+        // A trigger whose subject is a player the ability was about rather than one it targeted.
+        var specter = Card(
+            "Pronoun Specter Test",
+            "Whenever this creature deals combat damage to a player, that player reveals their "
+                + "hand. Search that player's graveyard, hand, and library for any number of "
+                + "cards with that name and exile them.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.Contains(
+            CardCompiler.Compile(specter).Unhandled,
+            line => line.Contains("that player's", StringComparison.Ordinal));
+
+        // The same sentence behind one that declares a player target, which is the one case in
+        // which "that player" and "the player this spell targets" are provably the same person.
+        var declared = Card(
+            "Pronoun Extraction Test",
+            "Choose a nonland card name. Target opponent reveals their hand. Search that "
+                + "player's graveyard, hand, and library for all cards with that name and exile "
+                + "them. Then that player shuffles.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(declared);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var search = Assert.Single(compiled.Spell!.Effects.OfType<SearchLibrary>());
+
+        Assert.Equal(SearchWhoseZones.TargetPlayer, search.Whose);
+        Assert.Equal(TargetKind.Player, compiled.Spell.Targets[search.TargetIndex].Kind);
+    }
+
+    /// <summary>
+    /// A sentence that named a player one way and a card the other is left unread (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The two halves of this family have to agree: either the name comes off an object the spell
+    /// picked out and the zones belong to that object's owner, or the name comes off a question
+    /// and the zones belong to a player the spell targeted. A sentence mixing them needs the
+    /// search's one target index to point at two different things, and no printed card asks for
+    /// it. Refusing it costs nothing; guessing which of the two the index meant would search a
+    /// player the card never named.
+    /// </remarks>
+    [Fact]
+    public void A_search_that_names_a_player_and_a_card_two_different_ways_is_left_unread()
+    {
+        var mixed = Card(
+            "Mixed Extraction Test",
+            "Exile target nonbasic land. Search target player's graveyard, hand, and library "
+                + "for all cards with the same name as that land and exile them.",
+            CardType.Sorcery);
+
+        Assert.Contains(
+            CardCompiler.Compile(mixed).Unhandled,
+            line => line.Contains("target player's", StringComparison.Ordinal));
+
+        // The other way round, and refused for the same reason.
+        var alsoMixed = Card(
+            "Mixed Owner Extraction Test",
+            "Choose a nonland card name. Exile target nonbasic land. Search its controller's "
+                + "graveyard, hand, and library for all cards with that name and exile them.",
+            CardType.Sorcery);
+
+        Assert.Contains(
+            CardCompiler.Compile(alsoMixed).Unhandled,
+            line => line.Contains("its controller's", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Extirpate's wording: a card in a graveyard is pointed at, and every copy of it goes
+    /// (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The other half of this family, where the name comes off an object rather than off a
+    /// question. The search half has read for a round; what was missing was the opening sentence,
+    /// which declares a target and does nothing with it — the card it names is not moved by that
+    /// sentence at all, it is simply one of the copies the search finds.
+    /// <para>
+    /// The control is again a differently named card in all three zones, because "took the right
+    /// card" and "took the zone" look identical without one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_pointed_at_in_a_graveyard_is_extracted_along_with_every_copy_of_it()
+    {
+        var sought = Card("Extirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unextirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extirpate = Card(
+            "Extirpate Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(extirpate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var pointedAt = game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Library);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+            game.Create(bob, spared, zone);
+
+        var card = TestCards.PutInHand(game, alice, extirpate);
+        game.CastSpell(alice, card, [Target.ToCard(pointedAt)]);
+
+        // No name is asked for: this half of the family reads the name off the card it was
+        // pointed at, so the only question is the search, and it goes to the caster.
+        Assert.Equal(alice, SettleTakingEverything(game));
+        Assert.DoesNotContain(game.Log, e => e is CardNameChoiceRequested);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            Assert.DoesNotContain(CardsIn(game, bob, zone), o => o.Card.Name == sought.Name);
+            Assert.Contains(CardsIn(game, bob, zone), o => o.Card.Name == spared.Name);
+        }
+
+        Assert.Equal(
+            3,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "Other than a basic land card" refuses a basic land and nothing else (CR 205.4a).
+    /// </summary>
+    /// <remarks>
+    /// The clause is the whole reason Extirpate is not a Stone Rain: without it, pointing at a
+    /// Forest in a graveyard exiles every Forest its owner has, which is a card nobody printed.
+    /// <para>
+    /// A basic land card is one with the supertype Basic, not one with a basic land type
+    /// (CR 205.4a), and the difference is Dryad Arbor — a Forest with no supertype, which
+    /// Extirpate is perfectly entitled to name. Both directions are asserted, because a clause
+    /// that refused every land would satisfy the first half on its own.
+    /// </remarks>
+    [Fact]
+    public void A_card_named_other_than_a_basic_land_may_not_be_a_basic_land()
+    {
+        var extirpate = Card(
+            "Extirpate Clause Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var basic = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Graveyard);
+
+        // A land with a basic land type and no Basic supertype: Dryad Arbor's shape.
+        var arbor = game.Create(
+            bob,
+            Card("Dryad Arbor Test", string.Empty, CardType.Land, subtypes: "Forest"),
+            Zone.Graveyard);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(basic)]));
+
+        // The land that is not a basic land card is a legal choice.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(arbor)]);
+
+        Run(game);
+
+        Assert.Contains(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Dryad Arbor Test");
+
+        // And the Forest is still where it was.
+        Assert.Contains(CardsIn(game, bob, Zone.Graveyard), o => o.Card.Name == "Forest");
+    }
+
+    /// <summary>Everything a player holds in one zone, as objects.</summary>
+    private static IEnumerable<GameObject> CardsIn(Game game, Guid player, Zone zone) =>
+        (zone switch
+        {
+            Zone.Graveyard => game.State.GetPlayer(player).Graveyard,
+            Zone.Hand => game.State.GetPlayer(player).Hand,
+            _ => game.State.GetPlayer(player).Library,
+        }).Select(game.State.GetObject);
+
+    /// <summary>Plays on until a card name is the question on the table, and stops there.</summary>
+    private static void RunUntilNameAsked(Game game) =>
+        RunUntil(game, () => game.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+    /// <summary>Plays on until the given question is outstanding, answering anything else.</summary>
+    private static void RunUntil(Game game, Func<bool> asked)
+    {
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (asked())
+                return;
+
+            if (game.State.Choice is { } other)
+            {
+                game.Choose(
+                    other.PlayerId,
+                    [.. other.Options.Take(Math.Max(other.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                return;
+
+            game.PassPriority(holder);
+        }
+    }
+
+    /// <summary>
+    /// Plays on, naming one card and then taking every copy the search offers.
+    /// </summary>
+    /// <remarks>
+    /// The shared <see cref="Run"/> answers every question with its first option and the smallest
+    /// legal number of picks, which here would name whichever card sorted first and then exile one
+    /// copy of it. An extraction that took one copy and left the other two would pass every
+    /// assertion about the zone it happened to take from.
+    /// </remarks>
+    /// <returns>Who was asked to name the card, or the empty id if nobody was.</returns>
+    private static Guid NameAndTakeEverything(Game game, string name)
+    {
+        var named = Guid.Empty;
+        var passedOnce = false;
+
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                if (choice.Kind == ChoiceKind.NameCharacteristic)
+                {
+                    named = choice.PlayerId;
+                    game.Choose(choice.PlayerId, [name]);
+                    continue;
+                }
+
+                game.Choose(
+                    choice.PlayerId,
+                    [.. choice.Options
+                        .Take(Math.Max(choice.MinPicks, choice.Kind == ChoiceKind.SearchLibrary
+                            ? choice.MaxPicks
+                            : 1))
+                        .Select(o => o.Id)]);
+                continue;
+            }
+
+            if (passedOnce && game.State.Stack.IsEmpty && game.State.PendingTriggers.IsEmpty)
+                break;
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+            passedOnce = true;
+        }
+
+        return named;
+    }
+
     // ---- "The basic land type of your choice" (CR 305.6, 305.7) --------------
 
     [Fact]
@@ -3150,23 +4896,24 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// A multiplier the X clause has no room for leaves the line unread.
+    /// A multiplier the X clause had no room for is carried across the count instead.
     /// </summary>
     /// <remarks>
-    /// "Equal to <em>twice</em> the number of" is the same sentence with a factor in front of the
-    /// count, and <c>WithCountedVariable</c> has nowhere to put one — it defines X as the count
-    /// and nothing else. So the rewrite refuses the phrase rather than dropping the word, which
-    /// is the whole discipline of this vocabulary: a card that read this at one-per would be a
-    /// card at half strength, complete, castable, and quietly wrong every time it resolved.
+    /// This line was refused for a round, and the refusal was right at the time: a factor read
+    /// as one is a card at half strength, complete, castable and quietly wrong every time it
+    /// resolves. What was wrong was where the factor was being looked for.
     /// <para>
-    /// The targeted subject is what makes the refusal visible. The life family's own arm reads a
-    /// multiplier and would have taken this sentence, but only for the three subjects it knows;
-    /// "target opponent" is not one of them, so nothing else catches the line and it stays in
-    /// <c>Unhandled</c> where it belongs.
+    /// <c>WithCountedVariable</c> defines X as a count and holds nothing beside it, so no field
+    /// added there could have carried a factor — and half the family never reaches it anyway.
+    /// The factor belongs in the count, and the compiler moves it across "the number of" so that
+    /// every wrapper reading a count gets it at once. The section beside "That many" below plays
+    /// out the rest of the family; this one stays here because it is the card the refusal was
+    /// recorded on, and it now loses the six life it prints rather than the three a dropped
+    /// factor would have taken.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_multiplied_count_written_as_equal_to_is_left_unread()
+    public void A_multiplied_count_written_as_equal_to_loses_twice_the_count()
     {
         var doubled = Card(
             "Equal To Doubled Test",
@@ -3174,11 +4921,20 @@ public sealed class CompiledCardBehaviourTests
             CardType.Sorcery);
 
         var compiled = CardCompiler.Compile(doubled);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            compiled.Unhandled,
-            u => u.Contains("twice the number of Elves", StringComparison.Ordinal));
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var n in new[] { 1, 2, 3 })
+            game.Create(alice, EqualToElf("Equal To Doubled Kin " + n), Zone.Battlefield);
+
+        game.Create(bob, EqualToElf("Equal To Doubled Rival"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doubled), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
     }
 
     /// <summary>A creature of one tribe, for the counts that name one.</summary>
@@ -3650,6 +5406,276 @@ public sealed class CompiledCardBehaviourTests
             .Single(o => o.Card.Name == "Zombie");
 
         Assert.True(token.Permanent?.IsTapped);
+    }
+
+    // ---- A bound that names a comparison, not a number (CR 107.3) -----------
+
+    /// <summary>A 1/1 of a named tribe, for a bound that counts one.</summary>
+    private static CardDefinition Tribal(string name, string subtype) =>
+        Card(name, string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, subtype);
+
+    /// <summary>
+    /// "Destroy target creature with power less than or equal to the number of Warriors you
+    /// control" — the same clause as "with power 2 or less", with the limit counted rather than
+    /// printed.
+    /// </summary>
+    /// <remarks>
+    /// The two creatures are one point of power apart and the board decides which of them the
+    /// spell may name, so a reader that had the comparison the wrong way round fails here rather
+    /// than compiling into a spell that destroys the opposite half of the table. The third
+    /// Warrior is the whole point of the fixture: nothing about the card changes and the answer
+    /// does, which is what says the limit is being counted at all rather than read off a number
+    /// somebody happened to guess.
+    /// </remarks>
+    [Fact]
+    public void A_bound_counted_off_the_board_refuses_the_creature_just_outside_it()
+    {
+        var edict = Card(
+            "Counted Bound Edict Test",
+            "Destroy target creature with power less than or equal to the number of Warriors "
+                + "you control.");
+
+        var compiled = CardCompiler.Compile(edict);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Tribal("Counted Bound Warrior One Test", "Warrior"), Zone.Battlefield);
+        game.Create(alice, Tribal("Counted Bound Warrior Two Test", "Warrior"), Zone.Battlefield);
+
+        var inside = game.Create(
+            bob, TestCards.Creature("Counted Bound Inside Test", 2, 2), Zone.Battlefield);
+        var outside = game.Create(
+            bob, TestCards.Creature("Counted Bound Outside Test", 3, 3), Zone.Battlefield);
+
+        // Two Warriors, so the limit is two: the 3/3 is not a legal target at all, and the 2/2
+        // one point below it is.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, edict),
+                [Target.ToPermanent(outside)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, edict), [Target.ToPermanent(inside)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(inside, out _));
+        Assert.True(game.State.TryGetObject(outside, out _));
+
+        // A third Warrior moves the limit and nothing else moves. The same spell now reaches the
+        // 3/3 it was refused a moment ago.
+        PassToMainPhaseOf(game, alice);
+        game.Create(alice, Tribal("Counted Bound Warrior Three Test", "Warrior"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, edict), [Target.ToPermanent(outside)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(outside, out _));
+    }
+
+    /// <summary>
+    /// "Greater than or equal to" is the same clause pointed the other way (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The direction is carried by one group shared with the printed spelling, so a mistake in
+    /// it would be silent on every card in the family at once. This is the assertion that says
+    /// which way it points: the board is the same as the test above and the halves it admits are
+    /// exactly the opposite ones.
+    /// </remarks>
+    [Fact]
+    public void A_counted_bound_keeps_the_direction_the_card_printed()
+    {
+        var cull = Card(
+            "Counted Floor Cull Test",
+            "Destroy target creature with power greater than or equal to the number of Warriors "
+                + "you control.");
+
+        var compiled = CardCompiler.Compile(cull);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Tribal("Counted Floor Warrior One Test", "Warrior"), Zone.Battlefield);
+        game.Create(alice, Tribal("Counted Floor Warrior Two Test", "Warrior"), Zone.Battlefield);
+
+        var under = game.Create(
+            bob, TestCards.Creature("Counted Floor Under Test", 1, 1), Zone.Battlefield);
+        var over = game.Create(
+            bob, TestCards.Creature("Counted Floor Over Test", 3, 3), Zone.Battlefield);
+
+        // A floor of two: the 1/1 is under it and refused, and the 3/3 is over it and destroyed.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, cull),
+                [Target.ToPermanent(under)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, cull), [Target.ToPermanent(over)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(over, out _));
+        Assert.True(game.State.TryGetObject(under, out _));
+    }
+
+    /// <summary>
+    /// "Target creature an opponent controls with power less than or equal to the number of
+    /// Warriors you control" — the owner clause on the end belongs to the count, not the target.
+    /// </summary>
+    /// <remarks>
+    /// The qualifier grammar takes a trailing "you control" off the end of a "with …" clause and
+    /// hands the rest of the phrase back to the target grammar, because that is where the
+    /// target's own owner clause is printed on almost every card that has one. A counted bound
+    /// ends in exactly those words and means something else by them, and this card prints both:
+    /// the target's owner clause in front of the qualifier and the count's behind it.
+    /// <para>
+    /// Taken as the target's, the count becomes every Warrior on the battlefield — Bob's three
+    /// as well as Alice's one — and his 2/2 becomes a legal target on a card that says it is not.
+    /// The board is built so the two readings disagree: four Warriors between them, one of them
+    /// Alice's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_owner_clause_after_a_counted_bound_belongs_to_the_count()
+    {
+        var vanguard = Card(
+            "Counted Owner Vanguard Test",
+            "Target creature an opponent controls with power less than or equal to the number "
+                + "of Warriors you control can't block this turn.");
+
+        var compiled = CardCompiler.Compile(vanguard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(
+            alice, Tribal("Counted Owner Warrior Mine Test", "Warrior"), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, Tribal("Counted Owner Warrior Theirs One Test", "Warrior"), Zone.Battlefield);
+
+        game.Create(bob, Tribal("Counted Owner Warrior Theirs Two Test", "Warrior"), Zone.Battlefield);
+        game.Create(bob, Tribal("Counted Owner Warrior Theirs Three Test", "Warrior"), Zone.Battlefield);
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Counted Owner Bear Test", 2, 2), Zone.Battlefield);
+
+        // One Warrior of Alice's, so the limit is one. Bob's 2/2 is over it — and would be under
+        // it on the reading that counts all four.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, vanguard),
+                [Target.ToPermanent(bear)]));
+
+        // Alice's own Warrior is inside the limit and still refused: the target's owner clause
+        // survived the lift, which is the other half of reading the phrase correctly.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, vanguard),
+                [Target.ToPermanent(mine)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, vanguard), [Target.ToPermanent(theirs)]);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Search your library for a card with mana value less than or equal to the number of lands
+    /// you control" — Beseech the Queen's ceiling, counted (CR 701.19a).
+    /// </summary>
+    /// <remarks>
+    /// The tutor's bound is an <see cref="Amount"/> and always was, which is what let the counted
+    /// spelling arrive here without the search learning anything: the same group carries a digit,
+    /// an announced X and a count. The two cards are one mana value apart, so a ceiling read as a
+    /// floor — or as no ceiling at all — offers the wrong one.
+    /// </remarks>
+    [Fact]
+    public void A_tutor_bounded_by_a_count_offers_only_what_the_count_allows()
+    {
+        var beseech = Card(
+            "Counted Tutor Test",
+            "Search your library for a card with mana value less than or equal to the number of "
+                + "lands you control, reveal it, put it into your hand, then shuffle.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(beseech);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Counted Tutor Land One Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Counted Tutor Land Two Test"), Zone.Battlefield);
+
+        game.Create(
+            alice, TestCards.Costed("Counted Tutor Inside Test", "{1}{G}", 2), Zone.Library);
+        game.Create(
+            alice, TestCards.Costed("Counted Tutor Outside Test", "{2}{G}", 3), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, beseech), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+
+        var offered = choice!.Options.Select(o => o.Label).ToList();
+
+        // Two lands, so the ceiling is two: the two-mana card is offered and the three-mana card
+        // beside it is not.
+        Assert.Contains(
+            offered, label => label.Contains("Counted Tutor Inside", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(
+            offered, label => label.Contains("Counted Tutor Outside", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The same bound over a group rather than a target — "destroy each creature with power less
+    /// than or equal to the number of Islands you control".
+    /// </summary>
+    /// <remarks>
+    /// The group grammar asks the same qualifier the target grammar does, so the counted bound
+    /// arrived here without the sweeper being told anything. That is the point of putting it in
+    /// the shared reader, and this is the assertion that says it actually got there: one sweep
+    /// with one Island and the same sweep with two, on a board that does not otherwise change.
+    /// </remarks>
+    [Fact]
+    public void A_group_bounded_by_a_count_sweeps_only_up_to_it()
+    {
+        var tide = Card(
+            "Counted Sweep Test",
+            "Destroy each creature with power less than or equal to the number of Islands you "
+                + "control.");
+
+        var compiled = CardCompiler.Compile(tide);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var small = game.Create(
+            bob, TestCards.Creature("Counted Sweep Small Test", 1, 1), Zone.Battlefield);
+        var large = game.Create(
+            bob, TestCards.Creature("Counted Sweep Large Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tide), []);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(small, out _));
+        Assert.True(game.State.TryGetObject(large, out _));
+
+        // A second Island, and the same card sweeps one point higher.
+        PassToMainPhaseOf(game, alice);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tide), []);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(large, out _));
     }
 
     // ---- A filter of several words (CR 109.4) --------------------------------
@@ -4887,6 +6913,234 @@ public sealed class CompiledCardBehaviourTests
         var shield = Assert.IsType<PreventDescribedDamage>(one.Spell?.Effects.Single());
         Assert.Equal(CombatRole.Attacking, shield.SourceCombat);
         Assert.NotNull(shield.SourceFilter);
+    }
+
+    // ---- A count with a factor in front of it (CR 107.3) ---------------------
+
+    /// <summary>
+    /// "~ deals X damage to any target, where X is twice the number of Islands you control" -
+    /// Sky Cycle (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// Three Islands and a factor of two, so the answer is six and is not either of the numbers
+    /// a half-read line would give: a reader that dropped the factor deals three, and one that
+    /// dropped the count deals two. The second board moves the count without moving the factor,
+    /// which is what stops a fixed six passing.
+    /// <para>
+    /// Bob's Island is on the board for the possessive, not for the arithmetic. A factor
+    /// multiplies whatever the group grammar counted, so a count that had quietly widened would
+    /// be multiplied too - eight rather than six - and the factor is what makes that visible.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_factor_in_front_multiplies_the_count()
+    {
+        var cycle = Card(
+            "Factored Cycle Test",
+            "~ deals X damage to any target, where X is twice the number of Islands you control.");
+
+        var compiled = CardCompiler.Compile(cycle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, cycle), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Three Islands twice over: six, not the three the count alone is worth and not the two
+        // the factor alone is worth.
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+
+        // The same card on a board with two, so nothing here can be a constant.
+        var (control, carol, dave) = InMainPhase();
+        control.Create(carol, TestCards.BasicLand("Island"), Zone.Battlefield);
+        control.Create(carol, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        control.CastSpell(
+            carol, TestCards.PutInHand(control, carol, cycle), [Target.ToPlayer(dave)]);
+        Settle(control);
+
+        Assert.Equal(16, control.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to twice the number of Islands you control" -
+    /// Masumaro, First to Live (CR 604.3).
+    /// </summary>
+    /// <remarks>
+    /// Why the factor is folded into the count rather than kept beside an amount. This sentence
+    /// is a characteristic-defining ability and has no amount anywhere in it - seven of the
+    /// corpus cards blocked on a multiplied count print exactly this shape - so a factor stored
+    /// on <c>Amount</c> could never have reached it, and one stored on
+    /// <c>WithCountedVariable</c> could not either: that record holds a bare count delegate and
+    /// nothing else.
+    /// <para>
+    /// It keeps answering as the board moves, which is the second assertion: a fourth Island
+    /// takes it to eight, so the factor travels with the count rather than having been worked
+    /// out once when the creature arrived.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_with_a_factor_multiplies_the_count()
+    {
+        var maro = Card(
+            "Factored Maro Test",
+            "Factored Maro Test's power and toughness are each equal to twice the number of "
+                + "Islands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(maro);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var it = game.Create(alice, maro, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Contains(it, game.State.Battlefield);
+        Assert.Equal(6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+        Assert.Equal(
+            6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(it)));
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Equal(8, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to 1 plus twice the number of age counters on
+    /// it" - Mwonvuli Ooze, the one corpus card printing both terms (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The order the two terms are applied in is the whole of this test, and three Islands make
+    /// every wrong order a different number: the factor first is seven, adding first is eight,
+    /// the constant alone is four and the factor alone is six.
+    /// <para>
+    /// It is also what says the two rewrites compose. The constant is carried across "the number
+    /// of" by one of them and the factor by the other, and a card printing both would have been
+    /// left behind by either alone.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_factor_and_a_constant_multiplies_before_it_adds()
+    {
+        var ooze = Card(
+            "Factored Ooze Test",
+            "Factored Ooze Test's power and toughness are each equal to 1 plus twice the "
+                + "number of Islands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(ooze);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var it = game.Create(alice, ooze, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(7, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// "…, where X is three times the number of …" - Burn at the Stake's factor on the X clause
+    /// (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The factor is read rather than assumed. Every other test in this section prints "twice",
+    /// and all of them would pass on a reader that had learnt the one word - nine damage from
+    /// three Islands is a number only the printed factor gives.
+    /// <para>
+    /// Written as the X clause on purpose. "Deals damage equal to three times the number of" was
+    /// one of the four readers that had been taught a factor of its own, so it went on reading
+    /// with this mechanism excised and proved nothing; the same arithmetic on the clause those
+    /// four never covered is what makes this test load-bearing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_factor_other_than_two_is_the_factor_the_card_printed()
+    {
+        var stake = Card(
+            "Factored Stake Test",
+            "~ deals X damage to any target, where X is three times the number of Islands you "
+                + "control.");
+
+        var compiled = CardCompiler.Compile(stake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, stake), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(11, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A factor the compiler cannot name leaves the line unread rather than reading as one.
+    /// </summary>
+    /// <remarks>
+    /// The fail-open this whole family is judged by. A factor quietly read as one is a card that
+    /// deals or gains half or a third of what it prints while compiling as complete, and no
+    /// coverage number can tell that apart from a card that printed no factor at all - the same
+    /// shape as the {X} cost that let eleven counterspells be paid for nothing.
+    /// <para>
+    /// The two cards differ by one word. "Ten times" is in the table and deals thirty; "twelve
+    /// times" is not, and the line stays in <c>Unhandled</c> - so the boundary is the table of
+    /// factor words rather than the pattern that finds them, which is why the pattern is allowed
+    /// to be wide.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_factor_the_compiler_cannot_name_leaves_the_line_unread()
+    {
+        var unnamed = CardCompiler.Compile(
+            Card(
+                "Unnamed Factor Test",
+                "~ deals X damage to any target, where X is twelve times the number of Islands "
+                    + "you control."));
+
+        Assert.False(unnamed.IsComplete);
+        Assert.Contains(
+            unnamed.Unhandled,
+            line => line.Contains("times", StringComparison.Ordinal));
+
+        // The same sentence with a factor the table does name, so the refusal above is about the
+        // word rather than about the shape - and it plays the number it prints.
+        var named = Card(
+            "Named Factor Test",
+            "~ deals X damage to any target, where X is ten times the number of Islands you "
+                + "control.");
+
+        var read = CardCompiler.Compile(named);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, named), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(-10, game.State.GetPlayer(bob).Life);
     }
 
     // ---- "That many" (CR 603.2) ----------------------------------------------
@@ -6729,6 +8983,425 @@ public sealed class CompiledCardBehaviourTests
         // whole difference between these cards and the ones that say "fights".
         Assert.Equal(3, game.State.GetObject(theirs).Permanent?.DamageMarked);
         Assert.Equal(0, game.State.GetObject(mine).Permanent?.DamageMarked);
+    }
+
+    // ---- Specialize: five prices, five cards behind one (Alchemy) ------------
+
+    /// <summary>
+    /// A base card and its five specialized versions, linked the way the bulk data links them.
+    /// </summary>
+    /// <remarks>
+    /// Six entries with the base at zero, which is the shape <c>CardDefinition.Specializations</c>
+    /// asks for and the shape the corpus loader builds out of <c>all_parts</c>. The versions'
+    /// costs are the base's plus one coloured pip, because that is the fact that says which
+    /// colour each of them is.
+    /// </remarks>
+    private static CardDefinition Specializing(
+        string name,
+        string baseText,
+        string cost,
+        params (string Name, string Text, int Power, int Toughness, KeywordAbility Keywords)[] versions)
+    {
+        var slots = new List<CardFace>
+        {
+            new()
+            {
+                Name = name,
+                ManaCostRaw = cost,
+                CardTypes = CardType.Creature,
+                OracleText = baseText,
+                Power = 2,
+                Toughness = 2,
+            },
+        };
+
+        foreach (var (versionName, text, power, toughness, keywords) in versions)
+        {
+            slots.Add(new CardFace
+            {
+                Name = versionName,
+                ManaCostRaw = cost + PipOf(slots.Count),
+                CardTypes = CardType.Creature,
+                OracleText = text,
+                Power = power,
+                Toughness = toughness,
+                Keywords = keywords,
+            });
+        }
+
+        return new CardDefinition
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = baseText,
+            ManaCostRaw = cost,
+            Cmc = 2,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Specializations = slots,
+        };
+    }
+
+    private static string PipOf(int index) => index switch
+    {
+        1 => "{W}",
+        2 => "{U}",
+        3 => "{B}",
+        4 => "{R}",
+        _ => "{G}",
+    };
+
+    /// <summary>The five versions used by most of the tests below, one line of text apiece.</summary>
+    private static (string, string, int, int, KeywordAbility)[] FiveVersions(string stem) =>
+    [
+        (stem + ", White", "Lifelink", 3, 3, KeywordAbility.Lifelink),
+        (stem + ", Blue", "Flying", 3, 4, KeywordAbility.Flying),
+        (stem + ", Black",
+            "When ~ specializes, create two 2/2 black Zombie creature tokens.",
+            3, 3, KeywordAbility.None),
+        (stem + ", Red", "Double strike", 2, 3, KeywordAbility.DoubleStrike),
+        (stem + ", Green", "Other creatures you control get +1/+1.", 4, 4, KeywordAbility.None),
+    ];
+
+    /// <summary>
+    /// Paying the black price makes the permanent the black version, and its trigger fires.
+    /// </summary>
+    /// <remarks>
+    /// The whole mechanic in one game. Which version you get is decided by the colour of the card
+    /// discarded, so the five colours are five abilities with five different prices - and what
+    /// this asserts is not that a swap happened but that the <em>new text works</em>: the card
+    /// under the permanent is the black version, it is the size the black version is printed at,
+    /// and the trigger printed only on that version resolved and left two Zombies behind. A
+    /// specialize that compiled and granted nothing would pass an assertion about the name alone.
+    /// </remarks>
+    [Fact]
+    public void Specializing_makes_the_permanent_the_version_whose_colour_was_discarded()
+    {
+        var acolyte = Specializing(
+            "Novice Acolyte R2141",
+            "Specialize {2}",
+            "{1}{W}",
+            FiveVersions("Acolyte R2141"));
+
+        var compiled = CardCompiler.Compile(acolyte);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(5, compiled.Activated.Count);
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, acolyte, Zone.Battlefield);
+
+        var swamp = TestCards.PutInHand(game, alice, Coloured("Black Fodder R2141", ManaColor.Black));
+        game.AddMana(alice, null, 2);
+
+        game.ActivateAbility(alice, permanent, "specialize-black", costPayment: [swamp]);
+        Settle(game);
+
+        var after = game.State.GetObject(permanent);
+        Assert.Equal("Acolyte R2141, Black", after.Card.Name);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, after).Power);
+
+        // The line printed on the version and nowhere else. Two Zombies is the version's own
+        // trigger having fired on the specialize event, which is the half of this mechanic that
+        // cannot be faked by swapping a definition.
+        Assert.Equal(
+            2,
+            game.State.Objects.Values.Count(o =>
+                o.Zone == Zone.Battlefield && o.Card.Name == "Zombie"));
+    }
+
+    /// <summary>
+    /// The green version's static ability applies once the permanent has specialized.
+    /// </summary>
+    /// <remarks>
+    /// The other half of "the new text actually working": a continuous effect rather than a
+    /// trigger, so the layers have to be reading the swapped-in definition rather than the card
+    /// that was cast. Measured before as well as after, because a bear that was 3/3 all along
+    /// would prove nothing.
+    /// </remarks>
+    [Fact]
+    public void A_versions_static_ability_applies_after_the_permanent_specializes()
+    {
+        var druid = Specializing(
+            "Moon Druid R2141",
+            "Specialize {2}",
+            "{2}{G}",
+            FiveVersions("Druid R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, druid, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Druid Bear R2141"), Zone.Battlefield);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        var forest = TestCards.PutInHand(game, alice, Coloured("Green Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 2);
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Druid R2141, Green", game.State.GetObject(permanent).Card.Name);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        // "Other creatures": the source is not pumped by its own lord, and reading that off the
+        // swapped card is what says the static came from the version rather than from the base.
+        Assert.Equal(
+            4,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(permanent)).Power);
+    }
+
+    /// <summary>
+    /// The colour of the discard is a cost, so paying the wrong one is refused (CR 601.2h).
+    /// </summary>
+    /// <remarks>
+    /// The control the whole design turns on. Five abilities exist because the colour is decided
+    /// as the cost is paid, and if the cost accepted any card in hand the five would collapse
+    /// into a free choice of version - a strictly better card than the printed one. Refused twice
+    /// here: once for the mana and once for the wrong colour, so neither half is carrying the
+    /// other.
+    /// </remarks>
+    [Fact]
+    public void Specialize_refuses_a_discard_of_the_wrong_colour_and_a_pool_with_no_mana()
+    {
+        var monk = Specializing(
+            "Sun Monk R2141",
+            "Specialize {2}",
+            "{2}{W}",
+            FiveVersions("Monk R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, monk, Zone.Battlefield);
+        var plains = TestCards.PutInHand(game, alice, Coloured("White Fodder R2141", ManaColor.White));
+
+        // No mana in the pool: the price is refused before anything is spent (CR 601.2h).
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]));
+
+        game.AddMana(alice, null, 2);
+
+        // A white card is a card, and that is exactly what the black price does not accept.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-black", costPayment: [plains]));
+
+        Assert.Equal("Sun Monk R2141", game.State.GetObject(permanent).Card.Name);
+        Assert.Contains(plains, game.State.GetPlayer(alice).Hand);
+
+        // The same card, the same permanent, the right price.
+        game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]);
+        Settle(game);
+
+        Assert.Equal("Monk R2141, White", game.State.GetObject(permanent).Card.Name);
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(permanent))
+            .Keywords.HasFlag(KeywordAbility.Lifelink));
+    }
+
+    /// <summary>Specialize is sorcery-speed, so it is refused with a spell on the stack.</summary>
+    [Fact]
+    public void Specialize_is_refused_at_instant_speed()
+    {
+        var monk = Specializing(
+            "Quick Monk R2141",
+            "Specialize {2}",
+            "{2}{W}",
+            FiveVersions("Quick R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, monk, Zone.Battlefield);
+        var plains = TestCards.PutInHand(game, alice, Coloured("Quick Fodder R2141", ManaColor.White));
+        game.AddMana(alice, null, 2);
+
+        var bolt = TestCards.PutInHand(
+            game,
+            alice,
+            Card("Quick Bolt R2141", "~ deals 1 damage to any target.", CardType.Instant));
+
+        game.CastSpell(alice, bolt, [Target.ToPlayer(alice)]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]));
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// An "Activate only if" printed beside the keyword is read, and it refuses (CR 602.5b).
+    /// </summary>
+    /// <remarks>
+    /// Four of the nineteen printed lines carry something after the cost, and the ability word in
+    /// front of two of them - "Wild Shape", "Rage Beyond Death" - is flavour the line reader has
+    /// already taken off (CR 207.2c). This plays the whole printed line rather than the bare
+    /// keyword, because a restriction dropped on the way in would make the card strictly better
+    /// than the one printed and nothing else would notice.
+    /// </remarks>
+    [Fact]
+    public void An_activation_restriction_printed_beside_specialize_is_kept()
+    {
+        var druid = Specializing(
+            "Wild Druid R2141",
+            "Wild Shape — Specialize {2}. Activate only if you control three or more lands.",
+            "{2}{G}",
+            FiveVersions("Wild R2141"));
+
+        var compiled = CardCompiler.Compile(druid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, druid, Zone.Battlefield);
+        var forest = TestCards.PutInHand(game, alice, Coloured("Wild Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 4);
+
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]));
+
+        game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Wild R2141, Green", game.State.GetObject(permanent).Card.Name);
+    }
+
+    /// <summary>
+    /// A specialized permanent that dies is its base card in the graveyard (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// The version exists only on the battlefield. Without this the graveyard would hold a card
+    /// nobody put in their deck, under an oracle id no deck list contains - and every card that
+    /// asks about a card in a graveyard would be asking about it. The departure record keeps the
+    /// specialized card deliberately, because the trigger that reads it is printed on the version
+    /// and is written about the thing that died.
+    /// </remarks>
+    [Fact]
+    public void A_specialized_permanent_leaves_the_battlefield_as_its_base_card()
+    {
+        var vassal = Specializing(
+            "Dragon Vassal R2141",
+            "Specialize {2}",
+            "{4}{G}",
+            FiveVersions("Vassal R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, vassal, Zone.Battlefield);
+        var forest = TestCards.PutInHand(game, alice, Coloured("Vassal Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 2);
+
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Vassal R2141, Green", game.State.GetObject(permanent).Card.Name);
+
+        var doom = TestCards.PutInHand(
+            game,
+            alice,
+            Card("Vassal Doom R2141", "Destroy target creature.", CardType.Sorcery));
+
+        game.CastSpell(alice, doom, [Target.ToPermanent(permanent)]);
+        Settle(game);
+
+        var dead = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name.StartsWith("Dragon Vassal", StringComparison.Ordinal));
+
+        Assert.Equal("Dragon Vassal R2141", dead.Card.Name);
+        Assert.Equal("oracle-dragon-vassal-r2141", dead.Card.OracleId);
+        Assert.Equal(6, dead.Card.Specializations.Count);
+    }
+
+    /// <summary>
+    /// A specialize line whose versions were never linked stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Fail-closed, and the reason the compiler is handed the card rather than the line alone. An
+    /// ability that took the mana and the card and turned the permanent into nothing is worse
+    /// than the unread line it replaced - it reads perfectly and does less than it says, which is
+    /// the exact defect three audits found in this tree this round.
+    /// </remarks>
+    [Fact]
+    public void A_specialize_line_with_no_versions_behind_it_is_left_unread()
+    {
+        var orphan = Card("Orphan Acolyte R2141", "Specialize {2}", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(orphan);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains("Specialize {2}", compiled.Unhandled);
+        Assert.Empty(compiled.Activated);
+    }
+
+    /// <summary>
+    /// A version the compiler cannot read keeps the whole card incomplete.
+    /// </summary>
+    /// <remarks>
+    /// The rule the split card and the adventure already follow, applied to the list the
+    /// specialize ability reaches: a destination whose text this compiler cannot play is text the
+    /// player would be shown and the engine would not honour. Nineteen corpus cards sit behind
+    /// this and none of them completes today - which is the measurement, not a disappointment.
+    /// The keyword was never what blocked them.
+    /// </remarks>
+    [Fact]
+    public void An_unreadable_version_keeps_the_base_card_incomplete()
+    {
+        var half = Specializing(
+            "Half Read R2141",
+            "Specialize {2}",
+            "{1}{W}",
+            ("Half R2141, White", "Lifelink", 3, 3, KeywordAbility.Lifelink),
+            ("Half R2141, Blue", "Flying", 3, 4, KeywordAbility.Flying),
+            ("Half R2141, Black",
+                @"When ~ specializes, you get a one-time boon with ""Draw a card.""",
+                3, 3, KeywordAbility.None),
+            ("Half R2141, Red", "Double strike", 2, 3, KeywordAbility.DoubleStrike),
+            ("Half R2141, Green", "Other creatures you control get +1/+1.", 4, 4, KeywordAbility.None));
+
+        var compiled = CardCompiler.Compile(half);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, l => l.Contains("one-time boon", StringComparison.Ordinal));
+
+        // The base's own line still read: what is unread is the destination, and saying so is the
+        // whole value of rolling the versions up rather than dropping them.
+        Assert.DoesNotContain("Specialize {2}", compiled.Unhandled);
+    }
+
+    /// <summary>
+    /// The specialize trigger does not fire when a permanent turns over instead.
+    /// </summary>
+    /// <remarks>
+    /// The reason specializing has an event of its own rather than a wider face index on
+    /// <c>PermanentTransformed</c>. Both swap a permanent's card for another set of
+    /// characteristics, and the cards ask about them separately - nineteen cards' versions print
+    /// "when this creature specializes", and a werewolf turning over is not that.
+    /// </remarks>
+    [Fact]
+    public void A_transform_is_not_a_specialize()
+    {
+        var watcher = Specializing(
+            "Watcher R2141",
+            "Specialize {2}",
+            "{1}{B}",
+            FiveVersions("Watcher R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, watcher, Zone.Battlefield);
+
+        var trigger = CardCompiler
+            .Compile(CardFaces.Specialized(watcher, (int)ManaColor.Black))
+            .Triggers
+            .Single();
+
+        var source = new TriggerSource(game.State.GetObject(permanent), Pool);
+
+        Assert.True(trigger.Triggers(
+            new PermanentSpecialized(permanent, (int)ManaColor.Black), game.State, source));
+
+        Assert.False(trigger.Triggers(
+            new PermanentTransformed(permanent, 1), game.State, source));
+
+        // Nor does going back to the base card, which is index zero and what a zone change does.
+        Assert.False(trigger.Triggers(
+            new PermanentSpecialized(permanent, 0), game.State, source));
     }
 
     // ---- "Its controller ..." (CR 608.2) -------------------------------------
@@ -9285,6 +11958,521 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- Which object a stat amount is measured on ---------------------------
+
+    [Fact]
+    public void A_quantity_that_says_the_source_by_name_is_measured_on_the_source()
+    {
+        // The sentence names two objects and takes its number from one of them. Nothing about
+        // the words "create a number of tokens equal to ~'s power" says which permanent on the
+        // board is meant - it is the card's own name in front of the possessive that does - so
+        // the board is arranged with a 5/5 source and a 2/2 target and the two answers differ.
+        // A reader that took the head's target would make two tokens.
+        var caller = Card(
+            "Stat Source Test",
+            "{T}: Tap target creature. Create a number of 1/1 white Soldier creature tokens "
+                + "equal to ~'s power.",
+            CardType.Creature,
+            5,
+            5,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(caller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, caller, Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Source Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, mine, compiled.Activated.Single().Id, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+        Assert.Equal(
+            5,
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Count(o => o.Card.Name == "Soldier"));
+    }
+
+    [Fact]
+    public void A_person_standing_between_the_source_and_the_quantity_is_not_an_antecedent()
+    {
+        // "Its power" cannot mean a player: a player has no power and no toughness (CR 107.3).
+        // So the words "each opponent" between the source and the quantity name nobody the
+        // possessive could be pointing at, and the pronoun still means the card - which is what
+        // lets Gregor, Shrewd Magistrate and Imperious Mindbreaker be read at all.
+        var miller = Card(
+            "Stat Person Test",
+            "When ~ enters, each opponent mills cards equal to its power.",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(miller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        var spell = TestCards.PutInHand(game, alice, miller);
+        game.CastSpell(alice, spell);
+        Settle(game);
+
+        Assert.Equal(before - 5, game.State.GetPlayer(bob).Library.Count);
+
+        // And the twin, one word apart, where the thing in between *is* an object: there the
+        // pronoun means the creature that entered and not the card with the ability, so the line
+        // is left unread rather than measured on the wrong permanent.
+        var other = Card(
+            "Stat Object Test",
+            "Whenever another creature you control enters, each opponent mills cards equal to "
+                + "its power.",
+            CardType.Creature,
+            5,
+            5);
+
+        Assert.Contains(
+            CardCompiler.Compile(other).Unhandled,
+            line => line.Contains("mills cards equal to its power", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_stat_read_off_something_this_spell_has_already_moved_is_its_last_known_size()
+    {
+        // Swords to Plowshares. "Its" is the creature the sentence in front exiled, and by the
+        // time the life is gained that creature is a card in exile - where it answers its
+        // *printed* power and is short by every counter that was on it (CR 608.2h). The board
+        // makes the two numbers differ: a printed 2/2 carrying three +1/+1 counters left the
+        // battlefield as a 5/5, so five life is the right answer, two is the printed card, and
+        // nought is what reading the trigger's subject would give a spell that has no trigger.
+        var plowshares = Card(
+            "Stat Exile Test",
+            "Exile target creature. Its controller gains life equal to its power.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(plowshares);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Exile Ox Test", 2, 2), Zone.Battlefield);
+        game.AddCounters(theirs, CounterKinds.PlusOnePlusOne, 3);
+
+        var spell = TestCards.PutInHand(game, alice, plowshares);
+        game.CastSpell(alice, spell, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Empty(game.State.Battlefield);
+
+        // Whose life it is, is the other half of the same pronoun: the creature's controller,
+        // not the caster.
+        Assert.Equal(25, game.State.GetPlayer(bob).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_spell_with_no_trigger_measures_the_target_it_named()
+    {
+        // Divine Offering's shape. There is no triggering event at all, so the fallback this
+        // family used to take answered with nothing and the card gained no life whatever it
+        // destroyed. The target is the only object the sentence names, and mana value is a fact
+        // about the card, so it survives the trip to the graveyard intact (CR 202.3b).
+        var offering = Card(
+            "Stat Mana Test",
+            "Destroy target creature. You gain life equal to its mana value.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(offering);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Costed("Stat Mana Golem Test", "{3}{G}", 4), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, offering);
+        game.CastSpell(alice, spell, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_damage_sentence_still_measures_the_source_and_not_what_it_is_aimed_at()
+    {
+        // The refusal this whole family was declined for, kept as a guard. "~ deals damage equal
+        // to its power to target creature" is read whole by a matcher that already knows what the
+        // pronoun means; rewriting the amount into a clause would hand that clause a head with a
+        // target in it and the number would become the target's. A 5/5 source and a 2/6 target
+        // are three damage apart, and the wrong reading leaves two marks instead of five.
+        var slinger = Card(
+            "Stat Damage Test",
+            "{T}: ~ deals damage equal to its power to target creature.",
+            CardType.Creature,
+            5,
+            5,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(slinger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, slinger, Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Damage Wall Test", 2, 6), Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, mine, compiled.Activated.Single().Id, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(5, game.State.GetObject(theirs).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_source_the_sentence_has_already_buried_leaves_the_quantity_unread()
+    {
+        // Goldvein Hydra and Termagant Swarm are printed 0/0s that live entirely on the counters
+        // they enter with, and both ask how big they were *after* saying they died. The number is
+        // read as the effect resolves, so there is no permanent left to measure and a card in a
+        // graveyard answers its printed power: read that way the card would compile, resolve and
+        // make nothing at all, for ever. Unread is the honest answer.
+        var hydra = Card(
+            "Stat Buried Test",
+            "When ~ dies, create a number of tapped Treasure tokens equal to its power.",
+            CardType.Creature,
+            0,
+            0);
+
+        Assert.Contains(
+            CardCompiler.Compile(hydra).Unhandled,
+            line => line.Contains("equal to its power", StringComparison.Ordinal));
+
+        // The card spelling its own name instead of the pronoun is refused for the same reason,
+        // and it is a different reason: naming the object settles which one is meant and says
+        // nothing at all about whether it is still there to be measured.
+        var swarm = Card(
+            "Stat Buried Named Test",
+            "When ~ dies, create a number of 1/1 green Tyranid creature tokens equal to ~'s power.",
+            CardType.Creature,
+            0,
+            0);
+
+        Assert.Contains(
+            CardCompiler.Compile(swarm).Unhandled,
+            line => line.Contains("equal to ~'s power", StringComparison.Ordinal));
+
+        // While the same sentence on a trigger that leaves the source where it is reads, which is
+        // what says the refusal above is about the burial and not about the words.
+        var alive = Card(
+            "Stat Standing Test",
+            "Whenever ~ attacks, create a number of tapped Treasure tokens equal to its power.",
+            CardType.Creature,
+            3,
+            3);
+
+        var standing = CardCompiler.Compile(alive);
+        Assert.True(standing.IsComplete, string.Join(" | ", standing.Unhandled));
+    }
+
+    // ---- A card-type list of three or more (CR 109.4) ------------------------
+
+    /// <summary>
+    /// "Counter target enchantment, instant, or sorcery spell" - Swan Song's third kind.
+    /// </summary>
+    /// <remarks>
+    /// Every reader in the compiler that reads a list of kinds splits on " or ", so a card
+    /// naming two read and the same card naming three did not - defeated by the comma in front
+    /// of the last one and nothing else. The list is normalised before any reader sees it, which
+    /// is why this test is about the <em>last</em> member: it is the one the comma hid.
+    /// </remarks>
+    [Fact]
+    public void A_counter_naming_three_kinds_of_spell_stops_the_last_one()
+    {
+        var song = Card(
+            "Swan Song List Test", "Counter target enchantment, instant, or sorcery spell.");
+
+        var compiled = CardCompiler.Compile(song);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A sorcery is sorcery speed, so Bob needs his own main phase with an empty stack.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == bob);
+
+        // The control, first: a creature spell is not one of the three kinds the card names, and
+        // aiming at it is refused outright rather than fizzling later (CR 601.2c). A list read as
+        // "every spell" would take this one, which is the direction the comma could have failed in.
+        var refused = TestCards.PutInHand(game, alice, song);
+        var bear = TestCards.PutInHand(game, bob, TestCards.Creature("Sung Bear List Test"));
+        game.CastSpell(bob, bear, targets: null);
+        game.PassPriority(bob);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, refused, [Target.ToSpell(game.State.Stack.Single())]));
+
+        // Let the bear through, so the counter below is answering an empty board's worth of
+        // stack rather than two spells at once.
+        game.PassPriority(alice);
+        Assert.Empty(game.State.Stack);
+
+        var held = game.State.GetPlayer(bob).Hand.Count;
+        var wrath = TestCards.PutInHand(
+            game, bob, Card("Sung Sorcery List Test", "Draw a card.", CardType.Sorcery));
+
+        game.CastSpell(bob, wrath, targets: null);
+        game.PassPriority(bob);
+
+        var answer = TestCards.PutInHand(game, alice, song);
+        game.CastSpell(alice, answer, [Target.ToSpell(game.State.Stack.Single())]);
+        Settle(game);
+
+        // The third kind was a legal target and the spell never resolved: it is in the graveyard
+        // and Bob drew nothing. The count is taken against the hand as it stood before the
+        // sorcery was dealt, so a card that was countered is one card down, not level.
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Sung Sorcery List Test");
+
+        Assert.Equal(held, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Return target artifact, enchantment, or planeswalker card from your graveyard to the
+    /// battlefield" - Repair and Recharge, whose last kind was hidden the same way.
+    /// </summary>
+    [Fact]
+    public void A_graveyard_target_naming_three_kinds_takes_the_last_one()
+    {
+        var repair = Card(
+            "Repair List Test",
+            "Return target artifact, enchantment, or planeswalker card from your graveyard to "
+                + "the battlefield. Create a tapped Powerstone token.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(repair);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var walker = game.Create(
+            alice, Walker("Repaired Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Repaired Bear List Test"), Zone.Graveyard);
+
+        // The control: a creature card is not one of the three kinds, and the card in the
+        // graveyard beside the planeswalker is what proves the filter is still a filter.
+        var wrong = TestCards.PutInHand(game, alice, repair);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(bear)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, repair), [Target.ToCard(walker)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Repaired Walker List Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Repaired Bear List Test");
+    }
+
+    /// <summary>
+    /// "Return all artifact, enchantment, and planeswalker cards from your graveyard to the
+    /// battlefield" - Triumphant Reckoning, where the list is joined by "and" and still means
+    /// any one of them (CR 109.4).
+    /// </summary>
+    /// <remarks>
+    /// The printed conjunction is put back between every pair rather than normalised to "or",
+    /// because a group reader collects with "and" and a target reader chooses with "or". This is
+    /// the "and" half; the two tests above are the "or" half.
+    /// </remarks>
+    [Fact]
+    public void A_group_return_naming_three_kinds_takes_all_three_and_nothing_else()
+    {
+        var reckoning = Card(
+            "Reckoning List Test",
+            "Return all artifact, enchantment, and planeswalker cards from your graveyard to "
+                + "the battlefield.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice, Card("Reckoned Relic List Test", string.Empty, CardType.Artifact), Zone.Graveyard);
+
+        game.Create(
+            alice,
+            Card("Reckoned Ward List Test", string.Empty, CardType.Enchantment),
+            Zone.Graveyard);
+
+        game.Create(alice, Walker("Reckoned Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        // The control: a creature card, named by nothing in the list, in the same graveyard the
+        // spell empties. A list read as "every permanent card" would take it too.
+        game.Create(alice, TestCards.Creature("Reckoned Bear List Test"), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reckoning), targets: null);
+        Settle(game);
+
+        var back = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Select(o => o.Card.Name)
+            .ToList();
+
+        Assert.Contains("Reckoned Relic List Test", back);
+        Assert.Contains("Reckoned Ward List Test", back);
+        Assert.Contains("Reckoned Walker List Test", back);
+        Assert.DoesNotContain("Reckoned Bear List Test", back);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Reckoned Bear List Test");
+    }
+
+    // ---- The last member of a keyword list (CR 702.16e) ----------------------
+
+    /// <summary>
+    /// "Flying, first strike, vigilance, trample, haste, protection from black and from red" -
+    /// Akroma, Angel of Wrath's whole line.
+    /// </summary>
+    /// <remarks>
+    /// The plain keyword reader splits a line on commas and looks each part up as a flag the
+    /// printed card carries. A protection conjunction is neither: the bulk data carries the bare
+    /// word "Protection" and the loader recovers each colour by looking for "protection from red"
+    /// in the text, which a conjunction never writes. So the last member had no name, and the
+    /// whole-or-nothing rule took the five keywords in front of it down with it.
+    /// </remarks>
+    [Fact]
+    public void The_protection_at_the_end_of_a_keyword_list_grants_both_its_colours()
+    {
+        var akroma = Card(
+            "Wrath List Test",
+            "Flying, first strike, vigilance, trample, haste, protection from black and from red",
+            CardType.Creature,
+            6,
+            6,
+            KeywordAbility.Flying | KeywordAbility.FirstStrike | KeywordAbility.Vigilance
+                | KeywordAbility.Trample | KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(akroma);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var angel = game.Create(alice, akroma, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(angel));
+
+        // Both halves of the conjunction, neither of which is a flag on the printed card: the
+        // line is what says it has them.
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromBlack));
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromRed));
+
+        // And the five keywords printed in front of it are still there. Reading the list as far
+        // as the part it could name would have been the other way to be wrong here.
+        Assert.True(computed.Has(KeywordAbility.Flying));
+        Assert.True(computed.Has(KeywordAbility.FirstStrike));
+        Assert.True(computed.Has(KeywordAbility.Vigilance));
+        Assert.True(computed.Has(KeywordAbility.Trample));
+        Assert.True(computed.Has(KeywordAbility.Haste));
+
+        // It reaches the rule it exists for: neither named colour can block it (CR 702.16e).
+        // The blockers fly, because the angel does - a grounded one is refused by the flying
+        // rule first and would prove nothing about the protection.
+        static CardDefinition Flier(string name, ManaColor colour) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [colour],
+            ColorIdentity = [colour],
+            Keywords = KeywordAbility.Flying,
+        };
+
+        foreach (var colour in new[] { ManaColor.Black, ManaColor.Red })
+        {
+            var blocker = game.Create(
+                bob, Flier($"Wrath {colour} Test", colour), Zone.Battlefield);
+
+            var why = CombatRules.CannotBlock(
+                game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(angel), bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // The control: a colour the line did not name gets through. A list read as a blanket
+        // protection would pass every assertion above and fail this one.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Flier("Wrath Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(angel), bob));
+    }
+
+    /// <summary>
+    /// "Protection from white, from blue, from black, and from red" - Oversoul of Dusk.
+    /// </summary>
+    /// <remarks>
+    /// The conjunction is the one keyword whose printed phrase contains commas of its own, so a
+    /// list reader that splits on commas cuts it into four parts, three of which name no keyword
+    /// at all. This card is the reason the split folds "from …" back into the member in front of
+    /// it: teaching the reader Akroma's line without it would have taken this one away, and a
+    /// coverage count nets that out to nothing.
+    /// </remarks>
+    [Fact]
+    public void A_protection_conjunction_written_with_commas_survives_the_list_split()
+    {
+        var oversoul = Card(
+            "Dusk List Test",
+            "Protection from white, from blue, from black, and from red",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(oversoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var beast = game.Create(alice, oversoul, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(beast));
+
+        foreach (var colour in new[]
+        {
+            KeywordAbility.ProtectionFromWhite,
+            KeywordAbility.ProtectionFromBlue,
+            KeywordAbility.ProtectionFromBlack,
+            KeywordAbility.ProtectionFromRed,
+        })
+        {
+            Assert.True(computed.Has(colour), colour.ToString());
+        }
+
+        // The control, and the card's whole point: green is the one colour it did not name.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Coloured("Dusk Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(beast), bob));
     }
 
     // ---- Auras and equipment -------------------------------------------------
@@ -73435,11 +76623,19 @@ public sealed class CompiledCardBehaviourTests
         complete.Sort(StringComparer.Ordinal);
 
         // Not on the list, and why: Diregraf Escort grants protection from a creature type,
-        // which no flag can carry; Doom Weaver and Imperious Mindbreaker count "cards equal to
-        // its power/toughness" inside their quoted grants; Breathkeeper Seraph's grant is a
-        // delayed return; Mirage Phalanx's is a token copy with exceptions; and Donna Noble's
-        // trigger watches damage to either half. Each is short on that line alone - the
-        // Soulbond line itself reads on all of them.
+        // which no flag can carry; Breathkeeper Seraph's grant is a delayed return; Mirage
+        // Phalanx's is a token copy with exceptions; and Donna Noble's trigger watches damage to
+        // either half. Each is short on that line alone - the Soulbond line itself reads on all
+        // of them.
+        //
+        // Doom Weaver and Imperious Mindbreaker were both here for one line, "cards equal to its
+        // power/toughness" inside a quoted grant, and they part company on which object the
+        // possessive can reach. Both mean the creature the grant is on, and both say so with a
+        // pronoun the nearest-antecedent rule can settle - "each opponent" is a person and a
+        // person has no toughness. But Doom Weaver's trigger is a death, so by the time the
+        // number is asked for there is no permanent left to measure and a card in a graveyard
+        // answers its printed power; the attack trigger leaves the creature where it is. One
+        // reads and the other stays unread, one word apart.
         List<string> expected =
         [
             "Deadeye Navigator",
@@ -73449,6 +76645,7 @@ public sealed class CompiledCardBehaviourTests
             "Galvanic Alchemist",
             "Geist Trappers",
             "Hanweir Lancer",
+            "Imperious Mindbreaker",
             "Joint Assault",
             "Lightning Mauler",
             "Nearheath Pilgrim",

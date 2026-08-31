@@ -513,6 +513,354 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: an effect on a card that is not on the battlefield, and the row it retires
+
+The brief was the largest remaining Alchemy row. Perpetual is 193 by excision and 4 by
+substitution, and the reading offered for that gap was that **241 of its 245 lines want a grammar
+for cards in non-battlefield zones** — "creature cards in your graveyard get +1/+1", "each nonland
+card in defending player's hand gains …". That is a claim about a *shape* rather than a word, so it
+was measured as one, corpus-wide, by
+`CardCompilerWorkQueueTests.What_an_effect_on_a_card_outside_the_battlefield_would_be_worth`.
+
+**Both halves of the claim are wrong, and the second one badly.**
+
+| | |
+|---|---|
+| the shape, printed anywhere in the corpus | **110 cards, 112 unread lines** — graveyard 62, hand 41, library 7 |
+| of those, already compiling whole | **0.** No complete card in the corpus prints it; the grammar reads nothing today |
+| how many are perpetual lines | **42 of 112** — so 203 of perpetual's 245 lines are *not* this shape at all |
+| **excision** — cut the lines and recompile | **82** |
+| **substitution** — same sentence, subject moved onto the battlefield | **1** (Embalmer's Tools) |
+| **line control** — drop a *different* unread line on a carrier that has one | **0 of 28** |
+
+The substitution is the one that answers the question, and it is mechanical on purpose: strip the
+word "card", pluralise, add "you control", leave every other word standing. "Creature cards in your
+graveyard get +1/+1" becomes "creatures you control get +1/+1", which the compiler has read for
+many rounds. **One card in a hundred and ten survives that rewrite.** The zone is not what blocks
+them. What blocks them is on the other side of the verb, and a witness battery of framed sentences
+says which:
+
+| sentence, on the battlefield, with nothing to do with a zone | |
+|---|---|
+| `Each creature you control has flying.` | READ |
+| `Creatures you control get +1/+1.` | READ |
+| `Each creature you control has unearth {2}{B}.` | UNREAD |
+| `Each instant and sorcery you control has flashback.` | UNREAD |
+| `Each creature you control has cycling {R}.` / `miracle {2}` / `ninjutsu {2}{U}{B}` / `scavenge` / `escape` / `dredge 2` | UNREAD |
+
+Fifty-five of the 110 grant one of those — a **casting keyword with a cost, granted by a static
+ability** — and the compiler cannot read that grant *anywhere*, battlefield included. Forty-two
+carry `perpetually` as well. The rest grant a quoted ability. **The non-battlefield zone is the one
+thing on these cards that would have been cheap**, and it is worth one card.
+
+So the row is retired: **the non-battlefield continuous-effect grammar is not worth building**, and
+neither is the reading that ranked perpetual by it. Excision has now over-counted 4.4×, 13.7×, 5×,
+50× and here **82×** on six families in one round; the excision column should be read as an upper
+bound and nothing else.
+
+#### The line control is the part worth keeping
+
+Twenty-eight of the 110 carriers have another unread line, and dropping it completes **none** of
+them. These cards are not one line short of anything — they are two and three shapes short, and
+each of those shapes has a larger family of its own. A control that drops any line from any card
+completes 1,340 corpus-wide, which is why it had to be this one.
+
+#### What was built instead, because the audit found a live one
+
+The shape was declined; the *audit* for it was not. Sweeping every complete card whose ability
+targets a card in a graveyard and then creates a continuous effect turned up eleven, and playing
+one showed the whole family broken:
+
+> **Goryo's Vengeance**, Bond of Revival, Foul Renewal, Macabre Mockery, Grave Upheaval, Fated
+> Return, Dawn of the Dead, Balduvian Atrocity, Kami of Industry, Kardur's Vicious Return —
+> "Return target creature card from your graveyard to the battlefield. **It gains haste. Exile it
+> at the beginning of the next end step.**" The creature arrived, could not attack, and was never
+> exiled. All eleven compiled clean and counted as covered.
+
+The cause is CR 400.7 in the place the engine had not looked: the card the player targets is in a
+graveyard and the permanent that arrives is a different object under a different id, and
+`Subjects.Resolve` accepted a target only when it was *already* a permanent. A graveyard card is
+not one, so both the pump and the delayed trigger resolved to nothing at all — no event, no log
+line, no error.
+
+**CR 400.7j is what makes this a fix rather than a convenience:** "if an effect causes an object to
+move to a public zone, other parts of that effect can find that object." The resolution record
+(round eighteen's, for "destroyed this way") already held every zone change of the resolution; what
+it had never kept was the id the object had *before* the move, because a participle asks what
+happened and never which id it happened to. A pronoun asks the other question. `Touch.OldId` is the
+join, and the resolver walks the chain — one resolution can move the same card twice.
+
+Two refusals ride on it, and both are the rule rather than caution:
+
+- **Only to a public zone.** A card returned to a hand or shuffled into a library is not followed,
+  because following it would leave the resolution holding the id of a card only its owner may see.
+  This is the same line `GameView Project` draws, arrived at from the other side: an effect on a
+  card in a hidden zone must not become a route to it. There is a behaviour test that returns the
+  corpse to a hand, watches the delayed exile *not* fire, and asserts the opponent's view still
+  carries a hand count and no hand.
+- **Only a move this resolution made.** Feldon of the Third Path targets a creature card in a
+  graveyard, *copies* it, and says "it gains haste" about the token. Nothing in the record can tell
+  a created object from a moved one, so the resolver answers nothing — as
+  `EffectSubject.TriggeringObject` already does when the event was about no object. A fallback to
+  "the card you targeted" would have passed every other test in the section and put the haste on
+  the corpse. There is a test pinning exactly that: the corpse is still in the graveyard and still
+  hasteless. **Feldon's token remains a live gap**, and its fix is a record of what a resolution
+  *created*, which nothing here has.
+
+#### Result
+
+**18,419 → 18,419 complete cards.** The set diff and the per-card effect fingerprint are both
+empty by construction: no compiler file was touched, and the change is in how a subject is resolved
+while an ability runs. That is the point worth recording — **eleven complete cards were wrong in a
+way no structural instrument in this project could see.** Coverage counted them, the inert audit
+found effects on them, the trigger probe found their triggers firing, and the defect was between
+the target's id and the permanent's, which is not a field on anything.
+
+Made to fail: pinning the new arm to an id that cannot occur turns the two behaviour tests red
+naming exactly the two things a player would see — the reanimated 4/4 is refused as an attacker
+(CR 302.6), and it is still on the battlefield at the end of the turn.
+### Round twenty-one: which object a pronoun in an amount means
+
+**18,419 → 18,436 complete cards, +17, none lost, measured by set difference on this branch's own
+binary.** And 22 cards that were *already* complete now play a different number, which is the
+larger half of this round: they were reading the wrong object and nobody could see it.
+
+The family is an amount whose size is a characteristic of an object the sentence names by pronoun —
+"you gain life equal to its power", "draw cards equal to that creature's toughness", "create a
+number of tokens equal to ~'s power". The count rewrite next door declined it in round twenty-one
+with a precise reason: the clause reader resolves "its" against the head's target, so
+`~ deals damage equal to its power to target creature` would compile as the *target's* power.
+Reads-and-is-wrong is worse than unread.
+
+#### The measurement
+
+274 incomplete corpus cards carry an unread line of this family; 215 of them have no other unread
+line at all. Three probes on that population, on the pre-change binary:
+
+| probe | completes |
+|---|---|
+| **excision** — drop the whole line that carries the stat amount | **112** |
+| **line control** — drop a *different* unread line on the same cards | **0** |
+| **substitution control** — rewrite only the stat phrase into a count already read | **43** |
+
+The line control at 0 says the stat line is the blocker on every one of these cards and nothing
+else on them is. The substitution control at 43 against an excision of 112 says the rest. The two
+sets overlap on 31: **81 of the excision's 112 are cards where the sentence around the amount is
+unread as well**, so dropping the line took a second win with it and the excision figure is 2.6×
+the honest ceiling. Most of the 81 are damage sentences with a target grammar the compiler cannot
+read yet — "whenever ~ becomes blocked, you may have it deal damage equal to its power to target
+creature" is four cards on its own and none of them turns on the amount. The other 12 run the other
+way: cards whose *only* printed line is the stat line, which excision cannot score at all because
+cutting it leaves no card.
+
+Of the 43 the substitution can reach, two in five name their object as "the sacrificed creature",
+which is a referent the engine has no way to point at: the sacrifice is a cost or a player's
+choice, and nothing carries which permanent it was into the resolution. Those are left in the
+queue. 17 is what the two referents below actually reach.
+
+#### Two referents, each with a rule
+
+**The source, decided by nearest antecedent — with people struck out.** The compiler already had
+`MeansTheSource` for "it deals": yes exactly when the last thing named before the pronoun is `~`
+and nothing that could be an antecedent stands in between. A possessive in an amount wants the same
+rule with two changes the grammar forces and one the rules do.
+
+The position asked about is the **quantity**, not the pronoun: "draw cards equal to its power"
+carries the word "cards" between the two, and "card" is on the antecedent list, so asked at the
+pronoun every sentence of this family refuses itself on the noun it is a quantity *of*.
+
+And **a player is not a candidate**, because a player has no power and no toughness (CR 107.3). The
+words "each opponent" and "to a player" stand between the source and the quantity on Gregor, Shrewd
+Magistrate and Imperious Mindbreaker, and the pronoun cannot be pointing at them — so they are
+struck out of the text before the antecedent list is consulted. Nothing else is: every object word
+stays a refusal, planeswalkers included.
+
+**And the source has to still be there.** The number is read as the effect resolves, so a sentence
+whose own trigger buried the source first — "when ~ dies, create a number of Treasure tokens equal
+to its power" — is asking about a permanent that no longer exists, and a card in a graveyard
+answers its *printed* power. Goldvein Hydra and Termagant Swarm are printed 0/0s that live entirely
+on the counters they enter with: read that way they would compile, resolve and make nothing, for
+ever. Refused. The refusal applies to the printed name as readily as to the pronoun — Termagant
+Swarm spells its own name where the pronoun would go, and spelling it out settles *which* object is
+meant while saying nothing about whether it is still there.
+
+**The object this same resolution has already named, read as last known information.** "Exile
+target creature. Its controller gains life equal to its power" is Swords to Plowshares, and by the
+time the life is gained the creature is a card in exile. The life family answered that possessive
+with the *trigger's* subject, which on a spell is nobody at all — Swords to Plowshares, Condemn and
+Avenger en-Dal each gained nought. It now answers with the permanent the sentence in front
+targeted, through `PeerAt`, and reads its size **through the layers while it is on a battlefield
+and off the resolution's own record once it has left** (CR 608.2h): a printed 2/2 with three +1/+1
+counters left the battlefield as a 5/5, and the exile card would have said two.
+
+Only a target that *has* the characteristic. A player target is refused, and so is "any target",
+which is a player as readily as a creature and the words cannot say which it turned out to be —
+that refusal is what keeps Consuming Vapors and Tribute to Hunger from measuring a person. A spell
+on the stack is admitted beside a permanent, because Illumination counters one and gains life equal
+to its mana value.
+
+#### The 22 already-complete cards that were playing the wrong number
+
+The life family's stat arm always answered with the trigger's subject. 27 complete corpus cards
+reach it, and on **22** of them their own sentence has targeted something first — Divine Offering,
+Chastise, Sever Soul, Vendetta, Devour in Shadow, Reanimate, Terashi's Grasp, Feed the Swarm,
+Garruk's −3, Sheltering Word, Heal the Scars, Serene Offering, Infernal Reckoning and nine more.
+Most are spells with no trigger at all, so the subject was nobody and every one of them gained or
+lost **nothing**. Rotfeaster Maggot is worse than nothing: an enters trigger whose subject is the
+Maggot itself, so it exiled a creature card from a graveyard and gained life equal to *its own*
+toughness. All 22 now measure the object their sentence names.
+
+The other five are untouched, and the reasons are the refusals above. Engulfing Slagwurm and
+Doomgape name no target, so the trigger's subject is still the only answer and still the right one.
+Consuming Vapors and Tribute to Hunger target a *player* who then sacrifices something, and reading
+that target would have measured a person. Syr Ginger sacrifices itself for a cost and targets
+nothing.
+
+#### Damage is deliberately absent from the rewrite's nouns
+
+The rewrite that hands this vocabulary to every verb at once takes `life`, `cards` and
+"a number of …" and **not** `damage`. The damage sentences of this family are read whole by a
+matcher that already knows what their pronoun means; handing them to the clause instead would give
+that clause a head with a target in it, which is precisely the mis-reading the count rewrite
+declined this family for. A guard test plays `{T}: ~ deals damage equal to its power to target
+creature` on a 5/5 source and a 2/6 target and asserts five marks rather than two.
+
+#### What is still declined, and why
+
+- **"The sacrificed creature's power/toughness" — 25 sole-blocked cards** (Fling, Thud, Greater Good,
+  Life's Legacy, Altar of Dementia, Brion Stoutarm, Starlit Sanctum, Bloodshot Cyclops, Barrage
+  Tyrant, Scourge of Skola Vale, Tormented Thoughts, Eye of Yawgmoth, Rite of Consumption, Airdrop
+  Condor, Final Strike, Pyrrhic Blast, Rhovanion Rampager). The referent is a permanent sacrificed
+  to pay a cost or chosen by a player, and nothing carries which one it was into the resolution.
+  A referent the engine cannot name is not a phrase to widen.
+- **"Assigns combat damage equal to its toughness rather than its power" — 20 lines, 12 sole
+  blockers.** Not an amount at all: it is a rule about how a creature assigns combat damage
+  (CR 510.1a), and the possessive in it is never in doubt.
+- **Arithmetic tails — 3 cards** ("its power plus its toughness", "its power minus 1"). The pattern
+  ends at the stat word, because a tail admitted here would read as the bare stat and give the card
+  a smaller number than it prints.
+- **A source buried by its own sentence — 8 cards** (Goldvein Hydra, Termagant Swarm, Mortis Dogs,
+  Rapacious Guest, Feral Ghoul, Lifeblood Hydra, Doom Weaver, Riders of the Mark). Answerable only
+  by a last-known-power the engine does not keep for an object that left before this resolution
+  began. The record covers what *this* resolution moved and nothing earlier.
+- **A stat measured on the trigger's subject after it has died** is read, and it reads the
+  graveyard card's printed size. That is the shipped behaviour of the arm this round widened — Death
+  Watch and Banewasp Affliction inherit it — and it is short by every counter that was on the
+  creature. The fix is the same missing last-known-power as the bullet above.
+### Round twenty-one: the verbs a held duration wraps, and a 5.1x excision
+
+**18,419 -> 18,428 complete cards, +9, none lost, measured by set difference on this branch's own
+binary** (32,717 playable cards). The nine are Awakener Druid, Skilled Animator, Unctus's
+Retrofitter, The Blackstaff of Waterdeep, Tide Shaper, The Wondrous Wasp, Quicksmith Spy,
+Quicksmith Rebel and Thran Weaponry. The compiled-effect diff is one shape: `HoldsWhileSourceHolds`,
+between one and four of them per card, and a `PumpGroup` carrying the new `HeldWhile` on the one
+card whose subject is a group.
+
+The duration itself landed the round before. What had not landed was any verb that could take it
+except the four it was built with - a pump, a keyword grant, a "doesn't untap" and a gain-control -
+so the corpus's other six wordings compiled with "until end of turn" and refused the clause the
+card actually prints.
+
+#### Three measurements, and the line control is the one that says anything
+
+The family is the cards with an unread line whose "for as long as ..." tail is one of the four
+spellings this engine can already express. Measured on the baseline compiler, before the work:
+
+| probe | cards |
+|---|---|
+| population - an unread line with an expressible held tail | 62 |
+| ... of which one line short | 51 |
+| **excision** - delete every such line | **51** |
+| **line control** - delete a *different unread line* on a card in the same family | **0 of 11 eligible** |
+| **substitution** - rewrite only the tail to `until end of turn` | **10** |
+
+Excision over-counts by 5.1x, which is the usual story: 41 of those cards have something else
+wrong with them and deleting a line takes that away too. The substitution is the honest ceiling
+and it is 10, because it changes nothing but the three words this work is about. Nine were taken;
+the tenth is declined below. Re-run afterwards the same instrument reads 53 / 42 / 0 of 11 / 1 -
+the population and the ceiling both down by the nine, and the one left is the decline.
+
+The line control is the reason the other two numbers can be believed. Dropping *any* line completes
+about 1,340 cards corpus-wide, which measures nothing at all - so the control drops a line the
+compiler could not read either, on a card in this same family. It completes **0**, before and
+after. The 51 are the held line and nothing else.
+
+#### What was missing was the tail, not the effect
+
+Every id these readers need already existed: `SetPowerToughnessId` for layer 7b, `BecomesId` and
+`BecomesCreatureTypeId` for layer 4, `BecomesColorsId` for 5, `GrantId` and `GrantAbilityId` and
+`LosesAllAbilitiesId` for 6, `PumpId` for 7c. So each new reader hands the ids the turn-long reader
+builds to the same `HoldsWhile` the pump and the keyword grant already use, and the six wordings
+are six patterns over one mechanism rather than six mechanisms:
+
+- `becomes a 4/5 green Treefolk creature` - the sized animation
+- `becomes an artifact creature with base power and toughness 5/5` - the same animation with its
+  size behind the noun, which is where the card types live in that wording
+- `becomes an Island` - CR 305.7 rather than CR 613.4b, because no size is named
+- `loses all abilities`
+- `gains "{T}: Draw a card"` - a quoted ability, parsed back by the readers that read it on a card
+- `All creatures get +2/+2`
+
+The last of those could not ride the wrapper. `HoldsWhileSourceHolds` aims at one permanent and a
+group is gathered as the effect resolves, so `PumpGroup` took the condition as a third duration of
+its own beside its two turn flags. CR 611.2c is untouched by that: the affected set is still fixed
+as the list is built, and the behaviour test puts a creature onto the battlefield inside the window
+to say so.
+
+The sized animation's run of ids is now `SizedAnimationIds`, taken by all three of its readers. It
+had been written out twice, and this family's recorded defect is exactly what a third copy invites:
+an animation that quietly dropped its colour was a different card in front of protection and in
+front of a lord.
+
+#### The layer distinction the tests are built to fail on
+
+A base P/T is *set* in sublayer 7b and a counter modifies in 7c, and a pump read in place of the
+set compiles perfectly. Two of the six tests stack a +1/+1 counter for that reason, and the
+permanents they animate are chosen so the two readings differ - a land and an artifact have no
+printed size at all, so a pump leaves a creature with no power where the set leaves a 5/6.
+
+Each mechanism was mutated to check the tests are load-bearing rather than decorative. Six
+mutations, six red tests: the 7b set read as a 7c pump (twice, once per animation reader), the
+group pump ignoring its held duration, the held effect stamped with the turn number instead (which
+reddens four of the six and an older held test beside them), the removal keeping what other effects
+granted, and the retyping adding a land type instead of replacing it.
+
+That last pair is the fail-closed line in this family. CR 305.7's removal deliberately *keeps*
+granted abilities - it is `HasLostPrintedAbilities`, and Blood Moon is why - while CR 613.1f's
+takes everything. Reading the second as the first leaves a silenced creature still flying because a
+lord beside it said so, on a card that reads as complete, so the ability-removal test asserts a
+granted keyword and a printed one go together off one board.
+
+The mutation run also caught an instrument defect worth recording: a `--filter FullyQualifiedName~Held`
+silently skipped the two tests whose method names do not contain the word, and both mutations
+"survived" until the filter was corrected. A mutation that survives is a claim about a test, and
+the first thing to check is whether the test ran.
+
+#### Declined here, with the measurement behind each
+
+- **"You may play that card for as long as you control ~" - 1 card completed by substitution
+  (Lightning, Security Sergeant), 6 in the family.** The permission is not a continuous effect on a
+  permanent at all: `ExileTopAndMayPlay` hands a *player* a window written as a turn number, and
+  CR 613's layers order objects. Giving it a held duration means a second clock in that machinery
+  rather than a tail on a verb, and reading it as "until end of turn" - which is what makes it
+  complete - is a strictly worse card than the printed one.
+- **The counter-scoped tails - 0 completed.** "For as long as it has a feather counter on it"
+  (Aven Mimeomancer), "for as long as it has a flood counter on it" (Quicksilver Fountain,
+  Xolatoyac, Eluge). Round twenty measured this family at 0 for a duration and it is still 0: the
+  condition is about a counter on the *affected* permanent rather than about the source, which is a
+  different question from the one `StillHolds` asks.
+- **The leading spelling - 9 cards, 0 completed by substitution.** "For as long as ~ remains tapped,
+  another target permanent loses all abilities and can't attack or block" (Immovable Rod), and
+  Opportunistic Dragon, Preacher, Giant Oyster, Kitesail Larcenist, Exchange of Words, Taster of
+  Wares, Hama and Kotose. Every one carries a second clause the compiler cannot read - a
+  prohibition, a text-box swap, a per-upkeep counter, a cast-from-exile permission - so the word
+  order is not what blocks them, and a pattern for it would fire on nothing.
+- **Hedge Whisperer - 1 card.** Its sentence reads now; the line stays unread because
+  `Collect evidence 4` is a cost the compiler does not lift out.
+- **Tishana's Tidebinder - 1 card.** "If an ability of an artifact, creature, or planeswalker is
+  countered this way, that permanent loses all abilities" needs the countered ability's source as a
+  subject, which is a pronoun this engine has nowhere to read.
+
 ### Round twenty-one: how much damage was excess
 
 **18,144 → 18,149 complete cards, +5, none lost, measured by set difference on this branch's own
@@ -713,7 +1061,9 @@ here is the wrong one and would have to be resisted twice.
   pool, and an exchange action (CR 702.161). The five versions carry their own unread text ("when
   this creature specializes", "it unspecializes"), so a `Specialize {2}` that compiled without them
   would be an ability that activates and does nothing — which is worse than the unread line.
-  Engine and loader work, not compiler work, and it is bounded.
+  Engine and loader work, not compiler work, and it is bounded. **Built — and both figures
+  above turned out to be measurements of a card whose five destinations the compiler could
+  not see. With the versions linked, excision reads 0. See "specialize is built" below.**
 - **Attraction — 27 cards, 24 by excision, 14 by substitution.** Also not a data decline: every
   Attraction in the dump carries its lights. It needs an Attraction deck outside the game
   (CR 717.2), a die roll, a visit trigger and a new zone. 12 of the 27 print the identical line
@@ -750,6 +1100,145 @@ here is the wrong one and would have to be resisted twice.
   is 84 distinct filters, which is not this family's work but the target grammar's.
 - **Double team — 23 cards, 14 by excision, 3 by substitution.** It is conjure plus perpetual
   wearing a keyword, and it inherits both walls.
+### Round twenty-one: specialize is built, and the mechanic was never the blocker
+
+The correction to the correction. Round twenty-one found the specialize family's data complete —
+19 base cards, all in the playable corpus, each carrying `all_parts` with six entries — and ranked
+it the one reachable Alchemy family at **12 by excision, 11 by substitution**. Both of those
+figures were measured with the five specialized versions *invisible*, because the loader dropped
+them on legality. With the versions linked and compiled, the same three measurements read
+**0, 0 and 3**, and the mechanic is worth nothing at all today.
+
+#### What was built
+
+`CardDefinition.Specializations` is `Faces`' shape on a second list, six entries with the base
+card at index 0 and the white, blue, black, red and green versions at 1-5. It is deliberately not
+`Faces`: every specialized version prints a mana cost, and a face with a printed cost is exactly
+how the compiler tells the half of a split card from the back of a transforming one — putting them
+in `Faces` would have given each of the nineteen cards five extra castable halves.
+
+Three facts made the link possible and every one of them is in the data:
+
+- All 19 base cards carry `all_parts` with exactly six entries, and all 114 ids resolve against
+  `oracle_cards.json`'s own `id` field.
+- The five versions are `hbg` and `not_legal` in every format, which is why the corpus filter drops
+  them. They are read anyway and kept as faces under their printing id, never as cards — the same
+  shape as the reversible-card type-line fallback beside it. **They must not enter the corpus:**
+  they are not cards a deck may contain.
+- **Which colour a version is cannot be read off `colors`.** Klement, Novice Acolyte is white and
+  so is its white version. It can be read off the cost: a version's cost is the base's plus exactly
+  one coloured pip, and that holds on all nineteen cards and all ninety-five versions.
+
+`Specialize [cost]` compiles to **five** activated abilities, one per colour, each costing the
+printed mana plus a discard of a card of that colour. Not one ability that reads the discarded
+card afterwards: a discard is a cost, paid *with* the activation, so the branch is taken before
+anything resolves — reading the payment during resolution is the continuation a log cannot rebuild
+and this engine deliberately cannot hold. Written as five, every existing piece already worked:
+`ChosenCost`'s filter refuses a hand with no card of that colour, and the board can offer the five
+side by side.
+
+`PermanentSpecialized(Id, Index)` is its own event with its own reducer arm — twelve lines, the
+same swap `Transform` makes — and **no new state field**: the swapped-in definition carries its
+index in its own oracle id, which is what `CardFaces.FaceIndexOf` already exists to do for faces.
+Index 0 is the base card, so unspecializing is the same call with a zero, and `GameReducer.Move`
+uses it: a specialized permanent that leaves the battlefield is its base card in the graveyard
+(CR 400.7), under the oracle id a deck list actually contains.
+
+It is not a `PermanentTransformed` with a wider index, and the cards say why: nineteen cards'
+versions print "when this creature specializes", and a werewolf turning over is not that.
+
+#### The bug this would have shipped with, and where it already had a name
+
+The first run compiled, activated, swapped the definition — and created no Zombies. "When this
+creature specializes" is printed on the *version*, which is the card the permanent only has once
+the event has applied, and `Game.CollectTriggers` considers a permanent that keeps its id only as
+it was **before** the event. The comment explaining that was already in the file, one mechanic
+along: `PermanentMutated` had the identical bug and is considered once, afterwards, "which is the
+only state that has all of its abilities". Specialize joins it there.
+
+That is the exact failure this round's audits kept finding — a card that reads perfectly and does
+less than it says — and the only thing that caught it was a test that played the game and counted
+the tokens. An assertion about the permanent's name would have passed.
+
+#### The measurement, three ways, on one binary
+
+| | cards complete |
+|---|---:|
+| control (before) | 18,419 of 32,717 (56.3%) |
+| measured (after) | **18,419 of 32,717 (56.3%)** |
+| specialize family, complete | 0 of 19 |
+| the `Specialize {N}` line itself, read | **17 of 19** |
+| excision control — the `Specialize {N}` line deleted outright | **0 of 19** |
+| line control — one *different* unread line dropped on the same card | **3 of 19** |
+| if every specialized version read | **11 of 19** |
+
+**The excision control is the finding.** Delete the keyword from all nineteen cards, leave the
+versions linked, and *none* of them completes — so the word was never what blocked any of them.
+The old 12-by-excision and 11-by-substitution figures were both measuring a card whose five
+destinations the compiler could not see. The line control is the honest comparison beside it:
+dropping one arbitrary unread line instead completes **three** (Rasaad, Gale and Jaheira, each of
+which has exactly one other unread line), which is *more* than the mechanic buys.
+
+And the 11 is the old number arriving in a new place. It is not what modelling specialize is
+worth; it is what would complete **if the versions read**, which is where the family's work
+actually is: 87 unread lines across the nineteen, and the shapes are `perpetually` (Rasaad, Gale,
+Wilson ×5), "you get a one-time boon", `seek` with a filter, conjure-a-duplicate-by-name, "remove
+all study counters … that many", "when this creature specializes **from your graveyard**", and one
+shape that is four faces of a single card — `another target attacking creature gains <keyword> and
+gets +X/+0 until end of turn, where X is ~'s power`, which is the nearest single card to complete
+(Skanos, Dragon Vassal, whose base and fifth version already read).
+
+Effect diff: 17 of the 19 gained five activated abilities apiece (85 in total); the two refused
+are Imoen's printed cost reduction and Karlach's "you may also activate this ability if ~ is in
+your graveyard", which is an activation from a zone the ability does not function in. Nothing else
+in the corpus changed — no card gained or lost a trigger, static or replacement, and the set of
+complete cards is identical.
+
+#### Four mutations, four tests
+
+Each of the nine tests was checked by breaking the thing it is about and confirming that it, and
+nothing else, went red.
+
+| the mechanism broken | what failed |
+|---|---|
+| the discard cost stops naming a colour | the refusal test only — the five abilities collapse into a free choice of version |
+| leaving the battlefield keeps the specialized card | the graveyard test only |
+| the fail-closed guard on "six versions or nothing" is dropped | the orphan-line test only |
+| `CollectTriggers` no longer reconsiders the specialized permanent | the Zombie count only |
+
+The last of those is not hypothetical: it is the state the first implementation was actually in,
+and the Zombie count is what found it.
+
+#### What is declined, with counts
+
+- **Imoen's printed cost reduction (1).** "Specialize {5}. This ability costs {3} less to activate
+  if there are two or more instant or sorcery cards in your graveyard."
+  `ActivatedAbilityDefinition.CostReduction` exists and would hold it, but the sentence is printed
+  *inside* the keyword line and the whole-line reader that gathers it is never offered this one.
+  One card, and reading it would still leave Imoen five unread version lines short.
+- **Karlach's graveyard activation (1).** "You may also activate this ability if ~ is in your
+  graveyard." `FunctionsFrom` is a single zone, not a set, and a second ability keyed to the
+  graveyard would also have to specialize a card that is not a permanent — Karlach's versions
+  print "when this creature specializes **from your graveyard**, return it to the battlefield",
+  which is a different action from the one built here. Ten unread version lines behind it.
+- **Unspecializing as a printed action (5).** "When ~ dies, it unspecializes. If it unspecializes
+  this way, return it to the battlefield tapped" — Lukamina's five versions. The reducer can
+  already do it (version zero) and the zone change already does it; what is unread is the
+  sentence, and its second clause is a return-from-graveyard rider on a trigger whose subject is
+  the object that just died.
+- **Wiring the production pool (0 cards).** `CardParser` reads one bulk object at a time and has
+  no cross-card index, so linking `all_parts` there means a second pass in `BulkDataService`. It
+  is worth nothing today: none of the nineteen compiles whole, so `CompiledPool.Refuses` turns
+  every one of them away from a deck either way.
+
+#### One correction to the numbering
+
+Specialize is an Alchemy mechanic and is in **none** of the printed Comprehensive Rules. The
+citations that had been attached to it in these notes — CR 702.157, CR 702.161 — are Squad and
+Living Metal; the word "specialize" appears nowhere in the rules file this repository ships. The
+authority is the Arena rules bulletin, and it is quoted where the code needs it rather than
+pointed at.
+
 ### Round twenty-one: the third audit of the same family, and the first that can see inside a closure
 
 Every instrument this project had compared compiled **structure**. Coverage counts lines the
@@ -11395,3 +11884,103 @@ Soulsinger, Willow Satyr, Orcish Farmer and Power of Persuasion.
   battlefield` spelled the other way and worth nothing until the `becomes` verbs take a tail;
   Graceful Antelope, its only sole-blocked card, needs both.
 - **The four families that are not duration work at all — 0 each**, as measured above.
+
+### Round twenty-one: Attractions, which were never data-blocked
+
+**The decline was wrong for four rounds, and the correction is now built.** "46 Attractions missing
+`attraction_lights`" was a text match on cards that *open* Attractions. There are 22 Attractions in
+the playable corpus and all 22 carry their lights; so do all 50 objects in the dump. Nothing about
+this family was ever blocked on missing data, and saying so had kept it off every work queue.
+
+**Measured before and after on the same binary: 18,419 complete of 32,717 (56.3%) → 18,444
+(56.4%). +25 cards, and all 25 of them are in this family** — 46 corpus cards touch Attractions and
+none of them compiled whole before this round.
+
+#### The three precedents were all the same precedent
+
+CR 717.2 says where an Attraction deck lives in as many words: *"a supplementary Attraction deck
+that exists in the command zone."* So there is **no new zone, and no new state field** — the deck
+is that player's Attraction cards sitting in `Zone.Command` in order, exactly as a dungeon card
+sits there (CR 309.2b) and an emblem does, and the top of the deck is the first of them. They
+arrive as one `ObjectCreated` per card in the shuffled order, so the log carries the shuffle's
+result the way `LibraryShuffled` does and a resumed game opens the deck the original opened.
+
+Opening one (CR 701.51b) is an `ObjectMoved` from that zone to the battlefield with a new
+`MoveCause`. The cause is the whole of what CR 701.51c's "whenever you open an Attraction" has to
+watch: a commander and a dungeon leave the command zone too, and a trigger that asked only about
+the zones would count both.
+
+A visit is a d6 (CR 701.52a), and **the roll machinery already did everything a visit needs**. The
+turn-based action at the start of a precombat main phase (CR 505.5, 717.4) rolls in the engine
+beside the Saga's lore counter, because a turn-based action has no card behind it for the deferred
+locator to find. The two cards that print "roll to visit your Attractions" compile to an ordinary
+`RollDice` whose results table is **one row covering every number** — which Attractions the result
+visits is not a striation of the table but a question about the board asked with the number in
+hand, and the row reads it out of `SubjectAmount` exactly as "you gain life equal to the result"
+does. Both routes then go through one `Attractions.VisitEvents`, for the reason every venture in
+the engine goes through one method.
+
+`AttractionVisited` is the one new event and it changes no state — it says which Attraction the
+number lit so that Attraction's visit ability can trigger, the way `CombatDamageDealt` says what
+happened at once. The lights are deliberately **not** on it: which Attraction was visited is the
+whole fact, and a copy of the numbers here could disagree with the card.
+
+`Visit — [effect]` then needs no new ability shape at all. CR 702.159a writes it out as a trigger,
+so the compiler rewrites the line into `Whenever you visit ~, [effect]` and the shared sentence
+grammar reads the rest — which is why the family's payoff is 25 cards rather than the one or two a
+new effect vocabulary would have bought.
+
+#### The one place data decides whether a card compiles
+
+**An Attraction with no lights keeps its `Visit —` line unread.** The numbers are printed beside
+the text box and appear in no sentence, so a card that reached the compiler without them is one no
+result could ever match: it would open, sit on the battlefield and do nothing on every roll for the
+rest of the game while counting as a card the engine had fully read. All 22 playable Attractions
+carry theirs, so nothing in the corpus takes that arm — it is there because the alternative is the
+exact defect three audits this round were built to find, and because the harness had to learn to
+read the field at all. `CardParser` reads it too, so the game the app plays sees the same card the
+coverage figure counted.
+
+CR 717.6 came with it. A destroyed Attraction goes to its owner's junkyard **in the command zone**,
+not to a graveyard — which is what the reminder text printed on Draconian Gate-Bot and Down for
+Repairs says, and what a graveyard would have quietly got wrong: the card could then be counted,
+recurred and targeted by everything that has never been able to see an Attraction. It is a rewrite
+of the move's destination rather than a replacement candidate, so the permanent still leaves the
+battlefield and everything watching it leave still sees it.
+
+#### The three measurements, on the 21 cards still short
+
+| control | cards |
+|---|---:|
+| excision — delete the remaining attraction and visit lines | **18** |
+| substitution — those lines become "Draw a card." | **2** |
+| line control — drop a *different* unread line on a family card | **1** of 3 eligible |
+
+**Substitution against excision is 2 against 18, and that is the verdict on what is left.** What
+still blocks these cards is the rest of their sentences: "the lowest toughness among creatures you
+don't control", "a card at random from your graveyard", "until any player rolls a 1", "phases out
+until you roll a 3 or less", an extra combat phase, "claim the prize". The one card the line
+control completes is Monitor Monitor, whose other unread line is a dice reroll — which is the point
+of running it: a naive control that dropped any line at all completes 1,340 cards corpus-wide and
+measures nothing, while a control that drops a different unread line *on the same card* says
+whether this family's lines were the ones doing the blocking.
+
+#### Still declined, with counts
+
+- **"The number of Attractions you've visited this turn" — 4 cards** (Black Hole, Squirrel
+  Squatters, Storybook Ride, and Soul Swindler's "as long as you've visited an Attraction this
+  turn"). A per-turn tally on the player, which is a new state field plus a clause in two grammars
+  — the board-condition reader and the counting vocabulary — for four cards. Bounded and cheap, and
+  it is the next thing here rather than part of this.
+- **"Claim the prize" — 6 cards.** CR 702.159b makes the `Prize —` paragraph part of the same visit
+  ability, reached by a keyword action nothing performs. `Prize` stays a structural prefix and
+  those cards keep an unread line rather than compiling a visit that silently drops half of what it
+  says.
+- **Six Attractions blocked by their own effects — 1 each.** Bounce Chamber's superlative filter,
+  Hall of Mirrors' group copy, Haunted House, Tunnel of Love, Swinging Ship's extra combat phase,
+  Trash Bin's "at random". Each is its own family and none is about Attractions.
+- **Sticker — 47 cards, 63 lines, 53 distinct spellings, 42 by excision, 3 by substitution.**
+  Re-measured, and the decline holds: swap the sticker phrase out and **44 of the 47 are still
+  unread**. The third substitution is new this round and is not a sticker result — Costume Shop is
+  an Attraction, and it moved from 2 to 3 only because its `Visit —` line now reads. The 48 sheets
+  stay excluded on the type line for the reason tokens are.

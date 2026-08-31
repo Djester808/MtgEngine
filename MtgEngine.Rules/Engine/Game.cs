@@ -24,6 +24,22 @@ public sealed record PlayerSetup(
     /// command zone before the game begins (CR 903.6) rather than shuffled into the library.
     /// </remarks>
     public string? CommanderOracleId { get; init; }
+
+    /// <summary>
+    /// This player's Attraction deck, if they brought one (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// Empty for every player who did not, which is nearly all of them. Attraction cards do not
+    /// begin the game in a deck and do not count towards its size (CR 717.2) — they are a
+    /// supplementary deck that exists in the command zone — so they arrive here beside the deck
+    /// rather than inside it, the way a commander arrives as an id inside it.
+    /// <para>
+    /// It reaches the log as one <see cref="ObjectCreated"/> per card, in the shuffled order, so
+    /// the deck a resumed game opens from is the deck the original opened from. Nothing about it
+    /// is a state field: the cards are objects in a zone the reducer already folds.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardDefinition> AttractionDeck { get; init; } = [];
 }
 
 /// <summary>
@@ -152,6 +168,30 @@ public sealed class Game
             var inCommandZone = game.Move(inLibrary, Zone.Command, MoveCause.Other, setup.PlayerId);
             game.Emit(new CommanderDesignated(
                 setup.PlayerId, setup.CommanderOracleId, inCommandZone));
+        }
+
+        // CR 717.2: a player playing with Attractions begins with a supplementary Attraction
+        // deck that exists in the command zone, shuffled before the game begins (CR 103.3a).
+        // No new zone and no new state field: the deck is that player's Attraction cards sitting
+        // in the command zone in order, exactly as a dungeon card sits there (CR 309.2b), and
+        // the top card of the deck is the first of them. The shuffle's result goes into the log
+        // as the order the cards were created in, which is the same promise LibraryShuffled
+        // makes - a resumed game opens the deck the original opened.
+        foreach (var setup in setups)
+        {
+            if (setup.AttractionDeck.Count == 0)
+                continue;
+
+            foreach (var attraction in random.Shuffle(setup.AttractionDeck))
+            {
+                game.Emit(new ObjectCreated(
+                    ObjectId.New(),
+                    attraction,
+                    setup.PlayerId,
+                    setup.PlayerId,
+                    Zone.Command,
+                    ZonePosition.Bottom));
+            }
         }
 
         foreach (var seat in seats)
@@ -2763,6 +2803,44 @@ public sealed class Game
     }
 
     /// <summary>
+    /// Rolls the active player's visit die and visits what it lit (CR 505.5, 701.52a, 717.4).
+    /// </summary>
+    /// <remarks>
+    /// The roll happens here rather than through <see cref="RollDice"/> because a turn-based
+    /// action has no card behind it: the deferred path finds its table by looking up
+    /// (source, ability, effect index) in a compiled card, and this instruction is printed in the
+    /// rules rather than on anything. What it shares with that path is the part that matters -
+    /// the number goes into the log as <see cref="DiceRolled"/>, so a replay reads the result
+    /// instead of rolling again, and the visits are computed from it by the same
+    /// <see cref="Attractions.VisitEvents"/> the card-printed roll uses.
+    /// <para>
+    /// Skipped entirely when the active player controls no Attraction, which is CR 717.4's own
+    /// condition and not an optimisation: a die rolled for nobody would still be a number in the
+    /// log, and every "whenever you roll one or more dice" card in the corpus would trigger on
+    /// each of their main phases for the rest of the game.
+    /// </para>
+    /// </remarks>
+    private void RollToVisitAttractions()
+    {
+        var active = State.ActivePlayerId;
+
+        var controlsOne = State.Battlefield.Any(id =>
+            State.TryGetObject(id, out var obj)
+            && obj.Permanent is not null
+            && Attractions.Is(obj.Card)
+            && Characteristics.ControllerOf(State, _abilities, obj) == active);
+
+        if (!controlsOne)
+            return;
+
+        var result = _random.Choose([.. Enumerable.Range(1, Attractions.DieSides)]);
+        Emit(new DiceRolled(active, Attractions.DieSides, result, result));
+
+        foreach (var visit in Attractions.VisitEvents(State, _abilities, active, result))
+            Emit(visit);
+    }
+
+    /// <summary>
     /// Ends floating effects whose "for as long as" condition has stopped holding (CR 611.2b).
     /// </summary>
     /// <returns>True when one ended, so the sweep runs again.</returns>
@@ -4089,6 +4167,12 @@ public sealed class Game
                 }
 
                 _entryChoiceBeingAsked = null;
+
+                // The third question this kind now carries: a card name asked from a spell that
+                // is resolving rather than from a permanent that is arriving. The two cannot both
+                // be outstanding - a settle asks one question and stops - so which is being
+                // answered is decided by which slot is filled, not by a word on the choice.
+                ResolveCardNameChoice(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -5009,6 +5093,9 @@ public sealed class Game
     private readonly List<HandChoiceRequested> _handChoicesOwed = [];
 
     private readonly List<ColorChoiceRequested> _colorChoicesOwed = [];
+
+    /// <summary>Card names a resolving spell has asked for and not yet been given (CR 201.4).</summary>
+    private readonly List<CardNameChoiceRequested> _cardNameChoicesOwed = [];
 
     /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
     private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
@@ -6787,7 +6874,9 @@ public sealed class Game
             {
                 ChoiceOnEntry.Color =>
                     (IReadOnlyList<string>)["white", "blue", "black", "red", "green"],
-                ChoiceOnEntry.CardName => CardNamesOffered(obj),
+                ChoiceOnEntry.CardName => CardNamesOffered(
+                    ControllerOf(obj),
+                    _abilities.ChosenNameFilterOf(obj.Card) ?? SearchFilters.AnyCard),
                 _ => CreatureTypesInPlay(),
             };
 
@@ -6821,7 +6910,7 @@ public sealed class Game
     private ObjectId? _entryChoiceBeingAsked;
 
     /// <summary>
-    /// The card names this permanent's controller may be offered (CR 201.4).
+    /// The card names a player may be offered (CR 201.4).
     /// </summary>
     /// <remarks>
     /// CR 201.4 lets a player name any card in the Oracle reference — thirty-odd thousand of
@@ -6844,10 +6933,8 @@ public sealed class Game
     /// standing between the two.
     /// </para>
     /// </remarks>
-    private IReadOnlyList<string> CardNamesOffered(GameObject chooser)
+    private IReadOnlyList<string> CardNamesOffered(Guid controller, string filter)
     {
-        var filter = _abilities.ChosenNameFilterOf(chooser.Card) ?? SearchFilters.AnyCard;
-        var controller = ControllerOf(chooser);
         var seen = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var obj in State.Objects.Values)
@@ -6871,6 +6958,123 @@ public sealed class Game
         }
 
         return [.. seen];
+    }
+
+    private CardNameChoiceRequested? _cardNameChoiceBeingAsked;
+
+    /// <summary>
+    /// Asks the oldest owed card name, if any (CR 201.4).
+    /// </summary>
+    /// <returns>True when a question was asked and the settle has to stop.</returns>
+    /// <remarks>
+    /// The entry choice's question asked from a resolution instead of from a permanent arriving,
+    /// and deliberately the <em>same</em> question: one offer, one <see cref="ChoiceKind"/>, one
+    /// prompt shape. Sharing <see cref="CardNamesOffered"/> is not tidiness — that method is
+    /// where the rule lives that an offer never contains a card in an opponent's hand, and a
+    /// second list built here would have been a second place for that rule to be got wrong.
+    /// Sorcerous Spyglass and Anointed Peacekeeper pay printed text for the words "look at an
+    /// opponent's hand" before they name; Cranial Extraction does not, and names blind.
+    /// <para>
+    /// <see cref="ChoiceKind.NameCharacteristic"/> rather than a kind of its own, for the reason
+    /// that kind's own remarks give: the board renders a prompt and a list of strings, and which
+    /// of the questions it is answering changes nothing it draws. <c>Resume</c> tells the two
+    /// apart by which of them is outstanding, which is a fact the engine already has, rather
+    /// than by a word every client would have had to learn.
+    /// </para>
+    /// <para>
+    /// An empty offer asks nothing. That is not a fail-open: the search queued behind this one
+    /// is still holding <see cref="SearchFilters.ChosenName"/>, and
+    /// <see cref="AskOwedSearch"/> drops a search that reaches it unfilled.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedCardNameChoice()
+    {
+        if (_cardNameChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _cardNameChoicesOwed[0];
+        _cardNameChoicesOwed.RemoveAt(0);
+
+        if (!State.Players.ContainsKey(owed.ChooserId))
+            return false;
+
+        var options = CardNamesOffered(owed.ChooserId, owed.FilterId);
+        if (options.Count == 0)
+            return false;
+
+        _cardNameChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"name:{owed.SourceId.Value:N}",
+            PlayerId = owed.ChooserId,
+            Kind = ChoiceKind.NameCharacteristic,
+            Prompt = "Choose a card name.",
+            Options = [.. options.Select(o => new ChoiceOption(o, o))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Records the name that was chosen, and hands it to the search that was waiting for it
+    /// (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// Two things happen here and they are for different readers. The
+    /// <see cref="NameChosen"/> is for the log and the board: it says which card was named, and
+    /// it lands on the spell that asked, so a replay reaches the same answer without asking
+    /// again. The rewrite is for the search sentence that has been queued behind this question
+    /// since the same resolution, still carrying <see cref="SearchFilters.ChosenName"/> where
+    /// its filter should be.
+    /// <para>
+    /// The rewrite is confined to searches <em>this</em> player is about to make, because the
+    /// chooser is the searcher: an extraction's controller does both. It is also confined to the
+    /// sentinel — an ordinary tutor's filter is a word and is left alone.
+    /// </para>
+    /// <para>
+    /// <strong>An answer off the menu never reaches here.</strong> A card name is a word rather
+    /// than an object id, so it is the one answer in this engine that could arrive naming
+    /// something the offer never held - the card in the opponent's hand that
+    /// <see cref="CardNamesOffered"/> exists to hide. <c>Choose</c> refuses a pick that was not
+    /// among the options before any of this runs, which is where that guard belongs: one place,
+    /// for every question, at the door. Recomputing the offer here would be a second copy of the
+    /// narrowing rule, and the whole point of sharing one is that there is nowhere for the two
+    /// to drift apart.
+    /// </para>
+    /// </remarks>
+    private void ResolveCardNameChoice(IReadOnlyList<string> picks)
+    {
+        if (_cardNameChoiceBeingAsked is not { } owed)
+            return;
+
+        _cardNameChoiceBeingAsked = null;
+
+        if (picks.Count == 0)
+            return;
+
+        var named = picks[0];
+
+        Emit(new NameChosen(owed.SourceId, named));
+
+        for (var i = 0; i < _searchesOwed.Count; i++)
+        {
+            var search = _searchesOwed[i];
+
+            if (search.PlayerId != owed.ChooserId
+                || !search.FilterId.Contains(SearchFilters.ChosenName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            _searchesOwed[i] = search with
+            {
+                FilterId = search.FilterId.Replace(
+                    SearchFilters.ChosenName, named, StringComparison.Ordinal),
+            };
+        }
     }
 
     /// <summary>
@@ -8728,6 +8932,14 @@ public sealed class Game
         var owed = _searchesOwed[0];
         _searchesOwed.RemoveAt(0);
 
+        // A search still holding the chosen-name sentinel is one whose question was never
+        // answered - no name could be offered, or the answer was not one of the names on the
+        // menu. It does not happen, and if it did the filter would match nothing, so the search
+        // would silently "find nothing" and shuffle a library the card never told it to touch.
+        // CR 608.2b: an effect that cannot work out what it means does nothing at all.
+        if (owed.FilterId.Contains(SearchFilters.ChosenName, StringComparison.Ordinal))
+            return false;
+
         var found = SearchCandidates(owed);
 
         if (found.Count == 0)
@@ -10207,6 +10419,14 @@ public sealed class Game
                 continue;
             }
 
+            // Before the search, and that order is the whole mechanism: the extraction family
+            // prints "Choose a nonland card name." and then searches for cards with that name,
+            // and the search is queued holding a sentinel the answer fills in. Asked the other
+            // way round, the search would run against a filter no card answers to and the
+            // spell would report itself as having looked and found nothing.
+            if (AskOwedCardNameChoice())
+                return true;
+
             if (AskOwedSearch())
                 return true;
 
@@ -11050,17 +11270,29 @@ public sealed class Game
         // only as it was *before*: the card whose trigger the whole cast was for is still a spell
         // on the stack there, and its own mutate trigger would never fire. It is considered once,
         // afterwards, which is the only state that has all of its abilities.
-        var justMerged = e is PermanentMutated merged ? merged.Id : (ObjectId?)null;
+        //
+        // Specializing is the same shape and was the same bug. "When this creature specializes"
+        // is printed on the specialized version, which is the card the permanent only has once
+        // the event has applied — so read as it was *before*, the permanent is still the base
+        // card and the trigger the whole ability exists for is on nobody. The version compiled,
+        // the ability activated, the definition swapped, and the two Zombies were never created:
+        // a card reading perfectly and doing less than it says.
+        var remade = e switch
+        {
+            PermanentMutated merged => merged.Id,
+            PermanentSpecialized became => became.Id,
+            _ => (ObjectId?)null,
+        };
 
         foreach (var (id, obj) in before.Objects)
         {
-            if (id != justMerged)
+            if (id != remade)
                 Consider(e, before, id, obj);
         }
 
         foreach (var (id, obj) in State.Objects)
         {
-            if (!before.Objects.ContainsKey(id) || id == justMerged)
+            if (!before.Objects.ContainsKey(id) || id == remade)
                 Consider(e, State, id, obj);
         }
     }
@@ -12269,6 +12501,12 @@ public sealed class Game
                 // anyone has priority and does not use the stack - the chapter ability it sets
                 // off does.
                 AdvanceSagas();
+
+                // CR 505.5, 717.4: third, if the active player controls one or more Attractions
+                // and it is their precombat main phase, they roll to visit them. A turn-based
+                // action beside the Saga's lore counter, and like it, it does not use the stack -
+                // the visit abilities it sets off do.
+                RollToVisitAttractions();
                 break;
 
             case TurnStep.DeclareAttackers:
@@ -13937,6 +14175,9 @@ public sealed class Game
         if (e is ColorChoiceRequested naming)
             _colorChoicesOwed.Add(naming);
 
+        if (e is CardNameChoiceRequested namingACard)
+            _cardNameChoicesOwed.Add(namingACard);
+
         if (e is CreatureTypeChoiceRequested retyping)
             _creatureTypeChoicesOwed.Add(retyping);
 
@@ -14234,6 +14475,27 @@ public sealed class Game
         // it against a board that has moved on.
         if (e is ObjectMoved { From: Zone.Battlefield, LeavingControllerId: null } leaving)
             e = leaving with { LeavingControllerId = ControllerOf(State.GetObject(leaving.OldId)) };
+
+        // CR 717.6: a card with an Astrotorium back that would be put into any zone other than
+        // the battlefield, exile or the command zone goes to the command zone instead - the pile
+        // the reminder text on Draconian Gate-Bot and Down for Repairs calls a "junkyard", which
+        // CR 717.6a is explicit is not a zone of its own. Without it a destroyed Attraction lands
+        // in a graveyard, where it can be counted, recurred and targeted by cards that have never
+        // been able to see one, and the reminder text printed on the card destroying it would be
+        // describing something the engine does not do.
+        //
+        // A rewrite of the destination rather than a replacement candidate, and that is the whole
+        // difference: the move still happens and everything watching a permanent leave the
+        // battlefield still sees it leave. Only where it lands changes, which is what the rule
+        // says. It sits on the one path every event takes, because a removal effect builds its
+        // own ObjectMoved and there is no single caller to correct.
+        if (e is ObjectMoved astrotorium
+            && astrotorium.To is not (Zone.Battlefield or Zone.Exile or Zone.Command)
+            && State.TryGetObject(astrotorium.OldId, out var junked)
+            && Attractions.Is(junked.Card))
+        {
+            e = astrotorium with { To = Zone.Command, ControllerId = junked.OwnerId };
+        }
 
         // CR 730.3: "if a merged permanent leaves the battlefield, one permanent leaves the
         // battlefield and each of the individual components are put into the appropriate zone."

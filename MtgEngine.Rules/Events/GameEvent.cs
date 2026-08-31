@@ -61,6 +61,19 @@ public enum MoveCause
     Exile,
     Return,
     StateBasedAction,
+
+    /// <summary>
+    /// An Attraction moved from its owner's Attraction deck onto the battlefield (CR 701.51b).
+    /// </summary>
+    /// <remarks>
+    /// A cause rather than an event of its own, for the reason
+    /// <see cref="DestroyNoRegeneration"/> is one: the move already says everything that
+    /// happened, and "whenever you open an Attraction" (CR 701.51c) is the only thing in the game
+    /// that has to tell this move from any other card leaving the command zone. A commander
+    /// returning to the battlefield from the command zone is not an opening, and without the
+    /// cause nothing could see the difference.
+    /// </remarks>
+    OpenAttraction,
 }
 
 /// <summary>Which end of an ordered zone an object arrives at (CR 400.5).</summary>
@@ -862,6 +875,28 @@ public sealed record DiceRolled(Guid PlayerId, int Sides, int Natural, int Resul
     public override string Rule => "706.2";
 
     public override string Describe() => $"{PlayerId:N} rolled a d{Sides}: {Result}.";
+}
+
+/// <summary>
+/// One Attraction was visited by a roll that matched a number lit up on it (CR 701.52a).
+/// </summary>
+/// <remarks>
+/// It changes no state and exists so a visit ability can trigger, which is the same reason
+/// <see cref="CombatDamageDealt"/> exists: the roll is one <see cref="DiceRolled"/> and the
+/// question each Attraction asks — "is <em>my</em> light the one that came up" — cannot be
+/// answered from it without every Attraction's trigger re-deriving the lights, the controller and
+/// the board from a number. Said once, per Attraction, by the thing that knows.
+/// <para>
+/// The lights are <em>not</em> on this event. Which Attraction was visited is the whole of the
+/// fact; the numbers behind it are printed on the card the id names, and a copy here could
+/// disagree with them.
+/// </para>
+/// </remarks>
+public sealed record AttractionVisited(Guid PlayerId, ObjectId AttractionId) : GameEvent
+{
+    public override string Rule => "701.52a";
+
+    public override string Describe() => $"{PlayerId:N} visited {AttractionId}.";
 }
 
 /// <summary>Energy counters gained or spent by a player (CR 122.1, 107.14).</summary>
@@ -1805,6 +1840,37 @@ public sealed record PermanentTransformed(ObjectId Id, int FaceIndex) : GameEven
     public override string Rule => "712.8d";
 
     public override string Describe() => $"{Id} turned to face {FaceIndex}.";
+}
+
+/// <summary>
+/// A permanent became the specialized version for one colour, or went back to its base.
+/// </summary>
+/// <remarks>
+/// Specialize is an Alchemy mechanic and is in none of the printed Comprehensive Rules — the
+/// numbering the corpus notes had for it, 702.157, is Squad. The authority is the Arena rules
+/// bulletin: "Specialize [cost]" is "[Cost], Discard a card: This permanent specializes into the
+/// specialized version associated with the color of the discarded card. Activate only as a
+/// sorcery."
+/// <para>
+/// Its own event and not a <see cref="PermanentTransformed"/> with a wider index, even though
+/// the reducer does very nearly the same thing with it. The two are different questions and the
+/// cards ask them separately: "when this creature specializes" is printed on nineteen cards'
+/// versions and must not fire when a werewolf turns over, and "transform this permanent" must
+/// not put a discarded card's colour on the board.
+/// </para>
+/// <para>
+/// The version number rather than a colour so that zero can mean the base card, which is what
+/// unspecializing is. Named <c>Version</c> and not <c>Index</c> because it is not a target index
+/// and the invariant guard is right to ask - it is a locator, the same kind of thing
+/// <c>EffectIndex</c> is. No state field goes with it: the swapped-in definition carries the
+/// number in its own oracle id, the way a turned-over face does.
+/// </para>
+/// </remarks>
+public sealed record PermanentSpecialized(ObjectId Id, int Version) : GameEvent
+{
+    public override string Describe() => Version == 0
+        ? $"{Id} unspecialized."
+        : $"{Id} specialized into version {Version}.";
 }
 
 /// <summary>
@@ -2962,6 +3028,36 @@ public sealed record NameChosen(ObjectId Id, string Value) : GameEvent
     public override string Rule => "201.4";
 
     public override string Describe() => $"{Id} named {Value}.";
+}
+
+/// <summary>
+/// A resolving spell or ability has asked its controller to name a card (CR 201.4).
+/// </summary>
+/// <remarks>
+/// The request, not the answer: the answer is a <see cref="NameChosen"/> emitted once the player
+/// has spoken. Two events rather than one because the question is asked from the settle after
+/// the resolution rather than inside it — the same shape as
+/// <see cref="LibrarySearchRequested"/>, and for the same reason.
+/// <para>
+/// <paramref name="SourceId"/> is the spell that asked, so the answer lands on the object that
+/// posed the question and a game log reads as the card doing something rather than as a name
+/// appearing from nowhere. It may well have left the stack by the time the answer arrives —
+/// a sorcery is in its owner's graveyard a moment later — and that costs nothing: the fold
+/// leaves an event about an object that is gone alone, identically on the first run and on the
+/// replay.
+/// </para>
+/// <para>
+/// <paramref name="FilterId"/> is what the printed card allows to be named (CR 201.4a), and it
+/// travels on the request rather than being looked up when the question is asked, because the
+/// card that asked may no longer be anywhere the asker can consult.
+/// </para>
+/// </remarks>
+public sealed record CardNameChoiceRequested(
+    Guid ChooserId, ObjectId SourceId, string FilterId) : GameEvent
+{
+    public override string Rule => "201.4";
+
+    public override string Describe() => $"{ChooserId:N} is to name a {FilterId} card.";
 }
 
 /// <summary>Mana was added to a player's pool (CR 106.1).</summary>

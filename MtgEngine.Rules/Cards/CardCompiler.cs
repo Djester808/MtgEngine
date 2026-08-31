@@ -110,6 +110,30 @@ public static partial class CardCompiler
         if (CompileGiftSpell(card) is { } gifted)
             return gifted;
 
+        // A specialize card is a card with five more cards behind it, and they are read here for
+        // exactly the reason the faces below are: the ability turns the permanent into one of
+        // them, so a version this compiler cannot read is text the player would be given and the
+        // engine would not play. Rolled up rather than dropped, and the card stays incomplete
+        // until every version reads — a "Specialize {2}" that compiled while one of its five
+        // destinations was half-read would be the failure this whole file exists to avoid.
+        //
+        // The reading of the base itself is marked with a $0 so this branch is entered once: the
+        // versions come back with $1..$5 on their ids and go straight down the ordinary path,
+        // where their own text is all there is.
+        if (card.Specializations.Count == 6
+            && !card.OracleId.Contains('$', StringComparison.Ordinal))
+        {
+            var itself = Compile(BaseReading(card));
+
+            var versions = ImmutableList.CreateBuilder<string>();
+            versions.AddRange(itself.Unhandled);
+
+            for (var version = 1; version < card.Specializations.Count; version++)
+                versions.AddRange(Compile(CardFaces.Specialized(card, version)).Unhandled);
+
+            return itself with { Unhandled = versions.ToImmutable() };
+        }
+
         if (card.Faces.Count > 1 && !card.OracleId.Contains('#', StringComparison.Ordinal))
         {
             var front = Compile(FrontOnly(card));
@@ -616,6 +640,9 @@ public static partial class CardCompiler
                 continue;
 
             if (TryReconfigure(line, activated, statics))
+                continue;
+
+            if (TrySpecialize(line, card, activated))
                 continue;
 
             if (TryJobSelect(line, triggers))
@@ -2031,6 +2058,34 @@ public static partial class CardCompiler
     /// halves joined, and the face list is emptied so <see cref="Compile"/> reads this as an
     /// ordinary card instead of coming straight back here.
     /// </remarks>
+    /// <summary>
+    /// The same card marked as its own base reading, so the specialize branch is entered once.
+    /// </summary>
+    /// <remarks>
+    /// The marker is the same one <see cref="CardFaces.Specialized"/> writes, because the two
+    /// have to agree about what a specialized id looks like: the versions come back as
+    /// <c>$1</c>..<c>$5</c> and the base as <c>$0</c>, and every one of them has already been
+    /// dealt with by the time the ordinary line loop sees it.
+    /// </remarks>
+    private static CardDefinition BaseReading(CardDefinition card) => new()
+    {
+        OracleId = card.OracleId + "$0",
+        Name = card.Name,
+        OracleText = card.OracleText,
+        ManaCostRaw = card.ManaCostRaw,
+        Cmc = card.Cmc,
+        CardTypes = card.CardTypes,
+        Subtypes = card.Subtypes,
+        Supertypes = card.Supertypes,
+        Keywords = card.Keywords,
+        Colors = card.Colors,
+        ColorIdentity = card.ColorIdentity,
+        Power = card.Power,
+        Toughness = card.Toughness,
+        Defense = card.Defense,
+        Specializations = card.Specializations,
+    };
+
     private static CardDefinition FrontOnly(CardDefinition card) => new()
     {
         OracleId = card.OracleId,
@@ -3464,6 +3519,24 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
                     + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
 
+            // "Equal to twice the number of Vehicles you control", "where X is 1 plus twice the
+            // number of age counters on it" - a count with a factor in front of it, and the same
+            // move for the same reason: the six wrappers that read a count all anchor on the
+            // literal words "the number of", so a factor printed in front of them hides the
+            // count from every one of them at once. Carried across those words rather than given
+            // to each wrapper as an optional group - four of them had been taught that group one
+            // at a time, which is why "deals damage equal to twice the number of" read while the
+            // characteristic-defining spelling of the same arithmetic did not.
+            //
+            // Any constant is carried across with it and stays in front, so "1 plus twice the
+            // number of X" becomes "1 plus the number of twice X" and the additive rewrite below
+            // finishes the move. The group grammar takes the two terms off in the order they are
+            // written and applies the factor before the constant, which is what the card says.
+            cleaned = MultipliedCountAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " " + m.Groups["plus"].Value + "the number of "
+                    + m.Groups["f"].Value + " ");
+
             // "Equal to 2 plus the number of cards named ~ in all graveyards", "where X is one
             // plus the number of other creatures you control" — a count with a constant added to
             // it. Every wrapper that reads a count anchors on the literal words "the number of",
@@ -3478,6 +3551,28 @@ public static partial class CardCompiler
             cleaned = AdditiveCountAsANumber().Replace(
                 cleaned,
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["n"].Value + " plus ");
+
+            // "Visit — [effect]" is not an ability word and must never be stripped like one: it
+            // is a keyword ability, and CR 702.159a writes out what it means in full — "whenever
+            // you roll to visit your Attractions, if the result is equal to a number that is lit
+            // up on this Attraction, [effect]". That whole condition is the event
+            // Attractions.VisitEvents already decides, so the expansion the grammar needs is the
+            // short one: a trigger about this Attraction being visited.
+            //
+            // **Only when the card actually carries its lights.** The numbers are printed in the
+            // column beside the text box (CR 717.1) and appear in no sentence, so an Attraction
+            // that reached the compiler without them is one no result could ever match. Rewriting
+            // its line would compile a card that reads perfectly, opens, sits on the battlefield
+            // and does nothing on every roll for the rest of the game. Left unread instead, which
+            // is the honest answer and the one the coverage figure should carry. All 22 playable
+            // Attractions have their lights, so nothing in the corpus takes this arm.
+            if (card.AttractionLights.Count > 0 && VisitAbility().Match(cleaned) is
+                { Success: true } visit)
+            {
+                var effect = visit.Groups["effect"].Value;
+                cleaned = "Whenever you visit ~, "
+                    + char.ToLowerInvariant(effect[0]) + effect[1..];
+            }
 
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
@@ -3506,6 +3601,39 @@ public static partial class CardCompiler
             // reader. That is the shape this round is about: not a missing sentence, but which
             // of the compiler's vocabularies a sentence happened to reach.
             cleaned = AndOrSlash().Replace(cleaned, " or ");
+
+            // "Artifact, creature, or land" is three alternatives written the way English writes
+            // a list of three, and every reader in this compiler that reads alternatives splits
+            // on " or " (or on " and ") alone. So a card naming two kinds read and the same card
+            // naming three did not - not because the third kind was hard, but because the comma
+            // in front of it was never taken off. **102 incomplete cards print a card-type list
+            // of three or more**, across eight different readers: the target grammar, the cast
+            // trigger, the graveyard tutor, the sacrifice cost, the Aura's enchant clause, the
+            // group filter, the damage target and the counter target. Normalised here, beside
+            // "and/or", so all eight read it at once rather than eight patterns growing a comma.
+            //
+            // **Card-type words only.** The list members are matched against the printed type
+            // words and nothing else, so "Enchanted creature gets +2/+2, has vigilance, and can't
+            // attack you" - a comma list of clauses that happens to start with the word
+            // "creature" - is not touched: the word after its comma is not a type. A list whose
+            // members this cannot name is left exactly as printed, which leaves the line in the
+            // queue rather than reading it as a shorter list than the card prints.
+            //
+            // The printed conjunction is put back between every pair rather than normalised to
+            // "or", because the two are not the same sentence downstream: "each artifact,
+            // creature, and enchantment" is a group the readers collect with "and" and "target
+            // artifact, creature, or land" is one choice among three.
+            cleaned = TypeListCommas().Replace(
+                cleaned,
+                m =>
+                {
+                    var join = " " + m.Groups["j"].Value + " ";
+                    var flat = m.Groups["a"].Value;
+                    foreach (Capture mid in m.Groups["m"].Captures)
+                        flat = flat + join + mid.Value;
+
+                    return flat + join + m.Groups["z"].Value;
+                });
 
             cleaned = Whitespace().Replace(cleaned, " ").Trim();
 
@@ -3578,6 +3706,30 @@ public static partial class CardCompiler
                 cleaned,
                 m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
                     + ", where X is " + m.Groups["amount"].Value);
+
+            // "Draw cards equal to its power", "create a number of Treasure tokens equal to its
+            // power" — the same quantity as the count above, measured on one object instead of
+            // counted, and *which* object is the whole of the work. The clause the rewrite writes
+            // into already reads "where X is ~'s power" as the source and nothing else, so a
+            // possessive this can prove means the source is spelled into that form and every verb
+            // gains it at once; one it cannot prove is left exactly as printed, and the line stays
+            // unread. That is the direction to be wrong in: a stat read off the wrong permanent is
+            // a card that compiles, plays and pays a number the card does not print.
+            //
+            // **Damage is deliberately absent from the nouns.** "~ deals damage equal to its power
+            // to target creature" is read whole by a matcher that already knows the pronoun's
+            // difficulty, and the rewrite would take the sentence away from it and hand the clause
+            // a head with a target in it — which is the reading the count rewrite next door
+            // declines this family for. The measurement is in GAME_ENGINE_FEATURE.md.
+            var measured = cleaned;
+            cleaned = StatAsANumber().Replace(
+                measured,
+                m => PossessiveNamesTheSource(
+                        measured,
+                        m.Index,
+                        m.Groups["whose"].Value.Equals("~'s", StringComparison.Ordinal))
+                    ? "X " + m.Groups["what"].Value + ", where X is ~'s " + m.Groups["stat"].Value
+                    : m.Value);
 
             // "…, where X is the sacrificed creature's power" — X measured on the object this
             // spell or ability's own cost took (CR 608.2k). The engine records what a cost takes
@@ -3685,6 +3837,64 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// Whether the possessive of a stat amount beginning at <paramref name="at"/> in
+    /// <paramref name="line"/> can only be the source of the ability (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The nearest-antecedent rule <see cref="MeansTheSource"/> applies, with two differences the
+    /// grammar forces and one the rules do.
+    /// <para>
+    /// <b>The position asked about is the quantity, not the pronoun.</b> "Draw cards equal to its
+    /// power" carries the word "cards" between the two, and "card" is in the antecedent list — so
+    /// asked at the pronoun, every sentence of this family refuses itself on the noun it is a
+    /// quantity of. Asked where the quantity begins, the text in between is the sentence proper.
+    /// </para>
+    /// <para>
+    /// <b>A player is not a candidate.</b> "Whenever ~ deals combat damage to a player, draw cards
+    /// equal to its power" and "When ~ leaves the battlefield, target opponent loses life equal to
+    /// its power" both name a person between the source and the quantity, and a person has no
+    /// power and no toughness (CR 107.3) — so the possessive cannot be pointing at them, and they
+    /// are struck out of the text before the antecedent list is asked. Nothing else is: every
+    /// object word stays a refusal, planeswalkers included, because being wrong about which
+    /// object is the failure this whole reader is arranged around.
+    /// </para>
+    /// <para>
+    /// <b>And the source has to still be there.</b> The number is read as the effect resolves, so
+    /// a sentence whose own trigger took the source off the battlefield first — "when ~ dies,
+    /// create a number of Treasure tokens equal to its power" — is asking about a permanent that
+    /// no longer exists, and a card in a graveyard answers its printed power. Goldvein Hydra and
+    /// Termagant Swarm are printed 0/0s that live entirely on their counters: read that way they
+    /// would compile, resolve, and make nothing, for ever. Those lines are refused rather than
+    /// answered with a lie, and the refusal applies to the <em>printed</em> name as much as to the
+    /// pronoun — Termagant Swarm spells its own name where the pronoun would go, and spelling it
+    /// out settles which object is meant without saying a word about whether it is still there.
+    /// </para>
+    /// </remarks>
+    /// <param name="line">The line being read, with the card's own name already a tilde.</param>
+    /// <param name="at">Where the quantity begins — not where the possessive does.</param>
+    /// <param name="printedTilde">
+    /// Whether the card spelled its own name rather than a pronoun, which settles the antecedent
+    /// question outright and leaves only the question of whether the source is still there.
+    /// </param>
+    private static bool PossessiveNamesTheSource(string line, int at, bool printedTilde)
+    {
+        var before = line[..at];
+
+        if (printedTilde)
+            return !SourceHasLeft().IsMatch(before);
+
+        var named = before.LastIndexOf('~');
+
+        if (named < 0)
+            return false;
+
+        var between = before[(named + 1)..];
+
+        return !SourceHasLeft().IsMatch(between)
+            && !OtherAntecedent().IsMatch(PlayerNoun().Replace(between, " "));
+    }
+
+    /// <summary>
     /// A line that is nothing but keywords the engine already models (CR 702).
     /// </summary>
     /// <remarks>
@@ -3762,7 +3972,20 @@ public static partial class CardCompiler
 
         var found = KeywordAbility.None;
 
-        foreach (var part in body.Split(';'))
+        // The comma is here as well as the semicolon because the ordinary keyword reader splits
+        // on it and then looks each part up as a flag the card carries - and a protection
+        // conjunction is the one list member that is neither. "Flying, first strike, vigilance,
+        // trample, haste, protection from black and from red" is Akroma's whole line: the plain
+        // reader took the first five and had no name for the sixth, so all six went unread. This
+        // reader has a name for it and grants what it names, which is what that phrase needs.
+        //
+        // A protection conjunction can itself be written with commas - "Protection from white,
+        // from blue, from black, and from red" is Oversoul of Dusk's whole line - so the pieces
+        // of one are put back together before anything is looked up. Splitting without the fold
+        // *lost* that card: it had been read as a single part and became four, three of which
+        // name no keyword at all. A list reader that takes cards away is worse than one that
+        // adds none, which is why the fold is here and not left to the queue.
+        foreach (var part in Rejoined(body.Split(';', ',')))
         {
             var word = part.Trim();
             if (word.Length == 0)
@@ -3794,6 +4017,34 @@ public static partial class CardCompiler
 
         granted |= found;
         return true;
+    }
+
+    /// <summary>Puts a comma-written protection conjunction back together (CR 702.16e).</summary>
+    /// <remarks>
+    /// The only keyword in the corpus whose printed phrase contains a comma of its own, which
+    /// is why splitting a list on commas needs this and nothing else needs it. A continuation is
+    /// told from a new member by its first word: "from blue" and "and from red" can only be the
+    /// rest of a protection phrase, because no keyword the engine names begins with "from".
+    /// </remarks>
+    private static List<string> Rejoined(string[] parts)
+    {
+        var folded = new List<string>(parts.Length);
+
+        foreach (var part in parts)
+        {
+            var word = part.Trim();
+            if (folded.Count > 0
+                && (word.StartsWith("from ", StringComparison.OrdinalIgnoreCase)
+                    || word.StartsWith("and from ", StringComparison.OrdinalIgnoreCase)))
+            {
+                folded[^1] = folded[^1] + ", " + word;
+                continue;
+            }
+
+            folded.Add(word);
+        }
+
+        return folded;
     }
 
     /// <summary>"Protection from blue, from black, and from red" (CR 702.16e).</summary>
@@ -4637,6 +4888,99 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>
+    /// "Specialize [cost]" - five activated abilities, one per colour (Alchemy).
+    /// </summary>
+    /// <remarks>
+    /// Specialize is in none of the printed Comprehensive Rules; the authority is the Arena rules
+    /// bulletin, which spells it out as "[Cost], Discard a card: This permanent specializes into
+    /// the specialized version associated with the color of the discarded card. Activate only as
+    /// a sorcery."
+    /// <para>
+    /// <strong>Five abilities, not one.</strong> Which version you get is decided by the colour
+    /// of the card you discard, and a discard is a cost - paid <em>with</em> the activation, so
+    /// the branch is taken before anything resolves (see the note on
+    /// <see cref="ActivatedAbilityDefinition.ChosenCosts"/>). Written as one ability that read the
+    /// discarded card afterwards it would have needed the payment kept and looked at during
+    /// resolution, which is the continuation this engine deliberately cannot hold. Written as
+    /// five, each with its own coloured price, every existing piece already works: the cost check
+    /// refuses a hand with no card of that colour, and the board can offer the five side by side.
+    /// </para>
+    /// <para>
+    /// Refused outright when the card's five versions were not linked, which is what keeps this
+    /// fail-closed: an ability that activated, took the mana and the card, and turned the
+    /// permanent into nothing is worse than the unread line it replaced. Two of the nineteen
+    /// printed lines are refused for the tail they carry rather than the keyword - a printed cost
+    /// reduction and Karlach's "you may also activate this ability if it is in your graveyard",
+    /// which is an activation from a zone this ability does not function in.
+    /// </para>
+    /// </remarks>
+    private static bool TrySpecialize(
+        string line,
+        CardDefinition card,
+        ImmutableList<ActivatedAbilityDefinition>.Builder into)
+    {
+        var m = SpecializeLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Nothing to become. The line stays unread, which is the honest answer: the card says it
+        // can specialize and this compiler has not been told what into.
+        if (card.Specializations.Count != 6)
+            return false;
+
+        var cost = ManaCostSpec.Parse(m.Groups["cost"].Value);
+
+        var timing = ActivationTiming.SorceryOnly;
+        int? limit = null;
+        BoardCondition? onlyIf = null;
+
+        if (m.Groups["only"].Success)
+        {
+            if (ReadActivationRestrictions(m.Groups["only"].Value.Trim()) is not { } read)
+                return false;
+
+            // A printed timing beside the keyword's own would be two answers to one question, and
+            // taking either would print a card nobody has. No corpus line does it.
+            if (read.Timing != ActivationTiming.AnyTime && read.Timing != timing)
+                return false;
+
+            limit = read.Limit;
+            onlyIf = read.OnlyIf;
+        }
+
+        for (var version = 1; version < card.Specializations.Count; version++)
+        {
+            var colour = (ManaColor)version;
+            if (SpecForCardPayment(ColourWords[colour] + " card", 1) is not { } discard)
+                return false;
+
+            into.Add(new ActivatedAbilityDefinition
+            {
+                Id = "specialize-" + ColourWords[colour],
+                Text = line,
+                ManaCost = cost,
+                Timing = timing,
+                MaxActivationsPerTurn = limit,
+                ActivateOnlyIf = onlyIf,
+                ChosenCosts = [new ChosenCost(ChosenCostKind.DiscardCards, 1, discard)],
+                Effects = [new SpecializeSource(version)],
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>The word a card prints for each colour, in <see cref="ManaColor"/>'s order.</summary>
+    private static readonly Dictionary<ManaColor, string> ColourWords = new()
+    {
+        [ManaColor.White] = "white",
+        [ManaColor.Blue] = "blue",
+        [ManaColor.Black] = "black",
+        [ManaColor.Red] = "red",
+        [ManaColor.Green] = "green",
+    };
 
     /// <summary>
     /// "Job select" - an Equipment that brings its own wearer (CR 702.182a).
@@ -15155,7 +15499,7 @@ public static partial class CardCompiler
     /// in.
     /// </para>
     /// </remarks>
-    private static string? ChosenNameFilterFor(string qualifier)
+    internal static string? ChosenNameFilterFor(string qualifier)
     {
         var said = qualifier.Trim().Trim(',').Trim();
         if (said.Length == 0)
@@ -19220,6 +19564,22 @@ public static partial class CardCompiler
     /// number in it rather than two - the same shape of miss as the hyphen, found the same way.
     /// </para>
     /// </remarks>
+    /// <summary>An Attraction's visit ability and the effect behind the long dash (CR 702.159a).</summary>
+    /// <remarks>
+    /// Anchored at the front and greedy to the end, because the effect is the rest of the line
+    /// however many sentences it holds - "Put a +1/+1 counter on target creature you control.
+    /// That creature gains vigilance until end of turn" is one visit ability of two sentences,
+    /// and the shared sentence grammar splits it the way it splits any other trigger's effect.
+    /// <para>
+    /// "Prize — …" is deliberately not here. CR 702.159b makes it part of the same visit ability,
+    /// reached by "claim the prize" - a keyword action nothing in this engine performs - so the
+    /// six cards printing one keep an unread line and stay incomplete rather than compiling a
+    /// visit that silently drops half of what it says.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^Visit \u2014 (?<effect>.+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex VisitAbility();
+
     private static readonly Regex AbilityWordRegex = new(
         @"^(?!(?:[IVX]+(?:, ?[IVX]+)*|"
             + string.Join('|', StructuralPrefixes.Select(Regex.Escape))
@@ -19400,6 +19760,32 @@ public static partial class CardCompiler
     private static partial Regex AdditiveCountAsANumber();
 
     /// <summary>
+    /// "Equal to twice the number of …", "where X is 1 plus three times the number of …".
+    /// </summary>
+    /// <remarks>
+    /// The lead does the work it does for devotion, for the aggregate and for the constant: it is
+    /// what says the phrase is being used as a number. Those two words are the only leads the 39
+    /// corpus cards printing a multiplied count use.
+    /// <para>
+    /// The factor itself is matched widely and named narrowly, by
+    /// <c>EffectPhrase.MultiplyingNumber</c>, which is the only list of factor words there is. A
+    /// word that list cannot name leaves the line unread: moving the words about does not make a
+    /// phrase readable, and a factor guessed at as one is a card playing half what it prints.
+    /// </para>
+    /// <para>
+    /// The optional constant is matched and re-emitted in front rather than left behind, because
+    /// the additive rewrite that follows anchors on the lead too and could not see past a factor
+    /// sitting between them - which is the whole of why Mwonvuli Ooze, the one card printing
+    /// both, was unread while every card printing one of them alone was not.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) (?<plus>(?:\d{1,2}|one|two|three|four|five|six|seven"
+            + @"|eight|nine|ten) plus )?(?<f>twice|thrice|[A-Za-z]+ times) the number of ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MultipliedCountAsANumber();
+
+    /// <summary>
     /// "…equal to the number of …" — a count written as a quantity rather than as a "for each".
     /// </summary>
     /// <remarks>
@@ -19442,6 +19828,54 @@ public static partial class CardCompiler
             + @" equal to (?<amount>the number of [^.;]+?)(?<tail> to [^.;]+?)?(?=\.|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex CountAsANumber();
+
+    /// <summary>
+    /// "…equal to its power" — a quantity measured on one object rather than counted (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The noun list is the count rewrite's next door with <c>damage</c> struck out, and the
+    /// striking out is the point: the damage sentences of this family are read whole by a matcher
+    /// that already knows what their pronoun means, and handing them to the clause instead is the
+    /// mis-reading that whole family was declined for.
+    /// <para>
+    /// The stat ends at the word. "Its power plus its toughness" and "its power minus 1" are
+    /// printed too, and an arithmetic tail admitted here would read as the bare stat and give the
+    /// card a number it does not print — the same closed ending the clause it writes into keeps.
+    /// </para>
+    /// <para>
+    /// A life sentence the life family already reads is left alone by the lookbehind, because that
+    /// family answers the possessive with a reading this rewrite cannot express: it can see the
+    /// permanent an earlier sentence targeted, and this can only see the words.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?:a number of (?<what>[^.;]+?)|(?<!\b(?:gain|gains|lose|loses) )\b(?<what>life|cards))"
+            + @"(?<!\bor) equal to (?<whose>its|~'s) (?<stat>power|toughness|mana value)\b"
+            + @"(?!\s+(?:plus|minus|and|or)\b)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StatAsANumber();
+
+    /// <summary>A person, who has no power and no toughness to be the antecedent of (CR 107.3).</summary>
+    [GeneratedRegex(
+        @"\b(?:target |each |an |any |that |a |another |the |their )?(?:player|opponent)s?\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PlayerNoun();
+
+    /// <summary>
+    /// Something the sentence says has happened to the source before the quantity is measured.
+    /// </summary>
+    /// <remarks>
+    /// Not a grammar — a refusal, and a wider one than it looks. It catches the trigger condition
+    /// of "when ~ dies" and "when ~ leaves the battlefield" because those words stand between the
+    /// tilde and the quantity, and it catches Riders of the Mark, whose sentence returns the
+    /// source to its owner's hand and only then asks how big it was.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?:dies|died|leaves the battlefield|left the battlefield|is put into|was put into"
+            + @"|are put into|is exiled|was exiled|is milled"
+            + @"|sacrifice (?:it|~)|exile (?:it|~)|return (?:it|~)|put (?:it|~) into)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SourceHasLeft();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.
@@ -19558,6 +19992,17 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^reconfigure (?<cost>[^.]+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ReconfigureLine();
+
+    /// <remarks>
+    /// The ability word in front of it - "Wild Shape", "Rage Beyond Death" - is already off
+    /// by the time a line reaches here (CR 207.2c), so this reads the keyword and, if the
+    /// card prints one, the "Activate only ..." sentence beside it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^specialize (?<cost>(?:\{[^}]+\})+)"
+            + @"(?:\. activate only (?<only>[^.]+))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SpecializeLine();
 
     [GeneratedRegex(@"^job select$", RegexOptions.IgnoreCase)]
     private static partial Regex JobSelectLine();
@@ -19862,6 +20307,32 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(@"(?<!\})\s+and/or\s+(?!\{)", RegexOptions.IgnoreCase)]
     private static partial Regex AndOrSlash();
+
+    /// <summary>The printed card types, as a list member may spell one (CR 205.2a).</summary>
+    /// <remarks>
+    /// Deliberately the printed words and not <see cref="CardType"/>: this is a rewrite over
+    /// text, and what it has to recognise is the spelling. Plurals are here because a group
+    /// names its kinds in the plural - "artifacts, creatures, and lands you control".
+    /// </remarks>
+    private const string TypeListWord =
+        "artifacts?|creatures?|enchantments?|lands?|planeswalkers?|instants?|sorceries|sorcery|battles?";
+
+    /// <summary>"Artifact, creature, or land" - a list of three or more kinds (CR 109.4).</summary>
+    /// <remarks>
+    /// The comma is the whole of the difference between a list this compiler reads and one it
+    /// does not, exactly as the slash was for "and/or", so it is taken off in the same place.
+    /// The trailing comma before the conjunction is optional because both spellings are printed.
+    /// <para>
+    /// Anchored on a word boundary at each end so a type word inside a longer one - "Island",
+    /// "nonartifact" - is never a member, and every member is a type word so a comma list of
+    /// anything else is left alone.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?<a>" + TypeListWord + @")(?:, (?<m>" + TypeListWord + @"))+,? "
+            + @"(?<j>or|and) (?<z>" + TypeListWord + @")\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TypeListCommas();
 
     [GeneratedRegex(
         @"^(~'s|~’s) (?<stat>power and toughness are each|power is|toughness is) "

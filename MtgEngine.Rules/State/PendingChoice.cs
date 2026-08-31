@@ -107,6 +107,13 @@ public enum ChoiceKind
     /// not one and lands in <c>GameObject.ChosenName</c>. <c>Game.Resume</c> reads which was
     /// asked off the card rather than off this kind, so no client had to learn a fourth word
     /// for a question it already renders.
+    /// <para>
+    /// A fourth question now, and the same argument again: "Choose a nonland card name" asked
+    /// by a spell while it resolves. It differs from the entry choice in when the game stops
+    /// and in nothing the board can see — the same prompt, the same list of names, narrowed
+    /// by the same rule about whose hand may be read — so it is answered here too, and
+    /// <c>Game.Resume</c> tells the two apart by which of them the engine is holding open.
+    /// </para>
     /// </remarks>
     NameCharacteristic,
 
