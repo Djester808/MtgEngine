@@ -513,6 +513,86 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: the basic land type of your choice, and two neighbours re-measured
+
+Round twenty moved CR 305.6's intrinsic mana ability off the printed card and onto the land's
+*current* subtypes, and named this family as the obvious next round. It is **12 cards**, not the
+13 the census ranked, and every one of them is one line short with the same sentence: `Target land
+becomes the basic land type of your choice until end of turn.` Cutting that sentence out of the
+compiler's own lines and recompiling completes all twelve — Dream Thrush, Grixis Illusionist,
+Jinx, Moonbow Illusionist, Mystic Compass, Navigator's Compass, Pixie Illusionist, Reef Shaman,
+Sea Snidd, Shimmering Mirage, Tideshaper Mystic and Unstable Frontier. **The control that cuts
+nothing moves the count by one** (Lightwheel Enhancements, which reads differently when its own
+lines are re-joined), so every figure in this section carries that much noise.
+
+#### The question was the whole of the work, because the answer already had somewhere to go
+
+The named form of this sentence — "target land becomes an Island until end of turn" — has read
+for a round, and what it builds is `becomes-type:Island`, which already knows both halves of
+CR 305.7: a land *set* to a basic land type loses its old land types and the abilities its rules
+text gave it, and one that gains a type "in addition to its other types" keeps every word. So
+nothing new was needed in the layers at all. What was missing was the *question*, and this engine
+has exactly one shape for one: an event plus a `ChoiceKind`, so a replay reaches the same offer
+and reads the answer back out of the log rather than out of a captured continuation.
+
+`ChooseBasicLandType` is a kind of its own beside `ChooseCreatureType` for the reason
+`ChooseManaColor` is one beside `ChooseColor` — **the menu is what differs**. A creature type is
+offered from the types in play, because there are several hundred of them and no board can show
+them all. The land types are the five CR 305.6 names, so the offer is closed, the same on every
+board, and never empty: narrowing it to what is in play would leave the commonest board of all —
+one player, one colour — with a question that could not be asked and an ability already paid for.
+
+Which half of CR 305.7 runs rides on the request (`LandTypeChoiceRequested.InAddition`), because
+by the time the answer arrives the sentence is gone. Both spellings are printed one card apart:
+Reef Shaman replaces, Navigator's Compass adds.
+
+#### The duration is not a flag on this effect, and that is the point
+
+What the answer builds is a floating effect stamped with the turn number, which comes off in the
+cleanup step (CR 514.2). The compiler therefore requires the printed duration exactly as the named
+form does — all twelve cards print it — and the sentence without one stays unread, with a test
+saying so. An indefinite retyping read through this path would compile a card that undoes itself
+and count as coverage while doing it.
+
+#### Result
+
+**18,004 → 18,016 complete cards, +12, none lost**, diffed as a set and again as a per-card
+fingerprint of every compiled ability, spell, static, replacement and cost modifier. The effect
+diff moved on **exactly the same 12 cards** and nothing else in the corpus changed — no card
+gained or lost a clause inside a card that stayed complete.
+
+(The fingerprint had to be built by hand for that: a record's `ToString` prints a nested
+`ImmutableList` as its type name, so a diff taken straight off it cannot see a spell's effects
+change at all — two of these twelve moved invisibly under the first instrument.)
+
+#### The two neighbours, re-measured
+
+Both were declined by round twenty and both figures needed correcting. Measured by rewriting the
+duration clause to `until end of turn` — the one duration this engine has — and recompiling:
+
+| rewritten duration | cards completed |
+|---|---|
+| control, rewrite nothing | **0** |
+| `for as long as it has a <kind> counter on it` | **0** |
+| `for as long as ~ remains on the battlefield` | 5 (Tide Shaper, Awakener Druid, Skilled Animator, The Wondrous Wasp, Unctus's Retrofitter) |
+| `until ~ leaves the battlefield` | 1 (Graceful Antelope) |
+| `until its controller's next untap step` | 1 (Orcish Farmer) |
+| a retyping printed with **no** duration at all | 2 (Thelonite Monk, Cyclopean Giant) |
+
+**The counter-scoped family is worth nothing to a duration.** Aquitect's Will, Quicksilver
+Fountain, Cyclopean Tomb, Xolatoyac and The Flood of Mars complete **0** when "for as long as it
+has a flood counter on it" is rewritten to a duration that works, so "a duration the engine has no
+shape for" was the wrong blocker to record. What actually blocks them is in front of that clause:
+a counter put on and a retyping joined in one sentence, a pronoun ("That land is an Island")
+reaching back to the sentence before, a branch on what kind of permanent was targeted (The Flood
+of Mars), and an upkeep sweeper that names what a *specific source* put counters on (Cyclopean
+Tomb).
+
+**The indefinite retypings are worth 5, not 6, and they are four different durations** — which is
+why they stay refused rather than being widened into this round's reader. Gaea's Liege completes
+under none of the rewrites, because its other line (a power and toughness that changes while it
+attacks) is unread too. The truly indefinite arm is worth **2** on its own.
+
 Coverage is **54.3% of playable cards fully read** (17,765 of 32,717), 70.0% of lines.
 
 ### Round twenty: a card name the player chooses, and a row that was 169 and is 8
