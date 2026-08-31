@@ -204,6 +204,7 @@ public static class GameReducer
             // answered, so nothing about the state changes when it is asked.
             ManaColorChoiceRequested => state,
             CreatureTypeChoiceRequested => state,
+            LandTypeChoiceRequested => state,
             ConniveRequested => state,
             ManifestDreadRequested => state,
             TouchedChoiceRequested => state,

@@ -182,6 +182,7 @@ public static class EventLogSerializer
             ["ColorChoiceRequested"] = typeof(ColorChoiceRequested),
             ["ManaColorChoiceRequested"] = typeof(ManaColorChoiceRequested),
             ["CreatureTypeChoiceRequested"] = typeof(CreatureTypeChoiceRequested),
+            ["LandTypeChoiceRequested"] = typeof(LandTypeChoiceRequested),
             ["UntapChoiceRequested"] = typeof(UntapChoiceRequested),
             ["CounterChoiceRequested"] = typeof(CounterChoiceRequested),
             ["LibraryOrderRequested"] = typeof(LibraryOrderRequested),

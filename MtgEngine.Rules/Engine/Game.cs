@@ -3966,6 +3966,10 @@ public sealed class Game
                 ResolveCreatureTypeChoice(picks);
                 break;
 
+            case ChoiceKind.ChooseBasicLandType:
+                ResolveLandTypeChoice(picks);
+                break;
+
             case ChoiceKind.ChooseColor:
                 ResolveColorChoice(picks);
                 break;
@@ -4844,6 +4848,9 @@ public sealed class Game
     /// <summary>Shields waiting to be told which source they name (CR 609.7b).</summary>
     private readonly List<DamageSourceChoiceRequested> _damageSourceChoicesOwed = [];
     private readonly List<CreatureTypeChoiceRequested> _creatureTypeChoicesOwed = [];
+
+    /// <summary>Land types owed, asked at the next settle (CR 305.7).</summary>
+    private readonly List<LandTypeChoiceRequested> _landTypeChoicesOwed = [];
     private readonly List<ConniveRequested> _connivesOwed = [];
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
 
@@ -7445,6 +7452,76 @@ public sealed class Game
             State.TurnNumber));
     }
 
+    private LandTypeChoiceRequested? _landTypeChoiceBeingAsked;
+
+    /// <summary>Asks which basic land type a land becomes (CR 305.6, 305.7).</summary>
+    /// <remarks>
+    /// The offer is the five CR 305.6 names and nothing else. Unlike the creature type's menu it
+    /// is not narrowed to what is in play: a land does not have to see a Swamp to become one, and
+    /// narrowing it that way would leave the commonest board — one player, one colour — with a
+    /// question that could not be asked and an ability that had been paid for.
+    /// </remarks>
+    private bool AskOwedLandTypeChoice()
+    {
+        if (_landTypeChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _landTypeChoicesOwed[0];
+        _landTypeChoicesOwed.RemoveAt(0);
+        _landTypeChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"land-type:{owed.SourceId.Value:N}",
+            PlayerId = owed.ChooserId,
+            Kind = ChoiceKind.ChooseBasicLandType,
+            Prompt = "Choose a basic land type.",
+
+            // From the compiler's own list, so the five are spelled out once in this repository.
+            Options = [.. Cards.EffectPhrase.BasicLandTypes.Select(t => new ChoiceOption(t, t))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>Applies the named land type to whatever asked for it (CR 305.7).</summary>
+    /// <remarks>
+    /// Which of the two effects the answer builds is the whole of the difference between the two
+    /// printed spellings, and the request carried it here from the sentence: "becomes the basic
+    /// land type of your choice" replaces the land's types and takes its rules text with them,
+    /// and the same sentence ending "in addition to its other types" keeps both.
+    /// <para>
+    /// The effect is stamped with the turn number, which is what ends it in the cleanup step
+    /// (CR 514.2). Every card in this family prints "until end of turn", and the compiler refuses
+    /// the sentence without it, so there is no arm here for a duration nothing asks for.
+    /// </para>
+    /// </remarks>
+    private void ResolveLandTypeChoice(IReadOnlyList<string> picks)
+    {
+        if (_landTypeChoiceBeingAsked is not { } owed)
+            return;
+
+        _landTypeChoiceBeingAsked = null;
+
+        if (picks.Count == 0 || owed.Affected.IsEmpty)
+            return;
+
+        // An answer from outside is checked against the offer rather than trusted: a type that is
+        // not one of the five would build a retyping the rule never grants.
+        if (!Cards.EffectPhrase.Specs.IsBasicLandType(picks[0]))
+            return;
+
+        Emit(new ContinuousEffectCreated(
+            Guid.NewGuid(),
+            owed.InAddition
+                ? Cards.GenerativeEffects.GainsCreatureTypeId(picks[0])
+                : Cards.GenerativeEffects.BecomesCreatureTypeId(picks[0]),
+            owed.Affected,
+            State.TurnNumber));
+    }
+
     private bool AskOwedColorChoice()
     {
         if (_colorChoicesOwed.Count == 0 || State.IsWaitingForChoice)
@@ -9899,6 +9976,9 @@ public sealed class Game
                 return true;
 
             if (AskOwedCreatureTypeChoice())
+                return true;
+
+            if (AskOwedLandTypeChoice())
                 return true;
 
             if (AskOwedColorChoice())
@@ -13421,6 +13501,9 @@ public sealed class Game
 
         if (e is CreatureTypeChoiceRequested retyping)
             _creatureTypeChoicesOwed.Add(retyping);
+
+        if (e is LandTypeChoiceRequested reshaping)
+            _landTypeChoicesOwed.Add(reshaping);
 
         if (e is ConniveRequested conniving)
             _connivesOwed.Add(conniving);

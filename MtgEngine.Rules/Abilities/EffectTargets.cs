@@ -366,6 +366,12 @@ public static class EffectTargets
         Add<ChooseColorForTarget>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        // Nullable for the same reason the creature type's is: the sentence has a self form
+        // as well as a targeted one, and a null index means the source is choosing for itself.
+        Add<ChooseBasicLandTypeForTarget>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
         // These two aim at a player only when they name one, so their index is nullable — which
         // is why membership of this table is what "targets something" means, and not whether a
         // particular instance happens to carry a number.
