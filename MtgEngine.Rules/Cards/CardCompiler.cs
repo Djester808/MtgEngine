@@ -17303,6 +17303,13 @@ public static partial class CardCompiler
             {
                 SelfCost.ExileSelfFromGraveyard => Zone.Graveyard,
 
+                // CR 701.13a: a permanent exiles itself from the battlefield, which is also the
+                // default - said out loud so the arm below cannot claim it. That arm sends an
+                // ability whose effect returns the source to the battlefield to the graveyard,
+                // and "{2}, Exile ~: Return ~ to the battlefield" would then be an ability of a
+                // card in the graveyard that exiles a permanent that is not there.
+                SelfCost.ExileSelf => Zone.Battlefield,
+
                 // CR 701.8a: a card is discarded from its owner's hand, so an ability whose cost
                 // is discarding this card is an ability of the card *in hand*. Left on the
                 // battlefield it compiles cleanly and can never be activated - which is why
@@ -17376,6 +17383,15 @@ public static partial class CardCompiler
         {
             self = SelfCost.DiscardSelf;
             Lift(DiscardSelfCost());
+        }
+        else if (ExileSelfCost().IsMatch(remaining))
+        {
+            // Strictly after the graveyard form, which is the same words with a zone on the end:
+            // read in the other order this would lift "Exile ~" out of "Exile ~ from your
+            // graveyard" and leave a phrase behind that is not mana, refusing 80 lines that
+            // already work.
+            self = SelfCost.ExileSelf;
+            Lift(ExileSelfCost());
         }
 
         // "Remove a charge counter from ~" — the storage pattern. Counters of any name already
@@ -19309,6 +19325,26 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@",?\s*exile ~ from your graveyard\s*,?", RegexOptions.IgnoreCase)]
     private static partial Regex ExileSelfFromGraveyardCost();
+
+    /// <summary>
+    /// "Exile ~" as an activation cost, with the source on the battlefield.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does not read a zone. "Exile ~ from your graveyard" is
+    /// <see cref="ExileSelfFromGraveyardCost"/>'s, matched first; "Exile ~ from your hand" is
+    /// nobody's yet, and leaving the zone phrase in the remainder is what refuses it - the
+    /// remainder has to parse as mana, "from your hand" does not, and the whole line stays
+    /// unread. A cost the engine cannot charge must leave the ability unread rather than granted
+    /// free.
+    /// <para>
+    /// "Exile it" as readily as "Exile ~", for the same reason
+    /// <see cref="SacrificeSelfCost"/> reads both: a cost item written after another one refers
+    /// back to the permanent by pronoun.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @",?\s*(and\s+)?exile (~|it)(?![A-Za-z0-9])\s*,?", RegexOptions.IgnoreCase)]
+    private static partial Regex ExileSelfCost();
 
     [GeneratedRegex(
         @",?\s*(and\s+)?return (~|it) to its owner's hand\s*,?", RegexOptions.IgnoreCase)]

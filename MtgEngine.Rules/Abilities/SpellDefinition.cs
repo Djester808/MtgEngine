@@ -1302,6 +1302,24 @@ public enum SelfCost
     /// the two have to agree or the ability is unreachable.
     /// </remarks>
     ExileSelfFromGraveyard,
+
+    /// <summary>
+    /// Exile the permanent itself as an activation cost (CR 118.3c, 701.13a).
+    /// </summary>
+    /// <remarks>
+    /// The battlefield sibling of <see cref="ExileSelfFromGraveyard"/>, and the difference is
+    /// only which zone the source is in: Feldon's Cane exiles itself off the battlefield, a
+    /// scavenge cost exiles the card out of the graveyard. Both are a cost, which is the whole
+    /// of why these cards work - the permanent has left by the time the ability resolves, so an
+    /// opponent cannot respond by sacrificing it and keeping the effect (CR 601.2h, 117.7).
+    /// <para>
+    /// What comes back is a <em>new object</em> in exile (CR 400.7), so nothing the ability then
+    /// says about the source may be resolved against the id that was paid: the id names nothing
+    /// after the move. The ability keeps the card it was announced with instead, the same way
+    /// sacrificing self already does.
+    /// </para>
+    /// </remarks>
+    ExileSelf,
 }
 
 /// <summary>
