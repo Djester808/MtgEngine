@@ -6,6 +6,7 @@ using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 using Xunit.Abstractions;
 
@@ -601,6 +602,679 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             resolved > spells.Count / 3,
             $"only {resolved} of {spells.Count} spells could be cast at all - the harness has "
                 + "stopped reaching them, whatever the rest of this test says.");
+    }
+
+    /// <summary>
+    /// Every fully read land is played from hand, tapped, and made to say what it produces.
+    /// </summary>
+    /// <remarks>
+    /// The permanent soak reaches a land, but only as a thing that sits there: it is conjured
+    /// onto the battlefield, its statics run, and nothing ever presses it. **No land in the
+    /// corpus had been tapped for mana by any test in this repository**, which means the single
+    /// largest body of behaviour the compiler builds - a mana ability - had never once run
+    /// against a real card. 826 fully read lands were in that position.
+    /// <para>
+    /// A land is different from every other permanent in three ways this has to respect. It
+    /// arrives by a <em>land drop</em> (CR 305.1, 505.6b), which is a special action and not a
+    /// spell, so the enters-tapped replacements and the arrival questions run on a path
+    /// <c>Game.Create</c> skips entirely - that path has already produced one whole-class bug
+    /// here. It taps for mana without using the stack (CR 605.3b). And since CR 305.6 moved off
+    /// the printed card, **its basic-land mana ability is granted by the layers**, computed from
+    /// the subtypes the permanent has right now: 113 already-complete lands changed behaviour
+    /// when that moved, and nothing anywhere played one to find out what happened.
+    /// </para>
+    /// <para>
+    /// <strong>The assertion is what comes out, not merely that nothing threw.</strong> The
+    /// other soaks check invariants because a creature's text can mean anything; a mana ability
+    /// declares exactly what it adds, so the pool before and after can be compared against the
+    /// declaration. A land that adds the wrong mana, or adds none, fails here rather than
+    /// passing quietly - which is the whole reason this exists and the other three do not
+    /// suffice.
+    /// </para>
+    /// <para>
+    /// One player holds every land in the game. A land drop is one per player per turn, so
+    /// splitting the table across two would halve the turns - but a mana ability is activated by
+    /// whoever has priority, and on Alice's main phase Bob has none. Split, half the lands would
+    /// reach the battlefield and never be pressed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_compiled_land_taps_for_what_it_says()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present - skipping.");
+            return;
+        }
+
+        var pool = new CompiledPool();
+
+        var lands = corpus
+            .Where(c => IsLand(c.CardTypes))
+            .Where(c => CardCompiler.Compile(c).IsComplete)
+            .OrderBy(c => Scatter(c.OracleId))
+            .ThenBy(c => c.OracleId, StringComparer.Ordinal)
+            .ToImmutableList();
+
+        Assert.True(lands.Count > 500, $"only {lands.Count} compiled lands - wrong set.");
+
+        var found = new LandFindings();
+
+        for (var start = 0; start < lands.Count; start += LandsPerGame)
+        {
+            var table = lands.Skip(start).Take(LandsPerGame).ToImmutableList();
+
+            try
+            {
+                TapForMana(table, pool, found);
+            }
+            catch (Exception broke)
+            {
+                // Which of the twelve was it? Re-run each alone, the way the unsoaked-card
+                // harness does: a fault that names a whole table names nothing anybody can act
+                // on.
+                var alone = 0;
+
+                foreach (var card in table)
+                {
+                    try
+                    {
+                        TapForMana([card], pool, found);
+                    }
+                    catch (Exception itself)
+                    {
+                        alone++;
+                        Note(
+                            found.Faults,
+                            $"{itself.GetType().Name}: {Shorten(itself.Message)}",
+                            card.Name);
+                    }
+                }
+
+                if (alone == 0)
+                {
+                    Note(
+                        found.Faults,
+                        $"(interaction) {broke.GetType().Name}: {Shorten(broke.Message)}",
+                        string.Join(", ", table.Select(c => c.Name)));
+                }
+            }
+        }
+
+        output.WriteLine($"fully read lands:                  {lands.Count,6}");
+        output.WriteLine($"  played from hand as a land drop: {found.Dropped,6}");
+        output.WriteLine($"  entered tapped:                  {found.EnteredTapped,6}");
+        output.WriteLine($"  asked a question as they landed: {found.Questioned,6}");
+        output.WriteLine($"mana abilities activated:          {found.Activated,6}");
+        output.WriteLine($"  distinct lands that made mana:   {found.Producers.Count,6}");
+        output.WriteLine($"  exactly what they promised:      {found.Exact,6}");
+        output.WriteLine($"  production the text decides:     {found.Unreadable,6}");
+        output.WriteLine($"non-mana buttons pressed:          {found.Pressed,6}");
+        output.WriteLine($"lands with no mana ability at all: {found.NoManaAbility.Count,6}");
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("lands whose pool did not match what the ability said:");
+        foreach (var (why, names) in found.WrongMana.OrderByDescending(p => p.Value.Count))
+        {
+            output.WriteLine($"  {names.Count,5}  {why}");
+            foreach (var name in names.Take(6))
+                output.WriteLine($"           {name}");
+        }
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("lands that lost a basic land type's intrinsic ability (CR 305.6):");
+        foreach (var (why, names) in found.LostBasicMana.OrderByDescending(p => p.Value.Count))
+        {
+            output.WriteLine($"  {names.Count,5}  {why}");
+            foreach (var name in names.Take(8))
+                output.WriteLine($"           {name}");
+        }
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("faults:");
+        foreach (var (why, names) in found.Faults.OrderByDescending(p => p.Value.Count))
+        {
+            output.WriteLine($"  {names.Count,5}  {why}");
+            foreach (var name in names.Take(6))
+                output.WriteLine($"           {name}");
+        }
+
+        output.WriteLine(string.Empty);
+        foreach (var (why, n) in found.Refused.OrderByDescending(p => p.Value).Take(12))
+            output.WriteLine($"  refused {n,5}  {why}");
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("a sample of the lands that make no mana at all:");
+        foreach (var name in found.NoManaAbility.Order(StringComparer.Ordinal).Take(20))
+            output.WriteLine($"           {name}");
+
+        // A floor on the reach before anything about the outcome, the discipline the other soaks
+        // had to learn twice: a harness that stops playing lands passes exactly like one that
+        // plays them all. The land drop is the reachable half - a few lands may only be played
+        // under a condition this harness does not arrange - and the mana count is the half that
+        // matters, because a run that drops every land and presses none has checked nothing.
+        Assert.True(
+            found.Dropped > 700,
+            $"only {found.Dropped} of {lands.Count} lands were played from hand - the drop loop "
+                + "has stopped reaching them, whatever the rest of this test says.");
+
+        Assert.True(
+            found.Activated > 700 && found.Producers.Count > 500,
+            $"only {found.Activated} mana abilities fired on {found.Producers.Count} distinct "
+                + "lands - the tapping has stopped reaching them.");
+
+        // CR 305.6 is not a measurement, it is a rule: an object with the land card type and a
+        // basic land type *has* "{T}: Add [symbol]", however its text box reads. This is asked of
+        // the permanent on the battlefield rather than of the card, because since the rule moved
+        // into the layers the permanent is the only place the answer exists.
+        Assert.True(
+            found.LostBasicMana.Count == 0,
+            $"{found.LostBasicMana.Sum(p => p.Value.Count)} lands with a basic land type do not "
+                + "have its intrinsic mana ability (CR 305.6): "
+                + string.Join("; ", found.LostBasicMana.Take(4)
+                    .Select(p => $"{p.Value.Count} {p.Key}")));
+
+        // What a mana ability adds is the one thing on a card that is written down exactly, so
+        // this is an equality and not a ratchet.
+        Assert.True(
+            found.WrongMana.Count == 0,
+            $"{found.WrongMana.Sum(p => p.Value.Count)} lands added mana their ability did not "
+                + "promise:\n  "
+                + string.Join(
+                    "\n  ",
+                    found.WrongMana.OrderByDescending(p => p.Value.Count).Take(8)
+                        .Select(p => $"{p.Value.Count}  {p.Key}  e.g. {p.Value[0]}")));
+
+        Assert.True(
+            found.Faults.Count == 0,
+            $"{found.Faults.Sum(p => p.Value.Count)} lands broke when they were played:\n  "
+                + string.Join(
+                    "\n  ",
+                    found.Faults.OrderByDescending(p => p.Value.Count).Take(8)
+                        .Select(p => $"{p.Value.Count}  {p.Key}  e.g. {p.Value[0]}")));
+    }
+
+    /// <summary>How many lands share a game. One land drop per turn, so this is also the turns.</summary>
+    private const int LandsPerGame = 12;
+
+    /// <summary>
+    /// How many untap steps the tapping gets.
+    /// </summary>
+    /// <remarks>
+    /// Most mana abilities cost a tap, so a land offering several - "Add one mana of any color"
+    /// compiles to five alternatives, one per colour - can only produce one of them per turn.
+    /// Seven covers every alternative count in the corpus with a turn to spare for a land that
+    /// entered tapped.
+    /// </remarks>
+    private const int TapRounds = 7;
+
+    /// <summary>The five basic land types and the mana each carries (CR 305.6).</summary>
+    private static readonly (string Subtype, ManaColor Colour)[] BasicLandTypes =
+    [
+        ("Plains", ManaColor.White),
+        ("Island", ManaColor.Blue),
+        ("Swamp", ManaColor.Black),
+        ("Mountain", ManaColor.Red),
+        ("Forest", ManaColor.Green),
+    ];
+
+    /// <summary>What the land soak found, gathered across every game in the run.</summary>
+    private sealed class LandFindings
+    {
+        public int Dropped;
+        public int EnteredTapped;
+        public int Questioned;
+        public int Activated;
+        public int Exact;
+        public int Unreadable;
+        public int Pressed;
+
+        public HashSet<string> Producers { get; } = new(StringComparer.Ordinal);
+
+        public HashSet<string> NoManaAbility { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, List<string>> WrongMana { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, List<string>> LostBasicMana { get; } =
+            new(StringComparer.Ordinal);
+
+        public Dictionary<string, List<string>> Faults { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, int> Refused { get; } = new(StringComparer.Ordinal);
+    }
+
+    private static void Note(Dictionary<string, List<string>> into, string cause, string what)
+    {
+        if (!into.TryGetValue(cause, out var names))
+            into[cause] = names = [];
+
+        if (!names.Contains(what, StringComparer.Ordinal))
+            names.Add(what);
+    }
+
+    /// <summary>
+    /// Plays these lands from hand one per turn, then taps each of them for what it says.
+    /// </summary>
+    private static void TapForMana(
+        ImmutableList<CardDefinition> table, CompiledPool pool, LandFindings found)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                // Deep enough that a land asking for life, and the cumulative upkeep a few of
+                // them carry, do not end the game before the tapping starts.
+                new PlayerSetup(alice, "Alice", 400, Filler("Alice")),
+                new PlayerSetup(bob, "Bob", 400, Filler("Bob")),
+            ],
+            new GameRandom(17),
+            startingPlayerId: alice,
+            abilities: pool);
+
+        // No opening hand. Seven filler cards on top of twelve lands puts the hand over the
+        // maximum, the cleanup step asks for a discard (CR 514.1), and the harness would answer
+        // by throwing away the very cards it came to play.
+        game.BeginPlay(openingHandSize: 0, withMulligans: false);
+
+        var waiting = new Queue<ObjectId>(table.Select(c => game.Create(alice, c, Zone.Hand)));
+
+        Settle(game);
+
+        var placed = new List<ObjectId>();
+
+        for (var guard = 0; guard < 4_000 && waiting.Count > 0; guard++)
+        {
+            if (game.State.IsOver)
+                break;
+
+            if (game.State.Choice is { } choice)
+            {
+                Decide(game, choice);
+                continue;
+            }
+
+            if (game.State.ActivePlayerId == alice
+                && game.State.Priority.Holder == alice
+                && game.State.IsSorcerySpeedFor(alice)
+                && game.State.GetPlayer(alice).LandsPlayedThisTurn == 0)
+            {
+                var card = waiting.Dequeue();
+
+                try
+                {
+                    var arrived = game.PlayLand(alice, card);
+                    found.Dropped++;
+                    placed.Add(arrived);
+
+                    // The question a land can ask as it arrives - a shockland's "you may pay 2
+                    // life", a fetchland's search. Ten of them ask one, and an earlier harness
+                    // that did not answer left the board frozen with the question standing.
+                    if (game.State.Choice is not null)
+                        found.Questioned++;
+
+                    Settle(game);
+
+                    if (game.State.TryGetObject(arrived, out var landed)
+                        && landed.Permanent is { IsTapped: true })
+                    {
+                        found.EnteredTapped++;
+                    }
+                }
+                catch (InvalidOperationException refused)
+                    when (!refused.Message.Contains("did not settle", StringComparison.Ordinal))
+                {
+                    // "You may only play a land if you control a Swamp", say. The rules talking.
+                    var why = Shorten(refused.Message);
+                    found.Refused[why] = found.Refused.GetValueOrDefault(why) + 1;
+                }
+
+                continue;
+            }
+
+            if (game.State.Priority.Holder is { } holder)
+            {
+                game.PassPriority(holder);
+                continue;
+            }
+
+            break;
+        }
+
+        var used = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var round = 0; round < TapRounds; round++)
+        {
+            if (!ReachMain(game, alice))
+                break;
+
+            var anything = false;
+
+            foreach (var id in placed)
+            {
+                if (!game.State.TryGetObject(id, out var land)
+                    || land.Zone != Zone.Battlefield
+                    || land.Permanent is null)
+                {
+                    continue;
+                }
+
+                var offered = Game.ActivatedAbilitiesOf(game.State, pool, land);
+
+                if (round == 0)
+                    CheckIntrinsic(land, offered, found);
+
+                foreach (var ability in offered)
+                {
+                    var key = id.Value.ToString() + "/" + ability.Id;
+                    if (!used.Add(key))
+                        continue;
+
+                    if (ability.IsManaAbility)
+                    {
+                        // Put back if it was refused, so the next untap step tries it again: a
+                        // land offering five alternatives can only pay the tap for one of them
+                        // per turn, and dropping the other four is how a harness silently stops
+                        // reaching four fifths of what it came for.
+                        if (Taps(game, alice, id, land.Card, ability, found))
+                            anything = true;
+                        else
+                            used.Remove(key);
+                    }
+                    else if (round == 0)
+                    {
+                        // A land whose button is not a mana ability - "{T}: Target creature gains
+                        // shroud", "{2}, {T}: Draw a card". Pressed once, generously funded, with
+                        // the shapes the ability soak offers, because it is code that runs only
+                        // when somebody pays for it and nothing else here pays.
+                        Fund(game, alice);
+
+                        if (Press(game, alice, id, ability.Id, Aims(game, alice, id)))
+                        {
+                            found.Pressed++;
+                            anything = true;
+                        }
+
+                        Settle(game);
+                    }
+                }
+            }
+
+            if (!anything)
+                break;
+        }
+
+        Check(game, pool);
+    }
+
+    /// <summary>
+    /// CR 305.6: a land with a basic land type has that type's mana ability, text box or no.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the permanent rather than of the card on purpose. The ability used to be compiled
+    /// into the card off its printed subtypes, which made a Mountain turned into an Island still
+    /// tap for red; it is granted by the layers now, computed from the subtypes the object has at
+    /// this moment. 113 already-complete lands changed behaviour when it moved and nothing played
+    /// one afterwards - this is the check that would have caught a mistake there.
+    /// <para>
+    /// The printed subtypes are the floor and not the answer: an effect may <em>add</em> a basic
+    /// land type (Urborg makes every land a Swamp) and the extra ability that comes with it is
+    /// correct. So this asks whether each printed basic type's colour is on offer, never whether
+    /// anything else is.
+    /// </para>
+    /// </remarks>
+    private static void CheckIntrinsic(
+        GameObject land, IReadOnlyList<ActivatedAbilityDefinition> offered, LandFindings found)
+    {
+        var colours = offered
+            .Where(a => a.IsManaAbility)
+            .SelectMany(a => a.Produces)
+            .Where(p => !p.FromChosenColor && p.Restriction is null)
+            .Select(p => p.Color)
+            .ToHashSet();
+
+        if (!offered.Any(a => a.IsManaAbility))
+            found.NoManaAbility.Add(land.Card.Name);
+
+        foreach (var (subtype, colour) in BasicLandTypes)
+        {
+            if (!land.Card.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            if (!colours.Contains(colour))
+            {
+                Note(
+                    found.LostBasicMana,
+                    $"a {subtype} that does not tap for {colour}",
+                    land.Card.Name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Taps one land for mana and checks the pool against what the ability said it would add.
+    /// </summary>
+    /// <remarks>
+    /// The reading is only taken on an ability that charges no mana, and the reason is that
+    /// funding destroys it: the cost is paid out of the same pool the production lands in, and
+    /// which colours a generic cost eats is the engine's choice rather than this harness's, so
+    /// the difference across the activation would no longer be the production. A cost-bearing
+    /// mana ability is still activated - it is still code that has never run - and still has to
+    /// not throw; it simply has no exact claim to check. That is a small minority of the set.
+    /// </remarks>
+    private static bool Taps(
+        Game game,
+        Guid player,
+        ObjectId source,
+        CardDefinition card,
+        ActivatedAbilityDefinition ability,
+        LandFindings found)
+    {
+        var funded = !ability.ManaCost.Symbols.IsEmpty;
+
+        if (funded)
+            Fund(game, player);
+
+        var before = game.State.GetPlayer(player).ManaPool;
+
+        try
+        {
+            game.ActivateAbility(player, source, ability.Id, []);
+        }
+        catch (InvalidOperationException refused)
+            when (!refused.Message.Contains("did not settle", StringComparison.Ordinal))
+        {
+            // Tapped already, a cost that cannot be paid, a condition that is not met. The rules
+            // working, and the next untap step may be the moment this one wanted.
+            var why = Shorten(refused.Message);
+            found.Refused[why] = found.Refused.GetValueOrDefault(why) + 1;
+            return false;
+        }
+
+        var after = game.State.GetPlayer(player).ManaPool;
+
+        found.Activated++;
+        found.Producers.Add(card.Name);
+
+        if (!funded)
+        {
+            var got = Pool(before, after);
+            var promised = Promised(ability);
+
+            if (promised is null)
+            {
+                // "Add one mana of the chosen color", "add {C} for each counter removed this
+                // way". What it produces is decided in the game rather than printed, so there is
+                // no exact claim to check - only that something came out when the game said so.
+                found.Unreadable++;
+            }
+            else if (string.Equals(got, promised, StringComparison.Ordinal))
+            {
+                found.Exact++;
+            }
+            else
+            {
+                Note(
+                    found.WrongMana,
+                    $"said {promised}, added {(got.Length == 0 ? "nothing" : got)}"
+                        + $"   [{Shorten(ability.Text)}]",
+                    card.Name);
+            }
+        }
+
+        Settle(game);
+        return true;
+    }
+
+    /// <summary>Generous funding, so a cost is never what stops an ability being reached.</summary>
+    private static void Fund(Game game, Guid player)
+    {
+        foreach (var colour in Enum.GetValues<ManaColor>())
+        {
+            for (var i = 0; i < 4; i++)
+                game.AddMana(player, colour);
+        }
+    }
+
+    /// <summary>
+    /// What actually arrived in the pool, spelled the way <see cref="Promised"/> spells it.
+    /// </summary>
+    /// <remarks>
+    /// The two halves of colourless are kept apart - <c>c</c> for a production carrying
+    /// <see cref="ManaColor.Colorless"/> and <c>C</c> for one carrying no colour at all - because
+    /// the reducer puts them in different places: a null colour goes to
+    /// <c>ManaPool.Colorless</c>, and anything else goes into the coloured dictionary. Merging
+    /// them here would hide exactly the mix-up that difference can cause, where mana lands
+    /// somewhere no cost ever looks.
+    /// </remarks>
+    private static string Pool(ManaPool before, ManaPool after)
+    {
+        var parts = new List<string>(8);
+
+        foreach (var colour in Enum.GetValues<ManaColor>())
+        {
+            var gained = after[colour] - before[colour];
+            if (gained != 0)
+                parts.Add($"{gained}{Letter(colour)}");
+        }
+
+        var colourless = after.Colorless - before.Colorless;
+        if (colourless != 0)
+            parts.Add($"{colourless}C");
+
+        var restricted = after.Restricted.Count - before.Restricted.Count;
+        if (restricted != 0)
+            parts.Add($"{restricted}*");
+
+        return string.Join("+", parts);
+    }
+
+    /// <summary>
+    /// What the ability says it adds, or null when the game rather than the text decides.
+    /// </summary>
+    private static string? Promised(ActivatedAbilityDefinition ability)
+    {
+        // The rider is the other half of a line like "{T}: Add {C}{C}. This land doesn't untap
+        // during your next untap step" and it resolves with the ability (CR 605.3b). Most riders
+        // do not touch the pool, but one that does would read here as mana the promise never
+        // named - so an ability carrying one makes no exact claim at all.
+        if (!ability.Effects.IsEmpty)
+            return null;
+
+        var coloured = new Dictionary<ManaColor, int>();
+        var colourless = 0;
+        var restricted = 0;
+
+        foreach (var production in ability.Produces)
+        {
+            // The colour a permanent named as it entered (CR 614.12), and "add {C} for each
+            // counter removed this way" - neither is a number this can read off the card.
+            if (production.FromChosenColor || production.FromCounterCost)
+                return null;
+
+            if (production.Amount <= 0)
+                continue;
+
+            // CR 106.6: restricted mana is held apart from the ordinary pool, one entry per mana,
+            // because the restriction travels with the individual mana rather than its colour.
+            if (production.Restriction is not null)
+            {
+                restricted += production.Amount;
+                continue;
+            }
+
+            if (production.Color is { } colour)
+                coloured[colour] = coloured.GetValueOrDefault(colour) + production.Amount;
+            else
+                colourless += production.Amount;
+        }
+
+        var parts = new List<string>(8);
+
+        foreach (var colour in Enum.GetValues<ManaColor>())
+        {
+            if (coloured.GetValueOrDefault(colour) is var n and > 0)
+                parts.Add($"{n}{Letter(colour)}");
+        }
+
+        if (colourless > 0)
+            parts.Add($"{colourless}C");
+
+        if (restricted > 0)
+            parts.Add($"{restricted}*");
+
+        return string.Join("+", parts);
+    }
+
+    private static string Letter(ManaColor colour) => colour switch
+    {
+        ManaColor.White => "W",
+        ManaColor.Blue => "U",
+        ManaColor.Black => "B",
+        ManaColor.Red => "R",
+        ManaColor.Green => "G",
+        _ => "c",
+    };
+
+    /// <summary>
+    /// Walks the game on to the player's next precombat main phase, so everything has untapped.
+    /// </summary>
+    private static bool ReachMain(Game game, Guid player)
+    {
+        var from = game.State.TurnNumber;
+
+        for (var guard = 0; guard < 600; guard++)
+        {
+            if (game.State.IsOver)
+                return false;
+
+            if (game.State.Choice is { } choice)
+            {
+                Decide(game, choice);
+                continue;
+            }
+
+            if (game.State.TurnNumber > from
+                && game.State.ActivePlayerId == player
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Stack.IsEmpty
+                && game.State.Priority.Holder == player)
+            {
+                return true;
+            }
+
+            if (game.State.Priority.Holder is { } holder)
+            {
+                game.PassPriority(holder);
+                continue;
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     private static int Cast(ImmutableList<CardDefinition> hand, CompiledPool pool)
@@ -1891,6 +2565,24 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             | CardType.Planeswalker)) != 0
         && !types.HasFlag(CardType.Token);
 
+
+    /// <summary>
+    /// A land and nothing else - the set the land soak plays (CR 305.1).
+    /// </summary>
+    /// <remarks>
+    /// Deliberately narrower than "has the land type". A card that is also a creature or an
+    /// artifact is already played by the permanent soak, and a <c>Sorcery // Land</c> is already
+    /// cast by the spell soak; what is left is the population no soak had ever selected, which is
+    /// the set this predicate exists to name. Written as an exclusion of the other two predicates
+    /// rather than as a list of its own, so the three cannot overlap and cannot leave a gap - and
+    /// <c>CardPlayabilityTests</c> restates all three and asserts they partition the corpus.
+    /// </remarks>
+    private static bool IsLand(CardType types) =>
+        types.HasFlag(CardType.Land)
+        && !IsPermanent(types)
+        && !types.HasFlag(CardType.Instant)
+        && !types.HasFlag(CardType.Sorcery)
+        && !types.HasFlag(CardType.Token);
     /// <summary>
     /// Everything that can be put onto a battlefield, which includes lands (CR 110.4a).
     /// </summary>
