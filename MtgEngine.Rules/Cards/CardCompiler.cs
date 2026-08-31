@@ -435,6 +435,7 @@ public static partial class CardCompiler
         var libraryTopPermissions = ImmutableList.CreateBuilder<LibraryTopPermission>();
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
+        var combatTaxes = ImmutableList.CreateBuilder<CombatTax>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
         // the loop for the reason the one-line form is built as a pair: an exile that compiles
@@ -1574,6 +1575,14 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain, noCounter))
                 continue;
 
+            // The price a permanent puts on a declaration, filed with those bans because it is
+            // one: the printed sentence forbids the attack and the payment is the only way out.
+            // Refused on an instant or sorcery for its neighbours' reason — every floating
+            // printing of this ("This turn, creatures can't attack unless…") has a duration this
+            // has nowhere to keep, and one filed here would be a toll gate nothing took down.
+            if (!isSpell && TryCombatTax(line, combatTaxes))
+                continue;
+
             // The permission a permanent holds up beside those bans, and refused on an instant
             // or sorcery for exactly their reason: "You may cast spells this turn as though they
             // had flash" is a one-shot, and filed here it would be a window nothing ever closed.
@@ -1995,6 +2004,7 @@ public static partial class CardCompiler
                 NoCounter = noCounter.ToImmutable(),
                 NoCastingNamed = noCastingNamed.ToImmutable(),
                 NoActivatingNamed = noActivatingNamed.ToImmutable(),
+                CombatTaxes = combatTaxes.ToImmutable(),
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
@@ -15480,6 +15490,200 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>
+    /// "Creatures can't attack you unless their controller pays {2} for each creature they
+    /// control that's attacking you" — a price on a declaration (CR 508.1h, 509.1d).
+    /// </summary>
+    /// <remarks>
+    /// The family this exists for was measured and declined twice, and the declines were right
+    /// about the reason: the combat step had no way to charge anything. It has one now
+    /// (<see cref="CombatTaxes"/>), and what is read here is deliberately narrow.
+    /// <para>
+    /// <b>The counted price is not counted.</b> "{2} for each creature they control that's
+    /// attacking you" and "{1} for each of those creatures" both mean one price per creature this
+    /// tax covers, which is exactly the arithmetic the declaration already does — so the tail is
+    /// matched as a fixed phrase rather than handed to the counting vocabulary. A tail that says
+    /// anything else ("{1} for each card in your hand", "{X}, where X is …") counts something
+    /// this cannot see at declaration time and leaves the line unread.
+    /// </para>
+    /// <para>
+    /// <b>Fail closed in both directions.</b> A price that parses to nothing, or to a symbol the
+    /// pool arithmetic cannot settle without asking a question — {X}, a hybrid, Norn's Annex's
+    /// Phyrexian {W/P} — leaves the whole line unread. Reading the restriction without a
+    /// chargeable price would make the card <em>stronger</em> than printed (nobody could ever
+    /// attack); reading the price without the restriction would make it a blank. Neither half
+    /// ever reaches the compiled card alone, because both come out of this one match.
+    /// </para>
+    /// <para>
+    /// "Attack or block" is two taxes from one line, and that is why the block half exists at
+    /// all: read as an attack tax only, Qal Sisma Behemoth would block for free while its printed
+    /// text says otherwise.
+    /// </para>
+    /// </remarks>
+    private static bool TryCombatTax(string line, ImmutableList<CombatTax>.Builder into)
+    {
+        if (DefenceTaxLine().Match(line) is { Success: true } group)
+        {
+            if (TaxPrice(group.Groups["price"].Value, group.Groups["count"]) is not { } priced)
+                return false;
+
+            var (price, count) = priced;
+
+            // The three printed subjects are three different questions about who is being
+            // attacked, and there is no default that means "guess": a spelling this switch does
+            // not know leaves the line unread rather than picking the nearest.
+            var subject = group.Groups["what"].Value.ToUpperInvariant() switch
+            {
+                "YOU" => TaxedCreatures.Defending,
+                "YOU OR PLANESWALKERS YOU CONTROL" => TaxedCreatures.DefendingWithPlaneswalkers,
+                "PLANESWALKERS YOU CONTROL" => TaxedCreatures.DefendingPlaneswalkersOnly,
+                _ => (TaxedCreatures?)null,
+            };
+
+            if (subject is not { } who)
+                return false;
+
+            into.Add(new CombatTax
+            {
+                Id = "attack-tax:" + who + ":" + price + (count is null ? string.Empty : ":counted"),
+                Price = price,
+                Count = count,
+                Declaration = TaxedDeclaration.Attack,
+                Subject = who,
+            });
+
+            return true;
+        }
+
+        var self = SelfCombatTaxLine().Match(line);
+        var attached = self.Success ? Match.Empty : AttachedCombatTaxLine().Match(line);
+
+        if (!self.Success && !attached.Success)
+            return false;
+
+        var m = self.Success ? self : attached;
+        if (TaxPrice(m.Groups["price"].Value, m.Groups["count"]) is not { } charged)
+            return false;
+
+        var (toll, per) = charged;
+
+        var subjectHere = self.Success ? TaxedCreatures.Host : TaxedCreatures.Attached;
+        var what = m.Groups["what"].Value.ToUpperInvariant();
+        var counted = per is null ? string.Empty : ":counted";
+
+        if (what is "ATTACK" or "ATTACK OR BLOCK")
+        {
+            into.Add(new CombatTax
+            {
+                Id = "attack-tax:" + subjectHere + ":" + toll + counted,
+                Price = toll,
+                Count = per,
+                Declaration = TaxedDeclaration.Attack,
+                Subject = subjectHere,
+            });
+        }
+
+        if (what is "BLOCK" or "ATTACK OR BLOCK")
+        {
+            into.Add(new CombatTax
+            {
+                Id = "block-tax:" + subjectHere + ":" + toll + counted,
+                Price = toll,
+                Count = per,
+                Declaration = TaxedDeclaration.Block,
+                Subject = subjectHere,
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A declaration's price, or null for one the engine cannot charge (CR 508.1j).
+    /// </summary>
+    /// <remarks>
+    /// CR 508.1j forbids a partial payment and there is no stack object to hang a question on, so
+    /// every symbol here has to be one the pool arithmetic can settle on its own. {X} has no
+    /// announced value at a declaration, a hybrid is a choice nobody can be asked for, and a
+    /// Phyrexian symbol is a choice between mana and life. A price of nothing is refused too: a
+    /// tax of {0} is a prohibition with a free way out, which is not a card.
+    /// </remarks>
+    private static (ManaCostSpec Price, BoardCount? Count)? TaxPrice(string printed, Group counted)
+    {
+        var price = ManaCostSpec.Parse(printed);
+
+        // A counted price is a unit times something on the board, so the unit has to be a number
+        // this can multiply. "{X}, where X is the number of enchantments you control" prints no
+        // unit at all and means one apiece (CR 107.3), which is the {1} substituted here rather
+        // than a second field nothing else would ever set.
+        if (counted.Success)
+        {
+            var phrase = counted.Value.Trim();
+            if (phrase.StartsWith(TaxCountPreamble, StringComparison.OrdinalIgnoreCase))
+                phrase = phrase[TaxCountPreamble.Length..].Trim();
+
+            // hasSource: true — the permanent printing the line is standing on the battlefield
+            // when the declaration is made, so "+1/+1 counter on it" has something to point at.
+            // CountSeats.Host and no lookup: a declaration settles "you" and "its controller" and
+            // nothing else, and a phrase naming a seat it cannot reach is refused there rather
+            // than answered with nought.
+            if (EffectPhrase.Counting(phrase, hasSource: true, EffectPhrase.CountSeats.Host)
+                is not { } count)
+            {
+                return null;
+            }
+
+            var unit = price.HasVariable ? ManaCostSpec.Parse("{1}") : price;
+
+            // The unit is multiplied, so it has to be generic: CR 107.3 says nothing about what
+            // three times a coloured pip would be, and no card asks.
+            return unit.Symbols.IsEmpty
+                || unit.GenericPart <= 0
+                || unit.ManaValue != unit.GenericPart
+                ? null
+                : (unit,
+                    (state, abilities, you, source) => count(state, abilities, you, source, null));
+        }
+
+        return price.Symbols.IsEmpty
+            || price.ManaValue <= 0
+            || price.Symbols.Any(s => s.IsVariable || s.IsHybrid || s.IsPhyrexian)
+            ? null
+            : (price, null);
+    }
+
+    /// <summary>The words "the number of", which a counted group phrase is read without.</summary>
+    private const string TaxCountPreamble = "the number of ";
+
+    /// <summary>"Creatures can't attack you unless their controller pays {2} for each …"</summary>
+    /// <remarks>
+    /// The per-creature tail is an alternation of the three phrases the corpus prints rather than
+    /// a wildcard, because that multiplication is the declaration's own and has to be recognised
+    /// rather than counted. What follows it — Sphere of Safety's "where X is the number of
+    /// enchantments you control" — is a genuine board count and goes to the shared vocabulary.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Creatures can't attack (?<what>you or planeswalkers you control|you|planeswalkers you control) "
+            + @"unless their controller pays (?<price>\{[^{}]+\}) for each "
+            + @"(?:of those creatures|creature they control that's attacking (?:you|a planeswalker you control))"
+            + @"(?:, where X is (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DefenceTaxLine();
+
+    /// <summary>"~ can't attack or block unless you pay {2}." — Qal Sisma Behemoth.</summary>
+    [GeneratedRegex(
+        @"^~ can't (?<what>attack or block|attack|block) unless you pay (?<price>\{[^{}]+\})"
+            + @"(?: for each (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfCombatTaxLine();
+
+    /// <summary>"Enchanted creature can't attack unless its controller pays {3}." — Brainwash.</summary>
+    [GeneratedRegex(
+        @"^Enchanted creature can't (?<what>attack or block|attack|block) "
+            + @"unless its controller pays (?<price>\{[^{}]+\})(?: for each (?<count>[^.]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedCombatTaxLine();
 
     /// <summary>
     /// "Creature spells you control can't be countered" (CR 701.6a).

@@ -14654,6 +14654,533 @@ public sealed class CompiledCardBehaviourTests
             3, Characteristics.Of(game.State, Pool, game.State.GetObject(measured)).Power);
     }
 
+    // ---- A price on declaring an attacker (CR 508.1h, 509.1d) ----------------
+
+    /// <summary>Lands that can be tapped for one mana each, created where they are wanted.</summary>
+    private static List<ObjectId> TaxLands(Game game, Guid playerId, int count)
+    {
+        var lands = new List<ObjectId>(count);
+
+        for (var i = 0; i < count; i++)
+            lands.Add(game.Create(playerId, TestCards.BasicLand("Forest"), Zone.Battlefield));
+
+        return lands;
+    }
+
+    /// <summary>
+    /// Floats mana from those lands, which CR 508.1i lets a player do inside the declaration.
+    /// </summary>
+    /// <remarks>
+    /// Activated with no priority on purpose: the declare attackers step's turn-based action
+    /// happens before anybody has priority, and a mana ability is the one thing CR 117.1d lets a
+    /// player use anyway. If that stopped being true, every test in this section would fail here
+    /// rather than quietly finding the price already paid.
+    /// </remarks>
+    private static void FloatFrom(Game game, Guid playerId, IEnumerable<ObjectId> lands)
+    {
+        foreach (var land in lands)
+            game.ActivateAbility(playerId, land, "mana");
+    }
+
+    /// <summary>
+    /// "Creatures can't attack you unless their controller pays {2} for each creature they
+    /// control that's attacking you." — Ghostly Prison, Propaganda, Windborn Muse.
+    /// </summary>
+    /// <remarks>
+    /// The family this section exists for had been measured and declined twice, and both declines
+    /// gave the same reason: the declare attackers step could not charge anything. The first
+    /// assertion here is the one that matters — the declaration is <em>refused</em> and the mana
+    /// is still in the pool, because CR 508.1 returns the game to the moment before an illegal
+    /// declaration and CR 508.1j forbids a partial payment. A tax that took the mana and then
+    /// refused would be worse than no tax at all.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_refuses_a_declaration_nobody_has_paid_for()
+    {
+        var prison = Card(
+            "Attack Tax Prison Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(prison);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Attack Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) };
+
+        // Nothing floating: refused, and nothing happened at all.
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.False(game.State.Combat.AttackersDeclared);
+        Assert.Empty(game.State.Combat.Attackers);
+
+        // One short: still refused, and — the assertion this test is for — the one mana that was
+        // floating is still floating. There is no partial payment (CR 508.1j).
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Empty(game.State.Combat.Attackers);
+
+        // Paid: the attack stands and the mana is gone.
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, attack);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(bob, game.State.Combat.Attackers[bear].DefendingPlayer);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The same price, charged once for each creature in the declaration (CR 508.1h).
+    /// </summary>
+    /// <remarks>
+    /// "For each creature they control that's attacking you" is the whole reason this family
+    /// needed a mechanism rather than a counted price: the multiplication is the declaration's
+    /// own, and the number it multiplies by does not exist until the declaration is made. Two
+    /// attackers rather than one is what separates a tax that reads the count from one that
+    /// charged a flat {2} and passed every single-attacker test.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_is_charged_once_for_every_creature_in_the_declaration()
+    {
+        var muse = Card(
+            "Attack Tax Muse Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob) = InMainPhase();
+        var one = game.Create(alice, TestCards.Creature("Attack Tax Pair One Test", 2, 2), Zone.Battlefield);
+        var two = game.Create(alice, TestCards.Creature("Attack Tax Pair Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, muse, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 4);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [one] = AttackTarget.Player(bob),
+            [two] = AttackTarget.Player(bob),
+        };
+
+        // Three is enough for one attacker and not for two, which is the arithmetic under test.
+        FloatFrom(game, alice, lands.Take(3));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+        Assert.Equal(3, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(3));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// A tax guards the player who controls it and nobody else (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// The reading this rules out is the one a "creatures can't attack" prohibition would have
+    /// taken: a tax that charged for every attacker in the declaration, wherever it was pointed.
+    /// Two attackers go out at once and only the one aimed at the taxing player is paid for, so a
+    /// mechanism that ignored the defender comes to {4} here and fails on the first assertion
+    /// rather than on a subtle one.
+    /// </remarks>
+    [Fact]
+    public void An_attack_tax_leaves_an_attack_on_another_player_alone()
+    {
+        var prison = Card(
+            "Attack Tax Seat Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+        var atBob = game.Create(alice, TestCards.Creature("Attack Tax Seat One Test", 2, 2), Zone.Battlefield);
+        var atCarol = game.Create(alice, TestCards.Creature("Attack Tax Seat Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        Settle(game);
+
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+
+        var spread = new Dictionary<ObjectId, AttackTarget>
+        {
+            [atBob] = AttackTarget.Player(bob),
+            [atCarol] = AttackTarget.Player(carol),
+        };
+
+        // One mana: not enough for the creature aimed at Bob, which is the only one charged.
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, spread));
+
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, spread);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack <em>you</em>" does not cover an attack on your planeswalker
+    /// (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Attacking a planeswalker is not attacking its controller, which is the whole reason the
+    /// cards that mean both print "you or planeswalkers you control" — five words nobody would
+    /// pay for if the shorter line already said it. A tax that read the defending player out of
+    /// the target slot and stopped there charges here, so this is the assertion that keeps the
+    /// two arms apart.
+    /// </remarks>
+    [Fact]
+    public void A_tax_on_attacking_you_does_not_charge_for_an_attack_on_your_planeswalker()
+    {
+        var prison = Card(
+            "Walker Free Tax Test",
+            "Creatures can't attack you unless their controller pays {2} for each creature they "
+                + "control that's attacking you.",
+            CardType.Enchantment);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Walker Free Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, prison, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Walker Free Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        // No mana anywhere, and the attack stands: the planeswalker is not the player.
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.At(bob, walker) });
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(walker, game.State.Combat.Attackers[bear].Planeswalker);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack you or planeswalkers you control unless their controller pays {1}
+    /// for each of those creatures." — Baird, Archon of Absolution.
+    /// </summary>
+    [Fact]
+    public void A_tax_that_names_planeswalkers_charges_for_an_attack_on_one()
+    {
+        var baird = Card(
+            "Walker Tax Test",
+            "Creatures can't attack you or planeswalkers you control unless their controller "
+                + "pays {1} for each of those creatures.",
+            CardType.Creature,
+            power: 2,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(baird);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Walker Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, baird, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Walker Tax Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 1);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var atWalker = new Dictionary<ObjectId, AttackTarget>
+        {
+            [bear] = AttackTarget.At(bob, walker),
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, atWalker));
+
+        FloatFrom(game, alice, lands);
+        game.DeclareAttackers(alice, atWalker);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(walker, game.State.Combat.Attackers[bear].Planeswalker);
+    }
+
+    /// <summary>
+    /// "Creatures can't attack planeswalkers you control unless their controller pays {1} for
+    /// each creature they control that's attacking a planeswalker you control." — Onakke
+    /// Oathkeeper, which guards the planeswalkers and not the player.
+    /// </summary>
+    [Fact]
+    public void A_tax_on_planeswalkers_alone_leaves_an_attack_on_the_player_free()
+    {
+        var oathkeeper = Card(
+            "Oathkeeper Tax Test",
+            "Creatures can't attack planeswalkers you control unless their controller pays {1} "
+                + "for each creature they control that's attacking a planeswalker you control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(oathkeeper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var atPlayer = game.Create(
+            alice, TestCards.Creature("Oathkeeper Player Bear Test", 2, 2), Zone.Battlefield);
+        var atWalker = game.Create(
+            alice, TestCards.Creature("Oathkeeper Walker Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, oathkeeper, Zone.Battlefield);
+        var walker = game.Create(
+            bob, Walker("Oathkeeper Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 1);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var spread = new Dictionary<ObjectId, AttackTarget>
+        {
+            [atPlayer] = AttackTarget.Player(bob),
+            [atWalker] = AttackTarget.At(bob, walker),
+        };
+
+        // Two attackers, one price: the creature aimed at Bob himself is not what this card
+        // names, so a reading that charged for both fails here.
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, spread));
+
+        FloatFrom(game, alice, lands);
+        game.DeclareAttackers(alice, spread);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "…unless their controller pays {X} for each of those creatures, where X is the number of
+    /// enchantments you control." — Sphere of Safety.
+    /// </summary>
+    /// <remarks>
+    /// Two counts in one sentence, and only one of them is a count. "For each of those creatures"
+    /// is the declaration's own multiplication and is recognised as a phrase; "where X is the
+    /// number of enchantments you control" is a genuine board count and goes to the same shared
+    /// counting vocabulary every "for each" in the compiler uses — entered from a caller that has
+    /// no resolution, because a declaration is not one.
+    /// <para>
+    /// Three enchantments rather than two, so the price is neither the number of attackers nor
+    /// any constant a broken reader would land on by accident. The card counts itself, which is
+    /// what the printed sentence says.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_attack_tax_multiplies_by_what_is_on_the_board()
+    {
+        var sphere = Card(
+            "Sphere Tax Test",
+            "Creatures can't attack you or planeswalkers you control unless their controller "
+                + "pays {X} for each of those creatures, where X is the number of enchantments "
+                + "you control.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sphere);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Sphere Tax Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, sphere, Zone.Battlefield);
+        game.Create(
+            bob,
+            Card("Sphere Tax Neighbour One Test", "Enchant creature", CardType.Enchantment),
+            Zone.Battlefield);
+        game.Create(
+            bob,
+            Card("Sphere Tax Neighbour Two Test", "Enchant creature", CardType.Enchantment),
+            Zone.Battlefield);
+        var lands = TaxLands(game, alice, 3);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) };
+
+        FloatFrom(game, alice, lands.Take(2));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(2));
+        game.DeclareAttackers(alice, attack);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Single(game.State.Combat.Attackers);
+    }
+
+    /// <summary>
+    /// "~ can't attack or block unless you pay {2}." — Qal Sisma Behemoth, one line and two
+    /// prices (CR 508.1h, 509.1d).
+    /// </summary>
+    /// <remarks>
+    /// Both halves are played in one combat, by two different players, because reading only the
+    /// attack half is the mistake this card is here to catch: the block would have been free on a
+    /// card whose printed text charges for it, and no coverage number would have noticed.
+    /// </remarks>
+    [Fact]
+    public void A_creature_can_be_taxed_for_its_own_attack_and_for_its_own_block()
+    {
+        var behemoth = Card(
+            "Behemoth Tax Test",
+            "~ can't attack or block unless you pay {2}.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(behemoth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, behemoth, Zone.Battlefield);
+        var blocker = game.Create(bob, behemoth, Zone.Battlefield);
+        var aliceLands = TaxLands(game, alice, 2);
+        var bobLands = TaxLands(game, bob, 2);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var attack = new Dictionary<ObjectId, AttackTarget>
+        {
+            [attacker] = AttackTarget.Player(bob),
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, attack));
+
+        FloatFrom(game, alice, aliceLands);
+        game.DeclareAttackers(alice, attack);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var block = new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = new List<ObjectId> { blocker },
+        };
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(bob, block));
+        Assert.False(game.State.Combat.BlockersDeclared);
+
+        FloatFrom(game, bob, bobLands);
+        game.DeclareBlockers(bob, block);
+
+        Assert.Equal(0, game.State.GetPlayer(bob).ManaPool.Total);
+        Assert.Contains(attacker, game.State.Combat.Blocked);
+    }
+
+    /// <summary>
+    /// "Enchanted creature can't attack unless its controller pays {3}." — Brainwash.
+    /// </summary>
+    /// <remarks>
+    /// The tax is printed on the Aura and charged for the permanent it is on, which is why the
+    /// second creature is in this test: an Aura read as taxing its controller's whole side would
+    /// come to {6} here, and one read as taxing itself would come to nothing at all.
+    /// </remarks>
+    [Fact]
+    public void An_aura_taxes_only_the_creature_it_is_attached_to()
+    {
+        var brainwash = Card(
+            "Brainwash Tax Test",
+            "Enchant creature\nEnchanted creature can't attack unless its controller pays {3}.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(brainwash);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var held = game.Create(alice, TestCards.Creature("Brainwash Held Test", 2, 2), Zone.Battlefield);
+        var free = game.Create(alice, TestCards.Creature("Brainwash Free Test", 2, 2), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 3);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, brainwash), [Target.ToPermanent(held)]);
+        Settle(game);
+
+        Assert.Equal(
+            held,
+            game.State.Battlefield.Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Brainwash Tax Test").Permanent!.AttachedTo);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [held] = AttackTarget.Player(bob),
+            [free] = AttackTarget.Player(bob),
+        };
+
+        FloatFrom(game, alice, lands.Take(2));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+
+        FloatFrom(game, alice, lands.Skip(2));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
+    /// <summary>
+    /// "~ can't attack unless you pay {1} for each +1/+1 counter on it." — Phyrexian Marauder.
+    /// </summary>
+    /// <remarks>
+    /// The counted price on a creature's own line, where "it" is the creature itself. Two
+    /// counters rather than one, and a second untaxed attacker beside it, so a reader that
+    /// charged one apiece or charged the whole declaration fails rather than passing on a number
+    /// that happened to agree.
+    /// </remarks>
+    [Fact]
+    public void A_creature_can_be_taxed_by_what_is_sitting_on_it()
+    {
+        var marauder = Card(
+            "Marauder Tax Test",
+            "~ can't attack unless you pay {1} for each +1/+1 counter on it.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(marauder);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var counted = game.Create(alice, marauder, Zone.Battlefield);
+        var plain = game.Create(alice, TestCards.Creature("Marauder Plain Test", 2, 2), Zone.Battlefield);
+        var lands = TaxLands(game, alice, 2);
+        game.ChangeCounters(counted, CounterKinds.PlusOnePlusOne, 2);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(counted).Permanent!.Counters
+            .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var both = new Dictionary<ObjectId, AttackTarget>
+        {
+            [counted] = AttackTarget.Player(bob),
+            [plain] = AttackTarget.Player(bob),
+        };
+
+        FloatFrom(game, alice, lands.Take(1));
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(alice, both));
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+
+        FloatFrom(game, alice, lands.Skip(1));
+        game.DeclareAttackers(alice, both);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+        Assert.Equal(2, game.State.Combat.Attackers.Count);
+    }
+
     // ---- A condition in the middle of an effect (CR 608.2c) -------------------
 
     /// <summary>"If you control a Swamp, destroy target nonblack creature." — Horobi's Whisper.</summary>

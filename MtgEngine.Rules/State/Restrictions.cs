@@ -143,6 +143,146 @@ public sealed record ChosenNameBan
 }
 
 /// <summary>
+/// A number read off the board at the moment a declaration is made (CR 107.3).
+/// </summary>
+/// <remarks>
+/// A declaration is not a resolution, so <see cref="Abilities.Amount"/> cannot serve here: its
+/// <see cref="Abilities.Amount.Counter"/> is handed a <see cref="Abilities.ResolutionContext"/>,
+/// and CR 508.1 is a turn-based action with no spell, no ability and no stack object to build one
+/// from. What is left when that context is taken away is exactly this — the board, whoever is
+/// asking, and the permanent doing the asking.
+/// <para>
+/// Declared here rather than reusing the compiler's own counting delegate so that
+/// <c>MtgEngine.Rules.State</c> does not learn about <c>MtgEngine.Rules.Cards</c>: the compiler
+/// reads state, and the dependency may not run the other way. The compiler adapts its shared
+/// counting vocabulary to this — the <em>same</em> vocabulary, entered from a caller that has no
+/// resolution, rather than a second one written out here.
+/// </para>
+/// </remarks>
+public delegate int BoardCount(
+    GameState state, Abilities.IAbilitySource abilities, Guid you, ObjectId source);
+
+/// <summary>Which declaration a combat tax is charged for (CR 508.1h, 509.1d).</summary>
+public enum TaxedDeclaration
+{
+    /// <summary>"Creatures can't attack you unless their controller pays {2}."</summary>
+    Attack,
+
+    /// <summary>"~ can't block unless you pay {2}."</summary>
+    Block,
+}
+
+/// <summary>Which creatures a combat tax charges for (CR 508.1c, 509.1b).</summary>
+/// <remarks>
+/// The subject is an enum rather than a filter because the four printings are four different
+/// questions, and only one of them is about the creature's characteristics at all. "Creatures
+/// can't attack <em>you</em>" asks who is being attacked; "~ can't attack" asks whether the
+/// creature is the permanent printing the line; "Enchanted creature can't attack" asks what the
+/// Aura is on. A filter vocabulary can answer none of those, and widening any of them to "every
+/// creature" makes a card strictly stronger than the one printed.
+/// </remarks>
+public enum TaxedCreatures
+{
+    /// <summary>
+    /// Every creature declared as attacking the host's controller — Ghostly Prison.
+    /// </summary>
+    /// <remarks>
+    /// A creature attacking a planeswalker is not attacking its controller (CR 508.1b), so this
+    /// arm deliberately does not cover one. The cards that mean both say so in print, and that
+    /// is <see cref="DefendingWithPlaneswalkers"/>.
+    /// </remarks>
+    Defending,
+
+    /// <summary>
+    /// "…you or planeswalkers you control" — Baird, Archon of Absolution, Sphere of Safety.
+    /// </summary>
+    DefendingWithPlaneswalkers,
+
+    /// <summary>
+    /// "Creatures can't attack planeswalkers you control unless…" — Onakke Oathkeeper, and only
+    /// the planeswalker half.
+    /// </summary>
+    DefendingPlaneswalkersOnly,
+
+    /// <summary>"~ can't attack unless you pay {2}" — the permanent printing the line.</summary>
+    Host,
+
+    /// <summary>"Enchanted creature can't attack unless its controller pays {3}" — Brainwash.</summary>
+    Attached,
+}
+
+/// <summary>
+/// A price a creature's controller pays to declare it as an attacker or a blocker
+/// (CR 508.1h, 509.1d).
+/// </summary>
+/// <remarks>
+/// <b>Not a characteristic, and so not a continuous effect.</b> This is the same argument
+/// <see cref="FlashPermission"/> makes and it lands in the same place: CR 613.1 orders the
+/// effects that change objects' characteristics, and a creature under a Ghostly Prison has
+/// exactly the abilities, power and types it had a moment ago. What the permanent changes is a
+/// rule of play — what the active player has to do to make a declaration — so it is read off the
+/// battlefield at the one moment the question is asked, which is also what makes it stop dead
+/// when the permanent leaves (CR 611.2c) with no state to sweep.
+/// <para>
+/// <b>Nor is it a cost modifier.</b> <see cref="Abilities.CostModifier"/> changes what a spell or
+/// an activated ability costs, and both of those are objects that go on the stack and can be
+/// responded to. A declaration is a turn-based action with no stack object at all (CR 508.1), so
+/// there is nothing there for a modifier to modify; the price is not an increase to something,
+/// it is the whole cost.
+/// </para>
+/// <para>
+/// <b>The price is per creature, and that is what the printed count says.</b> Every group
+/// printing in the corpus reads "{2} <em>for each creature they control that's attacking you</em>"
+/// or "for each of those creatures", which is one price multiplied by the creatures this tax
+/// covers in that declaration — so the multiplication is the declaration's own arithmetic rather
+/// than a counted quantity anything has to evaluate. A phrase that counts something else is left
+/// unread by the compiler rather than approximated by this.
+/// </para>
+/// <para>
+/// It lives in <see cref="StaticBans"/> rather than beside <see cref="FlashPermission"/> because
+/// the polarity is a refusal: the printed sentence is "creatures <em>can't</em> attack you", and
+/// the payment is the only way out of it. A tax nothing charges is a permanent that forbids
+/// nothing, which is exactly what the empty list means everywhere else in that record.
+/// </para>
+/// </remarks>
+public sealed record CombatTax
+{
+    public required string Id { get; init; }
+
+    /// <summary>What one covered creature costs to declare.</summary>
+    /// <remarks>
+    /// A parsed cost rather than a number, so a coloured price would be charged as printed. The
+    /// compiler refuses a variable, hybrid or Phyrexian symbol: the pool arithmetic cannot offer
+    /// the choice a hybrid asks for at a moment with no stack object to hold the question, and a
+    /// price silently read as its generic half is a Norn's Annex that anybody can walk past.
+    /// </remarks>
+    public required Mana.ManaCostSpec Price { get; init; }
+
+    /// <summary>
+    /// A board count that multiplies <see cref="Price"/>, or null for a price printed outright.
+    /// </summary>
+    /// <remarks>
+    /// Sphere of Safety's "{X} for each of those creatures, where X is the number of enchantments
+    /// you control" and Phyrexian Marauder's "{1} for each +1/+1 counter on it" are the same
+    /// shape: a unit price times something on the board. The count is taken when the declaration
+    /// is made and never again — CR 508.1h locks the total in, and an enchantment that leaves
+    /// afterwards does not refund anybody.
+    /// <para>
+    /// The unit is <see cref="Price"/>'s generic part, so a counted tax is generic mana by
+    /// construction; the compiler refuses a coloured unit rather than multiplying a pip, which is
+    /// not a thing CR 107.3 says how to do and no card prints.
+    /// </para>
+    /// </remarks>
+    public BoardCount? Count { get; init; }
+
+    /// <summary>Whether it is charged at the declaration of attackers or of blockers.</summary>
+    public required TaxedDeclaration Declaration { get; init; }
+
+    /// <summary>Which creatures in that declaration it charges for.</summary>
+    public required TaxedCreatures Subject { get; init; }
+}
+
+/// <summary>
 /// What a card's static abilities forbid outright (CR 119.7, 615.12).
 /// </summary>
 /// <remarks>
@@ -176,13 +316,19 @@ public sealed record StaticBans
     /// </summary>
     public ImmutableList<ChosenNameBan> NoActivatingNamed { get; init; } = [];
 
+    /// <summary>
+    /// What this card charges to declare an attacker or a blocker (CR 508.1h, 509.1d).
+    /// </summary>
+    public ImmutableList<CombatTax> CombatTaxes { get; init; } = [];
+
     /// <summary>Whether this card forbids nothing at all, asked before anything is built.</summary>
     public bool IsEmpty =>
         Unpreventable.IsEmpty
         && NoLifeGain.IsEmpty
         && NoCounter.IsEmpty
         && NoCastingNamed.IsEmpty
-        && NoActivatingNamed.IsEmpty;
+        && NoActivatingNamed.IsEmpty
+        && CombatTaxes.IsEmpty;
 }
 
 /// <summary>Whether a prohibition covers a player (CR 119.7).</summary>
@@ -657,3 +803,157 @@ public static class CastPermissions
     }
 }
 
+/// <summary>
+/// What a declaration of attackers or blockers costs (CR 508.1h, 509.1d).
+/// </summary>
+/// <remarks>
+/// Kept beside <see cref="Bans"/> and <see cref="CastPermissions"/> because it is the third
+/// question of the same shape: walk the battlefield at one moment, ask what is standing there,
+/// and answer from that. It shares their agreement about which permanents are still speaking
+/// (CR 613.1f) through <see cref="Bans.InPlay"/>, so a permanent that has lost all its abilities
+/// stops taxing on exactly the turn it stops forbidding.
+/// <para>
+/// <b>One total for the whole declaration, not one per creature.</b> CR 508.1h works out a total
+/// cost and locks it in, and CR 508.1j forbids a partial payment — so a declaration into two
+/// Propagandas with three attackers is a single {12} that is paid or refused whole. Summing here
+/// rather than charging creature by creature is what makes the refusal leave nothing spent.
+/// </para>
+/// </remarks>
+public static class CombatTaxes
+{
+    /// <summary>The total price of declaring these attackers (CR 508.1h).</summary>
+    public static Mana.ManaCostSpec ToAttack(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        IReadOnlyDictionary<ObjectId, AttackTarget> attackers)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(attackers);
+
+        var total = Mana.ManaCostSpec.Free;
+
+        foreach (var (host, controllerId, bans) in Bans.InPlay(state, abilities))
+        {
+            foreach (var tax in bans.CombatTaxes)
+            {
+                if (tax.Declaration != TaxedDeclaration.Attack)
+                    continue;
+
+                foreach (var (attackerId, target) in attackers)
+                {
+                    if (Charges(state, abilities, tax, host, controllerId, attackerId, target))
+                        total = total.Plus(PriceOf(state, abilities, tax, host, controllerId));
+                }
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>The total price of declaring these blockers (CR 509.1d).</summary>
+    /// <remarks>
+    /// The blockers are handed over flat rather than as the attacker-to-blockers map the
+    /// declaration is made with, because nothing this asks is about what is being blocked: every
+    /// printing the compiler reads taxes the blocking creature itself. The one printing that asks
+    /// about the attacker — Hipparion's "can't block creatures with power 3 or greater" — is left
+    /// unread for exactly that reason rather than charged as though it had said nothing.
+    /// </remarks>
+    public static Mana.ManaCostSpec ToBlock(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        IEnumerable<ObjectId> blockers)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(blockers);
+
+        var declared = blockers.ToList();
+        var total = Mana.ManaCostSpec.Free;
+
+        foreach (var (host, controllerId, bans) in Bans.InPlay(state, abilities))
+        {
+            foreach (var tax in bans.CombatTaxes)
+            {
+                if (tax.Declaration != TaxedDeclaration.Block)
+                    continue;
+
+                foreach (var blockerId in declared)
+                {
+                    if (Charges(state, abilities, tax, host, controllerId, blockerId, target: null))
+                        total = total.Plus(PriceOf(state, abilities, tax, host, controllerId));
+                }
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>What one covered creature costs right now (CR 107.3, 508.1h).</summary>
+    /// <remarks>
+    /// A count that comes to nought makes the tax free, and that is the printed card rather than
+    /// a failure: a Sphere of Safety with no enchantments beside it really does let everything
+    /// through. The direction that would be wrong — a phrase the compiler could not read quietly
+    /// coming back as nought — cannot happen here, because such a line never becomes a tax at all.
+    /// </remarks>
+    private static Mana.ManaCostSpec PriceOf(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        CombatTax tax,
+        GameObject host,
+        Guid hostControllerId) =>
+        tax.Count is not { } count
+            ? tax.Price
+            : Mana.ManaCostSpec.Free.PlusGeneric(
+                Math.Max(0, tax.Price.GenericPart * count(state, abilities, hostControllerId, host.Id)));
+
+    /// <summary>Whether this tax is charged for this creature in this declaration.</summary>
+    /// <remarks>
+    /// The defending arms read the host's controller <em>now</em> rather than the one it entered
+    /// under (CR 613.1b): a stolen Ghostly Prison protects the thief, and reading
+    /// <c>host.ControllerId</c> here would have it go on guarding the player who lost it.
+    /// </remarks>
+    private static bool Charges(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        CombatTax tax,
+        GameObject host,
+        Guid hostControllerId,
+        ObjectId creatureId,
+        AttackTarget? target) =>
+        tax.Subject switch
+        {
+            TaxedCreatures.Host => creatureId == host.Id,
+            TaxedCreatures.Attached => host.Permanent?.AttachedTo == creatureId,
+            TaxedCreatures.Defending =>
+                target is { IsPlaneswalker: false } player
+                && player.DefendingPlayer == hostControllerId,
+            TaxedCreatures.DefendingWithPlaneswalkers =>
+                target is { } either
+                && either.DefendingPlayer == hostControllerId
+                && (!either.IsPlaneswalker
+                    || IsPlaneswalkerControlledBy(state, abilities, either, hostControllerId)),
+            TaxedCreatures.DefendingPlaneswalkersOnly =>
+                target is { IsPlaneswalker: true } walker
+                && walker.DefendingPlayer == hostControllerId
+                && IsPlaneswalkerControlledBy(state, abilities, walker, hostControllerId),
+            _ => false,
+        };
+
+    /// <summary>
+    /// Whether the permanent being attacked is a planeswalker that player controls (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Asked rather than assumed from the target slot, because that slot also holds battles — and
+    /// a battle is attacked through its <em>protector</em>, not its controller (CR 310.9d), so a
+    /// tax on "planeswalkers you control" that took the slot at face value would charge for an
+    /// attack on a Siege the taxing player does not control and never named.
+    /// </remarks>
+    private static bool IsPlaneswalkerControlledBy(
+        GameState state, Abilities.IAbilitySource abilities, AttackTarget target, Guid playerId) =>
+        state.TryGetObject(target.Planeswalker, out var permanent)
+        && permanent.Zone == Zone.Battlefield
+        && Characteristics.CardOf(state, abilities, permanent).CardTypes
+            .HasFlag(Domain.Enums.CardType.Planeswalker)
+        && Characteristics.ControllerOf(state, abilities, permanent) == playerId;
+}

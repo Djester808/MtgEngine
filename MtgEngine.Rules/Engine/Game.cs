@@ -3798,6 +3798,30 @@ public sealed class Game
         if (CombatRules.IllegalAttackSet(State, _abilities, playerId, [.. attackers.Keys]) is { } broken)
             throw new InvalidOperationException(broken);
 
+        // CR 508.1h/j: what it costs to attack is totalled over the whole declaration and locked
+        // in, and there are no partial payments — so it is worked out and refused *before* a
+        // single event is emitted. A declaration the player cannot pay for leaves the game
+        // exactly as it was, mana included, which is what CR 508.1's "the game returns to the
+        // moment before the declaration" says and the only reading a caller can recover from.
+        //
+        // No question is asked. CR 508.1i lets the active player make mana here and this engine
+        // has no sub-step inside a turn-based action to hold one, so the mana has to be floating
+        // already — the same shape as every other payment the engine takes with the action rather
+        // than suspending it (see "A cost is not paid by asking"). The board's job is to quote
+        // the price with CombatTaxes.ToAttack before it offers the button.
+        var tax = CombatTaxes.ToAttack(State, _abilities, attackers);
+        if (!tax.Symbols.IsEmpty)
+        {
+            if (!ManaPayment.CanPay(State.GetPlayer(playerId).ManaPool, tax))
+            {
+                throw new InvalidOperationException(
+                    $"Attacking costs {tax} and you have {State.GetPlayer(playerId).ManaPool} "
+                        + "(CR 508.1h).");
+            }
+
+            PayMana(playerId, tax);
+        }
+
         Emit(new AttackersDeclared(attackers.ToImmutableDictionary()));
 
         // CR 508.1f: attacking taps the creatures. It is not a cost, so vigilance simply skips
@@ -3868,6 +3892,23 @@ public sealed class Game
             blocks.ToDictionary(kv => kv.Key, kv => new ImmutableListOfBlockers(kv.Value)));
         if (illegal is not null)
             throw new InvalidOperationException($"Illegal blocks: {illegal}.");
+
+        // CR 509.1d/f: the other half of the same rule, charged to the declaring player and
+        // refused whole for the same reason. The two are separate calls rather than one shared
+        // one because the two declarations are made by different players at different moments,
+        // and a tax that reached the wrong one of them would be free every other turn.
+        var toll = CombatTaxes.ToBlock(State, _abilities, blocks.Values.SelectMany(b => b));
+        if (!toll.Symbols.IsEmpty)
+        {
+            if (!ManaPayment.CanPay(State.GetPlayer(playerId).ManaPool, toll))
+            {
+                throw new InvalidOperationException(
+                    $"Blocking costs {toll} and you have {State.GetPlayer(playerId).ManaPool} "
+                        + "(CR 509.1d).");
+            }
+
+            PayMana(playerId, toll);
+        }
 
         Emit(new BlockersDeclared(
             blocks.ToImmutableDictionary(kv => kv.Key, kv => kv.Value.ToImmutableList())));
