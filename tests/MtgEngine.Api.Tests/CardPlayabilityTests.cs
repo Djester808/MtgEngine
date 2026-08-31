@@ -179,8 +179,28 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         output.WriteLine(string.Empty);
         output.WriteLine("fully read cards the compiled gate still refuses:");
 
-        foreach (var card in corpus.Complete.Where(c => !compiled.Contains(c.Name)).Take(12))
+        var refusedList = corpus.Complete.Where(c => !compiled.Contains(c.Name)).ToList();
+
+        foreach (var card in refusedList.Take(12))
             output.WriteLine($"  {card.Name}");
+
+        // The count above drifts upward every time a new kind of ability becomes readable,
+        // so on its own it cannot tell "the naive question has a wider blind spot" from
+        // "six cards stopped being playable". This asks the question that actually matters
+        // about the same list, and it does not drift: whatever the naive question refuses,
+        // the gate production runs must still admit. Measured at this tip: 0 of 508.
+        var production = Admitted(
+            new PlayableCards(new CardPool(), new CompiledPool()), corpus.All);
+        var unplayable = refusedList
+            .Where(c => !production.Contains(c.Name))
+            .Select(c => c.Name)
+            .ToList();
+
+        Assert.True(
+            unplayable.Count == 0,
+            $"{unplayable.Count} cards are read in full and refused by the gate production "
+                + "actually asks, so they cannot be played at all: "
+                + string.Join(", ", unplayable.Take(20)));
 
         // This measures the two sources on their own, which is what makes the shape of the old
         // defect visible: for most of this engine's life `Program.cs` registered CardPool as the
@@ -264,7 +284,20 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // The production gate asks CompiledPool.Refuses, which is !IsComplete and admits all of
     // them; this row measures only the naive question's blind spot, and it widens precisely
     // when a new kind of ability becomes readable.
-    private const int CompiledGateRefusesComplete = 502;
+    // Re-recorded 502 -> 508 for the round-twenty-one pipeline. Investigated, and this time
+    // the investigation changed the test rather than the number. Every previous re-record
+    // ended by arguing that the newcomers were benign because the production gate admits
+    // them; that argument was made from a hand-classified sample each time, and it is the
+    // kind of argument that is right four rounds running and then quietly wrong. So it is
+    // now measured over the whole list, on every run, by the assertion above: of the 508
+    // cards the naive question refuses, production refuses 0. The count below is therefore
+    // documentation of how wide the naive question s blind spot has grown - it may still
+    // only be re-recorded after investigation - while the claim that matters ("a card read
+    // in full can be played") is an invariant that cannot drift.
+    //
+    // Evidence/compiled-gate-refusals.txt holds the 508 names, so the next round can diff
+    // the list instead of rebuilding at two tips to find out what moved.
+    private const int CompiledGateRefusesComplete = 508;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
