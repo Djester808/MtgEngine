@@ -8769,9 +8769,19 @@ public sealed class Game
         {
             Shuffle(searched, _random);
 
-            if (picks.Count > 0)
+            // Every card found, not only the first. "Shuffle and put those cards on top in any
+            // order" is Goblin Recruiter, Dwarven Recruiter, Congregation at Dawn and Scouting
+            // Trek, and each of them fetches several; taking picks[0] alone left the rest sitting
+            // in the shuffled library, which is a tutor that finds four cards and delivers one
+            // while the log says it succeeded.
+            //
+            // Walked backwards so the first card the player named ends up on top. CR 401.4 gives
+            // the order to the cards' owner whenever an effect puts two or more of them in one
+            // position in a library, and the order they were picked in is the only statement of
+            // it this game has - the answer is a list, and a list has an order.
+            for (var i = picks.Count - 1; i >= 0; i--)
             {
-                var found = new ObjectId(Guid.ParseExact(picks[0], "N"));
+                var found = new ObjectId(Guid.ParseExact(picks[i], "N"));
                 if (State.TryGetObject(found, out var onTop) && onTop.Zone == Zone.Library)
                     Move(found, Zone.Library, MoveCause.Other, searched, ZonePosition.Top);
             }

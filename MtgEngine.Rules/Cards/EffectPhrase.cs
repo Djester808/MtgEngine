@@ -3480,10 +3480,35 @@ public static partial class EffectPhrase
         // other way to say "that card", and reading it as a bare shuffle would leave the tutor
         // putting its find in hand.
         if (SearchToTopLine().IsMatch(sentence)
-            && effects.Count > 0
-            && effects[^1] is SearchLibrary tutored)
+            && AmendLastSearch(effects, tutored => tutored with { Destination = Zone.Library }))
         {
-            effects[^1] = tutored with { Destination = Zone.Library };
+            return true;
+        }
+
+        // "Put it into your hand", "put them onto the battlefield tapped", "exile them" — the
+        // other half of the same cut, and the sibling this amend went without for a long time.
+        // A search sentence that names its destination after a ", then" arrives here as an
+        // orphan: "reveal it" ends one clause and "put it into your hand" begins the next, so the
+        // tutor above compiled with the hand it defaults to and the sentence saying so was left
+        // unread, taking the whole card with it.
+        //
+        // It *amends* rather than adding an effect for the same reason the top-of-library one
+        // does: "it" is the card the sentence before found, and there is no other way to say so.
+        // Read as an effect of its own it would be a move of nothing.
+        //
+        // The guard is the immediately preceding effect, not anything in the tree, and that is
+        // deliberate. A destination may only be given to the search it was printed against; a
+        // "put it into your hand" that follows some other instruction means something this cannot
+        // see, and pointing it at a search two sentences back would be a tutor fetching to a zone
+        // its card never named — the failure this compiler treats as worse than an unread line.
+        var rider = SearchRiderLine().Match(sentence);
+        if (rider.Success
+            && AmendLastSearch(effects, destined => destined with
+            {
+                Destination = SearchDestination(rider.Groups["where"].Value),
+                Tapped = rider.Groups["tapped"].Success,
+            }))
+        {
             return true;
         }
 
@@ -5922,9 +5947,14 @@ public static partial class EffectPhrase
             // a filter grammar that can be got wrong.
             effects.Add(new SearchLibrary(
                 NamedFilter(m.Groups["named"].Value),
-                m.Groups["where"].Value.Contains("battlefield", StringComparison.OrdinalIgnoreCase)
-                    ? Zone.Battlefield
-                    : Zone.Hand,
+
+                // The same destination vocabulary the filtered arm reads, rather than a second
+                // reading of the same group: this arm used to ask only whether the word
+                // "battlefield" was in it and call everything else the hand, so the moment the
+                // tail learned to say "exile them" a named tutor would have exiled into a hand.
+                m.Groups["ontop"].Success
+                    ? Zone.Library
+                    : SearchDestination(m.Groups["where"].Value),
                 Tapped: m.Groups["tapped"].Success,
                 Zones: namedZones,
 
@@ -10304,13 +10334,68 @@ public static partial class EffectPhrase
         return true;
     }
 
+    /// <summary>
+    /// Rewrites the search a destination rider is about, or answers that there is not one.
+    /// </summary>
+    /// <remarks>
+    /// A rider printed after a ", then" says where the search in the clause <em>before</em> it
+    /// puts its find, so it amends that search instead of adding an effect — there is no other
+    /// way to say "it", and reading the clause as an instruction of its own would be a move of
+    /// nothing.
+    /// <para>
+    /// Two shapes hold that search and no others. Usually it is simply the last effect compiled.
+    /// On a card that offers the search — "you may search your library …, reveal it, then put it
+    /// into your hand" — the offer was built from the clause before the cut and the search sits
+    /// inside it, so the last effect is the offer and the search is the last thing it holds.
+    /// Sun-Blessed Mount and Old Thrush are that shape, and both were one line short of complete
+    /// because this looked only at the top of the list.
+    /// </para>
+    /// <para>
+    /// Anything else is refused rather than searched for. Walking the whole tree would let a
+    /// destination reach a search two sentences back that was never printed against it, and a
+    /// tutor that fetches to a zone its card does not name is worse than a line left unread.
+    /// </para>
+    /// </remarks>
+    private static bool AmendLastSearch(
+        ImmutableList<IEffect>.Builder effects, Func<SearchLibrary, SearchLibrary> amend)
+    {
+        if (effects.Count == 0)
+            return false;
+
+        switch (effects[^1])
+        {
+            case SearchLibrary found:
+                effects[^1] = amend(found);
+                return true;
+
+            case MayPay offer when offer.IfYouDo.Count > 0
+                && offer.IfYouDo[^1] is SearchLibrary inside:
+                effects[^1] = offer with
+                {
+                    IfYouDo = offer.IfYouDo.SetItem(offer.IfYouDo.Count - 1, amend(inside)),
+                };
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>Where a search puts what it found (CR 701.23).</summary>
     /// <remarks>
     /// The hand is the default because a search that says nothing about a destination reveals the
     /// card and takes it — which is what every tutor without a "put" clause does.
+    /// <para>
+    /// Exile is asked <em>first</em>, and that order is the whole of the care this function needs:
+    /// the clause it is handed for an exiling tutor is the verb phrase "exile them" rather than a
+    /// "put … into" phrase, so a fall-through would have answered "hand" — a Mana Severance that
+    /// draws you your whole library instead of removing it, on a card reporting itself fully read.
+    /// </para>
     /// </remarks>
     private static Zone SearchDestination(string where) =>
-        where.Contains("battlefield", StringComparison.OrdinalIgnoreCase) ? Zone.Battlefield
+        where.StartsWith("exile", StringComparison.OrdinalIgnoreCase) ? Zone.Exile
+        : where.Contains("battlefield", StringComparison.OrdinalIgnoreCase) ? Zone.Battlefield
         : where.Contains("graveyard", StringComparison.OrdinalIgnoreCase) ? Zone.Graveyard
         : Zone.Hand;
 
@@ -14428,10 +14513,43 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleTargetCardsLine();
 
+    /// <remarks>
+    /// The plural pronouns are the recruiters — Goblin Recruiter, Dwarven Recruiter, Congregation
+    /// at Dawn, Scouting Trek — and "the card" is Worldly Tutor, which is the same instruction
+    /// with the definite article for a pronoun. Four spellings of one clause, and each of them
+    /// was one card short on its own.
+    /// <para>
+    /// "In any order" is matched and read as nothing. CR 401.4 already lets the owner arrange
+    /// cards an effect puts in one position in a library, so the printed words grant nothing the
+    /// rule has not; refusing them would have cost the two cards that say them out loud.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(then )?shuffle and put (it|that card) on top( of your library)?$",
+        @"^(then )?shuffle and put (it|that card|the card|them|those cards) "
+            + @"on top( of your library)?( in any order)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SearchToTopLine();
+
+    /// <remarks>
+    /// The destination of a search, printed as a sentence of its own because the splitter cuts at
+    /// ", then" — "search your library for a card named ~, reveal it, <em>then</em> put it into
+    /// your hand". <see cref="SearchToTopLine"/> is this same amend for the one destination that
+    /// is the library; this is the other three.
+    /// <para>
+    /// Anchored at both ends and restricted to the pronouns, which is what keeps it an amend
+    /// rather than a licence: "put a +1/+1 counter on it", "put that card on the bottom of your
+    /// library", "put them onto the battlefield under their control" all fail to match and leave
+    /// the line unread, because each of them is a different instruction and a tutor that fetches
+    /// to the wrong place is worse than one that does not compile.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(then |and )?(put (it|that card|them|those cards) "
+            + @"(?<where>onto the battlefield|into (your|their) hand|into your graveyard)"
+            + @"(?<tapped> tapped)?"
+            + @"|(?<where>exile (it|that card|them|those cards)))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SearchRiderLine();
 
     [GeneratedRegex(
         @"^put " + N + @" (?<kind>[+-]\d/[+-]\d) counters? on "
@@ -17085,11 +17203,28 @@ public static partial class EffectPhrase
             + @"( named (?<named>(?:(?! named )[^.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"(,? reveal (it|that card|them|those cards))?"
-            + @"(,? (then |and )?put (it|that card|them|those cards) "
+            // "Exile them" is the third destination the tail can name, and it is a destination
+            // rather than a separate instruction: the search is what found the cards and this
+            // says where they go (CR 701.23d). Read as its own sentence it would be an exile of
+            // nothing, because "them" has no antecedent once the clause is cut off.
+            //
+            // The verb stays singular, and that is a refusal rather than an oversight. "Target
+            // player searches their library …, puts it onto the battlefield tapped" is one more
+            // word here and one more card in the corpus, and the card it buys is inert: a search
+            // somebody else makes carries "the controller of the permanent this is about" as its
+            // searcher, and a sentence that names a player has no permanent to read, so it
+            // resolves to nothing while reporting itself fully read. Until a search can name a
+            // player as its searcher, the third person is left unread.
+            + @"(,? (then |and )?(put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield|into (your|their) hand|into your graveyard)"
-            + @"(?<tapped> tapped)?)?"
+            + @"(?<tapped> tapped)?"
+            + @"|(?<where>exile (it|that card|them|those cards))))?"
             + @"(,? (then |and )?shuffle"
-            + @"(?<ontop> and put (it|that card) on top( of your library)?)?"
+            // "In any order" is what CR 401.4 already grants whenever an effect puts two or more
+            // cards in one position in a library, so the words are matched and read as nothing —
+            // and the plural pronouns beside them are what the recruiters print.
+            + @"(?<ontop> and put (it|that card|the card|them|those cards) "
+            + @"on top( of your library)?( in any order)?)?"
             + @"| then shuffle your library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SearchLibraryLine();
