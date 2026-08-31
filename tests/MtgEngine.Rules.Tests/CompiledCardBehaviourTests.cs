@@ -4713,6 +4713,262 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Enemy Corpse Test");
     }
 
+    // ---- A token with a name of its own (CR 111.4) ---------------------------
+
+    /// <summary>
+    /// A token the card names arrives under that name, carrying what it was given.
+    /// </summary>
+    /// <remarks>
+    /// The whole difficulty of this family is that a name is not a type. Everywhere else in the
+    /// compiler a capitalised word beside a type line <em>is</em> a subtype - that is how
+    /// "Soldier" is found in "a 1/1 white Soldier creature token" with no vocabulary of type
+    /// names anywhere - and the name a card prints for its token stands in exactly that
+    /// position. This engine has been bitten seven times by a capitalised word read as a type;
+    /// "all Mountains are Plains" once compiled to a lord for the creature type Mountain,
+    /// complete, played, and matching nothing at all.
+    /// <para>
+    /// So the assertion below is deliberately two-sided: the token has to be <em>called</em>
+    /// Llanowar Elves, and it has to be a Elf Druid and not a "Llanowar Elves".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_the_card_names_arrives_under_that_name_and_the_name_is_not_a_type()
+    {
+        var mentor = Card(
+            "Named Token Mentor Test",
+            "Create a 1/1 green Elf Druid creature token named Llanowar Elves. "
+                + "It has \"{T}: Add {G}.\"",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(mentor);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, mentor), []);
+        Settle(game);
+
+        var token = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.CardTypes.HasFlag(CardType.Token));
+
+        // The name the card printed, and nothing else standing in for it. Before this the token
+        // was called "Elf Druid" - the subtypes joined together - which is the name of no card
+        // anybody has printed.
+        Assert.Equal("Llanowar Elves", token.Card.Name);
+
+        // And the name went nowhere near the type line.
+        Assert.Equal(["Elf", "Druid"], token.Card.Subtypes);
+        Assert.DoesNotContain("Llanowar Elves", token.Card.Subtypes);
+
+        // The ability printed as its own sentence after the token reached it, which it could not
+        // before: the sentence that folds the two together stopped at the word "token", and every
+        // token with a name had its ability behind the name.
+        Assert.NotEmpty(Pool.ActivatedOf(token.Card));
+    }
+
+    /// <summary>
+    /// Two cards printing the same token under two names make two different cards.
+    /// </summary>
+    /// <remarks>
+    /// The control for the test above, and the reason the name has to reach the id. A token
+    /// <em>is</em> a card definition and <c>CompiledPool</c> serves abilities by id, so two
+    /// definitions sharing an id would have one card's token behaviour served for the other -
+    /// silently, because both are the right size and colour on the board.
+    /// </remarks>
+    [Fact]
+    public void A_differently_named_token_is_a_different_card_and_keeps_its_own_ability()
+    {
+        var mentor = Card(
+            "Named Token Elves Test",
+            "Create a 1/1 green Elf Druid creature token named Llanowar Elders. "
+                + "It has \"{T}: Add {G}.\"",
+            CardType.Sorcery);
+
+        var lookout = Card(
+            "Named Token Harrier Test",
+            "Create a 1/1 white Kithkin Soldier creature token named Goldmeadow Harrier. "
+                + "It has \"{W}, {T}: Tap target creature.\"",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(lookout).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, mentor), []);
+        Settle(game);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, lookout), []);
+        Settle(game);
+
+        var tokens = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.CardTypes.HasFlag(CardType.Token))
+            .ToList();
+
+        Assert.Equal(2, tokens.Count);
+
+        var elder = tokens.Single(o => o.Card.Name == "Llanowar Elders");
+        var harrier = tokens.Single(o => o.Card.Name == "Goldmeadow Harrier");
+
+        // Two names, two ids, two sets of abilities. Equal ids here would be the pool serving one
+        // card's token for the other, which is the failure this whole family is prone to.
+        Assert.NotEqual(elder.Card.OracleId, harrier.Card.OracleId);
+
+        // The Harrier's ability wants a target and the Elder's does not, so an ability served
+        // from the wrong definition would be visible here rather than merely wrong.
+        Assert.Empty(Pool.ActivatedOf(elder.Card)[0].Targets);
+        Assert.NotEmpty(Pool.ActivatedOf(harrier.Card)[0].Targets);
+    }
+
+    /// <summary>
+    /// A name that cannot be told from a type leaves the line unread.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half of the rule above. Handed to
+    /// <see cref="SearchFilters.Matches"/> - the reader that decides what a capitalised word in a
+    /// filter means - "Elf" answers as the subtype, so nothing downstream could tell the name
+    /// from the type and the sentence is refused rather than compiled into whichever reading
+    /// happened to win. No printed card names a token after its own creature type, so this costs
+    /// nothing and holds the line for the day one does.
+    /// </remarks>
+    [Fact]
+    public void A_token_name_that_cannot_be_told_from_a_type_leaves_the_line_unread()
+    {
+        var collides = Card(
+            "Colliding Name Test",
+            "Create a 1/1 green Elf creature token named Elf.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(collides).IsComplete);
+
+        // And the same sentence with a name no type answers to reads perfectly, so the refusal
+        // above is about the collision and not about the shape of the sentence.
+        var distinct = Card(
+            "Distinct Name Test",
+            "Create a 1/1 green Elf creature token named Elfhame Courier.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(distinct);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// A legendary token the card names is held to one by its name, not by its type.
+    /// </summary>
+    /// <remarks>
+    /// The name-first spelling - "create Marit Lage, a legendary 20/20 black Avatar creature
+    /// token" - and the strongest control this family has. CR 704.5j groups by <em>name</em>, so
+    /// two Marit Lages cannot both stay while a Marit Lage and a differently named Avatar can:
+    /// the two tokens below share every printed characteristic except the name, so an engine
+    /// matching on the type line would bin one of the second pair too.
+    /// </remarks>
+    [Fact]
+    public void Two_tokens_of_one_name_meet_the_legend_rule_and_two_names_do_not()
+    {
+        var depths = Card(
+            "Named Legend Depths Test",
+            "Create Marit Lage, a legendary 20/20 black Avatar creature token with flying "
+                + "and indestructible.",
+            CardType.Sorcery);
+
+        // The same token under another name. Same size, same colour, same subtype, same
+        // keywords - only the name differs, which is the whole of what the control tests.
+        var stage = Card(
+            "Named Legend Stage Test",
+            "Create Thespian Shade, a legendary 20/20 black Avatar creature token with flying "
+                + "and indestructible.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(depths).IsComplete);
+        Assert.True(CardCompiler.Compile(stage).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, depths), []);
+        Settle(game);
+
+        var made = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.CardTypes.HasFlag(CardType.Token));
+
+        Assert.Equal("Marit Lage", made.Card.Name);
+        Assert.Contains("Legendary", made.Card.Supertypes);
+        Assert.Equal(["Avatar"], made.Card.Subtypes);
+        Assert.True(
+            Characteristics.Of(game.State, Pool, made).Has(KeywordAbility.Indestructible));
+
+        // A second one of the same name. Settle answers the legend rule with the first option it
+        // is offered, so one of the two is in the graveyard by the time it returns.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, depths), []);
+        Settle(game);
+
+        Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Marit Lage");
+
+        // The control. The Shade shares everything with the Lage except its name, and both stay.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, stage), []);
+        Settle(game);
+
+        Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Marit Lage");
+
+        Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Thespian Shade");
+    }
+
+    /// <summary>
+    /// A named Equipment token is an artifact that can actually be attached.
+    /// </summary>
+    /// <remarks>
+    /// The noncreature half of the family, where the name is the <em>whole</em> description: the
+    /// card prints no size and no creature type, so the reader that finds a token's name in its
+    /// subtypes had nothing to work with and the sentence went unread. And the equip cost is not
+    /// decoration - an Equipment that cannot be attached is an artifact that does nothing, which
+    /// is the direction this compiler must never fail in.
+    /// </remarks>
+    [Fact]
+    public void A_named_equipment_token_is_no_creature_and_can_be_equipped()
+    {
+        var blacksmith = Card(
+            "Named Equipment Test",
+            "When ~ enters, create a colorless Equipment artifact token named Hill Axe with "
+                + "\"Equipped creature gets +1/+0\" and equip {2}.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(blacksmith);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, blacksmith, Zone.Battlefield);
+        var bearer = game.Create(alice, TestCards.Creature("Axe Bearer Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var axe = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Hill Axe");
+
+        var made = game.State.GetObject(axe).Card;
+
+        // An artifact and an Equipment, and emphatically not a creature: read through the
+        // creature reader instead it would have been a 0/0 that the state-based actions bin the
+        // moment it arrives.
+        Assert.True(made.CardTypes.HasFlag(CardType.Artifact));
+        Assert.False(made.CardTypes.HasFlag(CardType.Creature));
+        Assert.Equal(["Equipment"], made.Subtypes);
+        Assert.Null(made.Power);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.ActivateAbility(alice, axe, "equip", [Target.ToPermanent(bearer)]);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bearer)).Power);
+    }
+
     // ---- Choosing from a revealed hand (CR 701.16) ---------------------------
 
     [Fact]
