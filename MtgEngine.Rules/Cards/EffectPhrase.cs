@@ -1531,6 +1531,9 @@ public static partial class EffectPhrase
             return false;
         }
 
+        if (BoundNotRead(m))
+            return false;
+
         var restTo = Zone.Library;
         if (m.Groups["exilerest"].Success)
             restTo = Zone.Exile;
@@ -6076,7 +6079,8 @@ public static partial class EffectPhrase
         }
 
         if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } filter
-            && SearchedZones(m.Groups["zones"].Value) is { } zones)
+            && SearchedZones(m.Groups["zones"].Value) is { } zones
+            && !BoundNotRead(m))
         {
             // "Shuffle and put that card on top" leaves it in the library, which is a
             // destination like any other here - the engine puts it back after the shuffle
@@ -6162,7 +6166,8 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } sought)
+        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } sought
+            && !BoundNotRead(m))
         {
             effects.Add(new Seek(
                 sought,
@@ -7582,6 +7587,9 @@ public static partial class EffectPhrase
             {
                 return false;
             }
+
+            if (BoundNotRead(freeFromHand))
+                return false;
 
             effects.Add(new OfferFreeCastFromHand(offeredFilter, ManaValueBound(freeFromHand)));
             return true;
@@ -9754,6 +9762,28 @@ public static partial class EffectPhrase
 
         return CountingAmount(new Amount(1), phrase.Trim());
     }
+
+    /// <summary>
+    /// Whether a bound was printed and could not be read - the one answer a host may not treat
+    /// as "no bound".
+    /// </summary>
+    /// <remarks>
+    /// <strong>This is the fail-open the counted spelling would otherwise have opened.</strong>
+    /// Before the shared clause admitted a counted quantity, a cap the reader could not parse
+    /// could not match either, so the whole sentence went unread and the card was visibly
+    /// unfinished. Now the clause matches and <see cref="ManaValueBound"/> answers null for a
+    /// phrase the counting vocabulary cannot read - and every host below spells a missing bound
+    /// as null too. Handed straight through, "search your library for a card with mana value
+    /// less than or equal to <em>something unread</em>" would compile into a tutor with no
+    /// ceiling at all: a strictly better card than the printed one, scored as coverage.
+    /// <para>
+    /// So the two nulls are told apart here and the hosts refuse the sentence rather than
+    /// widening it. The cards stay unread, which is what an unfinished reading is supposed to
+    /// look like.
+    /// </para>
+    /// </remarks>
+    private static bool BoundNotRead(Match m) =>
+        m.Groups["cap"].Success && ManaValueBound(m) is null;
 
     private static Amount? ManaValueBound(Match m)
     {
