@@ -18308,6 +18308,123 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(23, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- A trigger that says which zone it is asking from (CR 603.6e) ---------
+
+    /// <summary>
+    /// "At the beginning of your upkeep, if ~ is in your graveyard, ..." — Gigapede.
+    /// </summary>
+    /// <remarks>
+    /// Found by the trigger-probe audit, which fires a battery of real events at every compiled
+    /// predicate on real boards and reports the ones that accept nothing. Six cards were in that
+    /// report for one reason: <c>Game.Consider</c> refuses an ability whose source is not in its
+    /// functioning zone, the compiler wrote the default battlefield on these, and their own
+    /// intervening-if says the card is in a graveyard. The permanent had to be in two zones at
+    /// once for the ability to do anything, so it never did — while compiling clean, reading as
+    /// complete, and counting towards coverage.
+    /// <para>
+    /// Nothing structural could see it. The zone is a field and the condition is a closure, and
+    /// the contradiction is between them; the effect list, the target list, the filter strings
+    /// and the IL are all exactly what a working card's would be.
+    /// </para>
+    /// <para>
+    /// The trigger is asserted from the log rather than from its effect, because the effect here
+    /// is an optional payment and what the fix changes is whether the ability is ever offered at
+    /// all. Its sibling below asserts the outcome.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_trigger_whose_own_condition_says_it_is_in_a_graveyard_works_from_there()
+    {
+        var gigapede = Card(
+            "Graveyard Upkeep Test",
+            "At the beginning of your upkeep, if ~ is in your graveyard, you may discard a card. "
+                + "If you do, return ~ to your hand.",
+            CardType.Creature,
+            power: 6,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(gigapede);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, gigapede, Zone.Graveyard);
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        Run(game);
+
+        Assert.Contains(
+            game.Log,
+            e => e is AbilityTriggered fired
+                && fired.Text.Contains("in your graveyard", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "At the beginning of your upkeep, if ~ is in the command zone, you gain 2 life." — Oloro.
+    /// </summary>
+    /// <remarks>
+    /// The same defect one zone along, and the one card in the class whose effect is plain enough
+    /// to assert on the board: Oloro gains its controller two life from the command zone and
+    /// nowhere else, which is the whole reason anybody plays it. Before the fix the ability was
+    /// pinned to the battlefield and the life total never moved.
+    /// <para>
+    /// The zone is read from the condition's own words rather than inferred from the effect,
+    /// which is what lets this one work at all — "you gain 2 life" says nothing about where the
+    /// card is, so the effect-reading sibling of this rule (<c>GraveyardOnly</c>) can never reach
+    /// it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_trigger_whose_own_condition_says_it_is_in_the_command_zone_works_from_there()
+    {
+        var oloro = Card(
+            "Command Zone Upkeep Test",
+            "At the beginning of your upkeep, if ~ is in the command zone, you gain 2 life.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(oloro);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oloro, Zone.Command);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        Settle(game);
+
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A condition that names two zones, or none, leaves the ability where it was.
+    /// </summary>
+    /// <remarks>
+    /// The narrowness is the whole of the safety here. An ability functions from <em>one</em>
+    /// zone, so a condition saying "in the command zone or on the battlefield" cannot decide one
+    /// and must not be allowed to pick a half; a negation says where the card is <em>not</em>;
+    /// and an ordinary intervening-if about the board says nothing about the card at all. Each of
+    /// those read as a zone would move a working trigger somewhere it can never be offered, which
+    /// is the same defect this rule exists to end, pointed the other way.
+    /// </remarks>
+    [Theory]
+    [InlineData("At the beginning of your upkeep, if ~ is on the battlefield, you gain 2 life.")]
+    [InlineData("At the beginning of your upkeep, if ~ isn't in your graveyard, you gain 2 life.")]
+    [InlineData(
+        "At the beginning of your upkeep, if ~ is in the command zone or on the battlefield, "
+            + "you gain 2 life.")]
+    [InlineData("At the beginning of your upkeep, if you control a creature, you gain 2 life.")]
+    public void A_condition_that_does_not_name_one_zone_leaves_the_trigger_on_the_battlefield(
+        string oracle)
+    {
+        var card = Card("Zone Guard Test", oracle, CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(card);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(Zone.Battlefield, Assert.Single(compiled.Triggers).FunctionsFrom);
+    }
+
     // ---- Tapping the permanent that says so -----------------------------------
 
     /// <summary>"Whenever another creature dies, tap ~." — Fleshmad Steed.</summary>
