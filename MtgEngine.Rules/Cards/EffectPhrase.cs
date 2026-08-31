@@ -5908,7 +5908,14 @@ public static partial class EffectPhrase
         // nothing behind one that answers the same clause first.
 
         m = SearchLibraryLine().Match(sentence);
-        if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
+        if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success
+            && SearchedZones(m.Groups["zones"].Value) is { } namedZones
+
+            // "A card named Magnifying Glass or a card named Thinking Cap" is two names, and the
+            // filter carries one. Read as a single name it compiles to a search that matches
+            // nothing at all - a card that reads, passes the deck gate and then quietly finds
+            // nothing, which this compiler treats as worse than a line it refuses outright.
+            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase))
         {
             // A name is a filter of its own and cannot be combined with a kind here: "a Goblin
             // card named X" would need both, and the one card printing that shape is not worth
@@ -5918,12 +5925,19 @@ public static partial class EffectPhrase
                 m.Groups["where"].Value.Contains("battlefield", StringComparison.OrdinalIgnoreCase)
                     ? Zone.Battlefield
                     : Zone.Hand,
-                Tapped: m.Groups["tapped"].Success));
+                Tapped: m.Groups["tapped"].Success,
+                Zones: namedZones,
+
+                // "Up to three cards named ~" and "any number of cards named ~" are one search
+                // that finds several, and this arm was reading every one of them as a search for
+                // one card - the same half-a-tutor the plural filter arm below was fixed for.
+                Count: m.Groups["any"].Success ? AnyNumber : SearchCount(m.Groups["n"].Value)));
 
             return true;
         }
 
-        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } filter)
+        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } filter
+            && SearchedZones(m.Groups["zones"].Value) is { } zones)
         {
             // "Shuffle and put that card on top" leaves it in the library, which is a
             // destination like any other here - the engine puts it back after the shuffle
@@ -5940,6 +5954,7 @@ public static partial class EffectPhrase
                 m.Groups["ontop"].Success ? Zone.Library : SearchDestination(m.Groups["where"].Value),
                 Tapped: m.Groups["tapped"].Success,
                 Who: searchWho,
+                Zones: zones,
                 Count: m.Groups["any"].Success ? AnyNumber : SearchCount(m.Groups["n"].Value),
                 // "With mana value 3" on its own is an exact match, not a ceiling. Reading it
                 // as "3 or less" would find cards the card does not allow, which is a strictly
@@ -5951,6 +5966,35 @@ public static partial class EffectPhrase
                     && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
                         ? ManaValueBound(m)
                         : null));
+            return true;
+        }
+
+        // "Search its controller's graveyard, hand, and library for all cards with the same name
+        // as that spell and exile them" - the extraction family, and the reason the zone list
+        // exists (CR 701.23a). Three zones at once, somebody else's, and the name is not written
+        // on the card: it is whatever the sentence before this one countered or exiled, which is
+        // why the filter carries a sentinel rather than a word.
+        //
+        // Written as its own matcher rather than as more alternatives in the tutor grammar above.
+        // The two share a zone list and a filter vocabulary and nothing else - this one names no
+        // kind of card, always exiles, never reveals, and reads its subject through a target - and
+        // folding them together would have made one pattern that could say things no card says.
+        m = ExtractionSearchLine().Match(sentence);
+        if (m.Success && SearchedZones(m.Groups["zones"].Value) is { } takenFrom)
+        {
+            effects.Add(new SearchLibrary(
+                Abilities.SearchFilters.NamedPrefix + Abilities.SearchFilters.TargetsName,
+                Zone.Exile,
+                Zones: takenFrom,
+                Whose: m.Groups["whose"].Value.StartsWith(
+                    "its owner", StringComparison.OrdinalIgnoreCase)
+                    ? Abilities.SearchWhoseZones.TargetsOwner
+                    : Abilities.SearchWhoseZones.TargetsController,
+
+                // "All cards with that name" and "any number of cards" are the same ceiling here:
+                // however many the zones turn out to hold. "Up to four" is the one printed bound.
+                Count: m.Groups["n"].Success ? SearchCount(m.Groups["n"].Value) : AnyNumber));
+
             return true;
         }
 
@@ -10269,6 +10313,47 @@ public static partial class EffectPhrase
         where.Contains("battlefield", StringComparison.OrdinalIgnoreCase) ? Zone.Battlefield
         : where.Contains("graveyard", StringComparison.OrdinalIgnoreCase) ? Zone.Graveyard
         : Zone.Hand;
+
+    /// <summary>
+    /// The zones one search instruction reaches — "your library or graveyard", "that player's
+    /// graveyard, hand, and library" (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The words are read rather than the joiners: "and", "or" and "and/or" all produce the same
+    /// set of candidates for every card in the corpus that prints them, because the ones joined
+    /// with "or" all search for a single card and a player choosing which zone to look in finds
+    /// exactly what a player shown both would. Anything outside the three named zones — "outside
+    /// the game" is the one the corpus prints — returns null and leaves the line unread, rather
+    /// than searching the part that was understood.
+    /// </remarks>
+    private static Abilities.SearchIn? SearchedZones(string phrase)
+    {
+        Abilities.SearchIn zones = 0;
+
+        foreach (var word in phrase.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries))
+        {
+            switch (word.ToLowerInvariant())
+            {
+                case "library":
+                    zones |= Abilities.SearchIn.Library;
+                    break;
+                case "graveyard":
+                    zones |= Abilities.SearchIn.Graveyard;
+                    break;
+                case "hand":
+                    zones |= Abilities.SearchIn.Hand;
+                    break;
+                case "and":
+                case "or":
+                case "and/or":
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return zones == 0 ? null : zones;
+    }
 
     /// <summary>
     /// "An Elf, Warrior, or Tyvar card", "a noncreature, nonland card" — several filters joined.
@@ -16931,9 +17016,33 @@ public static partial class EffectPhrase
     /// compiling to an empty spell.
     /// </remarks>
     [GeneratedRegex(
-        @"^(if you (search|searched) your library this way, )?shuffle( your library)?$",
+        @"^((if you (search|searched) your library this way, )|((then )?that player |they )?)"
+            + @"shuffles?( your library| their library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BareShuffleLine();
+
+    /// <remarks>
+    /// The extraction family (CR 701.23a): three zones of somebody else's at once, everything
+    /// found exiled, and the name taken from what the sentence before this one targeted.
+    /// <para>
+    /// "Its controller's" and "its owner's" are the only two spellings admitted. "That player's"
+    /// appears on four more cards and means whoever an <em>earlier sentence</em> named — a
+    /// revealed hand, an opponent whose graveyard was picked from — which is a different question
+    /// and is left unread rather than guessed at as the target.
+    /// </para>
+    /// <para>
+    /// The noun after "that" is matched and dropped. "That spell", "that land", "that artifact"
+    /// and "that card" all mean the thing this effect targets, and reading the word would be
+    /// re-deciding from the sentence what the target list already says.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^search (?<whose>its controller's|its owner's) "
+            + @"(?<zones>(library|graveyard|hand)(,? (and/or |or |and )?(library|graveyard|hand))*)"
+            + @" for (all|any number of|up to (?<n>one|two|three|four|five)) "
+            + @"cards with the same name as that [a-z]+ and exile them$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ExtractionSearchLine();
 
     /// <remarks>
     /// The filter is optional: "search your library for a card" has none at all, and requiring
@@ -16949,7 +17058,9 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(?<who>its controller may |that player may |that land's controller may "
             + @"|the subject's controller may )?"
-            + @"searche?s? (?<whose>your|their) library for "
+            + @"searche?s? (?<whose>your|their) "
+            + @"(?<zones>(library|graveyard|hand)(,? (and/or |or |and )?(library|graveyard|hand))*)"
+            + @" for "
             + @"(an?|up to (?<n>one|two|three|four|five)|(?<any>any number of)) "
             // Lazy-optional, not greedy-optional, and that is what lets the name clause below be
             // seen at all. The character class takes a comma and a space, so a greedy attempt
@@ -16957,21 +17068,25 @@ public static partial class EffectPhrase
             // *second* printed "card" - a parse that succeeds, captures a noun no filter
             // vocabulary knows, and leaves the line unread. It only ever fired once the name
             // stopped being blanked to "~", because "~" is not in the class and could not be
-            // crossed. Skipping the group first asks the question the sentence is actually
-            // written to answer, and a real "a creature card" still backtracks into it.
+            // crossed.
             + @"(?<what>[A-Za-z, ]+? )??cards?"
-            // The name may not run past a second "named". "A card named Alpine Watchdog or a
-            // card named Igneous Cur" is two names and this reader builds one filter, so an
-            // untempered capture takes the whole clause as a single name - a filter that
-            // matches no card in any library, on a card that reports itself fully read. That
-            // is the failure this compiler treats as worse than an unread line, and refusing
-            // to cross the word is what leaves the two-name family unread until somebody
-            // builds it a filter that can hold two.
-            + @"( named (?<named>(?:(?! named )[^,.])+?))?"
+            // Two bugs, one capture, and each fix alone reintroduces the other.
+            //
+            // A name may contain a comma and most of the two-zone family's do, so the class
+            // must take one: "a card named Ajani, Inspiring Leader, reveal it" cut the name at
+            // the comma and failed the whole line.
+            //
+            // But the name may not run past a second "named". "A card named Alpine Watchdog or
+            // a card named Igneous Cur" is two names and this reader builds one filter, so an
+            // untempered capture takes the clause as a single name - a filter matching no card
+            // in any library, on a card reporting itself fully read. That is the failure this
+            // compiler treats as worse than an unread line, and refusing to cross the word is
+            // what leaves the two-name family unread until somebody builds a filter holding two.
+            + @"( named (?<named>(?:(?! named )[^.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"(,? reveal (it|that card|them|those cards))?"
-            + @"(,? put (it|that card|them|those cards) "
-            + @"(?<where>onto the battlefield|into your hand|into your graveyard)"
+            + @"(,? (then |and )?put (it|that card|them|those cards) "
+            + @"(?<where>onto the battlefield|into (your|their) hand|into your graveyard)"
             + @"(?<tapped> tapped)?)?"
             + @"(,? (then |and )?shuffle"
             + @"(?<ontop> and put (it|that card) on top( of your library)?)?"

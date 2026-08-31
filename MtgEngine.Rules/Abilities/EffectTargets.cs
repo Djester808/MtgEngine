@@ -321,6 +321,16 @@ public static class EffectTargets
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
         Add<CounterTargetSpell>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<MoveTargetedCard>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+
+        // A search reads a target only when it is somebody else's zones being searched: the
+        // extraction family names the player through the thing it countered or exiled. An
+        // ordinary tutor carries the index and never looks at it, so it is reported as null -
+        // the same shape as the three pronoun effects above, and for the same reason.
+        Add<SearchLibrary>(
+            e => e.Whose == SearchWhoseZones.Searcher ? null : e.TargetIndex,
+            (e, n) => e.Whose == SearchWhoseZones.Searcher
+                ? e
+                : e with { TargetIndex = e.TargetIndex + n });
         Add<GainControlUntilEndOfTurn>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
