@@ -9776,6 +9776,64 @@ public sealed record GainControlUntilEndOfTurn(int TargetIndex = 0) : IEffect
 /// clash reveals two cards and lets both players decide where theirs goes <em>before</em> the
 /// winner matters, and those decisions change what a winner's "draw a card" draws.
 /// </remarks>
+/// <summary>
+/// "That player shuffles, then draws a card for each card exiled from their hand this way" - the
+/// half of a sentence that counts what the search in front of it moved (CR 608.2c).
+/// </summary>
+/// <remarks>
+/// The whole family this belongs to reads <c>ResolutionContext.Record</c>, and the record is
+/// filled by the effects of the resolution as they run. A search is the one mover whose effects
+/// do not run then: which cards it finds is a question, and this engine defers every question to
+/// the settle after the resolution, so at the moment a later sentence of the same spell resolves
+/// nothing has been exiled at all. Nine printed cards count exactly that, and read in place every
+/// one of them draws nought for ever while compiling clean - the failure this file's
+/// <see cref="TouchFilter"/> remarks call the worst outcome available.
+/// <para>
+/// So the counting half does not run in the resolution. It goes into the queue behind the search,
+/// exactly as the search itself went into the queue behind the name choice that feeds it, and the
+/// settle runs it once the cards have moved - with the record seeded from what the search moved,
+/// through the same <see cref="ResolutionRecord.Following"/> every other mover uses. That is the
+/// point of deferring rather than counting something else: the tally is
+/// <see cref="TouchFilter.In"/> over <see cref="TouchFilter.Matching"/>, the same set and the same
+/// reader as every other "this way" phrase in the game, and there is no second answer to which
+/// objects the phrase named.
+/// </para>
+/// <para>
+/// <b>The compiler only builds one of these where the phrase names the zone the search took
+/// from</b> - "from their hand this way". A bare "exiled this way" after a search would mean the
+/// whole resolution's exiles, and the seeded record holds only the search's; answering it from
+/// this seed would be short by whatever an earlier sentence exiled, silently. It is left unread
+/// instead.
+/// </para>
+/// </remarks>
+/// <param name="Effects">The sentence, compiled, waiting for the search to happen.</param>
+/// <param name="EffectIndex">
+/// The locator, so the settle can read these back out of the card. Effects cannot travel in a
+/// log, and a continuation cannot be folded from one.
+/// </param>
+public sealed record AfterSearching(
+    ImmutableList<IEffect> Effects, int EffectIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var abilityId = context.AbilityId
+            ?? (context.State.TryGetObject(context.SourceId, out var onStack)
+                ? onStack.Ability?.AbilityId
+                : null);
+
+        return
+        [
+            new SearchAftermathRequested(
+                context.ControllerId, context.PhysicalSourceId, abilityId, EffectIndex)
+            {
+                SubjectObject = context.SubjectObject,
+            },
+        ];
+    }
+}
+
 public sealed record Clash(ImmutableList<IEffect> IfWon, int EffectIndex = 0) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)

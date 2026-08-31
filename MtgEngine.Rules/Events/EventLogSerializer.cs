@@ -236,6 +236,7 @@ public static class EventLogSerializer
             ["CharacteristicChosen"] = typeof(CharacteristicChosen),
             ["NameChosen"] = typeof(NameChosen),
             ["CardNameChoiceRequested"] = typeof(CardNameChoiceRequested),
+            ["SearchAftermathRequested"] = typeof(SearchAftermathRequested),
             ["ManaSpent"] = typeof(ManaSpent),
             ["ManaPoolsEmptied"] = typeof(ManaPoolsEmptied),
             ["TargetsChosen"] = typeof(TargetsChosen),

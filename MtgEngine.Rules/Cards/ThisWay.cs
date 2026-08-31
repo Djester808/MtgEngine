@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Cards;
 
@@ -221,6 +222,22 @@ internal static partial class ThisWay
     {
         var text = Normalise(phrase);
 
+        // "Exiled from their hand" - the zone the object came out of, printed between the
+        // participle and "this way". Taken off before the participle is read, because the
+        // participle table matches at the end of the phrase and the rider is standing there:
+        // without this, "card exiled from their hand" reaches the table as a phrase ending in
+        // "hand", no verb comes off it, and the whole line goes unread.
+        Zone? from = null;
+        if (FromZoneRider().Match(text) is { Success: true } origin
+            && origin.Index + origin.Length == text.Length)
+        {
+            if (ZoneNamed(origin.Groups["zone"].Value) is not { } named)
+                return null;
+
+            from = named;
+            text = text[..origin.Index].TrimEnd();
+        }
+
         if (Verb(ref text) is not { } verb)
             return null;
 
@@ -247,7 +264,7 @@ internal static partial class ThisWay
         if (OtherPossessive().IsMatch(text))
             return null;
 
-        return Noun(text, verb, yours);
+        return Noun(text, verb, yours) is { } read ? read with { FromZone = from } : null;
     }
 
     /// <summary>
@@ -541,4 +558,55 @@ internal static partial class ThisWay
             + @"(?<noun>[A-Za-z' -]+)$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ActiveClause();
+
+    /// <summary>
+    /// The zone a phrase says the objects came out of - "exiled from their hand this way".
+    /// </summary>
+    /// <remarks>
+    /// Nine cards in the corpus print one, all of them extractions, and all but two of them
+    /// spell it "from their hand"; the other two say "from your hand". The possessive is matched
+    /// and dropped rather than read, because it is not a second question: the effect that did
+    /// the moving reached one player's zones, so the zone alone already names the pile. A
+    /// possessive read as a filter would need a per-player count, which is the thing
+    /// <see cref="OtherPossessive"/> refuses one grammar along.
+    /// <para>
+    /// The three zones a search reaches (CR 701.23a) and no others. A rider naming somewhere the
+    /// record cannot have taken anything from would be a phrase this could answer only with
+    /// nought, which is the answer this whole file exists to refuse.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s+from (their|your|that player's|its owner's) (?<zone>hand|graveyard|library)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FromZoneRider();
+
+    /// <summary>
+    /// Whether a whole sentence counts something out of a zone rather than out of everything the
+    /// effect touched.
+    /// </summary>
+    /// <remarks>
+    /// The same words as the rider and the same zone table, asked of the sentence rather than of
+    /// the phrase inside it, because the caller that has to know is the one holding the sentence:
+    /// a count scoped to one zone is the only one a deferred search can answer, and the compiler
+    /// decides whether to defer before the phrase has been picked out of the line. One regex and
+    /// one table asked from two positions, so a word either of them learns is learned by both.
+    /// </remarks>
+    internal static bool NamesASourceZone(string sentence)
+    {
+        if (sentence is null || !Mentions(sentence))
+            return false;
+
+        var m = FromZoneRider().Match(Normalise(sentence));
+
+        return m.Success && ZoneNamed(m.Groups["zone"].Value) is not null;
+    }
+
+    /// <summary>The zone one of those words names, or null.</summary>
+    private static Zone? ZoneNamed(string word) => word.ToLowerInvariant() switch
+    {
+        "hand" => Zone.Hand,
+        "graveyard" => Zone.Graveyard,
+        "library" => Zone.Library,
+        _ => null,
+    };
 }

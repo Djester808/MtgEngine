@@ -780,6 +780,38 @@ public sealed record ChoosePermanentRequested(
     public override string Describe() => $"{PlayerId:N} must choose: {Prompt}";
 }
 
+/// <summary>
+/// A sentence counting what a search moved is owed, and runs at the settle after the search
+/// (CR 608.2c).
+/// </summary>
+/// <remarks>
+/// "Search target opponent's graveyard, hand, and library for up to four cards with that name and
+/// exile them. That player shuffles, then draws a card for each card exiled from their hand this
+/// way." The two halves are one instruction and they cannot happen at the same time: which cards
+/// a search finds is a question, and this engine never stops a resolution to ask one, so nothing
+/// has been exiled while the sentence that counts the exiles is running. Counted there, the tally
+/// is nought for ever - on a card that compiles clean and plays every time.
+/// <para>
+/// So the counting half is queued instead, like the search and the name choice in front of it,
+/// and carries a <em>locator</em> - which object, which of its abilities, which effect inside it -
+/// rather than the effects themselves, because an effect is not something a log can rebuild. It
+/// is read back out of the card's own compiled definition when its turn comes, which is what
+/// makes a replay reach the same instruction rather than a remembered continuation.
+/// </para>
+/// </remarks>
+public sealed record SearchAftermathRequested(
+    Guid PlayerId, ObjectId SourceId, string? AbilityId, int EffectIndex) : GameEvent
+{
+    /// <summary>The object the trigger that called for it was about (CR 603.2).</summary>
+    /// <remarks>Carried for the reason <see cref="CoinFlipRequested"/> carries its twin.</remarks>
+    public ObjectId? SubjectObject { get; init; }
+
+    public override string Rule => "608.2c";
+
+    public override string Describe() =>
+        $"{PlayerId:N} owes what a search found ({SourceId.Value:N}#{EffectIndex}).";
+}
+
 /// <summary>A coin flip is owed, and will be made at the next settle (CR 705.2).</summary>
 public sealed record CoinFlipRequested(
     Guid PlayerId, ObjectId SourceId, string? AbilityId, int EffectIndex) : GameEvent

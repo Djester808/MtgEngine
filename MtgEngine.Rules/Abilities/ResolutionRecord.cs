@@ -278,12 +278,35 @@ public sealed record TouchFilter(TouchVerb Verb)
     /// </remarks>
     public bool YoursOnly { get; init; }
 
+    /// <summary>
+    /// The zone the object had to come <em>from</em>, or null when the phrase does not say.
+    /// </summary>
+    /// <remarks>
+    /// "Draws a card for each card exiled from their hand this way" is narrower than "for each
+    /// card exiled this way", and the difference is most of the card: an extraction takes cards
+    /// out of a graveyard, a hand and a library in one search, and only the ones that were in
+    /// the hand are paid for. Counted without this rider Unmoored Ego draws for the graveyard
+    /// and the library as well - a number the card does not print, on a line that reads whole.
+    /// <para>
+    /// Read off <see cref="Touch.From"/> rather than off the object, because the object is in
+    /// exile by the time anything asks and exile is where every one of them now is. The record
+    /// wrote down where each came from precisely so this does not have to guess (CR 608.2h).
+    /// </para>
+    /// </remarks>
+    public Zone? FromZone { get; init; }
+
     /// <summary>Whether one recorded touch is what the phrase named.</summary>
     public bool Admits(Touch touch)
     {
         ArgumentNullException.ThrowIfNull(touch);
 
         if (!touch.Answers(Verb))
+            return false;
+
+        // "Exiled from their hand": the participle says where it went and the rider says where
+        // it came from. A phrase that prints the rider means it, and one that does not counts
+        // every zone the effect reached.
+        if (FromZone is { } origin && touch.From != origin)
             return false;
 
         // A touch whose card could not be read is not admitted by a phrase that names a type.

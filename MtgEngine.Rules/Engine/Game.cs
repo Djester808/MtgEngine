@@ -242,21 +242,41 @@ public sealed class Game
         Zone to,
         MoveCause cause = MoveCause.Other,
         Guid? controllerId = null,
-        ZonePosition position = ZonePosition.Top)
+        ZonePosition position = ZonePosition.Top) =>
+        Moving(id, to, cause, controllerId, position).NewId;
+
+    /// <summary>
+    /// The same move, handing back the event it emitted (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// A caller that has to write down what it moved - a search whose finds a later sentence
+    /// counts - needs the move as <see cref="ResolutionRecord.Following"/> reads it, which is
+    /// the event and not the id. Built here, in the one place that builds it, rather than a
+    /// second construction beside the caller: two <see cref="ObjectMoved"/>s built from the same
+    /// facts are two chances for one of them to be filled in differently, and the record's whole
+    /// job is that a count and the moves it counts cannot disagree.
+    /// </remarks>
+    private ObjectMoved Moving(
+        ObjectId id,
+        Zone to,
+        MoveCause cause,
+        Guid? controllerId,
+        ZonePosition position)
     {
         var moving = State.GetObject(id);
-        var newId = ObjectId.New();
 
-        Emit(new ObjectMoved(
+        var moved = new ObjectMoved(
             id,
-            newId,
+            ObjectId.New(),
             moving.Zone,
             to,
             controllerId ?? moving.ControllerId,
             cause,
-            position));
+            position);
 
-        return newId;
+        Emit(moved);
+
+        return moved;
     }
 
     /// <summary>
@@ -5100,6 +5120,45 @@ public sealed class Game
     /// <summary>Card names a resolving spell has asked for and not yet been given (CR 201.4).</summary>
     private readonly List<CardNameChoiceRequested> _cardNameChoicesOwed = [];
 
+    /// <summary>
+    /// Sentences owed that count what a search moved, with the targets they belong to
+    /// (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// Captured eagerly for the reason every other deferred question is: the sentence runs after
+    /// the resolution that queued it, and a spell does not survive its own resolution - Unmoored
+    /// Ego is in a graveyard and The Stone Brain is in exile by the time this list is read.
+    /// </remarks>
+    private readonly List<(SearchAftermathRequested Request, ImmutableList<Target> Targets)>
+        _searchAftermathOwed = [];
+
+    /// <summary>
+    /// What the last search this game performed moved, for the sentence that counts it
+    /// (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// The resolution's own record cannot answer, because a search's moves happen at the settle
+    /// after that resolution has finished - see <see cref="Abilities.AfterSearching"/>. So the
+    /// search writes one of its own, through the same <see cref="ResolutionRecord.Following"/>
+    /// every effect uses, and the deferred sentence is run against it.
+    /// <para>
+    /// Cleared as each search is taken off the queue and again as the sentence consumes it, so a
+    /// search that found nothing leaves an empty record rather than the previous search's. A
+    /// count over a stale record is a bigger number than the card prints, which is the one
+    /// direction this family must never fail in.
+    /// </para>
+    /// </remarks>
+    private ResolutionRecord _searchTook = ResolutionRecord.Empty;
+
+    /// <summary>Whose zones that search looked through, for the sentence's "that player".</summary>
+    /// <remarks>
+    /// Read off the search rather than off the sentence, which is what makes it right on both
+    /// halves of the family at once: "search target opponent's ..." names a player the spell
+    /// targeted, and "search its controller's ..." names one it never did. The search settled
+    /// both into one id before it ran, so the pronoun after it has one answer and not two.
+    /// </remarks>
+    private Guid? _searchedPlayer;
+
     /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
     private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
 
@@ -5654,7 +5713,8 @@ public sealed class Game
         ObjectId? subjectObject,
         string? abilityId = null,
         int? subjectAmount = null,
-        Guid? subjectPlayer = null)
+        Guid? subjectPlayer = null,
+        ResolutionRecord? took = null)
     {
         if (branch.IsEmpty)
             return;
@@ -5684,14 +5744,16 @@ public sealed class Game
 
         if (State.TryGetObject(sourceId, out var source))
         {
-            RunEffects(branch, Wearing(source), subjectObject, subjectAmount, subjectPlayer);
+            RunEffects(
+                branch, Wearing(source), subjectObject, subjectAmount, subjectPlayer, took);
             return;
         }
 
         if (_resolvedSources.TryGetValue(sourceId, out var moved)
             && State.TryGetObject(moved, out var landed))
         {
-            RunEffects(branch, Wearing(landed), subjectObject, subjectAmount, subjectPlayer);
+            RunEffects(
+                branch, Wearing(landed), subjectObject, subjectAmount, subjectPlayer, took);
         }
     }
 
@@ -8959,6 +9021,14 @@ public sealed class Game
         var owed = _searchesOwed[0];
         _searchesOwed.RemoveAt(0);
 
+        // Whatever the search before this one moved stops being what "this way" means the moment
+        // a new search starts. Cleared here rather than after the sentence that reads it, because
+        // the paths out of this method that never reach ResolveSearch - an unfilled sentinel,
+        // nothing found - are exactly the ones on which a stale record would be counted as
+        // though this search had found those cards.
+        _searchTook = ResolutionRecord.Empty;
+        _searchedPlayer = owed.Searched;
+
         // A search still holding the chosen-name sentinel is one whose question was never
         // answered - no name could be offered, or the answer was not one of the names on the
         // menu. It does not happen, and if it did the filter would match nothing, so the search
@@ -9093,6 +9163,12 @@ public sealed class Game
             return;
         }
 
+        // What this search moved, for a sentence of the same spell that counts it - "draws a card
+        // for each card exiled from their hand this way" (CR 608.2c). Written through the record
+        // every other mover writes through, so the tally the sentence takes is over the same set,
+        // read by the same filter, as every other "this way" phrase in the game.
+        _searchTook = ResolutionRecord.Empty;
+
         // Every card found, not just the first: "up to two basic land cards" is one search that
         // fetches two, and taking only the head would have quietly halved every plural tutor.
         foreach (var pick in picks)
@@ -9110,11 +9186,20 @@ public sealed class Game
             // the owner here is the player whose zones were searched rather than the searcher -
             // an extraction exiles the cards it finds, and exile is shared, but a search of
             // somebody else's library that puts a card in "your hand" would be a different card.
-            var landed = Move(
+            // Read before the move, because the record keeps what each object was as it left
+            // and the old id names nothing once the event has landed (CR 400.7, CR 608.2h).
+            var was = CardMoving(id);
+
+            var moved = Moving(
                 id,
                 owed.Destination,
                 owed.Destination == Zone.Exile ? MoveCause.Exile : MoveCause.Other,
-                owed.PlayerId);
+                owed.PlayerId,
+                ZonePosition.Top);
+
+            _searchTook = _searchTook.Following([moved], _ => was);
+
+            var landed = moved.NewId;
 
             if (owed.Tapped && owed.Destination == Zone.Battlefield)
                 Emit(new PermanentTapped(landed));
@@ -9136,6 +9221,77 @@ public sealed class Game
         // ever looked at a graveyard has nothing to randomise.
         if (owed.Zones.HasFlag(SearchIn.Library))
             Shuffle(searched, _random);
+    }
+
+    /// <summary>
+    /// Runs the sentence that counts what the search just moved (CR 608.2c).
+    /// </summary>
+    /// <returns>Whether anything happened, so the sweep goes round rather than returning.</returns>
+    /// <remarks>
+    /// <b>It waits for the search rather than assuming it has happened.</b> Both are queued by
+    /// the same resolution, and this step deliberately sits <em>in front of</em> the two that
+    /// settle them: the wait is the guard below, so it holds wherever in the sweep this is
+    /// called from. Counting a search that has not run yet answers nought on a card whose search
+    /// is about to find four cards, and there is no assertion about the finished board that can
+    /// tell that apart from a search that found nothing - so the ordering is stated here rather
+    /// than left to be inferred from a position that any later edit could change.
+    /// <para>
+    /// The record is taken and cleared together. What one search moved answers one sentence; a
+    /// second sentence reaching an already-counted record would count the same cards twice, and a
+    /// sentence whose search never ran would count the search before it.
+    /// </para>
+    /// <para>
+    /// An empty record is a real answer here and not a swallowed failure: it means the search
+    /// found nothing, or found nothing in the hand, and "draws a card for each card exiled from
+    /// their hand this way" is then a draw of nought. What would <em>not</em> be a real answer is
+    /// counting before the search, which is the case above.
+    /// </para>
+    /// </remarks>
+    private bool SettleOwedSearchAftermath()
+    {
+        if (_searchAftermathOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        // The search this sentence is about has not been made yet. Nothing is dequeued.
+        if (_searchesOwed.Count > 0 || _cardNameChoicesOwed.Count > 0)
+            return false;
+
+        var (owed, aimedAt) = _searchAftermathOwed[0];
+        _searchAftermathOwed.RemoveAt(0);
+
+        var took = _searchTook;
+        var searched = _searchedPlayer;
+        _searchTook = ResolutionRecord.Empty;
+        _searchedPlayer = null;
+
+        if (FindSearchAftermath(owed) is not { } sentence || sentence.Effects.IsEmpty)
+            return true;
+
+        RunDeferredBranch(
+            owed.SourceId,
+            sentence.Effects,
+            aimedAt,
+            owed.SubjectObject,
+            owed.AbilityId,
+            subjectPlayer: searched,
+            took: took);
+
+        return true;
+    }
+
+    /// <summary>Reads the counting sentence back out of the card that queued it.</summary>
+    private AfterSearching? FindSearchAftermath(SearchAftermathRequested owed)
+    {
+        if (CardBehind(owed.SourceId) is not { } behind)
+            return null;
+
+        var effects = owed.AbilityId is { } abilityId
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
+            : _abilities.SpellOf(behind)?.Effects ?? [];
+
+        // Looked up through the whole tree rather than by position in the top-level list, for
+        // the reason every other locator here is: the effect can sit inside another's branch.
+        return EffectTree.Locate<AfterSearching>(effects, owed.EffectIndex);
     }
 
     /// <summary>Whether a found card is in one of the zones the search was told to look in.</summary>
@@ -10441,6 +10597,18 @@ public sealed class Game
             // the moment a question is outstanding - which is the shape every mixed step here
             // now takes, rather than each one guessing which of the two it was.
             if (SettleOwedLookAndTake())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            // A sentence counting what a search moved, run once that search has happened.
+            // Deliberately in front of the two steps it waits for rather than behind them: what
+            // orders it is its own guard on their queues, which is a fact this method states,
+            // and not its position in a sweep of thirty steps, which is a fact a future edit
+            // could move without noticing. Settles rather than asks, so the sweep goes round
+            // again - the cards it drew can have triggered something.
+            if (SettleOwedSearchAftermath())
             {
                 didSomething = true;
                 continue;
@@ -13971,7 +14139,8 @@ public sealed class Game
         GameObject source,
         ObjectId? subjectObject = null,
         int? subjectAmount = null,
-        Guid? subjectPlayer = null)
+        Guid? subjectPlayer = null,
+        ResolutionRecord? took = null)
     {
         if (effects.Count == 0)
             return;
@@ -14013,7 +14182,11 @@ public sealed class Game
         // (CR 608.2). The magnitude beside it has been carried forward since the day the loop was
         // written; this is the things themselves, which is what the other four printed
         // back-references ask about.
-        var record = ResolutionRecord.Empty;
+        // Empty for an ordinary resolution, and what a search moved for the sentence the settle
+        // is running on its behalf: "this way" there points back at a move that happened after
+        // the resolution which queued the sentence had ended, so the only place it can be read
+        // from is what that search wrote down (see AfterSearching).
+        var record = took ?? ResolutionRecord.Empty;
 
         // How much of the damage this resolution has dealt was excess (CR 120.4a) - the third
         // back-reference, beside the magnitude and the record. It is derived from the events the
@@ -14260,6 +14433,19 @@ public sealed class Game
         {
             var aimed = State.TryGetObject(flip.SourceId, out var flipper) ? flipper.Targets : [];
             _flipsOwed.Add((flip, coin, aimed));
+        }
+
+        // Taken with its targets for the reason the flip takes its: the sentence usually says
+        // "that player", and the player it means is one this spell named while it was still on
+        // the stack. By the time the search has run, the spell is in a graveyard and its targets
+        // have gone with it.
+        if (e is SearchAftermathRequested aftermath)
+        {
+            var aimedAfter = State.TryGetObject(aftermath.SourceId, out var counting)
+                ? counting.Targets
+                : [];
+
+            _searchAftermathOwed.Add((aftermath, aimedAfter));
         }
 
         // Off the request and not off the source: the source named here is the permanent whose

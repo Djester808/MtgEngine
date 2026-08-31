@@ -985,6 +985,304 @@ public sealed class CompiledCardBehaviourTests
                 o.Card.Name, "Information Booth Test", StringComparison.Ordinal));
     }
 
+    // ---- A quantity counted over what a search moved (CR 608.2c) -------------
+
+    /// <summary>
+    /// How many cards a player has drawn since a point in the log.
+    /// </summary>
+    /// <remarks>
+    /// From a mark rather than over the whole log, because the opening hands are dealt by drawing
+    /// (CR 103.4) and every one of those is the same event. Counted from the start, the first
+    /// version of these tests read fourteen draws before the spell had even been cast.
+    /// </remarks>
+    private static int DrawsSince(Game game, int mark, Guid who) =>
+        game.Log.Skip(mark).Count(e =>
+            e is ObjectMoved { To: Zone.Hand, From: Zone.Library, Cause: MoveCause.Draw } drawn
+            && drawn.ControllerId == who);
+
+    /// <summary>Unmoored Ego's printed wording, built once for the tests that play it.</summary>
+    private static CardDefinition UnmooredEgo() => Card(
+        "Unmoored Ego Test",
+        "Choose a card name. Search target opponent's graveyard, hand, and library for up to "
+            + "four cards with that name and exile them. That player shuffles, then draws a card "
+            + "for each card exiled from their hand this way.",
+        CardType.Sorcery);
+
+    /// <summary>
+    /// The tally counts the cards the search took out of the hand, and not the ones it took out
+    /// of the other two zones in the same resolution (CR 608.2c, 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The whole point of the family on one board. A single search reaches a graveyard, a hand
+    /// and a library at once and exiles from all three, and the sentence after it is paid only
+    /// for the hand — so the number this card owes is two on a resolution that moved four cards.
+    /// Counted without the zone the card names, Unmoored Ego draws four; counted before the
+    /// search has happened, it draws none. Neither is a number this spell can print.
+    /// <para>
+    /// The four exiles are asserted beside the two draws, because the draw count alone would also
+    /// be satisfied by a search that found only the two cards in the hand — which is a different
+    /// card, and a much worse one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_draw_counted_this_way_counts_only_what_the_search_took_from_the_hand()
+    {
+        var sought = Card("Unmoored Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unmoored Ox Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extraction = UnmooredEgo();
+        var compiled = CardCompiler.Compile(extraction);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Two in the hand, one in the graveyard, one in the library: four cards for the search,
+        // two of them out of the zone the sentence names.
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Library);
+
+        // A differently named card in each of the same zones, so a search that took a zone rather
+        // than a name shows up as a bigger number instead of passing.
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+            game.Create(bob, spared, zone);
+
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        var aliceHandBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        var card = TestCards.PutInHand(game, alice, extraction);
+        var mark = game.Log.Count;
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        Assert.Equal(alice, NameAndTakeEverything(game, sought.Name));
+        Settle(game);
+
+        // All four copies left, out of all three zones.
+        Assert.Equal(
+            4,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        // Two cards left Bob's hand and two were drawn back into it. The number is the assertion,
+        // not the direction: four would mean the graveyard and the library were counted too, and
+        // none would mean the sentence ran before the search did.
+        Assert.Equal(2, DrawsSince(game, mark, bob));
+        Assert.Equal(handBefore, game.State.GetPlayer(bob).Hand.Count);
+
+        // And the caster drew none of them: the sentence says "that player", and the player it
+        // means is the one whose zones were searched.
+        // Measured before the spell was put into her hand, so an unchanged count is a hand that
+        // gained the spell, spent it, and drew nothing.
+        Assert.Equal(aliceHandBefore, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(0, DrawsSince(game, mark, alice));
+    }
+
+    /// <summary>
+    /// A search that exiled nothing out of the hand draws nothing, on the same card that draws
+    /// two when it does (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The other side of the tally, and the side an implementation that ignored the zone would
+    /// fail: the search still exiles two cards here, so a count over everything it moved comes to
+    /// two. Nought is the printed answer, and it has to be reached by the sentence running and
+    /// finding no touch out of the hand rather than by the sentence not running at all — which is
+    /// why the exiles are asserted beside the draws.
+    /// </remarks>
+    [Fact]
+    public void A_search_that_took_nothing_out_of_the_hand_draws_nothing()
+    {
+        var sought = Card("Yardbound Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Library);
+
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+
+        var card = TestCards.PutInHand(game, alice, UnmooredEgo());
+        var mark = game.Log.Count;
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        Assert.Equal(alice, NameAndTakeEverything(game, sought.Name));
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.Equal(0, DrawsSince(game, mark, bob));
+        Assert.Equal(handBefore, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// The sentence waits for the search rather than counting an empty record (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The mechanism, asserted where it can be seen going wrong. Which cards a search finds is a
+    /// question, and this engine settles every question <em>after</em> the resolution that asked
+    /// it — so at the moment Unmoored Ego's last sentence would run in printed order, nothing has
+    /// been exiled at all. A tally taken there is nought, for ever, on a card that compiles
+    /// clean, and no assertion about the finished board can tell that apart from a card whose
+    /// search found nothing.
+    /// <para>
+    /// So the order is asserted directly: the counting half is in the log as a request, the
+    /// search question is on the table with nothing drawn, and the draw arrives only once that
+    /// question has been answered.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_count_waits_for_the_search_instead_of_reading_an_empty_record()
+    {
+        var sought = Card("Deferred Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, UnmooredEgo());
+        var mark = game.Log.Count;
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+
+        RunUntilNameAsked(game);
+        game.Choose(alice, [sought.Name]);
+
+        RunUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        // The counting half was queued during the resolution, exactly as the search in front of
+        // it was, and neither of them has run.
+        Assert.Single(game.Log.OfType<SearchAftermathRequested>());
+        Assert.Equal(0, DrawsSince(game, mark, bob));
+
+        var searching = game.State.Choice!;
+        game.Choose(alice, [.. searching.Options.Select(o => o.Id)]);
+        Settle(game);
+
+        Assert.Equal(1, DrawsSince(game, mark, bob));
+    }
+
+    /// <summary>
+    /// "That player" is whoever the search looked through, even where the spell targeted no
+    /// player at all (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// Test of Talents names a target <em>spell</em> and then searches its controller's zones, so
+    /// the pronoun in its last sentence points at somebody the spell never targeted. Read off the
+    /// sentence alone there is nobody to draw; read as the resolution's controller it is the
+    /// caster, which on this card means countering an opponent's spell and drawing their cards.
+    /// The search settled whose zones were being emptied before it ran, and that is the answer the
+    /// sentence behind it takes.
+    /// </remarks>
+    [Fact]
+    public void The_player_who_draws_is_whoever_the_search_looked_through()
+    {
+        var talents = Card(
+            "Test of Talents Test",
+            "Counter target instant or sorcery spell. Search its controller's graveyard, hand, "
+                + "and library for any number of cards with the same name as that spell and "
+                + "exile them. That player shuffles, then draws a card for each card exiled from "
+                + "their hand this way.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(talents);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var bolt = Card("Talented Bolt Test", "Target player loses 1 life.", CardType.Instant);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Two more copies of the countered spell in Bob's hand, and one in his graveyard.
+        game.Create(bob, bolt, Zone.Hand);
+        game.Create(bob, bolt, Zone.Hand);
+        game.Create(bob, bolt, Zone.Graveyard);
+
+        var aliceHandBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        var theirs = TestCards.PutInHand(game, bob, bolt);
+        var mine = TestCards.PutInHand(game, alice, talents);
+
+        var mark = game.Log.Count;
+
+        // Alice is the active player, so Bob needs priority before he can cast anything at all.
+        game.PassPriority(alice);
+        var onStack = game.CastSpell(bob, theirs, [Target.ToPlayer(alice)]);
+        game.PassPriority(bob);
+        game.CastSpell(alice, mine, [Target.ToSpell(onStack)]);
+
+        // Nothing is named here: this half of the family reads the name off the spell it
+        // countered, so the only question put to anybody is the search itself.
+        NameAndTakeEverything(game, bolt.Name);
+        Assert.DoesNotContain(game.Log, e => e is NameChosen);
+        Settle(game);
+
+        // Bob drew two — his hand held two copies — and Alice drew none.
+        Assert.Equal(2, DrawsSince(game, mark, bob));
+        Assert.Equal(0, DrawsSince(game, mark, alice));
+
+        // The spell was countered, so Alice lost no life.
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(aliceHandBefore, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The same sentence on an activated ability whose source is in exile by the time it runs
+    /// (CR 400.7, 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The Stone Brain exiles itself to pay for the ability that does all this, so when the
+    /// counting sentence's turn comes there is no permanent to read it back off — the locator has
+    /// to find the ability on a card that has moved since. That is the case every deferred
+    /// question in this engine exists to survive, and it is one a test against a sorcery cannot
+    /// reach: a spell at least ends up in a graveyard its own resolution put it in.
+    /// </remarks>
+    [Fact]
+    public void The_count_survives_a_source_that_exiled_itself_to_pay_for_the_ability()
+    {
+        var brain = Card(
+            "Stone Brain Test",
+            "{2}, {T}, Exile this artifact: Choose a card name. Search target opponent's "
+                + "graveyard, hand, and library for up to four cards with that name and exile "
+                + "them. That player shuffles, then draws a card for each card exiled from their "
+                + "hand this way. Activate only as a sorcery.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(brain);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var sought = Card("Stonebound Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Graveyard);
+
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+
+        var source = game.Create(alice, brain, Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var island = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+            game.ActivateAbility(alice, island, "mana");
+        }
+
+        var ability = Assert.Single(Pool.ActivatedOf(brain));
+        var mark = game.Log.Count;
+        game.ActivateAbility(alice, source, ability.Id, [Target.ToPlayer(bob)]);
+
+        Assert.Equal(alice, NameAndTakeEverything(game, sought.Name));
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.Equal(1, DrawsSince(game, mark, bob));
+        Assert.Equal(handBefore, game.State.GetPlayer(bob).Hand.Count);
+    }
+
     // ---- Removal -------------------------------------------------------------
 
     [Fact]
