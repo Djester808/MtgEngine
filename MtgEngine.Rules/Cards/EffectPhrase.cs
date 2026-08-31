@@ -11032,6 +11032,7 @@ public static partial class EffectPhrase
             : SearchAttachment.TargetPermanent;
 
         return true;
+    }
 
     /// <summary>
     /// The same target with basic lands taken out of it - "other than a basic land card"
