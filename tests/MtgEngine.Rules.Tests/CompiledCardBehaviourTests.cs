@@ -72611,11 +72611,19 @@ public sealed class CompiledCardBehaviourTests
         complete.Sort(StringComparer.Ordinal);
 
         // Not on the list, and why: Diregraf Escort grants protection from a creature type,
-        // which no flag can carry; Doom Weaver and Imperious Mindbreaker count "cards equal to
-        // its power/toughness" inside their quoted grants; Breathkeeper Seraph's grant is a
-        // delayed return; Mirage Phalanx's is a token copy with exceptions; and Donna Noble's
-        // trigger watches damage to either half. Each is short on that line alone - the
-        // Soulbond line itself reads on all of them.
+        // which no flag can carry; Breathkeeper Seraph's grant is a delayed return; Mirage
+        // Phalanx's is a token copy with exceptions; and Donna Noble's trigger watches damage to
+        // either half. Each is short on that line alone - the Soulbond line itself reads on all
+        // of them.
+        //
+        // Doom Weaver and Imperious Mindbreaker were both here for one line, "cards equal to its
+        // power/toughness" inside a quoted grant, and they part company on which object the
+        // possessive can reach. Both mean the creature the grant is on, and both say so with a
+        // pronoun the nearest-antecedent rule can settle - "each opponent" is a person and a
+        // person has no toughness. But Doom Weaver's trigger is a death, so by the time the
+        // number is asked for there is no permanent left to measure and a card in a graveyard
+        // answers its printed power; the attack trigger leaves the creature where it is. One
+        // reads and the other stays unread, one word apart.
         List<string> expected =
         [
             "Deadeye Navigator",
@@ -72625,6 +72633,7 @@ public sealed class CompiledCardBehaviourTests
             "Galvanic Alchemist",
             "Geist Trappers",
             "Hanweir Lancer",
+            "Imperious Mindbreaker",
             "Joint Assault",
             "Lightning Mauler",
             "Nearheath Pilgrim",
