@@ -1362,6 +1362,269 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetObject(theirs).Permanent?.IsTapped);
     }
 
+    // ---- Cards that read as complete and could never do anything -------------
+    //
+    // Every card below compiled with nothing unread, passed the legality gate, could be put in a
+    // deck, cast or activated, and then changed nothing at all - which is strictly worse than an
+    // unread card, because an unread card is refused and says so. They were found by an audit
+    // that asks one question of the whole corpus: not "does this fault" but "could this ever do
+    // anything". Each test here plays the card in a real game and watches it do the thing it
+    // prints.
+
+    /// <summary>
+    /// A punisher wrapped round an offer asks both questions and runs the branch (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Rhystic Study. "You may draw a card unless that player pays {1}" is an offer inside an
+    /// offer: the punisher reader takes the whole sentence and hands "you may draw a card" to the
+    /// sentence parser, which builds a <c>MayPay</c> numbered from its own empty list - locator 0,
+    /// exactly what the outer offer then took from its own. <c>EffectTree.Locate</c> answers null
+    /// on a tie rather than guessing, so when the caster's answer came back the branch could not
+    /// be found and <b>neither</b> question ever ran. Three cards: Rhystic Study, Mystic Remora,
+    /// Complicate.
+    /// <para>
+    /// The card that was already here asserted <em>who</em> the offer was addressed to and said
+    /// in its own remarks that what they answered was somebody else's business. That is the half
+    /// that was broken, and it is what this asserts: the caster declines, and the enchantment's
+    /// controller draws.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_offer_inside_a_punisher_still_runs_when_the_price_is_declined()
+    {
+        var study = Card(
+            "Silent Study Test",
+            "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(study);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, study, Zone.Battlefield);
+
+        // A land, so the price is one Bob could pay and the question is a real one. Without it
+        // he is not asked at all (CR 118.3) and the test would prove only the cheaper half.
+        game.Create(bob, Card("Study Island Test", "{T}: Add {U}.", CardType.Land), Zone.Battlefield);
+
+        var bait = TestCards.PutInHand(game, bob, Card("Study Bait Test", "Draw a card."));
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(bob, bait, []);
+
+        // Both questions, answered by hand: the price goes to the caster and the draw is offered
+        // to the enchantment's controller, which is the whole shape of the card.
+        var asked = new List<Guid>();
+        for (var guard = 0; guard < 8; guard++)
+        {
+            if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment } offer)
+                break;
+
+            asked.Add(offer.PlayerId);
+            game.Choose(offer.PlayerId, [offer.PlayerId == bob ? "no" : "yes"]);
+        }
+
+        Settle(game);
+
+        Assert.Equal([bob, alice], asked);
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A cost modifier opening a sentence names a colour, not a creature type (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Herald of Kozilek. Every printed sentence begins with a capital, and the filter vocabulary
+    /// read a capitalised word as a subtype before it asked whether it was a word the vocabulary
+    /// already knew - so "Colorless spells you cast cost {1} less to cast" compiled into a
+    /// discount on spells of the creature type <em>Colorless</em>, which no card is. The modifier
+    /// existed, was attached to the permanent, was consulted on every cast and matched nothing.
+    /// Four cards on the same shape: Herald of Kozilek, Eye of Ugin, Jhoira's Familiar and
+    /// Urza's Filter, the last of them taxing nobody rather than discounting nobody.
+    /// <para>
+    /// The same mistake the mass static made when "Artifact creatures you control get +1/+1"
+    /// became a lord for the creature type Artifact, one reader along and 129 cards heavier.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_colorless_discount_comes_off_a_colorless_spell()
+    {
+        var herald = Card(
+            "Colorless Discount Test",
+            "Colorless spells you cast cost {1} less to cast.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Colourless because it has no colours, which is what devoid prints (CR 105.1, 702.114a).
+        var drone = new CardDefinition
+        {
+            OracleId = "oracle-colorless-drone-test",
+            Name = "Colorless Drone Test",
+            OracleText = string.Empty,
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        // Without the discount, one mana is not enough for a two-mana spell.
+        var (bare, aliceBare, _) = InMainPhase();
+        game_TapForColourless(bare, aliceBare, 1);
+        var refused = TestCards.PutInHand(bare, aliceBare, drone);
+        Assert.Throws<InvalidOperationException>(() => bare.CastSpell(aliceBare, refused, []));
+
+        // With it, the same one mana pays for the same spell.
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, herald, Zone.Battlefield);
+        game_TapForColourless(game, alice, 1);
+
+        var cast = TestCards.PutInHand(game, alice, drone);
+        game.CastSpell(alice, cast, []);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Colorless Drone Test");
+    }
+
+    /// <summary>One colourless mana per land, built and tapped on the spot.</summary>
+    private static void game_TapForColourless(Game game, Guid playerId, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var land = game.Create(
+                playerId,
+                Card($"Wastes Test {i}", "{T}: Add {C}.", CardType.Land),
+                Zone.Battlefield);
+
+            game.ActivateAbility(playerId, land, "mana");
+        }
+    }
+
+    /// <summary>
+    /// A trigger that acts on its card in a graveyard watches from there (CR 603.6).
+    /// </summary>
+    /// <remarks>
+    /// Reach of Branches, and seven more. The compiler picks a trigger's functioning zone from
+    /// its <em>condition</em>, which is all a condition can say, and defaults to the battlefield;
+    /// "whenever a Forest you control enters" says nothing about where the card is. So eight
+    /// instants and sorceries compiled complete and waited on a battlefield they can never reach
+    /// - <c>Game.Consider</c> skips any ability whose source is not in its functioning zone - and
+    /// not one of them ever came back. Spit Flame, Sosuke's Summons, Punishing Fire, Rekindled
+    /// Flame, Killian's Confidence, Unconventional Tactics and Death of a Thousand Stings are
+    /// the rest.
+    /// <para>
+    /// The zone is now read off the effect rather than the words, because the effect is the thing
+    /// that knows: <c>ReturnSourceToHand</c> returns nothing unless the source is in a graveyard.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_spell_that_recurs_itself_triggers_from_the_graveyard()
+    {
+        var reach = Card(
+            "Branch Reach Test",
+            "Create a 2/5 green Treefolk creature token.\n"
+                + "Whenever a Forest you control enters, you may return Branch Reach Test from "
+                + "your graveyard to your hand.");
+
+        var compiled = CardCompiler.Compile(reach);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, reach);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // It is in the graveyard, which is the only place the trigger could ever be watching from.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Branch Reach Test");
+
+        var forest = TestCards.PutInHand(game, alice, TestCards.BasicLand("Forest"));
+        game.PlayLand(alice, forest);
+
+        // The offer is the trigger resolving, which is the half that never happened before.
+        for (var guard = 0; guard < 8; guard++)
+        {
+            if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment } offer)
+            {
+                Run(game);
+                if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment })
+                    break;
+
+                continue;
+            }
+
+            game.Choose(offer.PlayerId, ["yes"]);
+        }
+
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Branch Reach Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Branch Reach Test");
+    }
+
+    /// <summary>
+    /// "A card named X or Y" is a search that will take either card (CR 701.23).
+    /// </summary>
+    /// <remarks>
+    /// Bogbrew Witch, Dragonstorm Forecaster, Renowned Weaponsmith. The whole printed phrase went
+    /// into the filter as one name, and no card is called "Festering Newt or Bubbling Cauldron",
+    /// so the search offered nothing on three cards that compiled complete and had a working
+    /// activation cost, a working tap and a working shuffle either side of it.
+    /// <para>
+    /// The whole phrase is still the first alternative the filter tries, so a card really named
+    /// "Do or Die" is not split into two names it has not got. Nothing in the corpus needs that
+    /// today - these three are every "named ... or ..." search there is - but a filter that
+    /// cannot lose a card is worth more than one that is right about this printing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_search_naming_two_cards_offers_both_of_them()
+    {
+        var witch = Card(
+            "Two Name Search Test",
+            "{T}: Search your library for a card named Newt Test or Cauldron Test, put it into "
+                + "your hand, then shuffle.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(witch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, witch, Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("Newt Test", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Cauldron Test", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Neither Test", 1, 1), Zone.Library);
+
+        game.ActivateAbility(alice, source, compiled.Activated[0].Id);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var offered = game.State.Choice!.Options!;
+        Assert.Contains(offered, o => o.Label == "Newt Test");
+        Assert.Contains(offered, o => o.Label == "Cauldron Test");
+        Assert.DoesNotContain(offered, o => o.Label == "Neither Test");
+
+        game.Choose(alice, [offered.First(o => o.Label == "Cauldron Test").Id]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Cauldron Test");
+    }
+
     // ---- Declining to untap (CR 502.3) ---------------------------------------
 
     [Fact]

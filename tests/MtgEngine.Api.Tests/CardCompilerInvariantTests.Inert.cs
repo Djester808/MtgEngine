@@ -437,10 +437,24 @@ public sealed partial class CardCompilerInvariantTests
             if (!compiled.IsComplete)
                 continue;
 
+            // An ability the card's own spell creates as a delayed trigger is put on the
+            // stack by id (CR 603.7a) and never asked about an event, so the zone it names is
+            // never read. The four Pacts are exactly that - "At the beginning of your next
+            // upkeep, pay {2}{B}" is compiled onto an instant on purpose, with a predicate that
+            // answers false to everything - and they are found by the DelayAbility that names
+            // them rather than by name, so the exemption is the reason and not a list.
+            var delayed = EveryCompiledEffect(compiled)
+                .OfType<DelayAbility>()
+                .Select(d => d.AbilityId)
+                .ToHashSet(StringComparer.Ordinal);
+
             foreach (var trigger in compiled.Triggers)
             {
-                if (trigger.FunctionsFrom != Zone.Battlefield)
+                if (trigger.FunctionsFrom != Zone.Battlefield
+                    || delayed.Contains(trigger.Id))
+                {
                     continue;
+                }
 
                 Note(unreachable, $"\"{trigger.Text}\"", card.Name);
             }
@@ -460,13 +474,28 @@ public sealed partial class CardCompilerInvariantTests
     }
 
     /// <summary>
-    /// A modal ability has to choose at least one mode (CR 700.2).
+    /// A modal ability has to be able to choose at least one mode (CR 700.2).
     /// </summary>
     /// <remarks>
     /// Modes are the whole of what a modal spell does: nothing is in the top-level effect list,
-    /// because every clause sits inside a mode. An ability that carries modes and asks for none
-    /// resolves by picking nothing and running nothing — the same silence as an empty effect
-    /// list, one indirection along, and invisible to the check that looks at the list.
+    /// because every clause sits inside a mode. An ability that carries modes and can never pick
+    /// one resolves by running nothing — the same silence as an empty effect list, one
+    /// indirection along, and invisible to the check that looks at the list.
+    /// <para>
+    /// <b>A floor of zero is not that</b>, and the first run of this check said it was. "Choose
+    /// up to four" is a printed floor of zero under a printed ceiling (CR 700.2d) and "Choose X"
+    /// takes its count from the X announced with the cast (CR 601.2b); both compile to
+    /// <c>ModesToChoose = 0</c> deliberately, and Moment of Reckoning and Doomsday Confluence
+    /// were reported as inert for saying exactly what they print. So the check asks all four
+    /// fields the engine's own mode legality reads, and fails only when every one of them says
+    /// no mode can ever be taken.
+    /// </para>
+    /// <para>
+    /// A trigger is judged by the one field its path reads. <c>Game</c> offers trigger modes only
+    /// under <c>ModesToChoose: > 0</c> and slices its targets under the same test, so a trigger
+    /// with a ceiling and no floor really would resolve to nothing — the spell path's other three
+    /// fields are not consulted there.
+    /// </para>
     /// </remarks>
     [Fact]
     public void Every_modal_ability_chooses_at_least_one_mode()
@@ -494,8 +523,17 @@ public sealed partial class CardCompilerInvariantTests
 
             foreach (var spell in EverySpell(compiled))
             {
-                if (!spell.Modes.IsEmpty && spell.ModesToChoose <= 0)
-                    mute.Add($"{card.Name}: {spell.Modes.Count} modes, none chosen");
+                if (spell.Modes.IsEmpty)
+                    continue;
+
+                var canPick = spell.ModesToChoose > 0
+                    || spell.ModesMax > 0
+                    || spell.ModesFromX
+                    || spell.ExtraModes is not null
+                    || spell.ModesOnFact is not null;
+
+                if (!canPick)
+                    mute.Add($"{card.Name}: {spell.Modes.Count} modes, none can ever be chosen");
             }
         }
 
