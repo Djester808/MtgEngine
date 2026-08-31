@@ -574,13 +574,21 @@ public static partial class BoardConditions
             // where the empty hand is your own.
             var anyone = emptyHand.Groups["anyone"].Success;
 
-            return (state, abilities, source) => anyone
-                ? state.TurnOrder.Any(other => state.GetPlayer(other).Hand.IsEmpty)
-                : mine
-                    ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
-                    : state.TurnOrder.Any(
-                        other => other != source.ControllerId
-                            && state.GetPlayer(other).Hand.IsEmpty);
+            // "Each player has no cards in hand" is the fourth answer, and the one arm that is
+            // not a disjunction: every hand at the table, the asker's own included. It cannot
+            // ride the "a player" arm, which is true the moment one seat is empty - Howltooth
+            // Hollow would pay out with an opponent holding six cards.
+            var everyone = emptyHand.Groups["everyone"].Success;
+
+            return (state, abilities, source) => everyone
+                ? state.TurnOrder.TrueForAll(other => state.GetPlayer(other).Hand.IsEmpty)
+                : anyone
+                    ? state.TurnOrder.Any(other => state.GetPlayer(other).Hand.IsEmpty)
+                    : mine
+                        ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
+                        : state.TurnOrder.Any(
+                            other => other != source.ControllerId
+                                && state.GetPlayer(other).Hand.IsEmpty);
         }
 
         // "An opponent has more life than you", "you have more life than each opponent" - two
@@ -2799,7 +2807,8 @@ public static partial class BoardConditions
     private static partial Regex LifeLine();
 
     [GeneratedRegex(
-        @"^(?<who>you have|an opponent has|(?<anyone>a player has)) no cards in hand$",
+        @"^(?<who>you have|an opponent has|(?<anyone>a player has)"
+            + @"|(?<everyone>each player has)) no cards in hand$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EmptyHandLine();
 

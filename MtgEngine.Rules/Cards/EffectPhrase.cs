@@ -118,7 +118,10 @@ public static partial class EffectPhrase
         {
             effects.Add(new ExileTopAndMayPlay(
                 impulse.Groups["n"].Success ? Number(impulse.Groups["n"].Value) : new Amount(1),
-                impulse.Groups["long"].Success));
+                impulse.Groups["long"].Success)
+            {
+                Free = impulse.Groups["free"].Success,
+            });
 
             // Whatever the card says next is read the ordinary way, exactly as the look-and-take
             // idiom below already is. Anchoring the pair to the end of the line meant one
@@ -6801,6 +6804,38 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new DoubleCounters(subjectKind.Named, whoseIndex, on));
+            return true;
+        }
+
+        // CR 702.75a: "You may play the exiled card without paying its mana cost" - hideaway's
+        // payout, and the one line on a hideaway card that nothing read. The keyword itself has
+        // compiled for a long time, which made every one of those cards a permanent that buried
+        // a card and could never hand it back.
+        //
+        // The condition is read here rather than left to the generic "if" reader below, because
+        // these cards print it *behind* the instruction ("...its mana cost if you control ten or
+        // more creatures") and that reader only takes the fronted form. The fronted form still
+        // goes there: "Then if you control a creature with power 7 or greater, you may play the
+        // exiled card..." arrives at this reader with the condition already stripped off.
+        //
+        // A gate the board vocabulary cannot answer refuses the whole sentence. An offer whose
+        // condition went unread is a card strictly better than the one printed - Windbrisk
+        // Heights that pays out without anybody having attacked - and that is the one direction
+        // a reading here may not be wrong in.
+        var buried = HiddenCardOfferSentence().Match(sentence);
+        if (buried.Success)
+        {
+            var gate = buried.Groups["cond"].Value.Trim();
+            if (gate.Length == 0)
+            {
+                effects.Add(new OfferHiddenCard());
+                return true;
+            }
+
+            if (BoardConditions.Parse(gate) is not { } holds)
+                return false;
+
+            effects.Add(new OnlyIf(holds, [new OfferHiddenCard()]));
             return true;
         }
 
@@ -14917,6 +14952,7 @@ public static partial class EffectPhrase
         @"^[Ee]xile the top (" + N + @" )?cards? of your library\."
             + @"\s*([Uu]ntil end of turn, |[Uu]ntil (?<long>the end of your next turn), )?"
             + @"[Yy]ou may play (that card|those cards|it|them)"
+            + @"(?<free> without paying (its|their) mana costs?)?"
             + @"( this turn| until end of turn| until (?<long>the end of your next turn))?"
             + @"\.?(?<after>.*)$",
         RegexOptions.None)]
@@ -14932,6 +14968,30 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^shuffle ~ into its owner's library\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleSelfIntoLibraryLine();
+
+    /// <remarks>
+    /// <strong>"Play", never "cast", and the verb is the whole test.</strong> All twelve cards
+    /// that say "you may <em>play</em> the exiled card without paying its mana cost" are hideaway
+    /// cards, and every one of the fourteen that says "<em>cast</em>" instead means a card some
+    /// other sentence exiled - Living Lore's own enters-trigger, Keldon Flamesage's attack. Those
+    /// have no link back to the permanent, so <see cref="OfferHiddenCard"/> would find nothing
+    /// and the ability would compile as a blank: read, counted, and silently doing nothing. That
+    /// is the worse half of the trade, so the wider verb is refused.
+    /// <para>
+    /// The word is also load-bearing on its own terms: a hideaway permanent buries whatever was
+    /// on top, which is a land often enough that "play" is the only verb that could cover it.
+    /// </para>
+    /// <para>
+    /// The condition may not contain a comma, for the reason the fronted "if" reader gives: the
+    /// comma is the only thing that would separate a condition from what follows it, and one
+    /// allowed to swallow one would run off the end of the sentence.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you may play the exiled card without paying its mana cost"
+            + @"( if (?<cond>[^,]+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HiddenCardOfferSentence();
 
     /// <remarks>
     /// "It" and the card's own name both mean the permanent the ability is printed on, which is

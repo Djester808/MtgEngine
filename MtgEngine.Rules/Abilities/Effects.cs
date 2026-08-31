@@ -1174,6 +1174,46 @@ public sealed record DefeatSiege : IEffect
 }
 
 /// <summary>
+/// Offers the card this permanent hid away, free, to its controller (CR 702.75a, CR 601.2b).
+/// </summary>
+/// <remarks>
+/// Hideaway's other half. The keyword itself only buries a card in exile; every card that prints
+/// it also prints a second line saying when the buried card may be played, and until now that
+/// line was the one thing on those cards nothing read — which made hideaway a keyword that
+/// compiled and could never pay out.
+/// <para>
+/// "The exiled card" is the card <em>this</em> permanent's own ability put there, so the link is
+/// read off <see cref="GameObject.ExiledBy"/> rather than by hunting exile for something the
+/// controller owns. Two hideaway permanents on one board each have their own card, and a hunt
+/// would hand over whichever came first.
+/// </para>
+/// <para>
+/// The offer is the standing free-cast machinery cascade and a defeated Siege already use:
+/// permission on the exiled card, taken on a later priority through the ordinary casting path,
+/// revoked when its owner next passes. The printed sentence gives the window inside the
+/// resolution and this gives one that ends at the next pass — the deviation the whole
+/// offer-a-cast family shares, written down under <see cref="GameObject.MayCastFree"/>.
+/// </para>
+/// <para>
+/// A permanent that hid nothing — its trigger countered, its card already played — offers
+/// nothing. That is the sentence finding no card, not a reason to refuse the line.
+/// </para>
+/// </remarks>
+public sealed record OfferHiddenCard : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var hidden = context.State.Exile
+            .Select(context.State.GetObject)
+            .FirstOrDefault(card => card.ExiledBy == context.PhysicalSourceId);
+
+        return hidden is null ? [] : [new FreeCastOffered(hidden.Id, context.ControllerId)];
+    }
+}
+
+/// <summary>
 /// Exiles a permanent and brings it back at the next end step (CR 603.7b).
 /// </summary>
 /// <remarks>
@@ -5277,6 +5317,18 @@ public sealed record ManifestDread : IEffect
 public sealed record ExileTopAndMayPlay(
     Amount Count, bool ThroughOwnersNextTurn = false) : IEffect
 {
+    /// <summary>
+    /// Whether the permission is to play it for nothing rather than for its cost (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The same sentence with four words on the end, and a different mechanism behind it: a play
+    /// permission grants the zone and charges the printed price, while this grants both and so is
+    /// the standing free-cast offer instead. That swaps the window as well as the price — the
+    /// offer lapses when its owner next passes, where "until end of turn" would have lasted the
+    /// turn — which is the offer-a-cast family's usual deviation and the safe direction for it.
+    /// </remarks>
+    public bool Free { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -5295,8 +5347,11 @@ public sealed record ExileTopAndMayPlay(
             events.Add(new ObjectMoved(
                 card, exiled, Zone.Library, Zone.Exile, context.ControllerId, MoveCause.Exile));
 
-            events.Add(new CardMayBePlayed(
-                exiled, context.State.TurnNumber, ThroughOwnersNextTurn));
+            if (Free)
+                events.Add(new FreeCastOffered(exiled, context.ControllerId));
+            else
+                events.Add(new CardMayBePlayed(
+                    exiled, context.State.TurnNumber, ThroughOwnersNextTurn));
         }
 
         return events;
@@ -6588,6 +6643,18 @@ public sealed record LookAndTake(
     /// <summary>"Onto the battlefield tapped" — how the taken card arrives (CR 701.26a).</summary>
     public bool TappedOnTaken { get; init; }
 
+    /// <summary>
+    /// Whether the taken card remembers which permanent took it (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// Hideaway is the one look whose result has to stay traceable: the second line every
+    /// hideaway card prints says "the exiled card", meaning the one this permanent buried, and
+    /// nothing else about a card sitting in exile tells it apart from one some other effect put
+    /// there. Off by default, because every other look here is finished with the card the moment
+    /// it has moved.
+    /// </remarks>
+    public bool LinksTakenToSource { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -6597,6 +6664,7 @@ public sealed record LookAndTake(
             new LookAndTakeRequested(
                 context.ControllerId, Count.In(context), Destination, RestTo, FilterId)
             {
+                Source = LinksTakenToSource ? context.PhysicalSourceId : null,
                 Reveal = Reveal,
                 CountersOnTaken = CountersOnTaken,
                 TakenGrantId = TakenGrantId,

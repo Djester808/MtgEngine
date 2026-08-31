@@ -1033,6 +1033,9 @@ public static partial class CardCompiler
             if (TryHarmonize(line, ref castFrom))
                 continue;
 
+            if (TryCastFromGraveyard(line, card, ref castFrom))
+                continue;
+
             if (TryKicker(line, ref kicker, ref kickerPayments, ref kickerLife))
                 continue;
 
@@ -6706,8 +6709,12 @@ public static partial class CardCompiler
     /// exile, so the card is exiled face up and every player can see it. That is information the
     /// printed card keeps from the opponents, so the reading is worse for the permanent's
     /// controller rather than better - which is the direction a reading is allowed to be wrong
-    /// in. Nothing reaches it in a game either way: the second line every hideaway card prints,
-    /// the one saying when the exiled card may be played, is not read yet.
+    /// in. ~~Nothing reaches it in a game either way: the second line every hideaway card prints,
+    /// the one saying when the exiled card may be played, is not read yet.~~ <strong>That line
+    /// now reads</strong>, which is what makes the deviation above matter at all: see
+    /// <c>OfferHiddenCard</c>. The exiled card carries the link back to the permanent that hid
+    /// it (<c>LookAndTake.LinksTakenToSource</c>), because "the exiled card" means the one
+    /// <em>this</em> permanent buried and two hideaway permanents can be on one board.
     /// </para>
     /// <para>
     /// One card prints the word twice on one line ("Hideaway 3, hideaway 3"), and each instance
@@ -6738,7 +6745,7 @@ public static partial class CardCompiler
                     + " cards of your library. Exile one of them and put the rest on the bottom "
                     + "of your library in a random order.",
                 Triggers = entered,
-                Effects = [new LookAndTake(count, Zone.Exile)],
+                Effects = [new LookAndTake(count, Zone.Exile) { LinksTakenToSource = true }],
             });
         }
 
@@ -12809,6 +12816,66 @@ public static partial class CardCompiler
             LifeCost = paid.Life,
         };
 
+        return true;
+    }
+
+    /// <summary>
+    /// "You may cast this card from your graveyard", the sentence rather than a keyword
+    /// (CR 601.3a, CR 113.6e).
+    /// </summary>
+    /// <remarks>
+    /// The same static ability flashback grants, printed in full instead of behind a word, and
+    /// the same field holds it: permission to cast from the graveyard, for the card's own cost,
+    /// with nothing exiled afterwards. Gravecrawler, Squee and their kind are recastable for as
+    /// long as they keep dying, which is what leaving <c>ExileOnResolve</c> false says.
+    /// <para>
+    /// <strong>The gate is the whole card.</strong> Almost every printing hangs the permission on
+    /// the board - "as long as you control a Zombie", "as long as you control a black or green
+    /// permanent" - and a reading that took the permission and dropped the condition would be a
+    /// strictly better card than the one printed. So a condition the board vocabulary cannot
+    /// answer refuses the line outright and the card stays unread, which is the direction this is
+    /// allowed to be wrong in.
+    /// </para>
+    /// <para>
+    /// A card that already carries a keyword permission is left alone rather than overwritten.
+    /// One field holds one permission, and quietly replacing a flashback cost with a printed
+    /// sentence's would charge the wrong price for the rest of the game.
+    /// </para>
+    /// </remarks>
+    private static bool TryCastFromGraveyard(
+        string line, CardDefinition card, ref AlternativeCastZone? into)
+    {
+        var m = CastFromGraveyardLine().Match(line);
+        if (!m.Success || into is not null)
+            return false;
+
+        // The line reached here with any "Word — " prefix already stripped, and that strip
+        // cannot tell an ability word from a gate: "Landfall — " is flavour with no rules
+        // meaning (CR 207.2c) and "Max speed — " is a condition the ability only works under.
+        // Lightwheel Enhancements prints the second, and reading it here would hand out a
+        // graveyard permission that holds at any speed. So a prefixed line is left unread and
+        // only the bare printed sentence is taken.
+        if ((card.OracleText ?? string.Empty).Contains(
+                "— You may cast", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var permission = new AlternativeCastZone(
+            Zone.Graveyard,
+            ManaCostSpec.Parse(card.ManaCostRaw ?? string.Empty),
+            ExileOnResolve: false);
+
+        if (!m.Groups["cond"].Success)
+        {
+            into = permission;
+            return true;
+        }
+
+        if (BoardConditions.Parse(m.Groups["cond"].Value.Trim()) is not { } holds)
+            return false;
+
+        into = permission with { Available = holds };
         return true;
     }
 
@@ -19570,6 +19637,19 @@ public static partial class CardCompiler
     /// <summary>"Read ahead" (CR 702.155a). Printed alone on every Saga that has it.</summary>
     [GeneratedRegex(@"^Read ahead\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ReadAheadLine();
+
+    /// <remarks>
+    /// Only the bare sentence and the two ways a card gates it. The riders that charge something
+    /// extra - "by discarding two cards in addition to paying its other costs", "if you pay {1}
+    /// more for each other creature card in your graveyard" - are deliberately not here: each
+    /// names a price this permission has no way to charge, and admitting them would grant the
+    /// zone for free.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^You may cast ~ from your graveyard"
+            + @"(?: (?:as long as|if) (?<cond>.+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CastFromGraveyardLine();
 
     /// <summary>
     /// "Hideaway N", or the one card that prints two of them on a line (CR 702.75a).

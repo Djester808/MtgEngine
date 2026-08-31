@@ -69191,6 +69191,432 @@ public sealed class CompiledCardBehaviourTests
             game.State.GetPlayer(alice).Graveyard,
             id => game.State.GetObject(id).Card.Name == "Test Strike // Test Echo");
     }
+    // ---- Casting a card from where it was hidden (CR 702.75, CR 601.2b, CR 601.3) ----
+
+    /// <summary>The wording every hideaway permanent prints, with its payout line.</summary>
+    /// <remarks>
+    /// Clive's Hideaway, minus nothing: the keyword, a mana ability, and the line that says when
+    /// the buried card may be played. That last line is the one under test, and until now it was
+    /// the only thing on all twelve hideaway cards that nothing read — so the keyword compiled,
+    /// buried a card, and could never hand it back.
+    /// </remarks>
+    private static CardDefinition Hideaway(string name) => Card(
+        name,
+        "Hideaway 4\n{T}: Add {C}.\n{2}, {T}: You may play the exiled card without paying its "
+            + "mana cost if you control four or more legendary creatures.",
+        CardType.Land);
+
+    /// <summary>The payout ability's id, whatever the compiler numbered it.</summary>
+    private static string Payout(CardDefinition card) =>
+        CardCompiler.Compile(card).Activated.Single(a => !a.IsManaAbility).Id;
+
+    /// <summary>Four legendary creatures, so a hideaway gate that counts them is open.</summary>
+    private static void FourLegends(Game game, Guid who, string prefix)
+    {
+        for (var i = 0; i < 4; i++)
+            game.Create(who, TestCards.Legend($"{prefix} Legend {i} Test"), Zone.Battlefield);
+    }
+
+    /// <summary>A card expensive enough that casting it for nothing is unmistakable.</summary>
+    private static CardDefinition Payload(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Sorcery,
+        ManaCostRaw = "{5}{W}{W}",
+        Cmc = 7,
+        OracleText = "You gain 5 life.",
+    };
+
+    /// <summary>
+    /// Hideaway's payout: the buried card is offered, and taking it costs nothing (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// Played rather than parsed, because a parse tree cannot tell the difference between an offer
+    /// and a blank. The land buries a seven-mana sorcery, its ability is paid for with the last
+    /// two mana Alice has, and the sorcery then goes on the stack out of exile with an empty pool.
+    /// </remarks>
+    [Fact]
+    public void A_hideaway_permanent_pays_out_the_card_it_buried()
+    {
+        var vale = Hideaway("Hidden Vale Test");
+
+        var compiled = CardCompiler.Compile(vale);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Payload("Hidden Vale Payload Test"), Zone.Library);
+        FourLegends(game, alice, "Hidden Vale");
+
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var land = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        // CR 702.75a: the keyword's own half. One card is in exile and it knows which permanent
+        // put it there, which is the whole of what "the exiled card" means on the line below.
+        var hidden = game.State.Exile.Select(game.State.GetObject).Single();
+        Assert.Equal("Hidden Vale Payload Test", hidden.Card.Name);
+        Assert.Equal(land, hidden.ExiledBy);
+
+        game.ActivateAbility(alice, first, "mana");
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, land, Payout(vale));
+        Run(game);
+
+        Assert.Single(game.Log.OfType<FreeCastOffered>());
+        Assert.True(game.State.GetObject(hidden.Id).MayCastFree);
+
+        // Nothing left to pay with, which is what makes the cast below mean something.
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Total);
+
+        game.CastSpell(alice, hidden.Id);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+        Assert.Empty(game.State.Exile);
+    }
+
+    /// <summary>
+    /// The offer is a window, and passing priority closes it (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The printed sentence gives the window inside the resolution and this engine gives one that
+    /// ends at the offer-holder's next pass — the deviation the whole offer-a-cast family shares.
+    /// What it may never become is permanent: a hideaway card that stayed castable for free for
+    /// the rest of the game is a strictly better card than the one printed, and coverage would
+    /// score that as a win.
+    /// </remarks>
+    [Fact]
+    public void A_hideaway_offer_lapses_when_its_window_closes()
+    {
+        var vale = Hideaway("Lapsing Vale Test");
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Payload("Lapsing Vale Payload Test"), Zone.Library);
+        FourLegends(game, alice, "Lapsing Vale");
+
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var land = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        var hidden = game.State.Exile.Select(game.State.GetObject).Single().Id;
+
+        game.ActivateAbility(alice, first, "mana");
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, land, Payout(vale));
+        Run(game);
+
+        Assert.True(game.State.GetObject(hidden).MayCastFree);
+
+        game.PassPriority(alice);
+
+        Assert.Single(game.Log.OfType<FreeCastLapsed>());
+        Assert.False(game.State.GetObject(hidden).MayCastFree);
+
+        // The card is still in exile and still nobody's to cast: the offer bought the zone, and
+        // when it lapsed the zone rule came back with it (CR 601.3a).
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, hidden));
+        Assert.Single(game.State.Exile);
+    }
+
+    /// <summary>
+    /// A gate that is shut offers nothing at all (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// Eleven of the twelve hideaway cards hang their payout on the board, and the condition is
+    /// the entire price of the mechanic: a Mosswort Bridge that pays out without ten power on the
+    /// table is a different card. The ability still resolves — the mana and the tap are spent
+    /// — and simply finds nothing to offer.
+    /// </remarks>
+    [Fact]
+    public void A_hideaway_gate_that_is_shut_offers_nothing()
+    {
+        var vale = Hideaway("Shut Vale Test");
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Payload("Shut Vale Payload Test"), Zone.Library);
+
+        // Three, not four.
+        for (var i = 0; i < 3; i++)
+            game.Create(alice, TestCards.Legend($"Shut Vale Legend {i} Test"), Zone.Battlefield);
+
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var land = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        var hidden = game.State.Exile.Select(game.State.GetObject).Single().Id;
+
+        game.ActivateAbility(alice, first, "mana");
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, land, Payout(vale));
+        Run(game);
+
+        Assert.Empty(game.Log.OfType<FreeCastOffered>());
+        Assert.False(game.State.GetObject(hidden).MayCastFree);
+        Assert.True(game.State.GetObject(land).Permanent?.IsTapped);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, hidden));
+    }
+
+    /// <summary>
+    /// The buried card is as often a land as anything else, and "play" covers it (CR 305.1).
+    /// </summary>
+    /// <remarks>
+    /// Every printing of this line says "you may <em>play</em>", not "cast", and the word is
+    /// doing work: a hideaway permanent buries whatever the look turned up. An offer that only
+    /// ever bought a cast would leave the land sitting in exile with the card saying it may be
+    /// played, so the free-cast permission is read as permission to play a land too. It buys the
+    /// zone and nothing else — the land drop is still spent.
+    /// </remarks>
+    [Fact]
+    public void A_hidden_land_is_played_rather_than_cast()
+    {
+        var vale = Hideaway("Land Vale Test");
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Card("Land Vale Payload Test", string.Empty, CardType.Land), Zone.Library);
+        FourLegends(game, alice, "Land Vale");
+
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var land = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        var hidden = game.State.Exile.Select(game.State.GetObject).Single().Id;
+
+        game.ActivateAbility(alice, first, "mana");
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, land, Payout(vale));
+        Run(game);
+
+        // A land is played, never cast (CR 305.1) - so the offer has to be readable by the other
+        // door as well as by the casting one.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, hidden));
+
+        game.PlayLand(alice, hidden);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Land Vale Payload Test");
+    }
+
+    /// <summary>
+    /// "The exiled card" is the one <em>this</em> permanent buried (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The reason the link lives on the exiled card rather than being hunted for at pay-out time:
+    /// two hideaway permanents on one board put two cards in the same zone, both owned by the
+    /// same player, and a hunt would hand over whichever came first.
+    /// </remarks>
+    [Fact]
+    public void Each_hideaway_permanent_offers_only_the_card_it_buried()
+    {
+        var vale = Hideaway("Twin Vale Test");
+        var (game, alice, _) = InMainPhase();
+        FourLegends(game, alice, "Twin Vale");
+
+        game.Create(alice, Payload("Twin Vale First Payload Test"), Zone.Library);
+        var older = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        game.Create(alice, Payload("Twin Vale Second Payload Test"), Zone.Library);
+        var newer = game.Create(alice, vale, Zone.Battlefield);
+        Settle(game);
+
+        var byOlder = game.State.Exile.Select(game.State.GetObject)
+            .Single(o => o.ExiledBy == older);
+        var byNewer = game.State.Exile.Select(game.State.GetObject)
+            .Single(o => o.ExiledBy == newer);
+
+        Assert.Equal("Twin Vale First Payload Test", byOlder.Card.Name);
+        Assert.Equal("Twin Vale Second Payload Test", byNewer.Card.Name);
+
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, first, "mana");
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, newer, Payout(vale));
+        Run(game);
+
+        Assert.True(game.State.GetObject(byNewer.Id).MayCastFree);
+        Assert.False(game.State.GetObject(byOlder.Id).MayCastFree);
+    }
+
+    /// <summary>
+    /// "You may cast this card from your graveyard as long as ..." holds only while it does.
+    /// </summary>
+    /// <remarks>
+    /// Gravecrawler's sentence, which is the static ability flashback grants written out in full
+    /// instead of behind a keyword: the zone, the card's own cost, and nothing exiled afterwards.
+    /// Almost every card that prints it hangs it on the board, and the gate is asked at the moment
+    /// of the cast rather than folded in when the card was compiled - which is what "as long as"
+    /// means, and the difference between reading the card and inventing a better one.
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_permission_holds_only_while_its_condition_does()
+    {
+        var crawler = new CardDefinition
+        {
+            OracleId = "oracle-yard-crawler-test",
+            Name = "Yard Crawler Test",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Zombie"],
+            ManaCostRaw = "{1}{B}",
+            Cmc = 2,
+            Power = 2,
+            Toughness = 1,
+            OracleText = "You may cast ~ from your graveyard as long as you control a Zombie.",
+        };
+
+        var compiled = CardCompiler.Compile(crawler);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var mountain = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var buried = game.Create(alice, crawler, Zone.Graveyard);
+
+        game.ActivateAbility(alice, swamp, "mana");
+        game.ActivateAbility(alice, mountain, "mana");
+
+        // No Zombie on the battlefield: the permission is not there, and the zone rule refuses
+        // the cast with the mana still floating.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, buried));
+
+        game.Create(
+            alice,
+            Card(
+                "Yard Crawler Friend Test",
+                string.Empty,
+                CardType.Creature,
+                power: 1,
+                toughness: 1,
+                subtypes: "Zombie"),
+            Zone.Battlefield);
+
+        game.CastSpell(alice, buried);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Yard Crawler Test");
+    }
+
+    /// <summary>
+    /// A gate the board vocabulary cannot answer leaves the whole line unread (CR 601.3a).
+    /// </summary>
+    /// <remarks>
+    /// The control on the reader above, and the direction it is allowed to be wrong in. Ebondeath
+    /// asks whether "a creature not named ~ died this turn" and nothing here can answer that; the
+    /// tempting reading takes the permission and drops the condition, which is a Dracolich that
+    /// comes back every turn for nothing. So the sentence is refused and the card is reported
+    /// unread instead.
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_permission_whose_gate_cannot_be_read_is_not_read_at_all()
+    {
+        var ebondeath = Card(
+            "Unread Gate Test",
+            "You may cast ~ from your graveyard if a creature not named ~ died this turn.",
+            CardType.Creature,
+            power: 3,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(ebondeath);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("from your graveyard", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "Exile the top card ... you may play that card <em>without paying its mana cost</em>" is a
+    /// different mechanism from the impulse it is four words longer than (CR 601.2b, CR 601.3e).
+    /// </summary>
+    /// <remarks>
+    /// Oracle's Vault prints both sentences, one per ability, which is what makes the pair worth
+    /// a test: the shorter one lends the card at its printed price until end of turn, and the
+    /// longer one gives it away. They land on different machinery — a play permission with a
+    /// deadline against a standing free-cast offer — and the offer's window is the shorter of the
+    /// two, which is the safe direction for it to differ in.
+    /// </remarks>
+    [Fact]
+    public void Exiling_the_top_card_for_a_free_play_offers_it_rather_than_lending_it()
+    {
+        var vault = Card(
+            "Brick Vault Test",
+            "{T}: Exile the top card of your library. Until end of turn, you may play that card "
+                + "without paying its mana cost.",
+            CardType.Artifact);
+
+        var lender = Card(
+            "Lending Vault Test",
+            "{T}: Exile the top card of your library. Until end of turn, you may play that card.",
+            CardType.Artifact);
+
+        foreach (var card in new[] { vault, lender })
+        {
+            var check = CardCompiler.Compile(card);
+            Assert.True(check.IsComplete, string.Join(" | ", check.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var free = game.Create(alice, vault, Zone.Battlefield);
+        var lent = game.Create(alice, lender, Zone.Battlefield);
+
+        game.ActivateAbility(alice, free, Payout(vault));
+        Run(game);
+
+        var offered = game.State.Exile.Select(game.State.GetObject).Single();
+        Assert.True(offered.MayCastFree);
+        Assert.Null(offered.MayPlayUntilTurn);
+        Assert.Single(game.Log.OfType<FreeCastOffered>());
+
+        game.ActivateAbility(alice, lent, Payout(lender));
+        Run(game);
+
+        // The control: the same sentence without the four words is the impulse the engine has
+        // always read, and it charges.
+        var borrowed = game.State.Exile.Select(game.State.GetObject)
+            .Single(o => o.Id != offered.Id);
+
+        Assert.False(borrowed.MayCastFree);
+        Assert.Equal(game.State.TurnNumber, borrowed.MayPlayUntilTurn);
+        Assert.Single(game.Log.OfType<FreeCastOffered>());
+    }
+
+    /// <summary>
+    /// "The exiled card" is read where the card says <em>play</em>, and nowhere else.
+    /// </summary>
+    /// <remarks>
+    /// All twelve cards printing "you may play the exiled card without paying its mana cost" are
+    /// hideaway cards; all fourteen printing "cast" instead mean a card some other sentence of
+    /// their own exiled, with no link back to the permanent. Reading the wider verb compiled
+    /// Living Lore's attack trigger into an ability that found nothing and did nothing — read,
+    /// counted, and silently blank, which is the worse half of the trade. So the verb is the test.
+    /// </remarks>
+    [Fact]
+    public void The_exiled_card_is_read_where_the_card_says_play_and_not_where_it_says_cast()
+    {
+        var played = Card(
+            "Hidden Verb Play Test",
+            "Hideaway 4\n{2}, {T}: You may play the exiled card without paying its mana cost.",
+            CardType.Land);
+
+        var cast = Card(
+            "Hidden Verb Cast Test",
+            "Hideaway 4\n{2}, {T}: You may cast the exiled card without paying its mana cost.",
+            CardType.Land);
+
+        var readable = CardCompiler.Compile(played);
+        Assert.True(readable.IsComplete, string.Join(" | ", readable.Unhandled));
+
+        Assert.False(CardCompiler.Compile(cast).IsComplete);
+    }
+
     // ---- Dungeons and venturing (CR 309, CR 701.49) ---------------------------
 
     /// <summary>An instant that ventures, so a test can venture as often as it likes.</summary>
