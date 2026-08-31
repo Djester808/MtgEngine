@@ -3849,8 +3849,11 @@ public sealed class Game
 
         foreach (var (attackerId, target) in attackers)
         {
+            // The whole target and not only the player, because a prohibition can name the
+            // player and their planeswalkers separately, and a battle is attacked through a
+            // player who is not being attacked at all (CR 310.9b, 506.3).
             var reason = CombatRules.CannotAttack(
-                State, _abilities, State.GetObject(attackerId), playerId, target.DefendingPlayer);
+                State, _abilities, State.GetObject(attackerId), playerId, target.DefendingPlayer, target);
             if (reason is not null)
                 throw new InvalidOperationException($"That creature cannot attack: {reason}.");
 

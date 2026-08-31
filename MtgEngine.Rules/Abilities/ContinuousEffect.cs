@@ -236,6 +236,12 @@ public sealed class CharacteristicsBuilder
     /// <summary>The players who have goaded this creature (CR 701.15b).</summary>
     public HashSet<Guid> GoadedBy { get; } = [];
 
+    /// <summary>The players this creature may not be declared as attacking (CR 506.3).</summary>
+    public HashSet<Guid> CantAttackPlayers { get; } = [];
+
+    /// <summary>Whose planeswalkers this creature may not attack (CR 506.3, 508.1b).</summary>
+    public HashSet<Guid> CantAttackPlaneswalkersOf { get; } = [];
+
     /// <summary>The player this creature must attack if it can (CR 702.141a).</summary>
     public Guid? MustAttackPlayer { get; set; }
 
@@ -468,6 +474,8 @@ public sealed class CharacteristicsBuilder
         };
 
         copy.GoadedBy.UnionWith(GoadedBy);
+        copy.CantAttackPlayers.UnionWith(CantAttackPlayers);
+        copy.CantAttackPlaneswalkersOf.UnionWith(CantAttackPlaneswalkersOf);
         copy.GrantedActivated.AddRange(GrantedActivated);
         copy.GrantedTriggers.AddRange(GrantedTriggers);
         copy.BlockRestrictions.AddRange(BlockRestrictions);
@@ -492,6 +500,8 @@ public sealed class CharacteristicsBuilder
         Subtypes = [.. Subtypes],
         Colors = [.. Colors],
         GoadedBy = [.. GoadedBy],
+        CantAttackPlayers = [.. CantAttackPlayers],
+        CantAttackPlaneswalkersOf = [.. CantAttackPlaneswalkersOf],
         MustAttackPlayer = MustAttackPlayer,
         CantBeBlockedByGreaterPower = CantBeBlockedByGreaterPower,
         MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,

@@ -8405,6 +8405,7 @@ public static partial class CardCompiler
             || TryMinimumBlockers(line, card, statics)
             || TryMaximumBlockers(line, card, statics)
             || TryCantBeTheTargetOf(line, card, statics)
+            || TryAttachedAttackBan(line, card, statics)
             || TryHexproofFrom(line, card, statics)
             || TryCantBeBlockedExceptBy(line, card, statics)
             || TryCantBeBlockedBy(line, card, statics)
@@ -9580,6 +9581,64 @@ public static partial class CardCompiler
     /// never said so, and the coverage figure would score that as a win.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "Enchanted creature ... can't attack you or planeswalkers you control" (CR 506.3).
+    /// </summary>
+    /// <remarks>
+    /// The Vow cycle, and it is the conjunct that kept all six of them unread: every other part
+    /// of "gets +2/+2, has vigilance, and can't attack you or planeswalkers you control" has been
+    /// read for rounds, and the fold that joins them could only hand this one to readers that had
+    /// no sentence for it. Nothing about the join was missing.
+    /// <para>
+    /// <strong>Both printed spellings, kept apart.</strong> The Vows shield the player and their
+    /// planeswalkers; Fealty to the Realm shields the player alone. Read into one restriction the
+    /// narrower card would start protecting planeswalkers its text never mentions, which is a
+    /// card strictly better than the printed one and exactly the direction this compiler may not
+    /// be wrong in.
+    /// </para>
+    /// <para>
+    /// <strong>"You" is settled when the question is asked, not when the card is compiled.</strong>
+    /// It is whoever controls the Aura at that moment (CR 613.1b), so a Vow taken with a
+    /// control-change effect starts guarding the player who took it - the same read every other
+    /// attached reader here makes, and the one that stopped a stolen lord buffing its old side.
+    /// </para>
+    /// <para>
+    /// A restriction on the declaration rather than a keyword: it names a player, and no flag can
+    /// hold one. It lands on the enchanted creature's computed characteristics because that is
+    /// where the other per-player combat designations already live - goad and the encore token's
+    /// "must attack that player" - and where combat asks for them.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedAttackBan(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedAttackBanLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var alsoPlaneswalkers = m.Groups["walkers"].Success;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"cant-attack:{card.Name}:{(alsoPlaneswalkers ? "and-planeswalkers" : "player")}",
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, target) =>
+                source is not null && source.Permanent?.AttachedTo == target.Subject.Id,
+            Apply = (state, source, builder) =>
+            {
+                if (source is null)
+                    return;
+
+                var you = Characteristics.ControllerOf(state, builder.Abilities, source);
+                builder.CantAttackPlayers.Add(you);
+
+                if (alsoPlaneswalkers)
+                    builder.CantAttackPlaneswalkersOf.Add(you);
+            },
+        });
+
+        return true;
+    }
     private static bool TryCantBeTheTargetOf(
         string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
     {
@@ -20136,6 +20195,18 @@ public static partial class CardCompiler
         @"^(?<subject>(enchanted|equipped) " + AttachedSubject + @") (?<rest>.+?(,| and ).+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ConjoinedAttachedLine();
+
+    /// <remarks>
+    /// The planeswalker half is optional and captured, because whether it was printed is the
+    /// whole difference between the two cards that say this. Anchored whole: a sentence with
+    /// anything else after it - "unless their controller pays {2}" - is a tax and belongs to the
+    /// reader that can charge one, not to a prohibition that would refuse the attack outright.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @" can't attack you(?<walkers> or planeswalkers you control)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedAttackBanLine();
 
     /// <summary>What joins two clauses about the same subject, kept so a span can be rebuilt.</summary>
     [GeneratedRegex(@"(, and |, | and )")]
