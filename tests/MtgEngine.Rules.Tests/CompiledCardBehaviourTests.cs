@@ -7784,6 +7784,310 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, hit));
     }
 
+    // ---- Damage amounts read the board, not the printed card -----------------
+
+    /// <summary>
+    /// A damage multiplier that changes hands multiplies for whoever holds it (CR 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// "A source you control" is the commonest slot in the damage-amount family — sixteen of the
+    /// twenty-one complete cards carrying one of these ask about a controller, a colour or a card
+    /// type — and every one of those is a CR 613 question. The predicate is a closure inside the
+    /// replacement's <c>Applies</c>, so it can only answer them if it is handed the board's
+    /// abilities; given an empty source the layer walk gathers nothing, layer 2 never runs, and
+    /// "you" means whoever the permanent <em>started</em> under.
+    /// <para>
+    /// The two halves are each other's control, and they run in the same turn on the same board:
+    /// the thief's source is doubled and the original controller's is not. An engine reading the
+    /// stored controller passes neither — it swaps them, which is the failure worth naming,
+    /// because a doubler that has quietly changed sides makes every source on the wrong half of
+    /// the table hit harder and nothing on the board says so.
+    /// </para>
+    /// <para>
+    /// Safe to compute here for the reason a continuous effect's predicate is not: a replacement's
+    /// <c>Applies</c> runs outside the CR 613 layer walk, so asking about another permanent is an
+    /// ordinary question rather than CR 613.8's hazard.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_damage_doubler_that_changed_hands_doubles_for_whoever_holds_it()
+    {
+        var furnace = Card(
+            "Traded Furnace Test",
+            "If a source you control would deal damage to a permanent or player, it deals "
+                + "double that damage to that permanent or player instead.",
+            CardType.Creature,
+            4,
+            4);
+
+        var compiled = CardCompiler.Compile(furnace);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var treason = Card(
+            "Traded Furnace Treason Test",
+            "Gain control of target creature until end of turn.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(treason).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var doubler = game.Create(alice, furnace, Zone.Battlefield);
+        var hers = game.Create(
+            alice, TestCards.Creature("Traded Furnace Ping Test", 1, 1), Zone.Battlefield);
+        var his = game.Create(
+            bob, TestCards.Creature("Traded Furnace Gun Test", 1, 1), Zone.Battlefield);
+
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        game.CastSpell(
+            bob,
+            TestCards.PutInHand(game, bob, treason),
+            [Target.ToPermanent(doubler)]);
+
+        Settle(game);
+
+        Assert.Equal(
+            bob,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(doubler)).ControllerId);
+
+        // Six becomes twelve, and it is the thief's source that grew.
+        game.MarkDamageToPlayer(alice, his, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(8, game.State.GetPlayer(alice).Life);
+
+        // The control, in the same turn: the player the doubler was taken from is no longer
+        // "you", so her source deals exactly what it says.
+        game.MarkDamageToPlayer(bob, hers, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "A creature you control" includes a land that has become one (CR 613.1d, layer 4).
+    /// </summary>
+    /// <remarks>
+    /// Gratuitous Violence, asked about a permanent whose creature-ness is not printed anywhere on
+    /// it. The group phrase goes through the same target-phrase vocabulary a spell uses, and that
+    /// vocabulary answers out of computed characteristics — so the question is only as good as the
+    /// ability source it is asked with. Handed an empty one it reads the printed card, and an
+    /// animated land is a land.
+    /// <para>
+    /// The control is the land that was <em>not</em> animated, dealing its damage in the same turn
+    /// on the same board. It is the half that fails closed: a reader that widened "a creature you
+    /// control" to every permanent would double both, and coverage would score it as a win.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_creature_only_doubler_reaches_a_land_that_has_become_a_creature()
+    {
+        var violence = Card(
+            "Awakened Violence Test",
+            "If a creature you control would deal damage to a permanent or player, it deals "
+                + "double that damage instead.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(violence);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var waker = Card(
+            "Awakened Violence Waker Test",
+            "Target land you control becomes a 3/3 Elemental creature until end of turn.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(waker).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, violence, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var plains = game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, waker),
+            [Target.ToPermanent(forest)]);
+
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(forest))
+                .CardTypes.HasFlag(CardType.Creature));
+
+        // The control, and it is the same turn and the same board as the case below: the land
+        // that was not animated is not a creature, so nothing is doubled.
+        game.MarkDamageToPlayer(bob, plains, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+
+        // Six becomes twelve, from a permanent whose card says "Basic Land — Forest".
+        game.MarkDamageToPlayer(bob, forest, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "A red source you control" is the colour the source is now, not the colour it was printed.
+    /// </summary>
+    /// <remarks>
+    /// Torbran, and the third characteristic this family reads through the same seam: colour is
+    /// layer 5 (CR 613.1e), so a source an effect has recoloured answers to the printed card until
+    /// the predicate is given something that can gather that effect. Four of the twenty-one
+    /// complete cards in the family name a colour.
+    /// <para>
+    /// Its recipient clause is read at the same time — "an opponent or a permanent an opponent
+    /// controls" is a question about who controls what — and the control here is a second source
+    /// that was never painted, dealing its printed damage in the same turn.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_colour_restricted_bonus_reads_the_colour_an_effect_gave_the_source()
+    {
+        var thane = Card(
+            "Painted Thane Test",
+            "If a red source you control would deal damage to an opponent or a permanent an "
+                + "opponent controls, it deals that much damage plus 2 instead.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(thane);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var brush = Card(
+            "Painted Thane Brush Test",
+            "Target creature becomes the color of your choice until end of turn.");
+
+        Assert.True(CardCompiler.Compile(brush).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, thane, Zone.Battlefield);
+
+        var painted = game.Create(
+            alice, TestCards.Creature("Painted Thane Gun Test", 1, 1), Zone.Battlefield);
+
+        var plain = game.Create(
+            alice, TestCards.Creature("Painted Thane Plain Gun Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, brush),
+            [Target.ToPermanent(painted)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        Assert.Equal(ChoiceKind.ChooseColor, game.State.Choice!.Kind);
+        game.Choose(alice, [nameof(ManaColor.Red)]);
+        Settle(game);
+
+        Assert.Contains(
+            ManaColor.Red,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(painted)).Colors);
+
+        // Six becomes eight, off a creature whose printed card has no colour at all.
+        game.MarkDamageToPlayer(bob, painted, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(12, game.State.GetPlayer(bob).Life);
+
+        // The control: the same size of source, the same turn, no colour.
+        game.MarkDamageToPlayer(bob, plain, 6, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(6, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Doubling then adding is not adding then doubling, and the affected player picks (CR 616.1).
+    /// </summary>
+    /// <remarks>
+    /// Two damage replacements on one board is the case this family exists to get right, and the
+    /// order is a rule rather than an implementation detail: CR 616.1 gives the choice to the
+    /// affected object's controller — here the player being damaged, who is <em>not</em> the
+    /// player who controls either effect. Six damage becomes fourteen one way round and sixteen
+    /// the other, so gather order would be a silently wrong answer half the time.
+    /// <para>
+    /// It is also the CR 614.5 test, and the one that would hang rather than fail: each
+    /// replacement produces a fresh damage event that both of them would otherwise see again, so
+    /// an engine that did not key an application on the effect would replace its own output for
+    /// ever. The rule's own worked example is this family. The assertion is the number, and that
+    /// the test terminates at all is half of what it proves.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Two_damage_replacements_apply_in_the_order_the_damaged_player_chooses()
+    {
+        var doubler = Card(
+            "Ordered Doubler Test",
+            "If a source you control would deal damage to a permanent or player, it deals "
+                + "double that damage to that permanent or player instead.",
+            CardType.Enchantment);
+
+        var bonus = Card(
+            "Ordered Bonus Test",
+            "If a source you control would deal damage to a permanent or player, it deals "
+                + "that much damage plus 2 to that permanent or player instead.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(doubler).IsComplete);
+        Assert.True(CardCompiler.Compile(bonus).IsComplete);
+
+        // A board per order, because fourteen and sixteen on one twenty-life player is a dead
+        // player and a game that refuses to be played on (CR 104.2) — and the control has to be
+        // dealt in the same turn as the case it controls for.
+        int Damaged(string takenFirst)
+        {
+            var (game, alice, bob) = InMainPhase();
+            game.Create(alice, doubler, Zone.Battlefield);
+            game.Create(alice, bonus, Zone.Battlefield);
+
+            var gun = game.Create(
+                alice, TestCards.Creature("Ordered Gun Test", 1, 1), Zone.Battlefield);
+
+            var theirs = game.Create(
+                bob, TestCards.Creature("Ordered Opposing Gun Test", 1, 1), Zone.Battlefield);
+
+            Settle(game);
+
+            game.MarkDamageToPlayer(bob, gun, 6, isCombat: false);
+
+            var asked = game.State.Choice;
+            Assert.NotNull(asked);
+            Assert.Equal(ChoiceKind.OrderReplacements, asked.Kind);
+
+            // CR 616.1 gives the choice to the affected object's controller, and the affected
+            // object here is a player. Both effects are Alice's; the question is Bob's.
+            Assert.Equal(bob, asked.PlayerId);
+
+            game.Choose(
+                bob,
+                [asked.Options.Single(o => o.Label.StartsWith(takenFirst, StringComparison.Ordinal)).Id]);
+
+            Settle(game);
+
+            // The control, in the same turn: Bob's own creature is not "a source you control" to
+            // either effect, so it deals exactly what it was told to.
+            game.MarkDamageToPlayer(alice, theirs, 6, isCombat: false);
+            Settle(game);
+
+            Assert.Equal(14, game.State.GetPlayer(alice).Life);
+
+            return 20 - game.State.GetPlayer(bob).Life;
+        }
+
+        // Doubled first: six becomes twelve, then fourteen.
+        Assert.Equal(14, Damaged("Ordered Doubler Test"));
+
+        // Added to first: six becomes eight, then sixteen. Taken in gather order rather than in
+        // the order the rules give, one of these two numbers would be the other.
+        Assert.Equal(16, Damaged("Ordered Bonus Test"));
+    }
+
     // ---- Changeling -----------------------------------------------------------
 
     [Fact]
