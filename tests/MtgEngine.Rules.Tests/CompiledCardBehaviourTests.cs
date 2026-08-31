@@ -4945,6 +4945,173 @@ public sealed class CompiledCardBehaviourTests
     private static CardDefinition EqualToGiant(string name) =>
         Card(name, string.Empty, CardType.Creature, 3, 3, KeywordAbility.None, "Giant");
 
+    // ---- A numbered prevention shield (CR 615.10) ---------------------------
+
+    /// <summary>A burn spell of a named colour, for the shields that ask what dealt the damage.</summary>
+    private static CardDefinition NumberedShieldBolt(
+        string name, int damage, params ManaColor[] colours) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = "~ deals " + damage.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " damage to any target.",
+            CardTypes = CardType.Instant,
+            Colors = colours,
+            ColorIdentity = colours,
+        };
+
+    /// <summary>
+    /// Urza's Armor: "If a source would deal damage to you, prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The number is a cap on each damage event and not a pool that runs out (CR 615.10), which
+    /// is the whole difference between this sentence and "prevent the next 1 damage". The second
+    /// bolt is the control and it is the assertion that matters: a shield read as a countdown
+    /// soaks one point in the game and none afterwards, and a shield read as the blanket wording
+    /// beside it soaks all three - both of those compile, and both make the card complete.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_caps_every_damage_event_rather_than_running_out()
+    {
+        var armour = Card(
+            "Numbered Armour Test",
+            "If a source would deal damage to you, prevent 1 of that damage.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(armour);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, armour, Zone.Battlefield);
+        SettleIn(game);
+
+        var bolt = NumberedShieldBolt("Numbered Armour Bolt Test", 3, ManaColor.Red);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+
+        // The cap applies again, in full, to the next event.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Sphere of Law: "If a red source would deal damage to you, prevent 2 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The description of the source is the control, and it is the half this family is dangerous
+    /// in: a Sphere read without it is Urza's Armor with a bigger number and stops everything at
+    /// the table. So the same three damage is cast twice from two spells that differ in nothing
+    /// but their colour, and the two boards give two different life totals.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_only_watches_the_sources_it_names()
+    {
+        var sphere = Card(
+            "Numbered Sphere Test",
+            "If a red source would deal damage to you, prevent 2 of that damage.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sphere);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, sphere, Zone.Battlefield);
+        SettleIn(game);
+
+        var red = NumberedShieldBolt("Numbered Sphere Red Test", 3, ManaColor.Red);
+        var white = NumberedShieldBolt("Numbered Sphere White Test", 3, ManaColor.White);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, red), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, white), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Daunting Defender: "If a source would deal damage to a Cleric creature you control,
+    /// prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// The victim is a described set of permanents rather than a player, which is a different
+    /// field on the shield and a different event to watch. The Bear beside the Cleric is the
+    /// control: it takes the same two damage from the same spell and dies, so the shield is the
+    /// filter it prints and not one that covers the board.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_shield_around_a_described_set_covers_only_that_set()
+    {
+        var defender = Card(
+            "Numbered Defender Test",
+            "If a source would deal damage to a Cleric creature you control, prevent 1 of that damage.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(defender);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, defender, Zone.Battlefield);
+
+        var cleric = game.Create(
+            alice,
+            Card("Numbered Cleric Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Cleric"),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Numbered Bear Test", 2, 2), Zone.Battlefield);
+
+        SettleIn(game);
+
+        var bolt = NumberedShieldBolt("Numbered Defender Bolt Test", 2, ManaColor.Red);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(cleric)]);
+        Settle(game);
+
+        Assert.Contains(cleric, game.State.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The three neighbouring wordings this reader refuses, and why each stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Every one of them would compile to the shield above if the pattern were one word looser,
+    /// and every one of them would then be a strictly better card than the printed one. "All but
+    /// 1" is the inverse of a cap - a floor on what gets through - and there is no field for it;
+    /// "half" is a third arithmetic; and a rider past the shield is a clause this engine cannot
+    /// size, because the amount prevented is not carried anywhere a later sentence could read.
+    /// </remarks>
+    [Fact]
+    public void The_wordings_a_numbered_shield_cannot_size_stay_unread()
+    {
+        foreach (var text in new[]
+        {
+            "If a source would deal damage to you, prevent all but 1 of that damage.",
+            "If a source would deal damage to you, prevent half that damage, rounded up.",
+            "If a source would deal damage to ~, prevent that damage. "
+                + "The source's controller draws cards equal to the damage prevented this way.",
+        })
+        {
+            var refused = Card("Numbered Refusal Test " + text.Length, text, CardType.Enchantment);
+            Assert.NotEmpty(CardCompiler.Compile(refused).Unhandled);
+        }
+    }
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]

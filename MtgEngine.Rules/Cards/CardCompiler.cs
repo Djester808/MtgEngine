@@ -1595,6 +1595,12 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticPrevention(line, replacements))
                 continue;
 
+            // CR 615.10's numbered shield, beside the blanket one and refused on a spell for the
+            // same reason: a cap with no duration is a permanent's static ability, and one filed
+            // from an instant would be armour nothing ever took off.
+            if (!isSpell && TryStaticPartialPrevention(line, replacements))
+                continue;
+
             // The two prohibitions a permanent prints, refused on an instant or sorcery for the
             // same reason the shield above is: on a spell the same words say "this turn" and
             // belong to the sentence parser, and a ban filed here would be one no permanent is
@@ -16431,6 +16437,74 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "If a red source would deal damage to you, prevent 2 of that damage" (CR 615.10).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="TryStaticPrevention"/> and deliberately a second entry point
+    /// rather than one more branch inside it: the two sentences share their two noun clauses and
+    /// nothing else. This one is a per-event cap that applies again to the next event, the other
+    /// is a wall, and folding them together would mean one reader with a flag deciding which
+    /// card it was compiling.
+    /// <para>
+    /// Only a permanent's static ability. A spell saying these words would be a shield nothing
+    /// ever took down, which is the reason every prohibition and shield beside this one is
+    /// refused on an instant or sorcery.
+    /// </para>
+    /// <para>
+    /// Every clause has to read. A partial prevention whose victim the vocabulary cannot name is
+    /// left unread rather than widened - "prevent 1 of that damage" covering every permanent on
+    /// the board instead of the Clerics is a strictly better card than the printed one, and one
+    /// that no count of compiled cards can tell from the right answer.
+    /// </para>
+    /// </remarks>
+    private static bool TryStaticPartialPrevention(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var sentence = line;
+        BoardCondition? when = null;
+
+        // The same guard clause the blanket shield reads, and read the same way: a condition the
+        // shared vocabulary cannot say leaves the line unread rather than producing a shield
+        // that is always up.
+        if (ConditionalPartialPreventionLine().Match(line) is { Success: true } guarded)
+        {
+            when = BoardConditions.Parse(guarded.Groups["cond"].Value.Trim());
+            if (when is null)
+                return false;
+
+            sentence = guarded.Groups["rest"].Value;
+        }
+
+        if (EffectPhrase.ReadPartialPreventionSentence(sentence) is not { } read)
+            return false;
+
+        if (EffectPhrase.PartialPreventionSource(read.Sources) is not { } from)
+            return false;
+
+        // "Equipped creature" and "~" name one object each and are only meaningful to a
+        // permanent, exactly as they are for the blanket shield next door.
+        if (StaticPreventionAnchor(read.Victims) is var anchor and not PreventionAnchor.None)
+        {
+            into.Add(
+                StaticShield(
+                    read.Kind, anchor, (null, null, false, null), PreventionAnchor.None, from,
+                    PreventionRelation.None, when, read.Amount));
+
+            return true;
+        }
+
+        if (EffectPhrase.PreventVictim(read.Victims) is not { } who)
+            return false;
+
+        into.Add(
+            StaticShield(
+                read.Kind, PreventionAnchor.None, who, PreventionAnchor.None, from,
+                PreventionRelation.None, when, read.Amount));
+
+        return true;
+    }
+
     /// <summary>Which object a static prevention's clause names, when it names one.</summary>
     private enum PreventionAnchor
     {
@@ -16594,7 +16668,7 @@ public static partial class CardCompiler
             built.Add(
                 StaticShield(
                     kind, PreventionAnchor.None, (null, null, false, null), dealer, from,
-                    relation, when));
+                    relation, when, cap: null));
             return true;
         }
 
@@ -16607,7 +16681,8 @@ public static partial class CardCompiler
             {
                 built.Add(
                     StaticShield(
-                        kind, anchor, (null, null, false, null), dealer, from, relation, when));
+                        kind, anchor, (null, null, false, null), dealer, from, relation, when,
+                        cap: null));
                 continue;
             }
 
@@ -16615,7 +16690,8 @@ public static partial class CardCompiler
                 return false;
 
             built.Add(
-                StaticShield(kind, PreventionAnchor.None, who, dealer, from, relation, when));
+                StaticShield(
+                    kind, PreventionAnchor.None, who, dealer, from, relation, when, cap: null));
         }
 
         return built.Count > before;
@@ -16665,7 +16741,8 @@ public static partial class CardCompiler
         PreventionAnchor dealer,
         (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
         PreventionRelation relation,
-        BoardCondition? when)
+        BoardCondition? when,
+        int? cap)
     {
         var template = new PreventionEffect
         {
@@ -16730,7 +16807,7 @@ public static partial class CardCompiler
 
         return new ReplacementEffectDefinition
         {
-            Id = StaticShieldId(kind, victim, described, dealer, from, relation),
+            Id = StaticShieldId(kind, victim, described, dealer, from, relation, cap),
             FunctionsFrom = Zone.Battlefield,
 
             // CR 615.12: unpreventable damage has to walk past this the same way it walks past
@@ -16759,11 +16836,26 @@ public static partial class CardCompiler
                 };
             },
 
-            // Nothing comes back: the damage event is replaced by no events at all, which is
-            // what preventing all of it means (CR 615.1). Every line read here says "prevent
-            // all"; CR 615.10's numbered form is a differently-shaped sentence this does not
-            // claim, so the amount is never partial.
-            Replace = (_, _, _) => [],
+            // Nothing comes back for the blanket wording: the damage event is replaced by no
+            // events at all, which is what preventing all of it means (CR 615.1).
+            //
+            // CR 615.10's numbered form is the same shield with a cap, and it has to put the
+            // rest of the damage back - "prevent 1 of that damage" against a 3-point hit marks
+            // two. A cap that dropped the whole event would be a card that reads correctly,
+            // compiles, and quietly plays as total immunity; nothing in a coverage count can see
+            // the difference, which is why the remainder is emitted here rather than left to the
+            // caller. The cap applies again to the next event on its own, because a replacement
+            // effect is applied once per event and this state is never written back.
+            Replace = (e, _, _) => cap is not { } most
+                ? []
+                : e switch
+                {
+                    Events.DamageMarked marked when marked.Amount > most =>
+                        [marked with { Amount = marked.Amount - most }],
+                    Events.PlayerDamaged hit when hit.Amount > most =>
+                        [hit with { Amount = hit.Amount - most }],
+                    _ => [],
+                },
         };
     }
 
@@ -16780,7 +16872,8 @@ public static partial class CardCompiler
         (string? Filter, PlayerScope? Who, bool Other, CombatRole? Combat) described,
         PreventionAnchor dealer,
         (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
-        PreventionRelation relation)
+        PreventionRelation relation,
+        int? cap)
     {
         var to = victim switch
         {
@@ -16808,7 +16901,8 @@ public static partial class CardCompiler
                     + (relation is PreventionRelation.None ? string.Empty : ":" + relation),
         };
 
-        return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}";
+        return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}"
+            + (cap is { } most ? ":cap=" + most.ToString(CultureInfo.InvariantCulture) : string.Empty);
     }
 
     /// <summary>
@@ -21106,6 +21200,19 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(?<cond>[Dd]uring [^,]+|[Aa]s long as [^,]+), (?<rest>[Pp]revent all .+)$")]
     private static partial Regex ConditionalPreventionLine();
+
+    /// <summary>
+    /// The same guard in front of CR 615.10's numbered shield - "As long as this artifact is
+    /// untapped, if a creature would deal combat damage to you, prevent 1 of that damage."
+    /// </summary>
+    /// <remarks>
+    /// A pattern of its own because the sentence behind the comma opens with "if" rather than
+    /// with "prevent", and widening the shared one to accept either would let the blanket reader
+    /// take the first half of a numbered sentence.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<cond>[Dd]uring [^,]+|[Aa]s long as [^,]+), (?<rest>[Ii]f .+)$")]
+    private static partial Regex ConditionalPartialPreventionLine();
 
     [GeneratedRegex(
         @"^~ costs \{(?<n>\d+)\} less to cast if it targets an? (?<what>.+?)\.?$",
