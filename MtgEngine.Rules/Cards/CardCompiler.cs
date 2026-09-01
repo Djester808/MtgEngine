@@ -19847,6 +19847,11 @@ public static partial class CardCompiler
         // a card that had compiled for months. So the guard is the parse itself, exactly as the
         // keyword fold two hundred lines up uses the join: a rewrite exists to unlock a line
         // nothing can read, and may never take one away from a reader that already has it.
+        // Lift embedded offers to the front so EffectPhrase.TryOptionalPayment can read them.
+        // "Whenever you attack, you may pay {R}{G}{W}{U}. When you do, ..."
+        // becomes "You may pay {R}{G}{W}{U}. When you do, ..."
+        effectText = RewriteEmbeddedOffer(effectText);
+
         if (ThatSpellsStat().IsMatch(effectText)
             && TriggerConditions.CastsASpell(whenText)
             && !TargetsASpell().IsMatch(effectText)
@@ -20595,6 +20600,36 @@ public static partial class CardCompiler
         @"\bthat spell's (?<stat>power|toughness|mana value)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ThatSpellsStat();
+
+    /// <summary>
+    /// An embedded offer inside a trigger effect: "you may pay {cost}. When/If you do, ..."
+    /// The offer reader in EffectPhrase only handles offers that START the line, so we rewrite
+    /// by lifting the offer to the front, preserving the trigger's subject for pronouns.
+    /// </summary>
+    [GeneratedRegex(
+        @"^(?<before>.+?\.\s*)?(?<offer>you may pay (?<cost>\{[^}]+\}+)(?:\.\s*(?:If|When) you do,\s*(?<then>.+))?)\.?$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex EmbeddedOfferLine();
+
+    /// <summary>
+    /// Rewrites an embedded offer to start the sentence, keeping the trigger subject available.
+    /// "Whenever you attack, you may pay {R}{G}{W}{U}. When you do, target creature gets +1/+0"
+    /// becomes "You may pay {R}{G}{W}{U}. When you do, target creature gets +1/+0"
+    /// The trigger's subject (what "you" and "that creature" mean) is carried by namesAnObject.
+    /// </summary>
+    private static string RewriteEmbeddedOffer(string effectText)
+    {
+        var m = EmbeddedOfferLine().Match(effectText.Trim());
+        if (!m.Success)
+            return effectText;
+
+        // Already starts with the offer — nothing to do
+        if (!m.Groups["before"].Success || string.IsNullOrWhiteSpace(m.Groups["before"].Value))
+            return effectText;
+
+        // Lift the offer to the front, drop the leading text
+        return m.Groups["offer"].Value.TrimEnd('.');
+    }
 
     /// <summary>A second spell in the same sentence, which the demonstrative could mean instead.</summary>
     [GeneratedRegex(
