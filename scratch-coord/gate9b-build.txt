@@ -1,0 +1,11 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  MtgEngine.Domain -> C:\Users\John\Documents\Projects\MtgEngine\MtgEngine.Domain\bin\Debug\net10.0\MtgEngine.Domain.dll
+  MtgEngine.Rules -> C:\Users\John\Documents\Projects\MtgEngine\MtgEngine.Rules\bin\Debug\net10.0\MtgEngine.Rules.dll
+  MtgEngine.Rules.Tests -> C:\Users\John\Documents\Projects\MtgEngine\tests\MtgEngine.Rules.Tests\bin\Debug\net10.0\MtgEngine.Rules.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:18.18
