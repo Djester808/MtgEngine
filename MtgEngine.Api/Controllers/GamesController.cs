@@ -14,13 +14,18 @@ public sealed class GamesController : ControllerBase
     private readonly GameSessionService _sessions;
     private readonly GameTableService _tables;
     private readonly GameInviteService _invites;
+    private readonly GameCardArt _art;
 
     public GamesController(
-        GameSessionService sessions, GameTableService tables, GameInviteService invites)
+        GameSessionService sessions,
+        GameTableService tables,
+        GameInviteService invites,
+        GameCardArt art)
     {
         _sessions = sessions;
         _tables = tables;
         _invites = invites;
+        _art = art;
     }
 
     private Guid CurrentUserId =>
@@ -37,14 +42,17 @@ public sealed class GamesController : ControllerBase
     [HttpGet("{gameId:guid}")]
     public async Task<ActionResult<GameView>> Get(Guid gameId, CancellationToken ct)
     {
-        var session = _sessions.Find(gameId);
+        // Through the store, not just memory: a refresh after a restart is the case this
+        // endpoint exists for, and it is exactly when the game is not in memory yet.
+        var session = await _sessions.FindAsync(gameId, ct).ConfigureAwait(false);
         if (session is null)
             return NotFound();
 
         if (!session.SeatNames.ContainsKey(CurrentUserId))
             return Forbid();
 
-        return Ok(await session.ReadAsync(CurrentUserId, ct).ConfigureAwait(false));
+        var view = await session.ReadAsync(CurrentUserId, ct).ConfigureAwait(false);
+        return Ok(await _art.FillAsync(view, ct).ConfigureAwait(false));
     }
 
     // ---- Invitations ---------------------------------------------------------------------
@@ -58,6 +66,15 @@ public sealed class GamesController : ControllerBase
     [HttpGet("decks")]
     public async Task<ActionResult<PlayableDeckDto[]>> Decks(CancellationToken ct) =>
         Ok(await _tables.PlayableDecksAsync(CurrentUserId, ct).ConfigureAwait(false));
+
+    /// <summary>The players the caller could invite.</summary>
+    /// <remarks>
+    /// Not the public directory at <c>/api/users</c>: that one is anonymous and carries no user
+    /// id, which is deliberate, and an invitation needs one to address.
+    /// </remarks>
+    [HttpGet("opponents")]
+    public async Task<ActionResult<OpponentDto[]>> Opponents(CancellationToken ct) =>
+        Ok(await _tables.OpponentsAsync(CurrentUserId, ct: ct).ConfigureAwait(false));
 
     /// <summary>Invites another player to a game.</summary>
     [HttpPost("invites")]
@@ -123,7 +140,7 @@ public sealed class GamesController : ControllerBase
     [HttpGet("{gameId:guid}/log")]
     public async Task<ActionResult<IReadOnlyList<string>>> Log(Guid gameId, CancellationToken ct)
     {
-        var session = _sessions.Find(gameId);
+        var session = await _sessions.FindAsync(gameId, ct).ConfigureAwait(false);
         if (session is null)
             return NotFound();
 

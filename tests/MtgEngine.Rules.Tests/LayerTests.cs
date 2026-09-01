@@ -51,7 +51,7 @@ public sealed class LayerTests
             && target.Subject.Zone == Zone.Battlefield
             && target.ControllerId == source.ControllerId
             && target.Subject.Card.CardTypes.HasFlag(CardType.Creature),
-        Apply = builder => builder.Modify(power, toughness),
+        Apply = (_, _, builder) => builder.Modify(power, toughness),
     };
 
     private static (Game Game, Guid Alice, Guid Bob) InMainPhase(IAbilitySource abilities)
@@ -143,7 +143,7 @@ public sealed class LayerTests
             Id = "becomes-0-1",
             Layer = EffectLayer.PowerToughnessSet,
             Applies = (_, _, _) => true,
-            Apply = builder => builder.Set(0, 1),
+            Apply = (_, _, builder) => builder.Set(0, 1),
         });
         var (game, alice, _) = InMainPhase(abilities);
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
@@ -169,21 +169,21 @@ public sealed class LayerTests
                 source is not null && target.Subject.Zone == Zone.Battlefield
                 && target.ControllerId == source.ControllerId
                 && target.Subject.Card.CardTypes.HasFlag(CardType.Creature),
-            Apply = builder => builder.Modify(0, 2),
+            Apply = (_, _, builder) => builder.Modify(0, 2),
         }))
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "pump",
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Modify(4, 4),
+                Apply = (_, _, builder) => builder.Modify(4, 4),
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "becomes-0-1",
                 Layer = EffectLayer.PowerToughnessSet,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Set(0, 1),
+                Apply = (_, _, builder) => builder.Set(0, 1),
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -209,14 +209,14 @@ public sealed class LayerTests
                 Id = "plus-0-1",
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Modify(0, 1),
+                Apply = (_, _, builder) => builder.Modify(0, 1),
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "switch",
                 Layer = EffectLayer.PowerToughnessSwitch,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Switch(),
+                Apply = (_, _, builder) => builder.Switch(),
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -243,7 +243,7 @@ public sealed class LayerTests
             // is written against creatures and the land only became one in layer 4.
             Applies = (state, source, target) =>
                 source is not null && target.Subject.Zone == Zone.Battlefield && target.Subject.Id != source.Id,
-            Apply = builder =>
+            Apply = (_, _, builder) =>
             {
                 if (builder.CardTypes.HasFlag(CardType.Creature))
                     builder.Modify(1, 1);
@@ -254,7 +254,7 @@ public sealed class LayerTests
                 Id = "animate",
                 Layer = EffectLayer.Type,
                 Applies = (_, _, _) => true,
-                Apply = builder =>
+                Apply = (_, _, builder) =>
                 {
                     builder.CardTypes |= CardType.Creature;
                     builder.Power = 3;
@@ -283,7 +283,7 @@ public sealed class LayerTests
             Id = "grant-flying",
             Layer = EffectLayer.Ability,
             Applies = (_, _, _) => true,
-            Apply = builder => builder.Keywords |= KeywordAbility.Flying,
+            Apply = (_, _, builder) => builder.Keywords |= KeywordAbility.Flying,
         });
         var (game, alice, _) = InMainPhase(abilities);
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
@@ -304,7 +304,7 @@ public sealed class LayerTests
             Id = "pump",
             Layer = EffectLayer.PowerToughnessModify,
             Applies = (_, _, _) => true,
-            Apply = builder => builder.Modify(3, 3),
+            Apply = (_, _, builder) => builder.Modify(3, 3),
         });
         var (game, alice, _) = InMainPhase(abilities);
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
@@ -355,14 +355,14 @@ public sealed class LayerTests
                 && target.Subject.Zone == Zone.Battlefield
                 && target.IsCreature
                 && target.IsColor(ManaColor.White),
-            Apply = builder => builder.Modify(1, 1),
+            Apply = (_, _, builder) => builder.Modify(1, 1),
         }))
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "make-white",
                 Layer = EffectLayer.Color,
                 Applies = (_, _, _) => true,
-                Apply = builder =>
+                Apply = (_, _, builder) =>
                 {
                     builder.Colors.Clear();
                     builder.Colors.Add(ManaColor.White);
@@ -394,14 +394,14 @@ public sealed class LayerTests
                 Id = "grant-flying",
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Keywords |= KeywordAbility.Flying,
+                Apply = (_, _, builder) => builder.Keywords |= KeywordAbility.Flying,
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "lose-flying",
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Keywords &= ~KeywordAbility.Flying,
+                Apply = (_, _, builder) => builder.Keywords &= ~KeywordAbility.Flying,
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -428,14 +428,14 @@ public sealed class LayerTests
                 Id = "zombies-are-elves",
                 Layer = EffectLayer.Type,
                 Applies = (_, _, target) => target.HasSubtype("Zombie"),
-                Apply = builder => builder.Subtypes.Add("Elf"),
+                Apply = (_, _, builder) => builder.Subtypes.Add("Elf"),
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "bears-are-zombies",
                 Layer = EffectLayer.Type,
                 Applies = (_, _, target) => target.HasSubtype("Bear"),
-                Apply = builder => builder.Subtypes.Add("Zombie"),
+                Apply = (_, _, builder) => builder.Subtypes.Add("Zombie"),
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -460,14 +460,14 @@ public sealed class LayerTests
                 Id = "becomes-1-1",
                 Layer = EffectLayer.PowerToughnessSet,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Set(1, 1),
+                Apply = (_, _, builder) => builder.Set(1, 1),
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "becomes-5-5",
                 Layer = EffectLayer.PowerToughnessSet,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Set(5, 5),
+                Apply = (_, _, builder) => builder.Set(5, 5),
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -491,14 +491,14 @@ public sealed class LayerTests
                 Id = "flying-unless-reach",
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, target) => !target.Keywords.HasFlag(KeywordAbility.Reach),
-                Apply = builder => builder.Keywords |= KeywordAbility.Flying,
+                Apply = (_, _, builder) => builder.Keywords |= KeywordAbility.Flying,
             })
             .WithFloating(new ContinuousEffectDefinition
             {
                 Id = "reach-unless-flying",
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, target) => !target.Keywords.HasFlag(KeywordAbility.Flying),
-                Apply = builder => builder.Keywords |= KeywordAbility.Reach,
+                Apply = (_, _, builder) => builder.Keywords |= KeywordAbility.Reach,
             });
 
         var (game, alice, _) = InMainPhase(abilities);
@@ -521,7 +521,7 @@ public sealed class LayerTests
             Id = "pump",
             Layer = EffectLayer.PowerToughnessModify,
             Applies = (_, _, _) => true,
-            Apply = builder => builder.Modify(3, 3),
+            Apply = (_, _, builder) => builder.Modify(3, 3),
         });
         var (game, alice, bob) = InMainPhase(abilities);
         game.Create(alice, TestCards.Lord(), Zone.Battlefield);
@@ -531,5 +531,48 @@ public sealed class LayerTests
         TestCards.PassToTurn(game, 2);
 
         Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+    /// <summary>
+    /// Two permanents setting the same characteristic apply in the order they arrived
+    /// (CR 613.7).
+    /// </summary>
+    /// <remarks>
+    /// The timestamp test beside this one uses <em>floating</em> effects, whose timestamps come
+    /// from the effect itself. An effect from a permanent takes the permanent's timestamp, by a
+    /// different line of code, and nothing exercised it: zeroing that line broke no test at all.
+    /// <para>
+    /// A permanent's timestamp is the commoner case by far - it is every enchantment and every
+    /// lord on the battlefield - and with two of them in the same layer it decides which one the
+    /// creature ends up as.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Two_permanents_in_one_layer_apply_in_the_order_they_arrived()
+    {
+        var abilities = new Abilities(
+            // Matched against the oracle id, which TestCards lower-cases.
+            ("first setter", new ContinuousEffectDefinition
+            {
+                Id = "sets-1-1",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, _, target) => target.IsCreature,
+                Apply = (_, _, builder) => builder.Set(1, 1),
+            }),
+            ("second setter", new ContinuousEffectDefinition
+            {
+                Id = "sets-5-5",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, _, target) => target.IsCreature,
+                Apply = (_, _, builder) => builder.Set(5, 5),
+            }));
+
+        var (game, alice, _) = InMainPhase(abilities);
+
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("First Setter", 0, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Second Setter", 0, 1), Zone.Battlefield);
+
+        // The second one arrived later, so it applies later and its answer is the one left.
+        Assert.Equal(5, game.CharacteristicsOf(bear).Power);
     }
 }

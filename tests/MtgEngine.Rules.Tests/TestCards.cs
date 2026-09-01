@@ -36,6 +36,7 @@ internal static class TestCards
         Power = power,
         Toughness = toughness,
         ColorIdentity = [ManaColor.Green],
+        Colors = [ManaColor.Green],
     };
 
     /// <summary>A basic land: the one permanent that is played rather than cast (CR 305.1).</summary>
@@ -48,6 +49,7 @@ internal static class TestCards
         Supertypes = ["Basic"],
         Subtypes = [name],
         ColorIdentity = [ManaColor.Green],
+        Colors = [ManaColor.Green],
     };
 
     /// <summary>A creature that cannot be destroyed (CR 702.12).</summary>
@@ -181,6 +183,7 @@ internal static class TestCards
         CardTypes = CardType.Instant,
         OracleText = "Shock deals 2 damage to any target.",
         ColorIdentity = [ManaColor.Red],
+        Colors = [ManaColor.Red],
     };
 
     /// <summary>A deck of distinguishable cards, so an order can be asserted.</summary>
@@ -281,14 +284,14 @@ internal static class TestCards
             if (game.State.CurrentStep == TurnStep.DeclareAttackers
                 && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 
             if (game.State.CurrentStep == TurnStep.DeclareBlockers
                 && !game.State.Combat.BlockersDeclared)
             {
-                var defender = game.State.Combat.Attackers.Values.First();
+                var defender = game.State.Combat.Attackers.Values.First().DefendingPlayer;
                 game.DeclareBlockers(defender, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
                 continue;
             }

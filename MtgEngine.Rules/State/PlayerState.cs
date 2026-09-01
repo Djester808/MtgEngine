@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Mana;
 
 namespace MtgEngine.Rules.State;
@@ -27,6 +29,67 @@ public sealed record PlayerState
 
     /// <summary>CR 122.1a. Ten or more is a loss, checked as a state-based action (CR 704.5c).</summary>
     public int PoisonCounters { get; init; }
+
+    /// <summary>How many times the Ring has tempted this player (CR 701.54c).</summary>
+    /// <remarks>
+    /// A count and not a set of flags, because the emblem's abilities arrive in a fixed order
+    /// and each is "as long as the Ring has tempted you N or more times". Capped at four: a
+    /// fifth temptation still chooses a Ring-bearer, and CR 701.54d says it counts as tempting
+    /// even so, but there is no fifth ability for it to turn on.
+    /// </remarks>
+    public int RingTemptations { get; init; }
+
+    /// <summary>This player's Ring-bearer, if they have one (CR 701.54b).</summary>
+    /// <remarks>
+    /// Not a copiable value and not an ability, so it is a designation held here rather than
+    /// anything computed onto the creature. It survives that creature leaving - the id simply
+    /// names nothing then, which is what "until another creature becomes your Ring-bearer"
+    /// leaves behind.
+    /// </remarks>
+    public ObjectId? RingBearer { get; init; }
+
+    /// <summary>
+    /// The room this player's venture marker is on, if they own a dungeon (CR 309.4).
+    /// </summary>
+    /// <remarks>
+    /// The marker and not the dungeon: the dungeon itself is a real object in the command zone
+    /// (CR 309.2b) and is found there, so recording its name here as well would be two facts that
+    /// can disagree. Null when the player owns no dungeon, which is also what completing one
+    /// leaves behind.
+    /// <para>
+    /// A room name rather than an index, because that is what the log has to carry - see
+    /// <see cref="Abilities.DungeonRoom"/>.
+    /// </para>
+    /// </remarks>
+    public string? DungeonRoom { get; init; }
+
+    /// <summary>The dungeons this player has completed, in the order they finished them (CR 309.7).</summary>
+    /// <remarks>
+    /// A list rather than a count, because two cards ask questions a count cannot answer:
+    /// "for each differently named dungeon you've completed" needs the names, and completing the
+    /// same dungeon twice is possible once its card has left the game and been chosen again.
+    /// </remarks>
+    public ImmutableList<string> CompletedDungeons { get; init; } = [];
+
+    /// <summary>Whether this player has completed a dungeon (CR 309.7).</summary>
+    public bool HasCompletedADungeon => !CompletedDungeons.IsEmpty;
+
+    /// <summary>Whether this player declared one or more attackers this turn (CR 508.1).</summary>
+    /// <remarks>
+    /// A fact about the turn rather than about any creature, which is why it is here and not on
+    /// the combat: the creatures that attacked may all have died, and "if you attacked this
+    /// turn" is still true. Eighty-odd corpus lines ask the question.
+    /// </remarks>
+    public bool AttackedThisTurn { get; init; }
+
+    /// <summary>Damage still to be prevented from this player this turn (CR 615.1).</summary>
+    /// <remarks>
+    /// The permanent's shield lives on <see cref="GameObject"/> and this is its other half. Only
+    /// the object had one, so "prevent the next N damage that would be dealt to any target" - a
+    /// phrase that has always included a player - resolved and did nothing whenever it was
+    /// pointed at one.
+    /// </remarks>
+    public int DamageToPrevent { get; init; }
 
     /// <summary>
     /// Unspent mana (CR 106.4). Empties as each step and phase ends (CR 500.5), which is a
@@ -103,6 +166,244 @@ public sealed record PlayerState
     /// </summary>
     public int LandsPlayedThisTurn { get; init; }
 
+    /// <summary>
+    /// Land drops granted for this turn only, on top of the one CR 505.6b gives.
+    /// </summary>
+    /// <remarks>
+    /// Kept on the player rather than computed from the battlefield, which is where the standing
+    /// "you may play an additional land on each of your turns" permissions come from: this one is
+    /// printed on a spell that has already resolved and left, so there is nothing left to read it
+    /// off. It resets with the rest of the per-turn counts.
+    /// </remarks>
+    public int ExtraLandDropsThisTurn { get; init; }
+
+    /// <summary>
+    /// How much of this player's mana survives the emptying at each step and phase (CR 500.4).
+    /// </summary>
+    /// <remarks>
+    /// A record of what may stay rather than a second pool to spend from, so paying a cost is
+    /// untouched: <see cref="ManaPool"/> stays the one place mana is spent, and this is clamped
+    /// down to it whenever mana leaves. That clamp is what makes the accounting exact - mana
+    /// spent out of the persistent part stops being persistent, so a Mountain tapped afterwards
+    /// does not inherit the permission the spent mana had.
+    /// </remarks>
+    public ManaPool PersistentMana { get; init; } = ManaPool.Empty;
+
+    /// <summary>When the persistent mana stops being persistent.</summary>
+    public ManaPersistence PersistentManaUntil { get; init; }
+
+    /// <summary>
+    /// Whether this player has been dealt damage this turn (CR 120.3).
+    /// </summary>
+    /// <remarks>
+    /// Bloodthirst asks it, and so does a run of "if an opponent was dealt damage this turn"
+    /// conditions. It has to be state rather than a question asked of the log, because a trigger
+    /// predicate and a replacement effect are handed a state and nothing else — and state is what
+    /// a replay rebuilds.
+    /// </remarks>
+    public bool WasDealtDamageThisTurn { get; init; }
+
+    /// <summary>
+    /// Energy counters this player has (CR 122.1, 107.14).
+    /// </summary>
+    /// <remarks>
+    /// A counter on a player, like poison, and kept the same way. It is not mana: it does not
+    /// empty between steps, it is not spent by the mana system, and a cost paid with it is paid
+    /// with counters rather than with the pool — which is why it is a number here rather than
+    /// another symbol in <c>ManaCostSpec</c>.
+    /// </remarks>
+    public int Energy { get; init; }
+
+    /// <summary>
+    /// Spells this player has cast this turn (CR 601.2).
+    /// </summary>
+    /// <remarks>
+    /// Kept for the "second spell each turn" family, and it counts <em>every</em> spell rather
+    /// than the ones that resolved: a countered spell was still cast, and the cards that care are
+    /// about casting.
+    /// </remarks>
+    public int SpellsCastThisTurn { get; init; }
+
+    /// <summary>
+    /// How much mana this player has spent casting spells this turn (CR 700.14).
+    /// </summary>
+    /// <remarks>
+    /// The number "expend" counts, and it is mana rather than spells: a player who casts one
+    /// four-drop has expended 4 and a player who casts four one-drops has expended 4 as well.
+    /// What is counted is what actually left the pool, not what the cost named, for the reason
+    /// <c>Game.PayMana</c> returns that pool - a generic symbol may be paid with anything, and
+    /// the amount handed over is what the rule asks about.
+    /// <para>
+    /// One seam, written down rather than guessed: mana somebody else pays through assist
+    /// (CR 702.132a) is counted for nobody. It is mana a player spent, but not on a spell they
+    /// are casting, and CR 700.14's subject is the player paying a cost to cast <em>a</em> spell.
+    /// No printed card turns on the difference today.
+    /// </para>
+    /// </remarks>
+    public int ManaSpentCastingThisTurn { get; init; }
+
+    /// <summary>
+    /// How many spells this player cast during the previous turn.
+    /// </summary>
+    /// <remarks>
+    /// Carried over as the turn changes rather than reconstructed from the log, because the log
+    /// is not something the reducer may read - state has to fold forward. Every werewolf turns on
+    /// this and on nothing else: "if no spells were cast last turn" and "if a player cast two or
+    /// more spells last turn" are the whole of the day-night cycle as those cards print it.
+    /// </remarks>
+    public int SpellsCastLastTurn { get; init; }
+
+    /// <summary>Cards this player has drawn this turn (CR 121.1).</summary>
+    public int CardsDrawnThisTurn { get; init; }
+
+    /// <summary>How fast this player is going, 0 through 4 (CR 702.179).</summary>
+    /// <remarks>
+    /// Zero means "no speed", which is not the same as speed 1: "Start your engines!" only does
+    /// anything to a player who has no speed, and the automatic increase only reaches a player
+    /// who already has some. Both halves read this one number, so the distinction has to survive.
+    /// </remarks>
+    public int Speed { get; init; }
+
+    /// <summary>Whether speed has already gone up this turn (CR 702.179b).</summary>
+    public bool SpeedIncreasedThisTurn { get; init; }
+
+    /// <summary>Whether this player has lost any life this turn.</summary>
+    /// <remarks>
+    /// Life loss rather than damage, which <see cref="WasDealtDamageThisTurn"/> already records
+    /// and which is a different fact: paying life, an edict on your own life total and damage all
+    /// lose life, and only the last of them is damage (CR 119.3).
+    /// </remarks>
+    public bool LostLifeThisTurn { get; init; }
+
+    /// <summary>Whether a creature this player controlled has connected this turn.</summary>
+    /// <remarks>
+    /// Kept on the player rather than on the creature, because the question outlives the
+    /// creature: "if you dealt combat damage to a player this turn" is still true after the
+    /// creature that did it has died, and a flag on a permanent would go to the graveyard with
+    /// it. Combat damage only - a burn spell to the face is damage this player dealt and is not
+    /// what any of the twenty-four cards asking this mean.
+    /// </remarks>
+    public bool DealtCombatDamageToPlayerThisTurn { get; init; }
+
+    /// <summary>
+    /// Whether an Assassin or this player's commander has dealt combat damage to a player this
+    /// turn, which is what freerunning asks (CR 702.173a).
+    /// </summary>
+    /// <remarks>
+    /// Recorded as the damage lands rather than reconstructed afterwards, because the rule asks
+    /// what the creature was <em>at the time it dealt that damage</em>: a creature that has since
+    /// stopped being an Assassin still enabled the cost.
+    /// </remarks>
+    public bool AssassinOrCommanderConnectedThisTurn { get; init; }
+
+    /// <summary>Whether this player has the city's blessing (CR 702.131a).</summary>
+    /// <remarks>
+    /// The engine's first player designation, and the one with the simplest rule: it is gained
+    /// once and kept "for the rest of the game". So unlike every other per-player fact beside it,
+    /// this one is <em>not</em> reset when a turn begins - losing it at end of turn would be a
+    /// different mechanic, and a quiet one, since nothing about the card would say so.
+    /// </remarks>
+    public bool HasCitysBlessing { get; init; }
+
+    /// <summary>How much life this player has gained this turn.</summary>
+    /// <remarks>
+    /// A total rather than a flag, because the cards that ask want both questions - "if you
+    /// gained life this turn" and "if you gained 3 or more life this turn" are the same watcher
+    /// read to different depths, and a flag can only answer the first. Gains are summed as they
+    /// happen rather than compared against a start-of-turn total, so gaining 3 and losing 3
+    /// still counts as having gained 3 (CR 118.5).
+    /// </remarks>
+    public int LifeGainedThisTurn { get; init; }
+
+    /// <summary>
+    /// How many times this player has descended this turn (CR 700.11).
+    /// </summary>
+    /// <remarks>
+    /// The rule defines the word exactly, and not as anything to do with the graveyard's current
+    /// contents: a player has descended when "a permanent card has been put into that player's
+    /// graveyard from anywhere this turn", and the number of times is the number of such cards.
+    /// So this counts arrivals, not residents — CR 700.11's last sentence says in as many words
+    /// that none of those cards need still be there.
+    /// <para>
+    /// Two things it is not, and both are printed on cards that look like they mean it.
+    /// <b>Descend 4 and descend 8 are not this</b>: they read "there are four or more permanent
+    /// cards in your graveyard", which is a count of the zone right now and needs no watcher.
+    /// And a <em>token</em> put into a graveyard is not a card (CR 111.7), so it does not descend
+    /// anybody — which matters, because a board of tokens dying would otherwise turn on every
+    /// end-step trigger in the family for free.
+    /// </para>
+    /// </remarks>
+    public int TimesDescendedThisTurn { get; init; }
+
+    /// <summary>
+    /// Experience counters this player has (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// A counter on a player, like poison and energy, and kept the same way — but unlike every
+    /// "this turn" number beside it, and unlike energy, it is <em>never</em> reset and never
+    /// spent. Sixteen commanders hand them out and eighteen cards read the total back as "for
+    /// each experience counter you have"; nothing in the corpus removes one. So there is no
+    /// resetting arm in the fold, deliberately: a counter that could be cleared at end of turn
+    /// would make every one of those cards a strictly worse card than the one printed, and
+    /// nothing in the suite would say so.
+    /// </remarks>
+    public int ExperienceCounters { get; init; }
+
+    /// <summary>How many noncreature spells this player has cast this turn.</summary>
+    /// <remarks>
+    /// Counted separately rather than derived, because by the time anything asks, the spells are
+    /// gone: a resolved instant is in a graveyard as a different object (CR 400.7) and a
+    /// countered one is nowhere. The count is the only place the fact survives.
+    /// </remarks>
+    public int NoncreatureSpellsCastThisTurn { get; init; }
+
+    /// <summary>
+    /// The cards this player has cast as spells this turn, oldest first (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// "Whenever you cast your first enchantment spell each turn" cannot be answered by the two
+    /// counts above, and the tempting substitute is worse than no answer: a trigger's
+    /// <c>OncePerTurn</c> flag is per (permanent, ability), so an enchantment arriving <em>after</em>
+    /// one had already been cast this turn would still fire on the next one — a strictly better
+    /// card than the one printed, and one nothing in the suite would notice.
+    /// <para>
+    /// A per-type tally would answer the enchantment and instant halves of the family and then
+    /// stop: "your first outlaw spell" is five creature types at once and "your first Human
+    /// creature spell" is a type and a subtype together, and neither can be summed out of
+    /// separate counters without double-counting a Pirate Rogue. What the whole family needs is
+    /// the cards, so that is what is kept — the same list of shared definitions the objects
+    /// already hold, cleared with the rest of the per-turn counts.
+    /// </para>
+    /// <para>
+    /// One entry per cast rather than per spell that resolved, so it stays the same length as
+    /// <see cref="SpellsCastThisTurn"/>: a countered spell was still cast, and the cards that ask
+    /// are about the casting.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<CardDefinition> SpellCardsCastThisTurn { get; init; } = [];
+
+    /// <summary>
+    /// How many spells of a kind this player has already cast this turn (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// The types are a mask, so "instant or sorcery" is one question rather than two additions —
+    /// which matters because adding two counts is only safe while no card can be both, and that
+    /// is a fact about today's type rules rather than about this method. Naming no type asks
+    /// about the subtypes alone.
+    /// <para>
+    /// Subtypes narrow rather than widen: an outlaw is a Creature that is any of five, and a
+    /// Human creature spell is a Creature that is a Human — so a card has to answer the type
+    /// question <em>and</em> one of the subtypes, and a Pirate Rogue is counted once.
+    /// </para>
+    /// </remarks>
+    /// <param name="types">Any of these card types, or <c>None</c> to ask about every spell.</param>
+    /// <param name="subtypes">Any of these subtypes, or none to ask about every subtype.</param>
+    public int SpellsCastThisTurnOfKind(CardType types, params string[] subtypes) =>
+        SpellCardsCastThisTurn.Count(card =>
+            (types == CardType.None || (card.CardTypes & types) != CardType.None)
+            && (subtypes is null or { Length: 0 }
+                || card.Subtypes.Any(had => subtypes.Contains(had, StringComparer.OrdinalIgnoreCase))));
+
     // Records compare collections by reference; see Structural.
     public bool Equals(PlayerState? other) =>
         other is not null &&
@@ -110,6 +411,12 @@ public sealed record PlayerState
         string.Equals(Name, other.Name, StringComparison.Ordinal) &&
         Life == other.Life &&
         PoisonCounters == other.PoisonCounters &&
+        DamageToPrevent == other.DamageToPrevent &&
+        AttackedThisTurn == other.AttackedThisTurn &&
+        RingTemptations == other.RingTemptations &&
+        RingBearer == other.RingBearer &&
+        string.Equals(DungeonRoom, other.DungeonRoom, StringComparison.Ordinal) &&
+        Structural.Same(CompletedDungeons, other.CompletedDungeons) &&
         ManaPool == other.ManaPool &&
         HasAttemptedDrawFromEmptyLibrary == other.HasAttemptedDrawFromEmptyLibrary &&
         HasLost == other.HasLost &&
@@ -118,6 +425,32 @@ public sealed record PlayerState
         Structural.Same(CommanderDamage, other.CommanderDamage) &&
         string.Equals(LossReason, other.LossReason, StringComparison.Ordinal) &&
         LandsPlayedThisTurn == other.LandsPlayedThisTurn &&
+        ExtraLandDropsThisTurn == other.ExtraLandDropsThisTurn &&
+        PersistentManaUntil == other.PersistentManaUntil &&
+        PersistentMana == other.PersistentMana &&
+        WasDealtDamageThisTurn == other.WasDealtDamageThisTurn &&
+        Energy == other.Energy &&
+        SpellsCastThisTurn == other.SpellsCastThisTurn &&
+        ManaSpentCastingThisTurn == other.ManaSpentCastingThisTurn &&
+        SpellsCastLastTurn == other.SpellsCastLastTurn &&
+        CardsDrawnThisTurn == other.CardsDrawnThisTurn &&
+        Speed == other.Speed &&
+        SpeedIncreasedThisTurn == other.SpeedIncreasedThisTurn &&
+        LostLifeThisTurn == other.LostLifeThisTurn &&
+        DealtCombatDamageToPlayerThisTurn == other.DealtCombatDamageToPlayerThisTurn &&
+        AssassinOrCommanderConnectedThisTurn == other.AssassinOrCommanderConnectedThisTurn &&
+        HasCitysBlessing == other.HasCitysBlessing &&
+        LifeGainedThisTurn == other.LifeGainedThisTurn &&
+        NoncreatureSpellsCastThisTurn == other.NoncreatureSpellsCastThisTurn &&
+        TimesDescendedThisTurn == other.TimesDescendedThisTurn &&
+        ExperienceCounters == other.ExperienceCounters &&
+
+        // By name, the way an object's spliced cards are compared: a CardDefinition is a class
+        // with reference equality, and two runs of the same log hand out the same definitions
+        // only for as long as nothing has been round-tripped through the serializer.
+        Structural.Same(
+            SpellCardsCastThisTurn.ConvertAll(c => c.Name),
+            other.SpellCardsCastThisTurn.ConvertAll(c => c.Name)) &&
         Structural.Same(Library, other.Library) &&
         Structural.Same(Hand, other.Hand) &&
         Structural.Same(Graveyard, other.Graveyard);

@@ -415,6 +415,99 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("ForumPosts");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StartingLife")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedAt");
+
+                    b.ToTable("LifeMatches");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatchSeat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FinalLife")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LossReason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Seat")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Won")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MatchId", "Seat")
+                        .IsUnique();
+
+                    b.HasIndex("MatchId", "UserId")
+                        .IsUnique()
+                        .HasFilter("\"UserId\" IS NOT NULL");
+
+                    b.ToTable("LifeMatchSeats");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGame", b =>
+                {
+                    b.Property<Guid>("GameId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsOver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastActivityUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Log")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("GameId");
+
+                    b.HasIndex("LastActivityUtc");
+
+                    b.ToTable("PersistedGames");
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -533,6 +626,17 @@ namespace MtgEngine.Api.Migrations
                     b.Navigation("ForumPost");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatchSeat", b =>
+                {
+                    b.HasOne("MtgEngine.Domain.Models.LifeMatch", "Match")
+                        .WithMany("Seats")
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.UserAvatar", b =>
                 {
                     b.HasOne("MtgEngine.Domain.Models.User", null)
@@ -550,6 +654,11 @@ namespace MtgEngine.Api.Migrations
             modelBuilder.Entity("MtgEngine.Domain.Models.ForumPost", b =>
                 {
                     b.Navigation("Comments");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatch", b =>
+                {
+                    b.Navigation("Seats");
                 });
 #pragma warning restore 612, 618
         }

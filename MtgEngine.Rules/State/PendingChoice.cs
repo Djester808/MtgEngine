@@ -17,6 +17,18 @@ public enum ChoiceKind
     /// <summary>Which cards to put on the bottom after a mulligan (CR 103.5).</summary>
     BottomAfterMulligan,
 
+    /// <summary>
+    /// Which cards in your opening hand start the game on the battlefield (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// The one question asked between the last mulligan and the first turn, and the only one in
+    /// the game whose options are cards a player is holding rather than things on a board.
+    /// Picking nothing is declining — "you may" — so it has no minimum, and the maximum is every
+    /// eligible card, because CR 103.6 lets the player take any such action "in any order" and a
+    /// hand can hold two Leylines.
+    /// </remarks>
+    OpeningHandBattlefield,
+
     /// <summary>Which duplicate legendary permanent to keep (CR 704.5j).</summary>
     LegendRule,
 
@@ -31,6 +43,310 @@ public enum ChoiceKind
 
     /// <summary>Which cards to discard down to maximum hand size (CR 514.1).</summary>
     DiscardToHandSize,
+
+    /// <summary>
+    /// Which cards to discard because an effect said so (CR 701.9a).
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="DiscardToHandSize"/> even though the answer looks the same,
+    /// because they resume differently: cleanup's discard ends the step, while this one hands
+    /// priority back to whoever was about to get it mid-turn.
+    /// </remarks>
+    DiscardToEffect,
+
+    /// <summary>
+    /// Whether to pay an optional cost an effect offered (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The only choice whose answer decides what the rest of an effect <em>is</em>. It is
+    /// answerable from a log because the choice carries a locator back into the card's own
+    /// definition rather than a captured branch — see <c>MayPay</c>.
+    /// </remarks>
+    OptionalPayment,
+
+    /// <summary>
+    /// Which of the cards you just looked at to keep (CR 701.20a).
+    /// </summary>
+    /// <remarks>
+    /// Unlike a scry, the answer names what to <em>take</em> rather than what to put back — which
+    /// is what the cards say, and which matters when there is nothing worth taking: picking none
+    /// is legal and puts them all on the bottom.
+    /// </remarks>
+    LookAndTake,
+
+    /// <summary>Which card a search of your library turns up (CR 701.23).</summary>
+    /// <remarks>
+    /// Finding nothing is always legal — a player may fail to find even when the card is there
+    /// (CR 701.23c) — so this never has a minimum.
+    /// </remarks>
+    SearchLibrary,
+
+    /// <summary>
+    /// Which permanents and players to proliferate (CR 701.34a).
+    /// </summary>
+    /// <remarks>
+    /// "Any number" — including none — so it has no minimum, and unusually it may name players as
+    /// well as permanents, because poison and energy live on players.
+    /// </remarks>
+    Proliferate,
+
+    /// <summary>
+    /// Which card to take from another player's hand (CR 701.16).
+    /// </summary>
+    /// <remarks>
+    /// The one choice whose options are hidden information belonging to somebody else. It is only
+    /// ever offered after the hand has been revealed, which is what makes showing them legal.
+    /// </remarks>
+    /// <summary>
+    /// A colour, creature type or card name named as a permanent enters (CR 201.4, 614.12).
+    /// </summary>
+    /// <remarks>
+    /// One kind for three questions, because the board asks all three the same way - a prompt
+    /// and a list of strings. Where they part is only what the answer becomes: a colour and a
+    /// creature type are characteristics and land in <c>GameObject.Chosen</c>, a card name is
+    /// not one and lands in <c>GameObject.ChosenName</c>. <c>Game.Resume</c> reads which was
+    /// asked off the card rather than off this kind, so no client had to learn a fourth word
+    /// for a question it already renders.
+    /// <para>
+    /// A fourth question now, and the same argument again: "Choose a nonland card name" asked
+    /// by a spell while it resolves. It differs from the entry choice in when the game stops
+    /// and in nothing the board can see — the same prompt, the same list of names, narrowed
+    /// by the same rule about whose hand may be read — so it is answered here too, and
+    /// <c>Game.Resume</c> tells the two apart by which of them the engine is holding open.
+    /// </para>
+    /// </remarks>
+    NameCharacteristic,
+
+    /// <summary>
+    /// Which of the permanents that may decline to untap actually do (CR 502.3).
+    /// </summary>
+    ChooseOptionalUntaps,
+
+    ChooseCardInHand,
+
+    /// <summary>
+    /// Which permanents or cards to give up so a permanent is not sacrificed.
+    /// </summary>
+    /// <remarks>
+    /// Picking nothing is declining, which is why this is one question rather than a yes/no
+    /// followed by a selection.
+    /// </remarks>
+    PayOrSacrifice,
+
+    /// <summary>Which end of their library a permanent's owner puts it on.</summary>
+    LibraryEnd,
+
+    /// <summary>Which creatures are eaten as a devouring creature enters (CR 702.81a).</summary>
+    Devour,
+
+    /// <summary>
+    /// Which cards are revealed from hand as an amplifying creature enters (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Devour's question asked of the hand rather than the battlefield, and it keeps devour's
+    /// shape for the same reason: revealing none is declining, so it is one question rather than
+    /// a yes/no followed by a selection.
+    /// </remarks>
+    Amplify,
+
+    /// <summary>
+    /// Which chapter a Saga with read ahead starts at (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// A number between one and the Saga's final chapter, asked as it enters. The options are
+    /// the numbers themselves rather than a free entry, because every choice in this engine is
+    /// a pick from a list the game offers - which is what makes an answer checkable when it
+    /// arrives from outside.
+    /// </remarks>
+    ReadAhead,
+
+    /// <summary>
+    /// Whether to reveal the top cards for a ripple (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// One option, and picking nothing declines - the same shape devour uses, because "you may"
+    /// followed by a thing to do is one question rather than a yes/no and then a selection. It
+    /// is a real decision rather than a formality: rippling shuffles what was on top of the
+    /// library into the bottom in a random order, which a player who has just scried does not
+    /// want.
+    /// </remarks>
+    Ripple,
+
+    /// <summary>Which creature a ciphered spell is encoded on, if any (CR 702.99a).</summary>
+    EncodeOnCreature,
+
+    /// <summary>
+    /// Whether an attacker assigns its combat damage as though it weren't blocked (CR 510.1a).
+    /// </summary>
+    AssignAsThoughUnblocked,
+
+    /// <summary>
+    /// How a spell or ability's quantity is divided among the targets it chose (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// A spell announces its division with the cast — it rides on <c>CastSpell</c> beside the
+    /// targets, because an opponent deciding whether to respond is entitled to know it. An
+    /// <em>ability</em> has nowhere to put it: a trigger is not activated by anybody and chooses
+    /// its targets from a question of its own (CR 603.3d), and a hub method may not grow a
+    /// parameter. So the ability is asked, at the one moment that is still the announcement:
+    /// after its targets are chosen and before anybody has priority.
+    /// <para>
+    /// Distinct from <see cref="DivideCombatDamage"/>, which is CR 510.1c and a different rule
+    /// underneath the same word: that one is constrained by lethal damage and is asked of an
+    /// attacker's blockers, this one is constrained by "at least one each" and is asked of the
+    /// targets an ability chose.
+    /// </para>
+    /// </remarks>
+    DivideAmongTargets,
+
+    /// <summary>Which card to discard for a connive, deciding the counter (CR 701.50a).</summary>
+    Connive,
+
+    /// <summary>Which of the two cards looked at to manifest (CR 701.62a).</summary>
+    ManifestDread,
+
+    /// <summary>Which creature token of yours to copy (CR 701.36a).</summary>
+    Populate,
+
+    /// <summary>Which creature to sacrifice to exploit, or none (CR 702.110a).</summary>
+    Exploit,
+
+    /// <summary>Which unpaired creature a soulbond creature pairs with, or none (CR 702.95a).</summary>
+    /// <remarks>
+    /// Exploit's shape: "you may pair" is answered by naming a creature or declining, so it is
+    /// one question rather than a yes/no followed by a selection. The "whenever another creature
+    /// you control enters" arm arrives here with a single candidate — the newcomer — and the
+    /// same question serves as its yes or no.
+    /// </remarks>
+    Soulbond,
+
+    /// <summary>Naming one of the five colours, for an effect that asks (CR 202.2).</summary>
+    ChooseColor,
+
+    /// <summary>
+    /// Naming the colour of mana an effect is adding, as it resolves (CR 106.1a).
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="ChooseColor"/> even though both name a colour, because they
+    /// resume differently and offer different menus. This one hands priority back to whoever
+    /// was about to receive it - it is asked mid-resolution, from the settle sweep - and its
+    /// options are mana <em>types</em> rather than colours, so colourless is on the menu when
+    /// the thing being asked about could make it (CR 106.1b).
+    /// </remarks>
+    ChooseManaColor,
+
+    /// <summary>Which creature type a permanent becomes (CR 205.1b).</summary>
+    ChooseCreatureType,
+
+    /// <summary>
+    /// Which of the five basic land types a land becomes (CR 305.6, 305.7).
+    /// </summary>
+    /// <remarks>
+    /// The creature type's twin one set along, and a separate kind for the reason
+    /// <see cref="ChooseManaColor"/> is separate from <see cref="ChooseColor"/>: the menu is
+    /// what differs. A creature type is offered from the types in play, because there are several
+    /// hundred of them and no board can show them all; the land types are the five CR 305.6
+    /// names, so the offer is closed, the same on every board, and never empty - a question that
+    /// could not be asked because nothing in play carried the answer would leave the land unread
+    /// with the ability spent.
+    /// <para>
+    /// The answer decides which of CR 305.7's two halves runs, and the request says which: a land
+    /// <em>set</em> to a basic land type loses its old land types and the abilities its rules
+    /// text gave it, and one that gains a type "in addition to its other types" keeps every word.
+    /// Both spellings are printed on this family, one card apart.
+    /// </para>
+    /// </remarks>
+    ChooseBasicLandType,
+
+    /// <summary>Whether to put a clashed card on the bottom of your library (CR 701.30a).</summary>
+    ClashKeepOnTop,
+
+    /// <summary>Which creature you control bears the Ring (CR 701.54a).</summary>
+    RingBearer,
+
+    /// <summary>
+    /// Which player protects a battle (CR 310.9a).
+    /// </summary>
+    /// <remarks>
+    /// Asked of the battle's controller as it enters, and again when its protector stops being
+    /// eligible (CR 704.5x, 704.5y). Only asked when the answer could differ: a Siege at a
+    /// two-player table has exactly one opponent (CR 310.12a), and a forced choice is made
+    /// rather than offered.
+    /// </remarks>
+    ChooseProtector,
+
+    /// <summary>Which arrow to follow out of a dungeon room (CR 701.49b).</summary>
+    VentureRoom,
+
+    /// <summary>Choosing which permanents an effect untaps, up to a limit (CR 701.21a).</summary>
+    ChooseUntaps,
+
+    /// <summary>Choosing which permanent takes counters, for bolster and amass (CR 701.36a).</summary>
+    ChooseForCounters,
+
+    /// <summary>Arranging cards you have looked at back on top of your library (CR 701.19a).</summary>
+    OrderLibraryTop,
+
+    /// <summary>Which of your permanents an effect names but does not target (CR 609.4).</summary>
+    /// <remarks>
+    /// Distinct from choosing a target: this happens on resolution rather than on casting, so
+    /// hexproof does not apply and the spell does not fizzle if nothing qualifies.
+    /// </remarks>
+    ChoosePermanent,
+
+    /// <summary>What a triggered ability targets, as it goes on the stack (CR 603.3d).</summary>
+    ChooseTriggerTargets,
+
+    /// <summary>
+    /// Which mode a triggered ability takes, as it goes on the stack (CR 603.3c).
+    /// </summary>
+    /// <remarks>
+    /// A spell's modes are chosen while it is being cast and never reach a pending choice; an
+    /// ability's are chosen at a moment the engine is already mid-emission, which is why this one
+    /// has to be asked and resumed the way the trigger's targets are.
+    /// </remarks>
+    ChooseTriggerMode,
+
+    /// <summary>Which creature to tap to enlist, as this one attacks (CR 702.154a).</summary>
+    /// <remarks>
+    /// "Up to one", so declining is always on the menu - and the question is asked as the attack
+    /// is declared rather than on resolution, because the tap is part of attacking (CR 508.1g).
+    /// </remarks>
+    Enlist,
+
+    /// <summary>Which of the cards you looked at go to the bottom (CR 701.22, scry).</summary>
+    Scry,
+
+    /// <summary>Which of the cards you looked at go to the graveyard (CR 701.25, surveil).</summary>
+    Surveil,
+
+    /// <summary>
+    /// Which of the cards this resolution just touched to move (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The options are named by what an earlier sentence of the same instruction did - "a
+    /// permanent card from among the cards milled this way" - rather than by a zone or a filter
+    /// over the board, which is why the request carries the cards themselves.
+    /// </remarks>
+    TakeFromTouched,
+
+    /// <summary>
+    /// Which object a prevention shield is put around (CR 609.7b, 615.9).
+    /// </summary>
+    /// <remarks>
+    /// "A source of your choice" — the Circles of Protection, and the one prevention wording
+    /// whose shield names an object nothing in the sentence points at. It is neither a target
+    /// (chosen as the spell is cast, checked for legality twice, defeated by hexproof) nor a
+    /// description (rechecked at every damage event): CR 609.7a fixes it once, as the effect is
+    /// created, which is mid-resolution.
+    /// <para>
+    /// Distinct from <see cref="ChoosePermanent"/>, whose menu is permanents <em>you control</em>
+    /// on the battlefield. A source of damage is any object that could deal some — an opponent's
+    /// creature is the usual answer, and a spell on the stack is a legal one (CR 609.7a), which
+    /// is the whole point of holding the circle open until the burn spell is cast.
+    /// </para>
+    /// </remarks>
+    ChooseDamageSource,
 }
 
 /// <summary>One thing a player may pick.</summary>
@@ -84,7 +400,9 @@ public sealed record PendingChoice
     /// True when the answer is a sequence rather than a set — the order of the picks is the
     /// answer (CR 603.3b, 616.1).
     /// </summary>
-    public bool IsOrdering => Kind is ChoiceKind.OrderTriggers or ChoiceKind.OrderReplacements;
+    public bool IsOrdering =>
+        Kind is ChoiceKind.OrderTriggers or ChoiceKind.OrderReplacements
+            or ChoiceKind.OrderLibraryTop;
 
     /// <summary>
     /// True when the answer is an amount per option rather than a selection (CR 510.1c).
@@ -94,7 +412,8 @@ public sealed record PendingChoice
     /// each". Two damage to each of two three-toughness blockers, killing neither, is a legal
     /// division that no ordering can express.
     /// </remarks>
-    public bool IsDivision => Kind is ChoiceKind.DivideCombatDamage;
+    public bool IsDivision =>
+        Kind is ChoiceKind.DivideCombatDamage or ChoiceKind.DivideAmongTargets;
 
     /// <summary>How much is being divided, for a division choice (CR 510.1a).</summary>
     public int TotalToDivide { get; init; }

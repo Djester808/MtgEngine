@@ -1,8 +1,48 @@
+using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Abilities;
+
+/// <summary>
+/// The source of a trigger, and what the game knows about abilities beside it.
+/// </summary>
+/// <remarks>
+/// A predicate used to be handed the <see cref="GameObject"/> alone, which meant it could not
+/// call <see cref="Characteristics.Of"/> and had to answer every question about a creature from
+/// its <em>printed</em> card. That is the wrong answer under CR 613: "a creature with flying"
+/// means one that has flying now, however it got it, and a creature granted flying was invisible
+/// to every trigger that asked.
+/// <para>
+/// A struct rather than a record class because a predicate runs once per event per trigger, and
+/// the corpus checks run over a million of them. The conversion to <see cref="GameObject"/> is
+/// implicit so that the ninety-odd predicates that only ever wanted the object read exactly as
+/// they did before - the abilities are there for the ones that ask.
+/// </para>
+/// </remarks>
+public readonly record struct TriggerSource(GameObject Subject, IAbilitySource Abilities)
+{
+    public ObjectId Id => Subject.Id;
+
+    public CardDefinition Card => Subject.Card;
+
+    public Guid ControllerId => Subject.ControllerId;
+
+    public Guid OwnerId => Subject.OwnerId;
+
+    public Zone Zone => Subject.Zone;
+
+    public PermanentState? Permanent => Subject.Permanent;
+
+    public bool WasBlitzed => Subject.WasBlitzed;
+
+    public static implicit operator GameObject(TriggerSource source) => source.Subject;
+
+    /// <summary>The object as it is now, after the layers (CR 613).</summary>
+    public ComputedCharacteristics Now(GameState state) =>
+        Characteristics.Of(state, Abilities, Subject);
+}
 
 /// <summary>
 /// A triggered ability a card has: a condition that watches events, and text (CR 603.1).
@@ -15,6 +55,97 @@ namespace MtgEngine.Rules.Abilities;
 /// </remarks>
 public sealed record TriggeredAbilityDefinition
 {
+    /// <summary>
+    /// The chapter number this ability is, for a Saga's chapter ability (CR 714.2a).
+    /// </summary>
+    /// <remarks>
+    /// Recorded rather than left implicit in the trigger predicate, because two other rules have
+    /// to ask about it from outside the ability: CR 714.2d needs the greatest chapter number a
+    /// Saga has in order to know its final chapter, and CR 714.4 sacrifices the Saga once its
+    /// lore counters reach that number. Neither question can be answered by a predicate, which
+    /// only ever says yes or no to one event.
+    /// <para>
+    /// Null on every ability that is not a chapter, which is nearly all of them.
+    /// </para>
+    /// </remarks>
+    public int? Chapter { get; init; }
+
+    /// <summary>
+    /// Whether this is a Class's "when this Class becomes level N" trigger (CR 716.2a).
+    /// </summary>
+    /// <remarks>
+    /// It is printed inside the section its own level switches on, so the level gate that section
+    /// wraps around everything else would refuse it: a trigger reads the state as it was before
+    /// the event, and before the event the Class is still on the level below. Flagged rather than
+    /// detected by its text downstream, because the compiler is the only place that knows which
+    /// section a trigger came out of.
+    /// </remarks>
+    public bool AnnouncesLevel { get; init; }
+
+    /// <summary>
+    /// Whether this is a Room's "when you unlock this door" trigger (CR 709.5f).
+    /// </summary>
+    /// <remarks>
+    /// Exactly the same exception as <see cref="AnnouncesLevel"/>, one mechanic along: it is
+    /// printed behind the door it fires on, and a trigger reads the state as it was before the
+    /// event - where that door is still shut. Gated like the rest of its half, it would refuse
+    /// the one event it exists for.
+    /// </remarks>
+    public bool OpensDoor { get; init; }
+
+    /// <summary>
+    /// Whether one combat declaration is several occurrences of this ability (CR 603.2c).
+    /// </summary>
+    /// <remarks>
+    /// A declaration - of attackers (CR 508.1) or of blockers (CR 509.1) - is one event carrying a
+    /// batch, and every other trigger in the engine treats a batch as one occurrence. These do not:
+    /// CR 603.2c says one event can contain several occurrences, and the sentence decides which.
+    /// Both halves of combat print the same pair of wordings:
+    /// <list type="bullet">
+    /// <item>CR 509.3c/d: an attacker blocked by two creatures is <em>one</em> event for "whenever
+    /// this creature becomes blocked" and <em>two</em> for "whenever this creature becomes blocked
+    /// by a creature".</item>
+    /// <item>CR 508.3a/b: "whenever a creature attacks" is one occurrence <em>per attacking
+    /// creature</em>, while "whenever one or more creatures attack" and "whenever you are attacked"
+    /// are one occurrence for the whole declaration.</item>
+    /// </list>
+    /// The per-creature wordings are the ones flagged here, and it is the object in the sentence
+    /// that decides - a condition naming no one creature fires once and is not flagged.
+    /// <para>
+    /// It cannot live in the predicate, which only ever answers yes or no to one event. The
+    /// decomposition is <c>Game.Consider</c>'s, and it is the same singleton-probe technique
+    /// <c>AmountFor</c> already uses to ask a predicate a question a predicate cannot be asked:
+    /// hand it one pair, or one attacker, at a time and count the answers.
+    /// </para>
+    /// <para>
+    /// Getting it generous is the danger worth naming. Firing once per blocker - or once per
+    /// attacker - where the card says once prints a strictly better card than the one on the table,
+    /// which is why the flag is set from <c>TriggerConditions.DeclarationSubject</c> - one query,
+    /// checked against the rule - and never inferred downstream from the presence of a pronoun.
+    /// </para>
+    /// </remarks>
+    public bool PerDeclaredCreature { get; init; }
+
+    /// <summary>
+    /// Whether the object this ability's condition is about is its own source (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// One event in this engine names two objects, and a card's pronoun has to pick between them:
+    /// a <see cref="Events.TargetsChosen"/> carries the spell or ability that did the targeting
+    /// and the permanent it was aimed at. <c>Game.SubjectObjectOf</c> answers with the spell,
+    /// because "counter it" - ward - is much the commonest sentence written on that event, and an
+    /// event cannot tell which sentence is asking.
+    /// <para>
+    /// The condition can. "Whenever this creature becomes the target of a spell, put a +1/+1
+    /// counter on it" has said which object it means, so the ability carries the answer and
+    /// <c>Game.Consider</c> records the source as the subject instead. Set from
+    /// <c>TriggerConditions.TargetsTheSource</c> - one query, an allow-list, default false - and
+    /// withheld where the effect names the other object, because both readings cannot sit on one
+    /// ability.
+    /// </para>
+    /// </remarks>
+    public bool SubjectIsSource { get; init; }
+
     /// <summary>Stable within its card, so a pending trigger can name it across a replay.</summary>
     public required string Id { get; init; }
 
@@ -22,10 +153,35 @@ public sealed record TriggeredAbilityDefinition
     public required string Text { get; init; }
 
     /// <summary>
-    /// Whether this event triggers the ability (CR 603.2). The object is the source as it was
-    /// when the event happened.
+    /// Whether this event triggers the ability (CR 603.2). The source is the object as it was
+    /// when the event happened, and what the game knows about abilities alongside it.
     /// </summary>
-    public required Func<GameEvent, GameState, GameObject, bool> Triggers { get; init; }
+    public required Func<GameEvent, GameState, TriggerSource, bool> Triggers { get; init; }
+
+    /// <summary>
+    /// A condition that triggers the ability by being true, rather than by anything happening
+    /// (CR 603.8).
+    /// </summary>
+    /// <remarks>
+    /// "When you control no Islands, sacrifice this creature" watches no event: nothing has to
+    /// happen for it to be true, and it is just as true if the last Island left the battlefield
+    /// three turns ago. So it is asked wherever state-based actions are checked, which is
+    /// wherever a player would receive priority (CR 704.3).
+    /// <para>
+    /// A state trigger fires <em>once</em> while the condition holds, and not again until the
+    /// condition has become false and then true again (CR 603.8). Without that it would trigger
+    /// every time the game settled, which for a condition its own resolution does not clear is an
+    /// endless loop rather than a card.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// Takes the ability source as well as the state, because a condition about the board is
+    /// usually a condition about a <em>characteristic</em> - "a creature with power 4 or
+    /// greater" - and a characteristic cannot be computed without knowing what abilities are on
+    /// the battlefield. Asked without one, every anthem in the game is invisible and the
+    /// condition answers about printed values.
+    /// </remarks>
+    public BoardCondition? StateCondition { get; init; }
 
     /// <summary>
     /// Where the source has to be for the ability to work. Almost everything triggers from the
@@ -33,11 +189,52 @@ public sealed record TriggeredAbilityDefinition
     /// </summary>
     public Zone FunctionsFrom { get; init; } = Zone.Battlefield;
 
+    /// <summary>
+    /// Whether this ability still works while the permanent is face down (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// False for everything the card prints, because a face-down permanent has none of its card's
+    /// abilities. Disguise's ward is the exception (CR 702.168a): it belongs to the keyword rather
+    /// than to the card, so it is the one thing a face-down permanent has besides being a 2/2.
+    /// </remarks>
+    public bool FunctionsFaceDown { get; init; }
+
     /// <summary>What it does when it resolves (CR 608.2c).</summary>
     public System.Collections.Immutable.ImmutableList<IEffect> Effects { get; init; } = [];
 
     /// <summary>What it targets, chosen as it goes on the stack (CR 603.3d).</summary>
     public System.Collections.Immutable.ImmutableList<TargetSpec> Targets { get; init; } = [];
+
+    /// <summary>
+    /// The modes offered, when the ability says "choose one —" (CR 700.2).
+    /// </summary>
+    /// <remarks>
+    /// The same shape a spell's modes have, and for the same reason: a mode is an ordinary
+    /// sentence and is compiled by the same phrase parser. What differs is *when* the choice
+    /// happens - a spell's modes are chosen as it is cast (CR 601.2b) and an ability's as it is
+    /// put on the stack (CR 603.3c). Two moments in the engine, one question.
+    /// </remarks>
+    public System.Collections.Immutable.ImmutableList<SpellMode> Modes { get; init; } = [];
+
+    /// <summary>How many modes the controller picks, or zero when the ability has none.</summary>
+    public int ModesToChoose { get; init; }
+
+    /// <summary>
+    /// The most that may be picked, which is <see cref="ModesToChoose"/> unless the card says
+    /// "one or both" or "one or more".
+    /// </summary>
+    public int ModesMax { get; init; }
+
+    /// <summary>
+    /// Whether this may trigger only once each turn (CR 603.1).
+    /// </summary>
+    /// <remarks>
+    /// Printed as a sentence after the ability rather than as part of the condition, so it is
+    /// lifted off the text the same way an activation limit is. Without it a card that says
+    /// "only once each turn" triggers every time, which on a draw or damage trigger is the
+    /// difference between a fair card and an engine.
+    /// </remarks>
+    public bool OncePerTurn { get; init; }
 }
 
 /// <summary>
@@ -48,10 +245,55 @@ public sealed record TriggeredAbilityDefinition
 /// settled before card behaviour exists, and this is the shape the card definitions of slice 8
 /// will plug into.
 /// </remarks>
-public interface IAbilitySource : ISpellSource
+public interface IAbilitySource : ISpellSource, ICostModifierSource
 {
     /// <summary>The triggered abilities of a card, or an empty list if it has none.</summary>
     IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card);
+
+    /// <summary>What this card does when cast as an Adventure, if it has one (CR 715.2).</summary>
+    SpellDefinition? AdventureOf(CardDefinition card) => null;
+
+    /// <summary>What the Adventure half costs, exactly as printed (CR 715.3a).</summary>
+    string? AdventureCostOf(CardDefinition card) => null;
+
+    /// <summary>The cleaved reading of a cleave card, if it has one (CR 702.148a).</summary>
+    SpellDefinition? CleaveSpellOf(CardDefinition card) => null;
+
+    /// <summary>What the cleaved cast costs, exactly as printed (CR 702.148a).</summary>
+    string? CleaveCostOf(CardDefinition card) => null;
+
+    /// <summary>The promised reading of an instant or sorcery with gift (CR 702.174).</summary>
+    SpellDefinition? GiftSpellOf(CardDefinition card) => null;
+
+    /// <summary>Whether this card offers a gift as it is cast (CR 702.174a).</summary>
+    bool HasGift(CardDefinition card) => false;
+
+    /// <summary>The spell a prepared permanent offers a copy of, if it has one.</summary>
+    SpellDefinition? PreparedSpellOf(CardDefinition card) => null;
+
+    /// <summary>What a prepared permanent's spell costs, exactly as printed.</summary>
+    string? PreparedCostOf(CardDefinition card) => null;
+
+    /// <summary>Whether a prepared permanent's spell may be cast at instant speed.</summary>
+    bool PreparedIsInstantOf(CardDefinition card) => false;
+
+    /// <summary>How much each creature devoured is worth in counters (CR 702.81a).</summary>
+    int DevourCountOf(CardDefinition card) => 0;
+
+    /// <summary>How much each card revealed to amplify is worth in counters (CR 702.38a).</summary>
+    int AmplifyCountOf(CardDefinition card) => 0;
+
+    /// <summary>Whether this Saga starts at a chapter its controller picks (CR 702.155b).</summary>
+    bool HasReadAhead(CardDefinition card) => false;
+
+    /// <summary>What this card may be cast for when drawn as a miracle (CR 702.94a).</summary>
+    Mana.ManaCostSpec? MiracleCostOf(CardDefinition card) => null;
+
+    /// <summary>The separately castable halves of a split card (CR 709.4).</summary>
+    IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => [];
+
+    /// <summary>Whether both halves may be cast together as one spell (CR 702.102a).</summary>
+    bool HasFuse(CardDefinition card) => false;
 
     /// <summary>
     /// The continuous effects a card's static abilities produce (CR 604.2).
@@ -61,6 +303,221 @@ public interface IAbilitySource : ISpellSource
     /// is what makes a lord's bonus vanish the moment the lord does.
     /// </remarks>
     IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) => [];
+
+    /// <summary>
+    /// The continuous effects a card's static abilities apply to <em>players</em> (CR 702.11c).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="StaticsOf"/> because the subject is not an object and cannot be
+    /// described by one: an effect here is asked about a seat at the table, not about a
+    /// permanent. Asked of every permanent on the battlefield each time a player's abilities are
+    /// computed, for the same reason its sibling is — a hexproof a player keeps after the
+    /// enchantment granting it has gone is the stored-characteristic bug in a new place.
+    /// </remarks>
+    IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) => [];
+
+    /// <summary>
+    /// Which spells this card's static abilities let somebody cast at instant speed (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// A fourth list beside <see cref="StaticsOf"/>, <see cref="PlayerQualitiesOf"/> and
+    /// <see cref="BansOf"/>, and apart from all three for reasons that do not overlap. It is not
+    /// a static because a timing permission changes no characteristic and so has no layer to be
+    /// applied in (CR 613.1); it is not a player quality because the thing described is a
+    /// *spell*, not a seat; and it is not a ban because a ban refuses and this allows — filed
+    /// among the refusals, one wrong <c>IsEmpty</c> would make a permanent forbid what it was
+    /// printed to permit.
+    /// <para>
+    /// Asked of the battlefield at the moment a cast's timing is checked, which is what makes
+    /// the window close the instant the permanent leaves (CR 611.2c) with nothing to sweep.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<State.FlashPermission> FlashPermissionsOf(Domain.Models.CardDefinition card) =>
+        [];
+
+    /// <summary>
+    /// Which cards this card's static abilities let somebody play from the top of their library
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="FlashPermissionsOf"/> and apart from it for one reason: the two grant
+    /// different things. That one moves <em>when</em> a spell may be cast and this one moves
+    /// <em>where from</em>, and a card prints either without the other - Vedalken Orrery says
+    /// nothing about a library and Future Sight says nothing about timing. One list answering
+    /// both would have to carry a flag saying which half it meant, and the day a card said only
+    /// one of them the other would be granted for free.
+    /// <para>
+    /// Asked of the battlefield at the moment a play is attempted, which is what makes the
+    /// permission close the instant the permanent leaves (CR 611.2c) with nothing to sweep.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<State.LibraryTopPermission> LibraryTopPermissionsOf(
+        Domain.Models.CardDefinition card) => [];
+
+    /// <summary>
+    /// Whether this card's static abilities let its controller play lands from their graveyard
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A list rather than a bool so that a card printing the sentence twice - or a permanent
+    /// that has become a copy of one that does - says it once as far as the engine is concerned,
+    /// and so that the shape matches the two permissions beside it. See
+    /// <see cref="State.GraveyardPlayPermission"/> for why it is not a zone on
+    /// <see cref="LibraryTopPermissionsOf"/>.
+    /// </remarks>
+    IReadOnlyList<State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        Domain.Models.CardDefinition card) => [];
+
+    /// <summary>
+    /// What a card's static abilities forbid outright — prevention, and life gain
+    /// (CR 119.7, 615.12).
+    /// </summary>
+    /// <remarks>
+    /// A third list beside <see cref="StaticsOf"/> and <see cref="PlayerQualitiesOf"/>, and for
+    /// the reason those two are apart from each other: a prohibition is neither a characteristic
+    /// nor an ability granted to anyone. It changes nothing in CR 613's layers and replaces no
+    /// event — it is a question asked at the one moment it matters, answered from whatever is on
+    /// the battlefield right then, which is what makes it stop when the permanent does
+    /// (CR 611.2c) rather than needing to be swept.
+    /// </remarks>
+    State.StaticBans BansOf(CardDefinition card) => State.StaticBans.None;
+
+    /// <summary>
+    /// Keywords the card's own rules text gives it beyond those printed as keywords (CR 702).
+    /// </summary>
+    /// <remarks>
+    /// "This creature can't block" is a keyword ability in everything but name: it is one clause
+    /// in the blocking rules, and the engine asks for it by flag. Recording it here rather than
+    /// as an effect keeps that question in one place.
+    /// </remarks>
+    KeywordAbility GrantedKeywords(CardDefinition card) => KeywordAbility.None;
+
+    /// <summary>
+    /// What this permanent takes off the cost of its controller's spells (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The one cell of the modifier grid a hand-written script can say in two words, and the
+    /// only reason it survives <see cref="CostModifier"/>: nothing compiled emits one any more.
+    /// The compiler reads every cell it can read into <see cref="ICostModifierSource"/>, which
+    /// this interface now extends, and <c>Game</c> translates a reducer into the modifier it is
+    /// exactly equal to rather than applying it down a second path. Emitting both for one card
+    /// would discount it twice.
+    /// </remarks>
+    IReadOnlyList<CostReducer> CostReducersOf(CardDefinition card) => [];
+
+    /// <summary>
+    /// Whether this permanent lets its controller see the top of their library (CR 401.2).
+    /// </summary>
+    bool ShowsTopOfLibrary(CardDefinition card) => false;
+
+    /// <summary>Whether this permanent removes its controller's hand limit (CR 402.2).</summary>
+    bool RemovesHandLimit(CardDefinition card) => false;
+
+    /// <summary>
+    /// How this permanent moves a maximum hand size, and whose (CR 402.2).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="RemovesHandLimit"/>: that one answers whether the limit
+    /// is gone, this one answers where the number moved to.
+    /// <para>
+    /// A <em>signed</em> delta and a scope, and a list of them. Signed because the corpus
+    /// prints both directions - Thought Eater reduces, Trusted Advisor increases - and a
+    /// type that can only subtract leaves the increases with nowhere to compile to. Scoped
+    /// because the printed sentence carries the seat and the two halves sit on opposite sides
+    /// of the table; defaulting a missing scope to the controller is the defect this engine
+    /// already recorded once over group statics, so it is read rather than assumed and a
+    /// sentence naming neither leaves the line unread. A list because one card could print
+    /// both halves, and a single field would silently keep whichever was read last.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<HandSizeChange> HandSizeChangesOf(CardDefinition card) => [];
+
+    /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
+    ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => ChoiceOnEntry.None;
+
+    /// <summary>
+    /// Which card names this permanent may choose as it enters, when it chooses one
+    /// (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// Null unless <see cref="ChoosesOnEntry"/> is <see cref="ChoiceOnEntry.CardName"/>, and a
+    /// <c>SearchFilters</c> id when it is. Beside that member rather than inside it because an
+    /// enum member names a kind of question and has nowhere to carry a parameter.
+    /// </remarks>
+    string? ChosenNameFilterOf(CardDefinition card) => null;
+
+    /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
+    int ExtraLandDrops(CardDefinition card) => 0;
+
+    /// <summary>
+    /// Whose land drops this card's extra ones go to (CR 305.2, 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="ExtraLandDrops"/> rather than folded into it, because the number and
+    /// the seat are two answers and a caller that read only the number would give Rites of
+    /// Flourishing's symmetrical drop to its controller alone. The default is the unmarked
+    /// printing, "you may play an additional land", which is nearly every card that says this.
+    /// </remarks>
+    PlayerScope ExtraLandDropScope(CardDefinition card) => PlayerScope.You;
+
+    /// <summary>Whether its controller may leave it tapped at untap (CR 502.3).</summary>
+    bool MayDeclineUntap(CardDefinition card) => false;
+
+    /// <summary>Whether its controller skips their draw step (CR 504.1).</summary>
+    bool SkipsDrawStep(CardDefinition card) => false;
+
+    /// <summary>
+    /// How many spells this permanent lets a player cast in a turn (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A list rather than a single value because nothing stops a card printing two, and because
+    /// the sweep that reads it already visits every permanent once — an answer that could only be
+    /// one limit would need a second question the day a card had two.
+    /// </remarks>
+    IReadOnlyList<CastLimit> CastLimitsOf(CardDefinition card) => [];
+
+    /// <summary>
+    /// Whether this permanent turns its controller's top card face up for everyone (CR 401.2).
+    /// </summary>
+    bool RevealsTopOfLibrary(CardDefinition card) => false;
+
+    /// <summary>
+    /// Whether its owner may start the game with this card on the battlefield (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// Asked of a card in an opening hand, once, in the step between the last mulligan and the
+    /// first turn. Every other question on this interface is about a permanent; this one has no
+    /// permanent to be about yet, which is exactly why it is here rather than being an ability.
+    /// </remarks>
+    bool MayBeginOnBattlefield(CardDefinition card) => false;
+
+    /// <summary>
+    /// The land type a creature's attack is conditional on, or null (CR 506.3).
+    /// </summary>
+    /// <remarks>
+    /// "This creature can't attack unless defending player controls an Island" is a restriction
+    /// on the declaration rather than anything the creature has, so it cannot be a keyword: the
+    /// question is about the defender's board and is not answerable until an attack names one.
+    /// </remarks>
+    string? AttacksOnlyIfDefenderControls(CardDefinition card) => null;
+
+    /// <summary>
+    /// The attackers this creature is forbidden to block, as a filter name, or null (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The blocking mirror of <see cref="AttacksOnlyIfDefenderControls"/> and here for its
+    /// reason: "this creature can't block creatures with power 2 or greater" is a restriction on
+    /// the declaration and not a quality the creature has, so no keyword can hold it - the
+    /// question is about the <em>other</em> creature and cannot be answered until a block names
+    /// one. The nine cards printing it are Ironclaw Orcs and its siblings.
+    /// <para>
+    /// A filter name in the shared <see cref="SearchFilters"/> vocabulary rather than a
+    /// predicate, so the same words mean the same thing here as in a search, a count or a
+    /// prevention shield - and so that it is asked of the attacker <em>as it is now</em>
+    /// (CR 613), which is what makes a pumped attacker stop being blockable.
+    /// </para>
+    /// </remarks>
+    string? CantBlockMatching(CardDefinition card) => null;
 
     /// <summary>The replacement effects a card produces (CR 614).</summary>
     IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) => [];

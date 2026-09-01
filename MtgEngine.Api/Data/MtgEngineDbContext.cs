@@ -16,6 +16,9 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<ForumComment> ForumComments => Set<ForumComment>();
     public DbSet<CardPriceSnapshot> CardPriceSnapshots => Set<CardPriceSnapshot>();
     public DbSet<CollectionCardEvent> CollectionCardEvents => Set<CollectionCardEvent>();
+    public DbSet<PersistedGame> PersistedGames => Set<PersistedGame>();
+    public DbSet<LifeMatch> LifeMatches => Set<LifeMatch>();
+    public DbSet<LifeMatchSeat> LifeMatchSeats => Set<LifeMatchSeat>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -189,6 +192,22 @@ public sealed class MtgEngineDbContext : DbContext
         });
 
         // CollectionCardEvent — append-only audit trail behind the card modal's History tab
+        modelBuilder.Entity<PersistedGame>(entity =>
+        {
+            entity.HasKey(e => e.GameId);
+            entity.Property(e => e.Log).IsRequired();
+            entity.Property(e => e.LastActivityUtc).IsRequired();
+
+            // The sweep asks what nobody has touched since a cutoff, over every stored game, on
+            // a timer. Without this it is a scan that reads every log on disk to answer a
+            // question about one column.
+            //
+            // On this column alone, deliberately: nothing queries by IsOver, and putting it
+            // first in a composite would make the index unusable for the one query there is —
+            // SQLite cannot seek a composite without its leading column.
+            entity.HasIndex(e => e.LastActivityUtc);
+        });
+
         modelBuilder.Entity<CollectionCardEvent>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -284,6 +303,51 @@ public sealed class MtgEngineDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => e.ForumPostId);
+        });
+
+        // LifeMatch
+        modelBuilder.Entity<LifeMatch>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RecordedByUserId).IsRequired();
+            entity.Property(e => e.StartedAt).IsRequired();
+            entity.Property(e => e.RecordedAt).IsRequired();
+            entity.Property(e => e.StartingLife).IsRequired();
+
+            entity.HasMany(e => e.Seats)
+                .WithOne(s => s.Match)
+                .HasForeignKey(s => s.MatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.RecordedAt);
+        });
+
+        // LifeMatchSeat
+        modelBuilder.Entity<LifeMatchSeat>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MatchId).IsRequired();
+            entity.Property(e => e.Seat).IsRequired();
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Won).IsRequired();
+            entity.Property(e => e.FinalLife).IsRequired();
+
+            // Stored as its name, not its ordinal. A row that says "CommanderDamage" stays
+            // readable if the enum is ever reordered, and is legible in a raw db dump.
+            entity.Property(e => e.LossReason)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(32);
+
+            // One seat number per match, and one appearance per account per match. The
+            // second is what stops a record being padded by seating the same player twice.
+            entity.HasIndex(e => new { e.MatchId, e.Seat }).IsUnique();
+            entity.HasIndex(e => new { e.MatchId, e.UserId })
+                .IsUnique()
+                .HasFilter("\"UserId\" IS NOT NULL");
+
+            // The read this table exists for: one player's record.
+            entity.HasIndex(e => e.UserId);
         });
     }
 }

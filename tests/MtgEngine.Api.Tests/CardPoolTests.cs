@@ -79,7 +79,7 @@ public sealed class CardPoolTests
 
             if (game.State.CurrentStep == TurnStep.DeclareAttackers && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 
@@ -179,6 +179,351 @@ public sealed class CardPoolTests
         ResolveTop(game);
 
         Assert.Empty(game.State.Battlefield);
+    }
+
+    /// <summary>A creature that cannot be destroyed (CR 702.12).</summary>
+    private static CardDefinition Unkillable(string name = "Darksteel Myr") => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Creature,
+        Power = 0,
+        Toughness = 1,
+        Keywords = KeywordAbility.Indestructible,
+    };
+
+    [Fact]
+    public void Murder_does_not_kill_something_indestructible()
+    {
+        // CR 702.12b. The state-based actions already knew this about lethal damage; the
+        // "destroy" effect did not, so removal killed a permanent that cannot be destroyed.
+        var (game, alice, bob) = InMainPhase();
+        var myr = game.Create(bob, Unkillable(), Zone.Battlefield);
+        var murder = game.Create(alice, Card("Murder"), Zone.Hand);
+
+        game.CastSpell(alice, murder, [Target.ToPermanent(myr)]);
+        ResolveTop(game);
+
+        Assert.Single(game.State.Battlefield);
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    [Fact]
+    public void Scour_from_existence_exiles_a_permanent()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+        var scour = game.Create(alice, Card("Scour from Existence"), Zone.Hand);
+
+        game.CastSpell(alice, scour, [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Single(game.State.Exile);
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    [Fact]
+    public void Scour_from_existence_answers_something_indestructible()
+    {
+        // The reason to print an exile effect at all: indestructible only protects against
+        // being destroyed (CR 702.12b), and exile does not destroy.
+        var (game, alice, bob) = InMainPhase();
+        var myr = game.Create(bob, Unkillable(), Zone.Battlefield);
+        var scour = game.Create(alice, Card("Scour from Existence"), Zone.Hand);
+
+        game.CastSpell(alice, scour, [Target.ToPermanent(myr)]);
+        ResolveTop(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Single(game.State.Exile);
+    }
+
+    [Fact]
+    public void Revitalize_gains_three_life_and_draws_a_card()
+    {
+        var (game, alice, _) = InMainPhase();
+        var libraryBefore = game.State.GetPlayer(alice).Library.Count;
+        var revitalize = game.Create(alice, Card("Revitalize"), Zone.Hand);
+
+        game.CastSpell(alice, revitalize);
+        ResolveTop(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.Equal(libraryBefore - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    [Fact]
+    public void Raise_the_alarm_makes_two_soldiers()
+    {
+        var (game, alice, _) = InMainPhase();
+        var alarm = game.Create(alice, Card("Raise the Alarm"), Zone.Hand);
+
+        game.CastSpell(alice, alarm);
+        ResolveTop(game);
+
+        var soldiers = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Where(o => string.Equals(o.Card.Name, "Soldier", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(2, soldiers.Count);
+        Assert.All(soldiers, s => Assert.Equal(1, s.Card.Power));
+    }
+
+    [Fact]
+    public void Bond_beetle_puts_a_counter_on_a_creature()
+    {
+        // CR 603.3d: a triggered ability's targets are chosen as it goes on the stack. Before
+        // the engine asked, a targeting trigger reached the stack with no targets and resolved
+        // into nothing — the counter simply never appeared, and no rule was reported broken.
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, Vanilla("Bear", 2, 2), Zone.Battlefield);
+        var beetle = game.Create(
+            alice, Card("Bond Beetle", CardType.Creature, text: null, 0, 1), Zone.Hand);
+
+        game.CastSpell(alice, beetle);
+        SettleAnsweringTargets(game, "object:" + bear.Value.ToString("N"));
+
+        var counters = game.State.GetObject(bear).Permanent?.Counters;
+        Assert.NotNull(counters);
+        Assert.Equal(1, counters!.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    [Fact]
+    public void Bond_beetle_can_put_its_counter_on_itself()
+    {
+        // "Target creature" includes the beetle: it is on the battlefield by the time its own
+        // enters-the-battlefield trigger goes on the stack (CR 603.6a).
+        var (game, alice, _) = InMainPhase();
+        var beetle = game.Create(
+            alice, Card("Bond Beetle", CardType.Creature, text: null, 0, 1), Zone.Hand);
+
+        game.CastSpell(alice, beetle);
+        SettleAnsweringTargets(game, null);
+
+        var onField = game.State.Battlefield.Single();
+        Assert.Equal(
+            1,
+            game.State.GetObject(onField).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// Plays out until nothing is waiting, answering a trigger's target question with
+    /// <paramref name="preferred"/> when it is offered and the first option otherwise.
+    /// </summary>
+    private static void SettleAnsweringTargets(Game game, string? preferred)
+    {
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                var pick = preferred is not null
+                    && choice.Options.Any(o => string.Equals(o.Id, preferred, StringComparison.Ordinal))
+                        ? preferred
+                        : choice.Options[0].Id;
+
+                game.Choose(
+                    choice.PlayerId,
+                    choice.Kind == ChoiceKind.ChooseTriggerTargets
+                        ? [pick]
+                        : [.. choice.Options.Take(choice.MinPicks).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Stack.IsEmpty && game.State.PendingTriggers.IsEmpty)
+                return;
+
+            if (game.State.Priority.Holder is not { } holder)
+                return;
+
+            game.PassPriority(holder);
+        }
+    }
+
+    [Fact]
+    public void Unsummon_returns_a_creature_to_its_owners_hand()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+        var unsummon = game.Create(alice, Card("Unsummon"), Zone.Hand);
+
+        game.CastSpell(alice, unsummon, [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    [Fact]
+    public void Unsummon_answers_something_indestructible()
+    {
+        // Bouncing is not destroying, so indestructible does not stop it (CR 702.12b) — and
+        // unlike exile the card comes back, which is what makes it the cheap answer.
+        var (game, alice, bob) = InMainPhase();
+        var myr = game.Create(bob, Unkillable(), Zone.Battlefield);
+        var unsummon = game.Create(alice, Card("Unsummon"), Zone.Hand);
+
+        game.CastSpell(alice, unsummon, [Target.ToPermanent(myr)]);
+        ResolveTop(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Hand,
+            id => string.Equals(game.State.GetObject(id).Card.Name, "Darksteel Myr", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Icy_manipulator_taps_a_creature()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var icy = game.Create(alice, Card("Icy Manipulator", CardType.Artifact), Zone.Battlefield);
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, icy, "tap", [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+
+        Assert.True(game.State.GetObject(bear).Permanent!.IsTapped);
+    }
+
+    [Fact]
+    public void Icy_manipulator_can_tap_a_land()
+    {
+        // "Target artifact, creature, or land" is why the spec is any permanent: the ability is
+        // most often pointed at a land, to keep the mana from being spent.
+        var (game, alice, bob) = InMainPhase();
+        var icy = game.Create(alice, Card("Icy Manipulator", CardType.Artifact), Zone.Battlefield);
+        var forest = game.Create(bob, BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, icy, "tap", [Target.ToPermanent(forest)]);
+        ResolveTop(game);
+
+        Assert.True(game.State.GetObject(forest).Permanent!.IsTapped);
+    }
+
+    [Fact]
+    public void Tapping_something_already_tapped_changes_nothing()
+    {
+        var (game, alice, bob) = InMainPhase();
+        // Two of them, because the ability costs {T} and the first is tapped paying for itself
+        // (CR 602.5b) — the engine refuses a second activation of the same one, correctly.
+        var first = game.Create(alice, Card("Icy Manipulator", CardType.Artifact), Zone.Battlefield);
+        var second = game.Create(alice, Card("Icy Manipulator", CardType.Artifact), Zone.Battlefield);
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, first, "tap", [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+        var logAfterFirst = game.Log.Count;
+
+        game.ActivateAbility(alice, second, "tap", [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+
+        Assert.True(game.State.GetObject(bear).Permanent!.IsTapped);
+        Assert.DoesNotContain(
+            game.Log.Skip(logAfterFirst),
+            e => e is PermanentTapped tapped && tapped.Id == bear);
+    }
+
+    [Fact]
+    public void The_view_says_what_a_permanent_can_be_asked_to_do()
+    {
+        // A client cannot work this out. Everything the board knew about activating was the
+        // word "mana" hardcoded against lands, so a Sol Ring could not be tapped and a Prodigal
+        // Pyromancer could not be pointed at anything — both abilities existed and neither was
+        // reachable.
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Card("Sol Ring", CardType.Artifact), Zone.Battlefield);
+
+        var view = game.ViewFor(alice);
+        var solRing = view.Battlefield.Single(o => o.Name == "Sol Ring");
+
+        var ability = Assert.Single(solRing.Abilities);
+        Assert.Equal("mana", ability.Id);
+        Assert.True(ability.RequiresTap);
+        Assert.True(ability.IsManaAbility);
+        Assert.Equal(0, ability.TargetCount);
+    }
+
+    [Fact]
+    public void The_view_says_how_many_targets_an_ability_needs()
+    {
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Card("Icy Manipulator", CardType.Artifact), Zone.Battlefield);
+
+        var icy = game.ViewFor(alice).Battlefield.Single(o => o.Name == "Icy Manipulator");
+        var ability = Assert.Single(icy.Abilities);
+
+        Assert.Equal(1, ability.TargetCount);
+        Assert.False(ability.IsManaAbility);
+        Assert.Contains("Tap target", ability.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_permanent_with_nothing_to_activate_offers_nothing()
+    {
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Vanilla("Bear", 2, 2), Zone.Battlefield);
+
+        var bear = game.ViewFor(alice).Battlefield.Single(o => o.Name == "Bear");
+
+        Assert.Empty(bear.Abilities);
+    }
+
+    /// <summary>A creature with a {T} ability, for the summoning-sickness rules.</summary>
+    private static CardDefinition Pinger(string name = "Prodigal Pyromancer", bool haste = false) =>
+        new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 1,
+            Toughness = 1,
+            Keywords = haste ? KeywordAbility.Haste : KeywordAbility.None,
+        };
+
+    [Fact]
+    public void A_creature_cannot_use_its_tap_ability_the_turn_it_arrives()
+    {
+        // CR 302.6 covers more than attacking: a creature's {T} ability is off limits too.
+        var (game, alice, bob) = InMainPhase();
+        var pinger = game.Create(alice, Pinger(), Zone.Battlefield);
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            game.ActivateAbility(alice, pinger, "ping", [Target.ToPermanent(bear)]));
+
+        Assert.Contains("302.6", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_creature_with_haste_can_use_its_tap_ability_at_once()
+    {
+        // CR 702.10c. The check knew about creatures and about {T}, and not about haste, so a
+        // hasty pinger was refused an ability the rules give it.
+        var (game, alice, bob) = InMainPhase();
+        var pinger = game.Create(alice, Pinger(haste: true), Zone.Battlefield);
+        var bear = game.Create(bob, Vanilla("Bear", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, pinger, "ping", [Target.ToPermanent(bear)]);
+        ResolveTop(game);
+
+        Assert.True(game.State.GetObject(pinger).Permanent!.IsTapped);
+        Assert.Equal(1, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_noncreature_permanent_taps_the_turn_it_arrives()
+    {
+        // CR 302.6 is about creatures only — a Sol Ring makes mana the turn it lands.
+        var (game, alice, _) = InMainPhase();
+        var solRing = game.Create(alice, Card("Sol Ring", CardType.Artifact), Zone.Battlefield);
+
+        game.ActivateAbility(alice, solRing, "mana");
+
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool.Colorless);
     }
 
     [Fact]
@@ -401,7 +746,7 @@ public sealed class CardPoolTests
 
             if (game.State.CurrentStep == TurnStep.DeclareAttackers && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 

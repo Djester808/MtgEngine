@@ -115,6 +115,32 @@ public sealed class StateBasedActionTests
     }
 
     [Fact]
+    public void Zero_toughness_kills_an_indestructible_creature()
+    {
+        // CR 704.5f. The rule that a creature at 0 toughness is *put into the graveyard* rather
+        // than destroyed only shows itself here. A destructible creature at 0 toughness also has
+        // damage greater than or equal to its toughness, so it dies under CR 704.5g as well and
+        // the two rules cannot be told apart - deleting 704.5f outright breaks no test written
+        // with an ordinary creature. Indestructible separates them: it answers destruction and
+        // has nothing to say about this.
+        var (game, alice, _) = InMainPhase();
+        var wall = game.Create(alice, TestCards.Indestructible(), Zone.Battlefield);
+
+        // A 0/4, so four counters bring its toughness to 0.
+        game.ChangeCounters(wall, CounterKinds.MinusOneMinusOne, 4);
+
+        Settle(game);
+
+        Assert.DoesNotContain(wall, game.State.Battlefield);
+        Assert.Single(game.State.GetPlayer(alice).Graveyard);
+
+        // Not destroyed, which is why regeneration and "if it would be destroyed" cannot see it.
+        var move = game.Log.OfType<ObjectMoved>().Single(
+            e => e.OldId == wall && e.From == Zone.Battlefield);
+        Assert.Equal(MoveCause.StateBasedAction, move.Cause);
+    }
+
+    [Fact]
     public void Lethal_damage_destroys_a_creature()
     {
         // CR 704.5g.

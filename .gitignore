@@ -62,3 +62,5 @@ server.log
 # match these — the extension is no longer last — so without this rule a 19 MB
 # database snapshot gets committed by anyone running `git add -A`.
 *.db.bak-*
+scratch-coord/
+trigger-audit-output.txt

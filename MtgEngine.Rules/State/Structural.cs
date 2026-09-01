@@ -36,6 +36,35 @@ internal static class Structural
         return true;
     }
 
+    /// <summary>True when both sets hold the same elements, in whatever order they are held.</summary>
+    /// <remarks>
+    /// A set had no overload here, and the one field that is a set — the armed state triggers —
+    /// was therefore left out of <see cref="GameState.Equals(GameState?)"/> rather than compared
+    /// wrongly. That is the quiet half of the same defect this class exists for: the omission
+    /// looked like a decision, and two states differing only in which state triggers had already
+    /// fired compared equal, so <c>Replay(log) == State</c> passed straight through a divergence
+    /// in them (CR 603.8) and the second firing it would cause.
+    /// <para>
+    /// Order is not part of what a set means, so this compares membership rather than sequence.
+    /// </para>
+    /// </remarks>
+    public static bool Same<T>(IReadOnlySet<T> left, IReadOnlySet<T> right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left.Count != right.Count)
+            return false;
+
+        foreach (var element in left)
+        {
+            if (!right.Contains(element))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>True when both dictionaries hold the same keys mapped to equal values.</summary>
     public static bool Same<TKey, TValue>(
         IReadOnlyDictionary<TKey, TValue> left, IReadOnlyDictionary<TKey, TValue> right)
@@ -58,4 +87,33 @@ internal static class Structural
 
         return true;
     }
+}
+
+/// <summary>
+/// A delayed triggered ability waiting for its moment (CR 603.7).
+/// </summary>
+/// <remarks>
+/// It names what it will do by <see cref="EffectId"/> rather than holding an effect, for the same
+/// reason <c>GenerativeEffects</c> names a pump: the name is what lands in the log, and a log has
+/// to rebuild the whole game without holding a closure.
+/// </remarks>
+public sealed record DelayedTrigger
+{
+    public required Guid Id { get; init; }
+
+    public required Guid ControllerId { get; init; }
+
+    /// <summary>What it will act on. CR 603.7c: gone from its zone means it does nothing.</summary>
+    public required ObjectId SubjectId { get; init; }
+
+    /// <summary>The step it waits for.</summary>
+    public required TurnStep Step { get; init; }
+
+    /// <summary>What it does, by name: "sacrifice" or "exile".</summary>
+    public required string EffectId { get; init; }
+
+    /// <summary>
+    /// The turn it was created on, so "the next end step" is not the one already in progress.
+    /// </summary>
+    public required int TurnCreated { get; init; }
 }

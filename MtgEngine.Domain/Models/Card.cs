@@ -23,6 +23,38 @@ public sealed class CardDefinition
     public int? Power { get; init; }
     public int? Toughness { get; init; }
     public int? StartingLoyalty { get; init; }
+
+    /// <summary>
+    /// A battle's printed defense (CR 310.4a), from the number in its lower right corner.
+    /// </summary>
+    /// <remarks>
+    /// Null for everything that is not a battle, the way <see cref="StartingLoyalty"/> is null
+    /// off planeswalkers. Every printed battle is a two-faced card whose defense lives on the
+    /// front face, so the loaders read it the way they read a face's power: the front face
+    /// answers for the card.
+    /// </remarks>
+    public int? Defense { get; init; }
+
+    /// <summary>
+    /// The numbers lit up on an Attraction, from the column on the right of its text box
+    /// (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// Empty for everything that is not an Attraction, the way <see cref="Defense"/> is null off
+    /// a battle. It is not in the rules text and cannot be derived from it — two Attractions with
+    /// the same English name are printed with different numbers lit (CR 717.1) — so it is a
+    /// printed characteristic that only the data carries. Scryfall's <c>attraction_lights</c>, on
+    /// all 22 playable Attractions and all 50 in the bulk file.
+    /// <para>
+    /// <b>An empty list is what makes a visit ability unreadable, deliberately.</b> A roll only
+    /// visits an Attraction whose lights hold the result (CR 701.52a), so an Attraction that
+    /// arrived without them could be opened, sit on the battlefield, and never do anything on any
+    /// roll — a card reading perfectly and doing something other than it says. The compiler
+    /// refuses the <c>Visit —</c> line rather than compiling a trigger that can never fire.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<int> AttractionLights { get; init; } = [];
+
     public KeywordAbility Keywords { get; init; }
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
@@ -32,6 +64,66 @@ public sealed class CardDefinition
     public string? ImageUriSmall { get; init; }
     public string? ImageUriArtCrop { get; init; }
     public IReadOnlyList<ManaColor> ColorIdentity { get; init; } = [];
+
+    /// <summary>
+    /// The colours the card <em>is</em> (CR 202.2), which is not the same list as
+    /// <see cref="ColorIdentity"/> (CR 903.4).
+    /// </summary>
+    /// <remarks>
+    /// A card's colour comes from its mana cost and colour indicator; its identity also counts
+    /// the mana symbols in its rules text, and a devoid card's identity keeps colours the card
+    /// itself does not have. The two lists differ on 1,158 nonland cards in the corpus - Bosh,
+    /// Iron Golem is a colourless spell with a red identity, and Wasteland Strangler is a
+    /// colourless spell with a black one - so a rules question about colour answered from the
+    /// identity is wrong about every one of them.
+    /// </remarks>
+    public IReadOnlyList<ManaColor> Colors { get; init; } = [];
+
+    /// <summary>
+    /// The faces this card has, when it has more than one set of characteristics.
+    /// </summary>
+    /// <remarks>
+    /// Empty for an ordinary card, which is the overwhelming majority. **853 playable cards are
+    /// not ordinary**: every transform, adventure, split, modal double-faced, prepared and flip
+    /// card keeps its name, cost, type line, power, toughness and rules text on its faces, and a
+    /// definition with one of each has nowhere to put the second set. Until this existed such a
+    /// card arrived with both halves' text merged into one body and no way to tell which sentence
+    /// belonged to which half.
+    /// <para>
+    /// The card's own top-level characteristics stay what they were - for a two-faced card they
+    /// are the front face's, which is the face it is cast as - so nothing that reads a
+    /// <c>CardDefinition</c> has to learn about faces to keep working.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardFace> Faces { get; init; } = [];
+
+    /// <summary>
+    /// The versions this card can specialize into, when it has a specialize ability.
+    /// </summary>
+    /// <remarks>
+    /// Empty for all but nineteen cards. Specialize is an Alchemy mechanic and is in none of the
+    /// printed Comprehensive Rules — the file this repository ships has 702.157 as Squad — so the
+    /// authority for it is the Arena rules bulletin: "Specialize [cost]" is an activated ability
+    /// whose cost includes discarding a card of a colour, and paying it makes the permanent the
+    /// specialized version for that colour.
+    /// <para>
+    /// Six entries or none. Index 0 is the base card's own face, so unspecializing is the same
+    /// lookup as specializing, and indices 1-5 are the white, blue, black, red and green versions
+    /// in that order. This is <see cref="Faces"/>'s shape and deliberately not <see cref="Faces"/>
+    /// itself: every specialized version prints a mana cost, and a face with a printed cost is
+    /// how the compiler tells the half of a split card from the back of a transforming one — so
+    /// putting them in <c>Faces</c> would have given each of these nineteen cards five extra
+    /// castable halves.
+    /// </para>
+    /// <para>
+    /// The data behind it is complete and machine-readable: all 19 base cards carry
+    /// <c>all_parts</c> with exactly six entries, and each version's mana cost is the base's plus
+    /// exactly one coloured pip, which is what says which colour it is. The colour is not
+    /// readable off <c>colors</c> — Klement, Novice Acolyte is white and so is its white version.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardFace> Specializations { get; init; } = [];
+
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
     public string? SetCode { get; init; }
@@ -48,8 +140,9 @@ public sealed class CardDefinition
     public bool IsEnchantment => CardTypes.HasFlag(CardType.Enchantment);
     public bool IsArtifact => CardTypes.HasFlag(CardType.Artifact);
     public bool IsPlaneswalker => CardTypes.HasFlag(CardType.Planeswalker);
+    public bool IsBattle => CardTypes.HasFlag(CardType.Battle);
     public bool IsNonland => !IsLand;
-    public bool IsPermanentType => IsCreature || IsEnchantment || IsArtifact || IsLand || IsPlaneswalker;
+    public bool IsPermanentType => IsCreature || IsEnchantment || IsArtifact || IsLand || IsPlaneswalker || IsBattle;
 
     public bool HasKeyword(KeywordAbility kw) => Keywords.HasFlag(kw);
 
@@ -65,4 +158,38 @@ public sealed class CardDefinition
     };
 }
 
+/// <summary>
+/// One face of a card that has more than one (CR 712, 713, 715).
+/// </summary>
+/// <remarks>
+/// A subset of <see cref="CardDefinition"/> rather than another one: a face has characteristics
+/// but no oracle id, no prices and no images of its own worth carrying twice. What it needs is
+/// what the compiler reads - the words, the cost, the types and the numbers.
+/// </remarks>
+public sealed record CardFace
+{
+    public string Name { get; init; } = string.Empty;
 
+    public string ManaCostRaw { get; init; } = string.Empty;
+
+    public string TypeLine { get; init; } = string.Empty;
+
+    public CardType CardTypes { get; init; }
+
+    public IReadOnlyList<string> Subtypes { get; init; } = [];
+
+    public IReadOnlyList<string> Supertypes { get; init; } = [];
+
+    public string OracleText { get; init; } = string.Empty;
+
+    public int? Power { get; init; }
+
+    public int? Toughness { get; init; }
+
+    /// <summary>This face's printed defense, when the face is a battle (CR 310.4a).</summary>
+    public int? Defense { get; init; }
+
+    public IReadOnlyList<ManaColor> Colors { get; init; } = [];
+
+    public KeywordAbility Keywords { get; init; }
+}

@@ -125,6 +125,102 @@ public sealed class SpellEffectTests
     }
 
     [Fact]
+    public void An_ability_that_produces_mana_but_takes_a_target_is_not_a_mana_ability()
+    {
+        // CR 605.1a lists four criteria and "it produces mana" is only one of them: an ability
+        // that requires a target is not a mana ability, so it uses the stack like anything else.
+        // No printed card in the pool has this shape yet, which is exactly why it is worth
+        // pinning — the view had reinvented the test as "does it produce mana" and nothing
+        // currently implemented could tell the two answers apart.
+        var odd = TestCards.Creature("Odd Font", 1, 1);
+        var ability = new ActivatedAbilityDefinition
+        {
+            Id = "targeted-mana",
+            Text = "{T}: Target player adds {G}.",
+            RequiresTap = true,
+            Targets = [AnyPlayer],
+            Produces = [new ManaProduction(ManaColor.Green, 1)],
+        };
+
+        Assert.False(ability.IsManaAbility);
+
+        var pool = new Pool().WithAbility(odd, ability);
+        var (game, alice, _) = InMainPhase(pool);
+        game.Create(alice, odd, Zone.Battlefield);
+
+        var view = game.ViewFor(alice).Battlefield.Single(o => o.Name == "Odd Font");
+
+        // The view must not answer this differently from the definition.
+        Assert.False(view.Abilities.Single().IsManaAbility);
+    }
+
+    [Fact]
+    public void A_destroy_spell_kills_an_ordinary_creature()
+    {
+        var murder = TestCards.Instant("Murder");
+        var pool = new Pool().WithSpell(murder, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DestroyTarget()],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var bear = game.Create(bob, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, murder);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Resolve(game, alice, bob);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Single(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    [Fact]
+    public void A_destroy_spell_leaves_an_indestructible_creature_alone()
+    {
+        // CR 702.12b. The state-based actions already knew this about lethal damage and
+        // deathtouch; the "destroy" effect did not, so removal killed a permanent that cannot
+        // be destroyed — and did it silently, because the target was perfectly legal.
+        var murder = TestCards.Instant("Murder");
+        var pool = new Pool().WithSpell(murder, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DestroyTarget()],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var wall = game.Create(bob, TestCards.Indestructible("Stone Wall"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, murder);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(wall)]);
+        Resolve(game, alice, bob);
+
+        Assert.Single(game.State.Battlefield);
+        Assert.Equal(wall, game.State.Battlefield[0]);
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    [Fact]
+    public void A_destroy_spell_aimed_at_something_indestructible_is_still_used_up()
+    {
+        // The spell resolves and does nothing. It is not countered and does not fizzle: its
+        // target was legal the whole time (CR 608.2b), so the card goes to the graveyard.
+        var murder = TestCards.Instant("Murder");
+        var pool = new Pool().WithSpell(murder, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DestroyTarget()],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var wall = game.Create(bob, TestCards.Indestructible("Stone Wall"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, murder);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(wall)]);
+        Resolve(game, alice, bob);
+
+        Assert.Single(game.State.GetPlayer(alice).Graveyard);
+        Assert.DoesNotContain(game.Log, e => e is FizzledForIllegalTargets);
+    }
+
+    [Fact]
     public void A_spell_cannot_be_cast_at_an_illegal_target()
     {
         // CR 601.2c: targets are chosen as the spell is cast, and must be legal then.
@@ -293,6 +389,34 @@ public sealed class SpellEffectTests
     }
 
     [Fact]
+    public void Unspent_mana_empties_for_the_player_whose_turn_it_is_not()
+    {
+        // CR 500.4 empties *every* pool, not the active player's. The nonactive player is the one
+        // who floats mana in practice - they tap in their opponent's turn to hold up an instant -
+        // so a loop that stopped after the first player would hand them the mana for free, and
+        // the test above cannot see it, because it only ever taps for the player whose turn it is.
+        var forest = TestCards.BasicLand("Forest");
+        var pool = new Pool().WithAbility(forest, new ActivatedAbilityDefinition
+        {
+            Id = "tap-for-green",
+            Text = "{T}: Add {G}.",
+            RequiresTap = true,
+            Produces = [new ManaProduction(ManaColor.Green)],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var land = game.Create(bob, forest, Zone.Battlefield);
+
+        // Bob only gets to act once Alice has passed, which is the situation being described.
+        game.PassPriority(alice);
+        game.ActivateAbility(bob, land, "tap-for-green");
+        Assert.False(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+
+        TestCards.PassToStep(game, TurnStep.BeginningOfCombat);
+
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+    }
+
+    [Fact]
     public void Unspent_mana_empties_when_the_step_ends()
     {
         // CR 500.5.
@@ -383,6 +507,45 @@ public sealed class SpellEffectTests
         game.ActivateAbility(alice, land, "tap-for-green");
 
         Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+    }
+
+    [Fact]
+    public void Hexproof_stops_an_opponent_targeting_it_but_not_its_controller()
+    {
+        // CR 702.11b: hexproof is about spells and abilities an *opponent* controls, so its own
+        // controller can still target it — which is what makes it different from shroud.
+        var bolt = TestCards.Instant("Bolt");
+        var pool = new Pool().WithSpell(bolt, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DealDamage(3)],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var theirs = game.Create(bob, TestCards.WithKeyword("Ranger", KeywordAbility.Hexproof), Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.WithKeyword("Ranger", KeywordAbility.Hexproof), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(theirs)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(mine)]);
+        Assert.Single(game.State.Stack);
+    }
+
+    [Fact]
+    public void Shroud_stops_everyone_including_its_controller()
+    {
+        // CR 702.18b.
+        var bolt = TestCards.Instant("Bolt");
+        var pool = new Pool().WithSpell(bolt, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DealDamage(3)],
+        });
+        var (game, alice, _) = InMainPhase(pool);
+        var mine = game.Create(alice, TestCards.WithKeyword("Hermit", KeywordAbility.Shroud), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(mine)]));
     }
 
     [Fact]

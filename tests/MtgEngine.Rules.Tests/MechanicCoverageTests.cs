@@ -1,0 +1,347 @@
+using System.Collections.Immutable;
+using System.Reflection;
+using System.Text.RegularExpressions;
+using MtgEngine.Rules.Cards;
+
+namespace MtgEngine.Rules.Tests;
+
+/// <summary>
+/// Every line shape the compiler recognises is played by at least one behaviour test.
+/// </summary>
+/// <remarks>
+/// Coverage of the corpus says how much text the compiler can <em>read</em>. It says nothing
+/// about whether what it built out of that text does the right thing when it is played, and the
+/// gap between those two is where this project keeps finding its bugs: exalted pumped the wrong
+/// creature on 26 cards, persist returned a creature every time it died, and both compiled
+/// perfectly for as long as they existed.
+/// <para>
+/// The only thing that catches that is a game. So this asserts the one property that makes the
+/// behaviour suite meaningful as a whole: <strong>for every line the compiler knows how to read,
+/// some test hands it a card that says that line.</strong> A matcher added without a test fails
+/// here rather than sitting unplayed.
+/// </para>
+/// <para>
+/// It works by reflection over the compiler's own generated patterns rather than a list of
+/// mechanics, because a list of mechanics is the thing that goes stale - three of them already
+/// have in this file's history.
+/// </para>
+/// </remarks>
+public sealed partial class MechanicCoverageTests
+{
+    /// <summary>
+    /// Patterns matched against part of a line rather than a whole one.
+    /// </summary>
+    /// <remarks>
+    /// A fragment is anchored like a line but is only ever handed a phrase the compiler has
+    /// already cut out of one - the condition after "When", the noun inside "can't be blocked
+    /// by". No card line equals it, so it cannot be found this way and is covered through the
+    /// line that contains it.
+    /// <para>
+    /// This is a hand-kept list, which this file otherwise argues against. It is tolerable here
+    /// because of how it fails: a new fragment that is not listed makes this test fail, and
+    /// somebody has to either write a test or add the name. It cannot go quiet on its own.
+    /// </para>
+    /// </remarks>
+    private static readonly ImmutableHashSet<string> Fragments =
+    [
+        "PowerBlockers",
+        "GreaterPowerBlockers",
+        // Where a card's own trigger watches from, asked of the condition after "When"
+        // rather than of a line: "you cycle ~" and "you cast ~" are phrases the trigger
+        // reader cut out. Played through the lines that contain them, by
+        // A_when_you_cycle_trigger_fires_on_cycling_it and
+        // A_cards_own_cast_trigger_fires_from_the_stack.
+        "CyclesSelf",
+        "CastsSelf",
+        "DiscardSelfCost",
+
+        // The noun inside a "for each ..." count, not a line: DefinedCount is handed only the
+        // phrase after "the number of". Played by A_party_counts_classes_rather_than_creatures,
+        // through the cost-reduction line that contains it.
+        "PartyLine",
+
+        // The group inside "gets +N/+N for each ...", not a line: the counting static hands it
+        // only what it cut out between "for each" and the full stop. Played by
+        // A_creature_can_count_the_auras_attached_to_it, through the line that contains it.
+        "AttachedCountLine",
+
+        // One price out of an alternative cost's "and"-joined list, not a line: the reader
+        // splits "pay {3}{U} and tap an untapped artifact you control" and offers each half to
+        // these in turn. Played through the lines that contain them, by
+        // An_alternative_cost_can_ask_for_mana_and_a_tapped_permanent_together and
+        // An_alternative_cost_can_be_paid_in_life_while_the_board_allows_it.
+        "AlternativeManaPart",
+        "AlternativeLifePart",
+
+        // One price out of an additional cost printed as a choice (CR 601.2b), not a line: the
+        // reader cuts "sacrifice a creature or pay {2}" at the "or" and offers each half to
+        // this in turn, so no card line is ever equal to it. Played through the lines that
+        // contain it, by The_mana_price_is_charged_when_nothing_is_offered and
+        // A_wide_filter_beside_a_mana_price_keeps_both_halves.
+        "PayManaOption",
+
+        // One clause of a copy effect's exception list (CR 707.9), not a line: each is handed
+        // only what was cut out after "except" and split on "and". Played through the line that
+        // contains them - An_exception_to_the_copy_changes_the_card_that_is_copied for the
+        // in-addition form, An_exception_can_give_the_copy_a_different_size for the size, and
+        // An_exception_can_add_a_type_and_a_keyword_at_once for the keyword and the splitting.
+        // "Isn't legendary" rides the same splitter, and drops a supertype the copy tests
+        // already read through the legend rule.
+        // A keyword's or an unless-clause's price, not a line: OfferedCost is handed only the
+        // cost the surrounding reader cut out - "{1} for each card in your graveyard", "{X},
+        // where X is your devotion to blue", "{X}", "{2}{G}{U}". Played through the lines that
+        // contain them, by A_counted_tax_charges_what_the_count_comes_to_and_lets_the_spell_
+        // through, A_tax_whose_sentence_defines_X_charges_the_count_that_sentence_names,
+        // A_bare_X_tax_charges_the_amount_the_caster_announced and
+        // A_price_the_mana_parser_cannot_keep_whole_is_refused.
+        "CountedPrice",
+        "DefinedPrice",
+        "BareVariablePrice",
+        "PureManaPrice",
+
+        "InAdditionClause",
+        "SetSizeClause",
+        "NotLegendaryClause",
+        "HasKeywordClause",
+        "GrantedAbilityClause",
+    ];
+
+    [Fact]
+    public void Every_line_shape_the_compiler_reads_is_played_by_a_test()
+    {
+        var source = BehaviourTestSource();
+        if (source is null)
+        {
+            // Nothing to compare against rather than a silent pass.
+            Assert.Fail("could not find CompiledCardBehaviourTests.cs to read card text from.");
+            return;
+        }
+
+        var lines = CardLinesIn(source);
+        Assert.True(lines.Count > 100, $"only {lines.Count} card lines found - the reader is wrong.");
+
+        var unplayed = new List<string>();
+
+        foreach (var (name, pattern) in CompilerPatterns())
+        {
+            // Only whole-line shapes: the others are matched against phrases and are reached
+            // through the line that holds them.
+            if (!pattern.ToString().StartsWith('^') || Fragments.Contains(name))
+                continue;
+
+            if (!lines.Any(pattern.IsMatch))
+                unplayed.Add(name);
+        }
+
+        Assert.True(
+            unplayed.Count == 0,
+            "the compiler reads these line shapes and no behaviour test ever plays one:\n  "
+                + string.Join("\n  ", unplayed));
+    }
+
+    /// <summary>The compiler's generated line patterns, by the name each is declared under.</summary>
+    private static IEnumerable<(string Name, Regex Pattern)> CompilerPatterns()
+    {
+        foreach (var method in typeof(CardCompiler).GetMethods(
+            BindingFlags.NonPublic | BindingFlags.Static))
+        {
+            if (method.ReturnType != typeof(Regex) || method.GetParameters().Length > 0)
+                continue;
+
+            if (method.Invoke(null, null) is Regex pattern)
+                yield return (method.Name, pattern);
+        }
+    }
+
+    /// <summary>Every line of card text any behaviour test hands the compiler.</summary>
+    /// <remarks>
+    /// Taken from the test source rather than from the tests themselves, because what a test
+    /// gives the compiler is a string literal and there is no way to ask a compiled assembly what
+    /// its literals were used for. The card's own name is replaced with "~" the way the compiler
+    /// does it, since every self-referring pattern is written against that.
+    /// </remarks>
+    private static ImmutableHashSet<string> CardLinesIn(string source)
+    {
+        var lines = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
+
+        // A card's text is often written as several literals joined with "+", and each piece on
+        // its own is not a line of anything. Joining them first is what makes this a reader of
+        // card text rather than a reader of string fragments - without it a card whose wording
+        // ran to two lines of C# was invisible, which is exactly the sort of quiet miss this
+        // whole test exists to prevent.
+        source = Concatenation().Replace(source, string.Empty);
+
+        // The card names these tests declare, so a line naming its own card can be normalised
+        // the way the compiler normalises it. Taken from the literals rather than from a
+        // convention, because a convention is what the reader was guessing at before.
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (Match literal in StringLiteral().Matches(source))
+        {
+            var name = literal.Groups["text"].Value;
+
+            if (name.EndsWith(" Test", StringComparison.Ordinal)
+                || name.StartsWith("Test ", StringComparison.Ordinal))
+            {
+                if (NameLiteral().IsMatch(name))
+                    names.Add(name);
+            }
+        }
+
+        foreach (Match literal in StringLiteral().Matches(source))
+        {
+            var text = literal.Groups["text"].Value
+                .Replace("\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\\"", "\"", StringComparison.Ordinal)
+                .Replace("\\u2014", "\u2014", StringComparison.Ordinal);
+
+            foreach (var raw in text.Split('\n'))
+            {
+                var line = Reminder().Replace(raw, string.Empty).Trim();
+                if (line.Length == 0)
+                    continue;
+
+                // An ability word is flavour with no rules meaning (CR 207.2c), and the
+                // compiler strips it before any template sees the line - so "Strive - This
+                // spell costs ..." reaches the matchers as the sentence behind it, and a
+                // reader that did not strip it reported that shape unplayed while a test was
+                // playing it. Added as a second reading rather than replacing the first, so a
+                // pattern written against either form is still found.
+                foreach (var reading in new[]
+                {
+                    line,
+                    AbilityWordPrefix().Replace(line, string.Empty),
+                })
+                {
+                    var named = WithSelfNamed(reading, names);
+
+                    lines.Add(reading);
+                    lines.Add(named);
+                    lines.Add(SelfWord().Replace(reading, "~"));
+                    lines.Add(SelfWord().Replace(named, "~"));
+                }
+            }
+        }
+
+        return lines.ToImmutable();
+    }
+
+    private static string? BehaviourTestSource()
+    {
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (here is not null)
+        {
+            var candidate = Path.Combine(
+                here.FullName, "tests", "MtgEngine.Rules.Tests", "CompiledCardBehaviourTests.cs");
+
+            if (File.Exists(candidate))
+                return File.ReadAllText(candidate);
+
+            here = here.Parent;
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"""(?<text>(?:[^""\\]|\\.)*)""")]
+    private static partial Regex StringLiteral();
+
+    [GeneratedRegex(@"""\s*\+\s*""")]
+    private static partial Regex Concatenation();
+
+    [GeneratedRegex(@"\([^)]*\)")]
+    private static partial Regex Reminder();
+
+    /// <summary>
+    /// A run of capitalised words that could be one of these tests' card names.
+    /// </summary>
+    /// <remarks>
+    /// Every run of capitalised words, with the name picked out of the run afterwards. The
+    /// pattern this replaced looked for "Test Aegis Bear", and 2,703 of these cards are named
+    /// "Aegis Bear Test" against 205 named the other way round - so it normalised 317 of the
+    /// 11,775 card lines here where the compiler normalises every one that spells its own card's
+    /// name. This reads 3,540. Every line in the difference reached the comparison as something
+    /// the compiler never sees, so a self-referring shape played only by such a line would be
+    /// reported unplayed with a test sitting right there playing it.
+    /// <para>
+    /// Written as a wide run and a narrow lookup rather than as a pattern that describes a name,
+    /// because a regex matches leftmost-first and an alternation cannot fix that: written to
+    /// admit both word orders, it read "When Test" out of "When Test Talent becomes level 3" and
+    /// went no further, which took <c>ClassLevelTriggerLine</c> out of the covered set. The run
+    /// is a candidate; what decides is the set of names the tests declare.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"\b[A-Z][A-Za-z0-9']*(?: [A-Z][A-Za-z0-9']*)*")]
+    private static partial Regex TestCardName();
+
+    /// <summary>A string literal that is nothing but a card name.</summary>
+    [GeneratedRegex(@"^[A-Z][A-Za-z0-9']*(?: [A-Z][A-Za-z0-9']*){0,6}$")]
+    private static partial Regex NameLiteral();
+
+    /// <summary>The line with the card's own name replaced by <c>~</c>, as the compiler does.</summary>
+    private static string WithSelfNamed(string line, IReadOnlySet<string> names) =>
+        TestCardName().Replace(line, match =>
+        {
+            // The longest span of the run that is a declared name. A run picks up the words
+            // around the name as readily as the name itself - "When Test Talent", "Sacrifice
+            // Aegis Bear Test" - and only the name is the card.
+            var words = match.Value.Split(' ');
+
+            for (var length = words.Length; length > 0; length--)
+            {
+                for (var start = 0; start + length <= words.Length; start++)
+                {
+                    if (!names.Contains(string.Join(' ', words[start..(start + length)])))
+                        continue;
+
+                    return string.Join(
+                        ' ', words[..start].Append("~").Concat(words[(start + length)..]));
+                }
+            }
+
+            return match.Value;
+        });
+
+    /// <summary>
+    /// The words a card uses for itself, taken from the compiler rather than restated.
+    /// </summary>
+    /// <remarks>
+    /// This was a hand-written list of seven against the compiler's twenty-five, and it had
+    /// drifted exactly the way this file argues lists do: "this spell" was not on it, so a
+    /// line saying so reached the matchers unnormalised and the shape behind it was reported
+    /// unplayed while a test was playing it. Built from
+    /// <see cref="CardCompiler.SelfReferenceTypeNames"/> so the reader normalises a line the
+    /// same way the thing it is checking does.
+    /// </remarks>
+    private static readonly Regex SelfWordRegex = new(
+        @"\bthis (" + string.Join('|', CardCompiler.SelfReferenceTypeNames) + @")\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static Regex SelfWord() => SelfWordRegex;
+
+    /// <summary>An ability word and the em dash after it (CR 207.2c).</summary>
+    /// <remarks>
+    /// The compiler's own object, reached the way every other pattern in this file is reached.
+    /// It had been a copy, described as "deliberately narrower" for refusing the roman numerals
+    /// a Saga chapter opens with - and by the time anybody read that, the compiler refused those
+    /// too and four things besides: <see cref="CardCompiler.StructuralPrefixes"/>, the "To
+    /// solve"/"Solved"/"Visit"/"Prize" openers that look exactly like an ability word and carry
+    /// the whole meaning of their card. So the copy was the <em>wider</em> one, and it beheaded
+    /// four shapes of line the compiler keeps whole, inventing a reading no card prints.
+    /// <para>
+    /// <strong>No test plays one of those four today</strong>, so the copy was costing nothing
+    /// yet - which is the whole reason to take it now rather than after the first Case or
+    /// Attraction test is written and quietly mis-read.
+    /// </para>
+    /// <para>
+    /// Taken rather than rebuilt from the exposed list, because a rebuild is a copy with one
+    /// more chance to differ. If the method is ever renamed this throws, which is the loud
+    /// failure a silent divergence deserves.
+    /// </para>
+    /// </remarks>
+    private static readonly Regex AbilityWordPrefixRegex =
+        CompilerPatterns().First(one => one.Name == "AbilityWord").Pattern;
+
+    private static Regex AbilityWordPrefix() => AbilityWordPrefixRegex;
+}

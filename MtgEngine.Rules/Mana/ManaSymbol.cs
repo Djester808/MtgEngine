@@ -117,6 +117,79 @@ public sealed record ManaCostSpec
 
     public bool HasVariable => Symbols.Any(s => s.IsVariable);
 
+    /// <summary>How much of this cost is plain generic mana (CR 107.4b).</summary>
+    /// <remarks>
+    /// Only the symbols that are nothing but a number. The generic half of a hybrid like
+    /// <c>{2/W}</c> is not counted: which half is being paid is not decided until it is paid, so
+    /// it is not generic mana in the total cost the way <c>{3}</c> is.
+    /// </remarks>
+    public int GenericPart =>
+        Symbols.Where(s => !s.IsVariable && s.Colors.IsEmpty && !s.IsColorless).Sum(s => s.Generic);
+
+    /// <summary>
+    /// This cost with <paramref name="amount"/> of its generic mana already paid by somebody else
+    /// (CR 702.132a).
+    /// </summary>
+    public ManaCostSpec WithoutGeneric(int amount)
+    {
+        if (amount <= 0)
+            return this;
+
+        var left = amount;
+        var kept = ImmutableList.CreateBuilder<ManaSymbol>();
+
+        foreach (var symbol in Symbols)
+        {
+            if (left == 0 || symbol.IsVariable || !symbol.Colors.IsEmpty || symbol.IsColorless)
+            {
+                kept.Add(symbol);
+                continue;
+            }
+
+            var taken = Math.Min(left, symbol.Generic);
+            left -= taken;
+
+            if (symbol.Generic > taken)
+                kept.Add(ManaSymbol.Generic0(symbol.Generic - taken));
+        }
+
+        return this with { Symbols = kept.ToImmutable() };
+    }
+
+    /// <summary>
+    /// This cost with <paramref name="amount"/> more generic mana in it (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="WithoutGeneric"/>, and the reason "spells your opponents cast
+    /// cost {1} more" could not be said: the engine's only cost modification accumulated a
+    /// discount and subtracted, so there was nothing for an increase to call.
+    /// <para>
+    /// A tax is generic mana (CR 107.4b) whatever the cost it lands on: "cost {2} more to cast"
+    /// is paid with anything, which is why this appends a generic symbol rather than trying to
+    /// deepen a coloured one.
+    /// </para>
+    /// </remarks>
+    public ManaCostSpec PlusGeneric(int amount) =>
+        amount <= 0 ? this : this with { Symbols = Symbols.Add(ManaSymbol.Generic0(amount)) };
+
+    /// <summary>
+    /// This cost with printed symbols added to it — a <em>coloured</em> tax (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The asymmetry in CR 601.2f is the reason this exists beside <see cref="PlusGeneric"/> and
+    /// has no counterpart on the reduction side: a cost increase is "add this to the cost" and
+    /// may name any symbol, while a reduction may only take generic mana off unless the card
+    /// says otherwise. So "Black spells you cast cost {B} more to cast" adds a black pip that has
+    /// to be paid with black mana, and reading it as {1} would let the Leech's controller pay the
+    /// tax with anything — a materially cheaper card than the one printed.
+    /// </remarks>
+    public ManaCostSpec Plus(ManaCostSpec extra)
+    {
+        ArgumentNullException.ThrowIfNull(extra);
+
+        return extra.Symbols.IsEmpty ? this : this with { Symbols = Symbols.AddRange(extra.Symbols) };
+    }
+
     /// <summary>
     /// Parses a Scryfall-style cost such as <c>{2}{W/U}{X}</c>.
     /// </summary>

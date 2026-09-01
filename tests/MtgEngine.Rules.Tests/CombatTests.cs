@@ -57,7 +57,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
 
         Assert.True(game.State.GetObject(bear).Permanent!.IsTapped);
         Assert.Single(game.State.Combat.Attackers);
@@ -71,7 +71,7 @@ public sealed class CombatTests
         var knight = game.Create(alice, TestCards.WithKeyword("Knight", KeywordAbility.Vigilance), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [knight] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [knight] = AttackTarget.Player(bob) });
 
         Assert.False(game.State.GetObject(knight).Permanent!.IsTapped);
     }
@@ -84,7 +84,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob }));
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) }));
 
         Assert.Contains("302.6", ex.Message, StringComparison.Ordinal);
     }
@@ -96,7 +96,7 @@ public sealed class CombatTests
         var (game, alice, bob) = AtDeclareAttackers();
         var hasty = game.Create(alice, TestCards.WithKeyword("Raider", KeywordAbility.Haste), Zone.Battlefield);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [hasty] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [hasty] = AttackTarget.Player(bob) });
 
         Assert.Single(game.State.Combat.Attackers);
     }
@@ -110,9 +110,44 @@ public sealed class CombatTests
         Ready(game);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [wall] = bob }));
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [wall] = AttackTarget.Player(bob) }));
 
         Assert.Contains("702.3b", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void One_creature_cannot_block_two_attackers()
+    {
+        var (game, alice, bob) = BeforeCombat();
+        var first = game.Create(alice, TestCards.Creature("First Attacker", 2, 2), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Second Attacker", 2, 2), Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Lone Blocker", 1, 5), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [first] = AttackTarget.Player(bob),
+            [second] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        // CR 509.1a: it blocks one of them, and which one is the defender's whole decision.
+        var twice = Assert.Throws<InvalidOperationException>(
+            () => game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+            {
+                [first] = [blocker],
+                [second] = [blocker],
+            }));
+        Assert.Contains("509.1a", twice.Message, StringComparison.Ordinal);
+
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [first] = [blocker],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The other one got through, which is the point of the limit.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
     }
 
     [Fact]
@@ -122,7 +157,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(18, game.State.GetPlayer(bob).Life);
@@ -136,7 +171,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -159,7 +194,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -179,7 +214,7 @@ public sealed class CombatTests
         var chump = game.Create(bob, TestCards.Creature("Chump", 1, 1), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -199,12 +234,66 @@ public sealed class CombatTests
         var chump = game.Create(bob, TestCards.Creature("Chump", 1, 1), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
             [attacker] = [chump],
         });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void Lethal_for_assignment_counts_damage_already_marked()
+    {
+        // CR 510.1c: "lethal damage" is what it would take to kill the blocker *now*, so damage
+        // already marked on it this turn counts. With trample the difference is visible, because
+        // whatever is not needed for the blocker goes to the player - and the test above cannot
+        // see it, since an undamaged chump blocker needs its full toughness either way.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(
+            alice, TestCards.WithKeyword("Trampler", KeywordAbility.Trample, 5, 5), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Scarred Wall", 0, 3), Zone.Battlefield);
+        Ready(game);
+
+        // Wounded before blocks, which is what makes lethal two rather than three.
+        game.MarkDamage(wall, 1);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [wall],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // Two finishes the wall, three tramples over. Counting from full toughness would send one
+        // less, and the wall would die just the same - so only the life total tells them apart.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_creature_with_both_first_and_double_strike_still_hits_twice()
+    {
+        // CR 702.4b. A double striker that also has first strike is the case the second half of
+        // the assignment rule exists for: in the regular step it is not "everything without first
+        // strike", it is "everything without first strike, plus double strikers". Every other
+        // double strike test uses a creature that has double strike alone, where the first term
+        // already answers - so dropping the second breaks none of them. Granting double strike to
+        // a first striker is an ordinary thing for a card to do.
+        var (game, alice, bob) = BeforeCombat();
+        var hero = game.Create(
+            alice,
+            TestCards.WithKeyword(
+                "Twinblade", KeywordAbility.FirstStrike | KeywordAbility.DoubleStrike, 2, 2),
+            Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [hero] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
@@ -221,7 +310,7 @@ public sealed class CombatTests
         var wall = game.Create(bob, TestCards.Creature("Wall", 0, 4), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -234,6 +323,30 @@ public sealed class CombatTests
     }
 
     [Fact]
+    public void A_deathtouch_blocker_kills_what_it_blocks()
+    {
+        // CR 702.2b from the other side. Every deathtouch test in the suite puts the keyword on
+        // the attacker, and a blocker's damage is built by a different line - so nothing was
+        // watching the case a small deathtouch creature exists for.
+        var (game, alice, bob) = BeforeCombat();
+        var giant = game.Create(alice, TestCards.Creature("Charging Giant", 6, 6), Zone.Battlefield);
+        var assassin = game.Create(
+            bob, TestCards.WithKeyword("Assassin", KeywordAbility.Deathtouch, 1, 1), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [giant] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [giant] = [assassin],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.DoesNotContain(giant, game.State.Battlefield);
+    }
+
+    [Fact]
     public void Damage_is_assigned_to_multiple_blockers_in_order()
     {
         // CR 510.1c: lethal to the first before any goes to the second.
@@ -243,7 +356,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -286,7 +399,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -318,7 +431,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -346,7 +459,7 @@ public sealed class CombatTests
         var ground = game.Create(bob, TestCards.Creature("Ground", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [flyer] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [flyer] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -366,7 +479,7 @@ public sealed class CombatTests
         var spider = game.Create(bob, TestCards.WithKeyword("Spider", KeywordAbility.Reach, 1, 4), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [flyer] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [flyer] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -374,6 +487,34 @@ public sealed class CombatTests
         });
 
         Assert.Single(game.State.Combat.Blocked);
+    }
+
+    [Fact]
+    public void A_flyer_can_block_a_flyer()
+    {
+        // CR 702.9b: flying can be blocked by creatures with flying *or* reach, and reach is the
+        // half that had a test. Dropping the flying half refuses a flier blocking a flier, which
+        // is the commoner board by far - two fliers staring at each other is most of what flying
+        // does in a game - and nothing in the suite noticed.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(alice, TestCards.WithKeyword("Drake", KeywordAbility.Flying), Zone.Battlefield);
+        var defender = game.Create(bob, TestCards.WithKeyword("Griffin", KeywordAbility.Flying, 2, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [defender],
+        });
+
+        Assert.Single(game.State.Combat.Blocked);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // Blocked means the player takes nothing, and both fliers trade damage.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(defender).Permanent!.DamageMarked);
     }
 
     [Fact]
@@ -385,7 +526,7 @@ public sealed class CombatTests
         var one = game.Create(bob, TestCards.Creature("One", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [brute] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [brute] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -407,7 +548,7 @@ public sealed class CombatTests
         var ordinary = game.Create(bob, TestCards.Creature("Ordinary", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [striker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [striker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -427,7 +568,7 @@ public sealed class CombatTests
         var hero = game.Create(alice, TestCards.WithKeyword("Hero", KeywordAbility.DoubleStrike, 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [hero] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [hero] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
@@ -442,7 +583,7 @@ public sealed class CombatTests
         Ready(game);
         game.ChangeCounters(bear, CounterKinds.PlusOnePlusOne, 2);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
@@ -456,7 +597,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
 
         Assert.Empty(game.State.Combat.Attackers);
@@ -471,11 +612,56 @@ public sealed class CombatTests
         var giant = game.Create(alice, TestCards.Creature("Giant", 20, 20), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [giant] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [giant] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.IsOver);
 
         Assert.True(game.State.GetPlayer(bob).HasLost);
         Assert.Equal(alice, game.State.WinnerId);
+    }
+
+    [Fact]
+    public void Lifelink_gains_life_when_the_damage_lands()
+    {
+        // CR 702.15b. Not a trigger and not on the stack: the life gain happens at the same time
+        // as the damage, as part of the same event.
+        var (game, alice, bob) = BeforeCombat();
+        var vampire = game.Create(
+            alice, TestCards.WithKeyword("Vampire", KeywordAbility.Lifelink, 3, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [vampire] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void Lifelink_also_gains_from_damage_dealt_to_a_creature()
+    {
+        // The rule is about damage, not about combat damage to players.
+        var (game, alice, bob) = BeforeCombat();
+        var vampire = game.Create(
+            alice, TestCards.WithKeyword("Vampire", KeywordAbility.Lifelink, 3, 3), Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Wall", 0, 5), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [vampire] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [vampire] = [blocker],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
     }
 
     [Fact]
@@ -486,7 +672,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {

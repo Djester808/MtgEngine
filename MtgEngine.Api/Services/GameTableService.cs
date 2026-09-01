@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MtgEngine.Api.Cards;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Models;
@@ -55,19 +56,47 @@ public sealed class GameTableService
         // before the shuffle (CR 903.6), casting it from there is taxed (CR 903.8), and
         // twenty-one damage from it is a loss (CR 903.10a). The builder already records which
         // card that is, so a Commander deck plays as one without anybody choosing a format.
+        // Players are named after themselves, not after their decks. This read `first.Name`,
+        // which is the *deck's* name, so a board showed "Played Game Green" facing "Played Game
+        // Red" and neither player could tell who they were playing.
+        var names = await NamesOfAsync([firstUserId, secondUserId], ct).ConfigureAwait(false);
+
         var setups = new List<PlayerSetup>
         {
-            new(firstUserId, first.Name, startingLife, first.Cards)
+            new(firstUserId, names[firstUserId], startingLife, first.Cards)
             {
                 CommanderOracleId = first.CommanderOracleId,
             },
-            new(secondUserId, second.Name, startingLife, second.Cards)
+            new(secondUserId, names[secondUserId], startingLife, second.Cards)
             {
                 CommanderOracleId = second.CommanderOracleId,
             },
         };
 
-        return _sessions.Create(setups);
+        return await _sessions.CreateAsync(setups, ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The username of each of these players, for the names on the board.
+    /// </summary>
+    /// <remarks>
+    /// A user with no row falls back to a short form of their id rather than to their deck's
+    /// name or to an empty string: a seat with no name at all is worse to look at than an
+    /// unfamiliar one, and it should never happen, so it should look like it never happens.
+    /// </remarks>
+    private async Task<Dictionary<Guid, string>> NamesOfAsync(
+        IReadOnlyList<Guid> userIds, CancellationToken ct)
+    {
+        var found = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.Username })
+            .ToDictionaryAsync(u => u.Id, u => u.Username, ct)
+            .ConfigureAwait(false);
+
+        return userIds.ToDictionary(
+            id => id,
+            id => found.GetValueOrDefault(id) ?? $"Player {id.ToString()[..8]}");
     }
 
     /// <summary>The caller's decks, for the lobby to offer.</summary>
@@ -85,6 +114,27 @@ public sealed class GameTableService
             .ConfigureAwait(false);
 
         return decks;
+    }
+
+    /// <summary>
+    /// Players the caller could invite: everyone but themselves.
+    /// </summary>
+    /// <remarks>
+    /// The game's own list rather than the public community directory. That one is anonymous and
+    /// carries no user id on purpose (see USER_PROFILE_FEATURE.md), and an invitation needs one
+    /// to address — so reading it left the lobby's picker binding a field that was not there.
+    /// </remarks>
+    public async Task<OpponentDto[]> OpponentsAsync(
+        Guid userId, int limit = 100, CancellationToken ct = default)
+    {
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id != userId)
+            .OrderBy(u => u.Username)
+            .Take(Math.Clamp(limit, 1, 200))
+            .Select(u => new OpponentDto(u.Id, u.Username))
+            .ToArrayAsync(ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -112,9 +162,23 @@ public sealed class GameTableService
 
     private bool IsPlayable(CardDefinition card)
     {
-        // Nothing to implement: the rules already handle a body with no text on it.
-        if (string.IsNullOrWhiteSpace(card.OracleText))
+        // Nothing to implement: a vanilla creature, or one whose entire text is keywords the
+        // engine reads, is already played correctly by the rules themselves. The line is drawn
+        // narrowly on purpose — see CardCoverage for why a keyword that is parsed but never read
+        // is worse than an unimplemented card.
+        if (CardCoverage.IsFullyCovered(card))
             return true;
+
+        // "Any ability compiled" was the wrong question in both directions, and it was measured:
+        // it turned away 396 cards whose whole text lands somewhere this list does not name - a
+        // cost reduction, a keyword flag, a combat restriction - and it let in 6,815 cards with
+        // one ability read and the rest of their text unread, which is exactly the quietly-wrong
+        // game this gate exists to prevent.
+        //
+        // PlayableCards.Refuses asks the only question that matters: is there a written script,
+        // or did the compiler read every line?
+        if (_abilities is PlayableCards playable)
+            return !playable.Refuses(card);
 
         return _abilities.SpellOf(card) is not null
             || _abilities.TriggersOf(card).Count > 0
