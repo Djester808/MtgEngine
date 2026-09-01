@@ -57,6 +57,7 @@ Bonded Construct
 Bonded Horncrest
 Boreal Elemental
 Bosk Banneret
+Brassclaw Orcs
 Brazen Borrower // Petty Theft
 Breezekeeper
 Bull Hippo
@@ -87,7 +88,9 @@ Craven Giant
 Craven Hulk
 Craven Knight
 Crazed Goblin
+Crucible of Worlds
 Curious Pair // Treats to Share
+Cyclops Tyrant
 Cystbearer
 Daggerclaw Imp
 Danitha Capashen, Paragon
@@ -101,6 +104,7 @@ Defender of Law
 Derelor
 Devouring Deep
 Disruptor Flute
+Dragonlord Dromoka
 Dragonlord's Servant
 Dragonspeaker Shaman
 Dross Prowler
@@ -147,6 +151,7 @@ Ghost, Spectral Saboteur
 Ghostly Prison
 Giant Cindermaw
 Giant Solifuge
+Gibbering Hyenas
 Gigantic Big Bear
 Glissa's Courier
 Glistener Elf
@@ -168,9 +173,11 @@ Goblin Spy
 Gollum, Silent Slinker // Meager Meal
 Gorger Wurm
 Graceful Adept
+Grand Abolisher
 Grand Arbiter Augustin IV
 Grayscaled Gharial
 Great Sable Stag
+Grid Monitor
 Guma
 Hammerhead Shark
 Harvest Gwyllion
@@ -181,7 +188,9 @@ Helm of Awakening
 High Fae Trickster
 High Seas
 Highborn Ghoul
+Highspire Bell-Ringer
 Hillcomber Giant
+Hinterland Drake
 Hit-Monkey
 Hookhand Mariner // Riphook Raider
 Horned Cheetah
@@ -189,6 +198,7 @@ Hoverguard Observer
 Hulking Cyclops
 Hulking Goblin
 Hulking Ogre
+Hunted Ghoul
 Hypersonic Dragon
 Hypnotic Sprite // Mesmeric Glare
 Icatian Phalanx
@@ -201,6 +211,7 @@ Invisible Stalker
 Irini Sengir
 Iron Lad, Young Avenger
 Iron-Barb Hellion
+Ironclaw Orcs
 Ivory Mask
 Jackal Familiar
 Jade Leech
@@ -309,6 +320,7 @@ Quick Sliver
 Raff Capashen, Ship's Mage
 Raging Kronch
 Raiding Nightstalker
+Ramunap Excavator
 Rancid Rats
 Razor Swine
 Razortooth Rats
@@ -388,6 +400,7 @@ Stalker Hag
 Starnheim Aspirant
 Starnheim Courser
 Steam Frigate
+Steel Golem
 Stinkdrinker Daredevil
 Stone Calendar
 Stonybrook Banneret
@@ -396,6 +409,7 @@ Stormscape Familiar
 Stratozeppelid
 Stronghold Zeppelin
 Sunscape Familiar
+Sunweb
 Talas Warrior
 Tattered Haunter
 Tattermunge Maniac
@@ -418,6 +432,7 @@ Thought Nibbler
 Threadbind Clique // Rip the Seams
 Thunder-Thrash Elder
 Thunderscape Familiar
+Tidal Barracuda
 Tidal Kraken
 Timber Wolves
 Tine Shrike
@@ -435,6 +450,7 @@ Two-Headed Hunter // Twice the Rage
 Universal Automaton
 Urborg Drake
 Urza's Filter
+Uthros Psionicist
 Utvara Scalper
 Valeron Outlander
 Valley Dasher

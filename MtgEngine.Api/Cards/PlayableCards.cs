@@ -149,6 +149,15 @@ public sealed class PlayableCards : IAbilitySource
 
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops(card);
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Symmetrical land drops (e.g. Rites of Flourishing) scope to all players, not just the
+    /// controller. The interface default scopes to <c>PlayerScope.You</c>, so without this
+    /// delegation every extra land drop would go to the controller alone.
+    /// </remarks>
+    public PlayerScope ExtraLandDropScope(CardDefinition card) =>
+        For(card).ExtraLandDropScope(card);
+
     public bool MayDeclineUntap(CardDefinition card) => For(card).MayDeclineUntap(card);
 
     public bool SkipsDrawStep(CardDefinition card) => For(card).SkipsDrawStep(card);
@@ -164,6 +173,16 @@ public sealed class PlayableCards : IAbilitySource
     public IReadOnlyList<MtgEngine.Rules.State.LibraryTopPermission> LibraryTopPermissionsOf(
         CardDefinition card) =>
         For(card).LibraryTopPermissionsOf(card);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A graveyard-play permission is looked up only by the count of permissions on a permanent,
+    /// never by id — so without this delegation the count is always zero and no card ever permits
+    /// playing lands from a graveyard.
+    /// </remarks>
+    public IReadOnlyList<MtgEngine.Rules.State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        CardDefinition card) =>
+        For(card).GraveyardPlayPermissionsOf(card);
 
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls(card);

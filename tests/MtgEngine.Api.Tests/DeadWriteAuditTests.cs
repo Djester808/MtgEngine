@@ -111,6 +111,14 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
                 "identity only; player qualities are applied where they are gathered",
             ["UnpreventableStatic.Id"] =
                 "identity only; StaticBans are gathered, never looked up by id",
+            ["ActivationBan.Id"] =
+                "identity only; bans are gathered by sweeping the battlefield, never looked up by id",
+            ["CastBan.Id"] =
+                "identity only; bans are gathered by sweeping the battlefield, never looked up by id",
+            ["LandPlayBan.Id"] =
+                "identity only; bans are gathered by sweeping the battlefield, never looked up by id",
+            ["GraveyardPlayPermission.Id"] =
+                "identity only; permissions are gathered by sweeping the battlefield, never looked up by id",
 
             // --- Read by a person, not by the engine ---------------------------------------
             ["CardHalf.Name"] =
