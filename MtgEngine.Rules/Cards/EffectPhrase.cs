@@ -17649,7 +17649,7 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex LoseHalfLifeLine();
 
-    /// <summary>"Target player mills half their library, rounded down" (CR 701.13a, 107.15).</summary>
+    /// <summary>"Target player mills half their library, rounded down" (CR 701.17a, 107.15).</summary>
     /// <remarks>
     /// The rounding is required for the reason its life-total sibling above requires it: CR
     /// 107.15 leaves the direction to the card, and half of an odd library differs by a card

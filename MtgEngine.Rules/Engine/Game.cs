@@ -8420,8 +8420,15 @@ public sealed class Game
         if (_choicesOwed.Count == 0 || State.IsWaitingForChoice)
             return false;
 
-        var (owed, effect) = _choicesOwed[0];
-        _choicesOwed.RemoveAt(0);
+        // A random pick is not a question and is performed by the settle step below rather than
+        // being asked here, so it is stepped over rather than pulled off the front - taking it
+        // would drop it.
+        var next = _choicesOwed.FindIndex(pair => !pair.Effect.AtRandom);
+        if (next < 0)
+            return false;
+
+        var (owed, effect) = _choicesOwed[next];
+        _choicesOwed.RemoveAt(next);
 
         // Both of the spec's filters, not just the first. A spec carries an ordinary filter and
         // a source-aware one, and "another creature" lives entirely in the second: asking only
@@ -8464,22 +8471,6 @@ public sealed class Game
         // the question is asked for what is there.
         var wanted = Math.Min(Math.Max(1, effect.Count), eligible.Count);
 
-        // "At random" is not a choice, and offering it as one would be a strictly better card
-        // than the printed one. The roll goes through the seeded source, like the random discard
-        // it copies, so a replay reaches the same cards.
-        if (effect.AtRandom)
-        {
-            _permanentChoiceBeingAsked = null;
-
-            AsOneBatch(() =>
-            {
-                foreach (var id in _random.Shuffle(eligible).Take(wanted))
-                    Move(id, effect.Destination, effect.Cause, owed.PlayerId, effect.Position);
-            });
-
-            return false;
-        }
-
         _permanentChoiceBeingAsked = (owed, effect);
 
         Ask(new PendingChoice
@@ -8498,6 +8489,65 @@ public sealed class Game
     }
 
     private (ChoosePermanentRequested Request, ChooseAndMove Effect)? _permanentChoiceBeingAsked;
+
+    /// <summary>
+    /// Performs the picks the card makes for the player - "at random" (CR 701.9b's rule, one
+    /// zone over).
+    /// </summary>
+    /// <remarks>
+    /// A settle step rather than an arm of the question above, for the reason a seek is one: it
+    /// asks nobody anything, so the sweep has to go round again afterwards - the cards it moved
+    /// can have triggered something, and a step that answered "no question pending" would leave
+    /// those triggers on the floor.
+    /// <para>
+    /// The roll goes through the seeded source, like the random discard it copies, so a replay
+    /// reaches the same cards.
+    /// </para>
+    /// </remarks>
+    private bool SettleOwedRandomChoice()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        var at = _choicesOwed.FindIndex(pair => pair.Effect.AtRandom);
+        if (at < 0)
+            return false;
+
+        var (owed, effect) = _choicesOwed[at];
+        _choicesOwed.RemoveAt(at);
+
+        var from = effect.From switch
+        {
+            Zone.Graveyard => State.GetPlayer(owed.PlayerId).Graveyard,
+            Zone.Hand => State.GetPlayer(owed.PlayerId).Hand,
+            _ => State.Battlefield,
+        };
+
+        var asking = State.TryGetObject(owed.SourceId, out var raiser) ? raiser : null;
+
+        var eligible = from
+            .Where(id => effect.What.ObjectFilter?.Invoke(
+                State, _abilities, State.GetObject(id), owed.PlayerId) != false)
+            .Where(id => effect.What.SourceFilter?.Invoke(
+                State, _abilities, State.GetObject(id), asking, owed.PlayerId) != false)
+            .Where(id => effect.From != Zone.Battlefield
+                || ControllerOf(State.GetObject(id)) == owed.PlayerId)
+            .ToList();
+
+        if (eligible.Count == 0)
+            return false;
+
+        // Fewer cards than the sentence asks for is not a failure: it takes as many as there are.
+        var wanted = Math.Min(Math.Max(1, effect.Count), eligible.Count);
+
+        AsOneBatch(() =>
+        {
+            foreach (var id in _random.Shuffle(eligible).Take(wanted))
+                Move(id, effect.Destination, effect.Cause, owed.PlayerId, effect.Position);
+        });
+
+        return true;
+    }
 
     /// <summary>Attackers with enlist that have not yet been offered the choice this combat.</summary>
     private readonly List<ObjectId> _enlistsOwed = [];
@@ -10742,6 +10792,13 @@ public sealed class Game
 
             if (AskOwedProliferate())
                 return true;
+
+            // Performed rather than asked, so the sweep goes round again - see the seek above.
+            if (SettleOwedRandomChoice())
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedPermanentChoice())
                 return true;
