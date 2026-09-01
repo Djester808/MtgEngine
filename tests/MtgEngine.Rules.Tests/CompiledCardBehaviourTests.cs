@@ -12032,7 +12032,7 @@ public sealed class CompiledCardBehaviourTests
             game.State, Pool, game.State.GetObject(green), game.State.GetObject(beast), bob));
     }
 
-    // ---- A keyword taken away rather than every ability (CR 613.1f) ----------
+    // ---- A keyword removed, and the pronoun that means the source (CR 613.1f) ----
 
     /// <summary>
     /// "Target creature loses flying until end of turn" - the removal that names one keyword.
@@ -12488,6 +12488,175 @@ public sealed class CompiledCardBehaviourTests
             var compiled = CardCompiler.Compile(card);
             Assert.True(compiled.IsComplete, card.Name + ": " + string.Join(" | ", compiled.Unhandled));
         }
+    }
+
+    /// <summary>
+    /// "Put a +1/+1 counter on ~. It gains flying until end of turn" - the pronoun is the source.
+    /// </summary>
+    /// <remarks>
+    /// Twenty-five corpus cards write their second sentence this way and every one of them was
+    /// one line short: the pronoun readers resolve "it" to the target the sentence before chose,
+    /// and a sentence that acted on the source chose nothing, so the whole line was refused with
+    /// both halves of it otherwise readable.
+    /// <para>
+    /// Both halves are asserted in force rather than on the compiled card, and they are in two
+    /// different layers. The counter is read in 7c, so the creature is measured; the keyword is
+    /// read by the blocking rules, so a ground creature is offered the block and refused. A
+    /// reading that aimed either half at the wrong permanent passes neither.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_after_a_sentence_naming_the_source_means_the_source()
+    {
+        var hydra = Card(
+            "R2157 Hydra Test",
+            "{T}: Put a +1/+1 counter on ~. It gains flying until end of turn.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(hydra);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, hydra, Zone.Battlefield);
+        var theirs = game.Create(bob, hydra, Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("R2157 Hydra Footman Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.ActivateAbility(alice, mine, compiled.Activated.Single().Id);
+        Settle(game);
+
+        var pumped = Characteristics.Of(game.State, Pool, game.State.GetObject(mine));
+
+        // The counter landed on the source, in layer 7c, and it is the size that says so.
+        Assert.Equal(3, pumped.Power);
+        Assert.Equal(3, pumped.Toughness);
+
+        // And so did the keyword, in layer 6, which the blocking rules are what read.
+        Assert.True(pumped.Has(KeywordAbility.Flying));
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(mine), bob));
+
+        // The control: the same card on the other side of the table, which nobody activated.
+        var quiet = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+        Assert.Equal(2, quiet.Power);
+        Assert.False(quiet.Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// The pronoun still means the target whenever there is one (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The control the rewrite is built around, and the reason it is asked only after every
+    /// ordinary reader has refused: "it" means the target the sentence before named, and a
+    /// rewrite offered first would have taken that reading away and pointed the sentence at the
+    /// source instead. This spell has no source permanent at all, so a stolen reading is not
+    /// merely wrong here - it is nothing.
+    /// <para>
+    /// Both sentences are asserted, because the pronoun is only correct if the tap and the
+    /// removal landed on the same creature: the one the spell chose, and not the flier standing
+    /// next to it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_pronoun_still_means_the_target_when_the_sentence_before_chose_one()
+    {
+        var clip = Card(
+            "R2157 Clip Test",
+            "Tap target creature. It loses flying until end of turn.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(clip);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var chosen = game.Create(bob, Skyward("R2157 Clip Chosen Test"), Zone.Battlefield);
+        var other = game.Create(bob, Skyward("R2157 Clip Other Test"), Zone.Battlefield);
+        var footman = game.Create(
+            alice, TestCards.Creature("R2157 Clip Footman Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, clip), [Target.ToPermanent(chosen)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(chosen).Permanent!.IsTapped);
+
+        var clipped = Characteristics.Of(game.State, Pool, game.State.GetObject(chosen));
+        Assert.False(clipped.Has(KeywordAbility.Flying));
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(chosen), alice));
+
+        // The control: the creature the spell did not choose is untapped and still flying, so
+        // neither sentence wandered off its target.
+        Assert.False(game.State.GetObject(other).Permanent!.IsTapped);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(other))
+                .Has(KeywordAbility.Flying));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(other), alice));
+    }
+
+    /// <summary>
+    /// A pronoun whose antecedent is not the source stays unread (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The refusal is the half of this worth the most, because the wrong reading is invisible:
+    /// "create a 2/2 red Mutant creature token. It gains haste until end of turn" aimed at the
+    /// source is a card that compiles, plays, and hastes the wrong permanent for the rest of the
+    /// game. Both printed shapes are here - a token just created, and a creature the trigger
+    /// named - and each is paired with the same sentence after one that <em>does</em> name the
+    /// source, so what is asserted is the antecedent rather than the shape of the line.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_the_source_does_not_own_leaves_the_line_unread()
+    {
+        var token = Card(
+            "R2157 Token Pronoun Test",
+            "At the beginning of combat on your turn, create a 2/2 red Mutant creature token. "
+                + "It gains haste until end of turn.",
+            CardType.Creature,
+            2,
+            2);
+
+        var named = Card(
+            "R2157 Named Pronoun Test",
+            "Whenever another creature you control enters, put a +1/+1 counter on it. "
+                + "It gains haste until end of turn.",
+            CardType.Creature,
+            2,
+            2);
+
+        foreach (var card in new[] { token, named })
+            Assert.False(CardCompiler.Compile(card).IsComplete, card.Name);
+
+        // The controls: the same second sentence, after one that names the source.
+        var source = Card(
+            "R2157 Source Pronoun Test",
+            "At the beginning of combat on your turn, put a +1/+1 counter on ~. "
+                + "It gains haste until end of turn.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(source);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var beast = game.Create(alice, source, Zone.Battlefield);
+
+        // This turn's combat, and not a later one: the trigger fires every turn, so a board two
+        // turns on would be measuring how many times it fired rather than what it did.
+        PassTo(game, 1, TurnStep.DeclareAttackers);
+        Settle(game);
+
+        var pumped = Characteristics.Of(game.State, Pool, game.State.GetObject(beast));
+        Assert.Equal(3, pumped.Power);
+        Assert.True(pumped.Has(KeywordAbility.Haste));
     }
 
     /// <summary>A 2/2 with flying printed on it, for the removals above.</summary>
