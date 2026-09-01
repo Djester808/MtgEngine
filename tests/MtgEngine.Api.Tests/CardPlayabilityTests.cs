@@ -297,7 +297,18 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     //
     // Evidence/compiled-gate-refusals.txt holds the 508 names, so the next round can diff
     // the list instead of rebuilding at two tips to find out what moved.
-    private const int CompiledGateRefusesComplete = 508;
+    // Re-recorded 508 -> 524 for the slow-gate fix at 4e49935, investigated by diffing the
+    // full list at both tips (a temp dump, not the twelve-card sample). Sixteen arrived and
+    // none left. Every newcomer is the same benign shape as the earlier rounds: its whole
+    // text now compiles into a collection this naive five-way question still does not count.
+    // Grand Abolisher, Dragonlord Dromoka, Steel Golem, Grid Monitor and Tidal Barracuda are
+    // CastBans; Crucible of Worlds and Ramunap Excavator are GraveyardPlayPermissions (and
+    // it is no accident they arrive here - PlayableCards.GraveyardPlayPermissionsOf was one
+    // of the two members this tip stopped delegating); the rest are "can't block" and allied
+    // restrictions. Their whole text is a StaticBans/restriction, so none of SpellOf,
+    // TriggersOf, StaticsOf, ActivatedOf or ReplacementsOf is non-empty. Production
+    // (PlayableCards.Refuses = !IsComplete) refuses 0 of the 524, asserted on every run.
+    private const int CompiledGateRefusesComplete = 524;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;

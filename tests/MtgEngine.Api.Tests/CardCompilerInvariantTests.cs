@@ -136,6 +136,13 @@ public sealed partial class CardCompilerInvariantTests(ITestOutputHelper output)
             // die, exile it" rider on a burn spell. Aimed at a player there is no creature for
             // it to be about, so doing nothing is the whole answer.
             ["ExileInsteadOfDying"] = "no creature to exile when a player was chosen",
+
+            // The one-way half of a fight: "target creature you control deals damage equal to
+            // its power to any target" emits PlayerDamaged for a player. A two-way fight aimed
+            // at a player correctly deals nothing — a player cannot fight (CR 701.12a).
+            // Proved by A_one_way_fight_can_be_aimed_at_a_player and
+            // A_one_way_fight_deals_no_damage_back in CompiledCardBehaviourTests.
+            ["Fight"] = "emits PlayerDamaged for a player target on the one-way half",
         };
 
         foreach (var (name, count) in seen.OrderByDescending(kv => kv.Value))
