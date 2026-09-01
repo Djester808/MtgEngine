@@ -2068,6 +2068,234 @@ public sealed class CompiledCardBehaviourTests
             "the keyword went to the id the spell was aimed at, which stopped existing");
     }
 
+    /// <summary>
+    /// A library-top permission stops the moment the permanent granting it leaves (CR 611.2c).
+    /// </summary>
+    /// <remarks>
+    /// The flash permission beside it has this test and this one did not, and the asymmetry is
+    /// worth closing rather than arguing from the code: both permissions are read off the
+    /// battlefield at the one moment the question is asked, and the entire argument for reading
+    /// them that way is that nothing has to be swept up when the permanent goes. An
+    /// implementation that latched the permission instead would pass every existing library-top
+    /// test, because all of them ask only whether the permission arrives.
+    /// </remarks>
+    [Fact]
+    public void A_library_top_permission_ends_when_the_permanent_granting_it_leaves()
+    {
+        var sight = LibraryTopSight();
+
+        var compiled = CardCompiler.Compile(sight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.LibraryTopPermissions);
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, sight, Zone.Battlefield);
+
+        var second = game.Create(
+            alice, Card("Departure Second Test", "~ deals 2 damage to any target."), Zone.Library);
+
+        var first = game.Create(
+            alice, Card("Departure First Test", "~ deals 3 damage to any target."), Zone.Library);
+
+        game.CastSpell(alice, first, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(second, game.State.GetPlayer(alice).Library[0]);
+
+        // The permanent goes, and the same cast from the same place stops being legal. Nothing
+        // was swept: there was nowhere for the permission to have been written down.
+        // Not settled afterwards: settling passes priority, and the cast below has to be made by
+        // the player whose permission has just gone rather than refused for the seat.
+        game.Move(host, Zone.Graveyard, MoveCause.Destroy, alice);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, second, [Target.ToPlayer(bob)]));
+
+        Assert.Contains("hand", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// An offer that describes a spell covers that kind of spell and no other (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Both existing offer tests use an offer with no description or with a price cap alone, so
+    /// the filter half of <c>HandCastOffer.Covers</c> — the half Maelstrom Archangel and
+    /// Omnispell Adept are — had never been asked anything. A filter that matched everything
+    /// would be an offer strictly better than the printed card, and one that matched nothing
+    /// would be a spell that does not work; the two tests already here pass either way.
+    /// <para>
+    /// The refusal is checked before the acceptance and asserted not to have spent the offer,
+    /// which is the other thing a filter can get wrong: an offer consumed by the card it turned
+    /// down is gone before the card it was for is cast.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_offer_that_describes_a_spell_covers_that_kind_and_no_other()
+    {
+        var call = Card(
+            "Free Creature Offer Test",
+            "You may cast a creature spell from your hand without paying its mana cost.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(call);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var beast = game.Create(
+            alice, TestCards.Costed("Free Offer Beast Test", "{6}{G}", 7), Zone.Hand);
+
+        var bolt = game.Create(alice, Priced("Free Offer Bolt Test", "{2}{R}", 3), Zone.Hand);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, call));
+        game.PassPriority(alice);
+        game.PassPriority(bob);
+
+        var offer = Assert.Single(game.State.HandCastOffers);
+        Assert.NotNull(offer.SpellFilter);
+        Assert.Null(offer.MaxManaValue);
+
+        // The instant is in hand and free of any cap; what it is not is a creature.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, bolt, [Target.ToPlayer(bob)], freeFromHand: true));
+
+        Assert.Contains("601.2b", refused.Message, StringComparison.Ordinal);
+        Assert.Single(game.State.HandCastOffers);
+        Assert.Contains(bolt, game.State.GetPlayer(alice).Hand);
+
+        // Seven mana against an empty pool, so the cast succeeding is the offer paying for it.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, beast));
+
+        game.CastSpell(alice, beast, freeFromHand: true);
+        Settle(game);
+
+        Assert.Empty(game.State.HandCastOffers);
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Free Offer Beast Test", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A conjured duplicate does what the card it was copied from does (CR 701.55a).
+    /// </summary>
+    /// <remarks>
+    /// The existing tests prove the duplicate is a card, in the right zone, read off the right
+    /// values, and carrying the original's oracle id. None of them casts it. A duplicate whose
+    /// abilities did not work would pass all four and be a blank card in a hand — which is the
+    /// exact shape of the thing this round kept finding, an object that exists and does nothing.
+    /// </remarks>
+    [Fact]
+    public void A_conjured_duplicate_casts_and_does_what_the_original_does()
+    {
+        var mirror = Card(
+            "Conjure Working Mirror Test",
+            "Conjure a duplicate of target creature into your hand.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(mirror).IsComplete);
+
+        var stinger = Card(
+            "Conjure Working Stinger Test",
+            "When this creature enters, each opponent loses 2 life.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.True(CardCompiler.Compile(stinger).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, stinger, Zone.Battlefield);
+        Settle(game);
+
+        // The original's own trigger, so the board already knows what the ability is worth.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        var original = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(
+                o.Card.Name, "Conjure Working Stinger Test", StringComparison.Ordinal));
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, mirror),
+            [Target.ToPermanent(original.Id)]);
+
+        Settle(game);
+
+        var made = game.State.GetPlayer(alice).Hand
+            .Select(game.State.GetObject)
+            .Single(o => string.Equals(
+                o.Card.Name, "Conjure Working Stinger Test", StringComparison.Ordinal));
+
+        game.CastSpell(alice, made.Id);
+        Settle(game);
+
+        // Two of them on the battlefield, and the duplicate's copy of the trigger resolved.
+        Assert.Equal(
+            2,
+            game.State.Battlefield.Select(game.State.GetObject).Count(o => string.Equals(
+                o.Card.Name, "Conjure Working Stinger Test", StringComparison.Ordinal)));
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Each of the five specialize abilities reaches the version its colour names (Alchemy).
+    /// </summary>
+    /// <remarks>
+    /// The version a price buys is decided positionally — <c>(ManaColor)version</c> over
+    /// <c>Specializations[1..5]</c> — and one test of one colour cannot tell a correct mapping
+    /// from an off-by-one or a reversal. Five games, five prices, five different cards, each with
+    /// its own printed size, so a swap that always landed on the same version is visible in the
+    /// power as well as in the name.
+    /// </remarks>
+    [Fact]
+    public void Each_specialize_price_reaches_the_version_its_colour_names()
+    {
+        var wanted = new (string Ability, ManaColor Colour, string Name, int Power)[]
+        {
+            ("specialize-white", ManaColor.White, "Mapped R2159, White", 3),
+            ("specialize-blue", ManaColor.Blue, "Mapped R2159, Blue", 3),
+            ("specialize-black", ManaColor.Black, "Mapped R2159, Black", 5),
+            ("specialize-red", ManaColor.Red, "Mapped R2159, Red", 6),
+            ("specialize-green", ManaColor.Green, "Mapped R2159, Green", 7),
+        };
+
+        foreach (var (abilityId, colour, name, power) in wanted)
+        {
+            var card = Specializing(
+                "Mapped Novice R2159",
+                "Specialize {2}",
+                "{1}{W}",
+                [
+                    ("Mapped R2159, White", "Lifelink", 3, 3, KeywordAbility.Lifelink),
+                    ("Mapped R2159, Blue", "Flying", 3, 4, KeywordAbility.Flying),
+                    ("Mapped R2159, Black", "Menace", 5, 5, KeywordAbility.Menace),
+                    ("Mapped R2159, Red", "Trample", 6, 6, KeywordAbility.Trample),
+                    ("Mapped R2159, Green", "Reach", 7, 7, KeywordAbility.Reach),
+                ]);
+
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+            Assert.Equal(5, compiled.Activated.Count);
+
+            var (game, alice, _) = InMainPhase();
+            var permanent = game.Create(alice, card, Zone.Battlefield);
+
+            var fodder = TestCards.PutInHand(
+                game, alice, Coloured("Mapped Fodder R2159 " + colour, colour));
+
+            game.AddMana(alice, null, 2);
+            game.ActivateAbility(alice, permanent, abilityId, costPayment: [fodder]);
+            Settle(game);
+
+            var after = game.State.GetObject(permanent);
+            Assert.Equal(name, after.Card.Name);
+            Assert.Equal(power, Characteristics.Of(game.State, Pool, after).Power);
+        }
+    }
+
     // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
 
     /// <summary>
