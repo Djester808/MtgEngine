@@ -9506,6 +9506,462 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(Now(game, beside).IsLegendary);
     }
 
+    // ---- Cards changing zones: a hand, a graveyard, either end of a library ----
+
+    /// <summary>Every option a pending choice is offering, by the card's printed name.</summary>
+    private static string OptionFor(Game game, string cardName) =>
+        game.State.Choice!.Options.Single(o => o.Label == cardName).Id;
+
+    /// <summary>The names of a player's library, top first (index 0 is the top).</summary>
+    private static IReadOnlyList<string> LibraryNames(Game game, Guid playerId) =>
+        [.. game.State.GetPlayer(playerId).Library.Select(id => game.State.GetObject(id).Card.Name)];
+
+    private static IReadOnlyList<string> ZoneNames(IEnumerable<ObjectId> zone, Game game) =>
+        [.. zone.Select(id => game.State.GetObject(id).Card.Name)];
+
+    /// <summary>
+    /// Chittering Rats: a card leaves a hand for the top of a library, and is not discarded.
+    /// </summary>
+    /// <remarks>
+    /// The whole reason this may not be read as a discard, asserted rather than argued: the
+    /// graveyard is empty afterwards. A card put onto a library never reaches one, so nothing
+    /// watching for a discard fires and madness never gets its chance — and the two sentences
+    /// are otherwise identical, which is exactly how the wrong reader would go unnoticed.
+    /// <para>
+    /// The player being asked is the one whose hand it is, not the one who cast the spell. That
+    /// is asserted too, because the hand is hidden and a question put to the wrong player would
+    /// show it to them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_put_from_a_hand_onto_a_library_goes_on_top_and_is_not_a_discard()
+    {
+        var rats = Card(
+            "R21 Chittering Rats",
+            "When ~ enters, target opponent puts a card from their hand on top of their library.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(rats);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, bob, TestCards.Creature("R21 Rats Chosen", 3, 3));
+        TestCards.PutInHand(game, bob, TestCards.Creature("R21 Rats Kept", 1, 1));
+
+        var wasOnTop = LibraryNames(game, bob)[0];
+        var libraryWas = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rats), []);
+
+        // The trigger's target is chosen as it goes on the stack (CR 603.3d); everything before
+        // the hand question is answered the way any other pending question is.
+        for (var guard = 0; guard < 40; guard++)
+        {
+            if (game.State.Choice is { Kind: ChoiceKind.ChoosePermanent })
+                break;
+
+            if (game.State.Choice is { } pending)
+            {
+                game.Choose(
+                    pending.PlayerId,
+                    [.. pending.Options.Take(Math.Max(pending.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        // Whose hand it is, is who is asked.
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+        game.Choose(bob, [OptionFor(game, "R21 Rats Chosen")]);
+        Settle(game);
+
+        // On top, in front of the card that was there.
+        Assert.Equal("R21 Rats Chosen", LibraryNames(game, bob)[0]);
+        Assert.Equal(wasOnTop, LibraryNames(game, bob)[1]);
+        Assert.Equal(libraryWas + 1, game.State.GetPlayer(bob).Library.Count);
+
+        // The control: the other card in the same hand is left where it was.
+        Assert.Contains("R21 Rats Kept", ZoneNames(game.State.GetPlayer(bob).Hand, game));
+        Assert.DoesNotContain("R21 Rats Chosen", ZoneNames(game.State.GetPlayer(bob).Hand, game));
+
+        // Not a discard: nothing of Bob's reached a graveyard.
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    /// <summary>
+    /// Brainstorm: one question with two answers, and both cards move (CR 401.1).
+    /// </summary>
+    /// <remarks>
+    /// The count is the point. The choice machinery moved only the first pick, so a sentence
+    /// asking for two cards took two and moved one — a card silently left in hand on a card
+    /// whose whole shape is "draw three, put two back". Nothing about the compilation was wrong,
+    /// which is why this is asserted by playing it rather than by reading the effect.
+    /// </remarks>
+    [Fact]
+    public void Two_cards_put_from_a_hand_onto_a_library_both_move()
+    {
+        var brainstorm = Card(
+            "R21 Brainstorm",
+            "Draw three cards, then put two cards from your hand on top of your library"
+                + " in any order.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(brainstorm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        TestCards.PutInHand(game, alice, TestCards.Creature("R21 Storm First", 1, 1));
+        TestCards.PutInHand(game, alice, TestCards.Creature("R21 Storm Second", 1, 1));
+        TestCards.PutInHand(game, alice, TestCards.Creature("R21 Storm Kept", 1, 1));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, brainstorm), []);
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChoosePermanent });
+
+        // The sentence asks for two, so the question does.
+        Assert.Equal(2, game.State.Choice!.MinPicks);
+        Assert.Equal(2, game.State.Choice!.MaxPicks);
+
+        game.Choose(
+            alice,
+            [OptionFor(game, "R21 Storm First"), OptionFor(game, "R21 Storm Second")]);
+
+        Settle(game);
+
+        var top = LibraryNames(game, alice).Take(2).ToList();
+        Assert.Contains("R21 Storm First", top);
+        Assert.Contains("R21 Storm Second", top);
+
+        var hand = ZoneNames(game.State.GetPlayer(alice).Hand, game);
+        Assert.DoesNotContain("R21 Storm First", hand);
+        Assert.DoesNotContain("R21 Storm Second", hand);
+
+        // The control: the third card, held in the same hand and never picked, is still there.
+        Assert.Contains("R21 Storm Kept", hand);
+    }
+
+    /// <summary>
+    /// The same sentence with the other end of the library named (CR 401.1).
+    /// </summary>
+    /// <remarks>
+    /// The two ends are opposite cards, and a reader that took "on the bottom" and filed the
+    /// card on top would compile, play, and hand the card straight back on the next draw. So the
+    /// assertion is positional rather than "the card left the hand".
+    /// </remarks>
+    [Fact]
+    public void A_card_put_on_the_bottom_of_a_library_goes_under_everything()
+    {
+        var spite = Card(
+            "R21 Volcanic Spite",
+            "Put a card from your hand on the bottom of your library.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(spite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        TestCards.PutInHand(game, alice, TestCards.Creature("R21 Spite Buried", 3, 3));
+        TestCards.PutInHand(game, alice, TestCards.Creature("R21 Spite Kept", 1, 1));
+
+        var wasOnBottom = LibraryNames(game, alice)[^1];
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spite), []);
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChoosePermanent });
+
+        game.Choose(alice, [OptionFor(game, "R21 Spite Buried")]);
+        Settle(game);
+
+        var library = LibraryNames(game, alice);
+        Assert.Equal("R21 Spite Buried", library[^1]);
+        Assert.Equal(wasOnBottom, library[^2]);
+
+        // The control: not on top, which is where the same sentence's twin would have put it.
+        Assert.NotEqual("R21 Spite Buried", library[0]);
+        Assert.Contains("R21 Spite Kept", ZoneNames(game.State.GetPlayer(alice).Hand, game));
+    }
+
+    /// <summary>
+    /// Glowspore Shaman: a card taken out of a graveyard and put on top of a library.
+    /// </summary>
+    /// <remarks>
+    /// The filter is the control here. A graveyard holding a land and a creature offers exactly
+    /// one of them, so the sentence's "a land card" is doing work — a reader that dropped the
+    /// noun would compile identically and let the wrong card out.
+    /// </remarks>
+    [Fact]
+    public void A_card_taken_from_a_graveyard_onto_a_library_obeys_the_filter()
+    {
+        var shaman = Card(
+            "R21 Glowspore Shaman",
+            "Put a land card from your graveyard on top of your library.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(shaman);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("R21 Shaman Forest"), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("R21 Shaman Corpse", 2, 2), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, shaman), []);
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChoosePermanent });
+
+        // Only the land is eligible, which is the filter doing its work.
+        Assert.Equal(
+            ["R21 Shaman Forest"],
+            game.State.Choice!.Options.Select(o => o.Label).ToList());
+
+        game.Choose(alice, [OptionFor(game, "R21 Shaman Forest")]);
+        Settle(game);
+
+        Assert.Equal("R21 Shaman Forest", LibraryNames(game, alice)[0]);
+
+        // The control: the creature card sharing that graveyard is left in it.
+        Assert.Contains(
+            "R21 Shaman Corpse", ZoneNames(game.State.GetPlayer(alice).Graveyard, game));
+    }
+
+    /// <summary>
+    /// Ghoulraiser: "at random" is the game's pick, not the player's (CR 701.9b's rule, one
+    /// zone over).
+    /// </summary>
+    /// <remarks>
+    /// The rider matched the sentence for as long as the sentence has been read and was thrown
+    /// away, which would have printed a strictly better card than the one on the table — and
+    /// coverage would have scored it as a win either way. So what this asserts is that the game
+    /// never stops to ask: a question offered here is the defect.
+    /// </remarks>
+    [Fact]
+    public void A_card_returned_at_random_is_never_offered_as_a_choice()
+    {
+        var ghoulraiser = Card(
+            "R21 Ghoulraiser",
+            "When ~ enters, return a Zombie card at random from your graveyard to your hand.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(ghoulraiser);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card("R21 Raiser Zombie One", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Zombie"),
+            Zone.Graveyard);
+        game.Create(
+            alice,
+            Card("R21 Raiser Zombie Two", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Zombie"),
+            Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("R21 Raiser Bystander", 2, 2), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ghoulraiser), []);
+
+        // Played out by hand rather than through Settle, because Settle answers questions and
+        // the claim is that there is never one to answer. It stops the moment the stack is
+        // empty: walking on to cleanup would discard the card back down to hand size and read as
+        // though the return had never happened.
+        for (var guard = 0; guard < 12; guard++)
+        {
+            Assert.False(
+                game.State.Choice is { Kind: ChoiceKind.ChoosePermanent },
+                "a random return must not stop to ask");
+
+            if (game.State.Stack.IsEmpty
+                && game.State.PendingTriggers.IsEmpty
+                && guard > 1)
+            {
+                break;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        Assert.Null(game.State.Choice);
+
+        var hand = ZoneNames(game.State.GetPlayer(alice).Hand, game);
+        var graveyard = ZoneNames(game.State.GetPlayer(alice).Graveyard, game);
+
+        // Exactly one of the two Zombies came back; which one is the game's business.
+        var raised = hand.Count(n => n.StartsWith("R21 Raiser Zombie", StringComparison.Ordinal));
+        Assert.Equal(1, raised);
+        Assert.Equal(
+            1, graveyard.Count(n => n.StartsWith("R21 Raiser Zombie", StringComparison.Ordinal)));
+
+        // The control: the card that is not a Zombie was never eligible and did not move.
+        Assert.Contains("R21 Raiser Bystander", graveyard);
+        Assert.DoesNotContain("R21 Raiser Bystander", hand);
+    }
+
+    /// <summary>
+    /// Undying Beast: "put <em>it</em> on top of its owner's library" on a death trigger.
+    /// </summary>
+    /// <remarks>
+    /// Two things are wrong in the obvious implementation and both are asserted. The pronoun is
+    /// the card the trigger is about, which the compiler only understood spelled "~"; and by the
+    /// time the trigger resolves that permanent has become a card in a graveyard under a new id
+    /// (CR 400.7), so an effect holding the battlefield id moves nothing at all. A card that
+    /// compiles and does nothing is the one failure coverage cannot see.
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_tucks_itself_on_death_ends_up_on_top_of_its_library()
+    {
+        var beast = Card(
+            "R21 Undying Beast",
+            "When ~ dies, put it on top of its owner's library.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var wrath = Card("R21 Beast Wrath", "Destroy all creatures.", CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(beast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(CardCompiler.Compile(wrath).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, beast, Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("R21 Beast Bystander", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal("R21 Undying Beast", LibraryNames(game, alice)[0]);
+
+        var graveyard = ZoneNames(game.State.GetPlayer(alice).Graveyard, game);
+        Assert.DoesNotContain("R21 Undying Beast", graveyard);
+
+        // The control: the creature beside it died to the same spell and stayed dead.
+        Assert.Contains("R21 Beast Bystander", graveyard);
+    }
+
+    /// <summary>
+    /// The Cauldron of Eternity: the same pronoun about somebody else (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// The row that says the pronoun is read rather than assumed. "Whenever a creature you
+    /// control dies, put it on the bottom of its owner's library" is about the creature the
+    /// event named, and an artifact that read the word as itself would bury itself the first
+    /// time anything died. Both halves are asserted: the creature is under the library, and the
+    /// artifact is still on the battlefield.
+    /// <para>
+    /// "You control" is the other control. A creature of the opponent's dying to the same spell
+    /// is not what the trigger watches, and it reaches an ordinary graveyard.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_trigger_about_another_creature_buries_that_creature_and_not_itself()
+    {
+        var cauldron = Card(
+            "R21 Cauldron of Eternity",
+            "Whenever a creature you control dies, put it on the bottom of its owner's library.",
+            CardType.Artifact);
+
+        var wrath = Card("R21 Cauldron Wrath", "Destroy all creatures.", CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(cauldron);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, cauldron, Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("R21 Cauldron Mine", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("R21 Cauldron Theirs", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal("R21 Cauldron Mine", LibraryNames(game, alice)[^1]);
+        Assert.DoesNotContain(
+            "R21 Cauldron Mine", ZoneNames(game.State.GetPlayer(alice).Graveyard, game));
+
+        // The artifact watched; it did not go anywhere.
+        Assert.Contains(
+            "R21 Cauldron of Eternity",
+            ZoneNames(game.State.Battlefield, game));
+
+        // The control: a creature the trigger's "you control" excludes died normally.
+        Assert.Contains(
+            "R21 Cauldron Theirs", ZoneNames(game.State.GetPlayer(bob).Graveyard, game));
+    }
+
+    /// <summary>
+    /// Traumatize: half a library is counted when the effect resolves, and the rounding is the
+    /// card's (CR 701.13a, 107.15).
+    /// </summary>
+    /// <remarks>
+    /// The two roundings are asserted against the same odd library, because that is the only
+    /// case in which they differ and it is most of them. A single number worked out at compile
+    /// time would be wrong for one of the two players before either spell resolved.
+    /// </remarks>
+    [Fact]
+    public void Milling_half_a_library_counts_it_on_resolution_and_rounds_as_the_card_says()
+    {
+        var traumatize = Card(
+            "R21 Traumatize",
+            "Target player mills half their library, rounded down.",
+            CardType.Sorcery);
+
+        var kitsune = Card(
+            "R21 Kitsune's Technique",
+            "Target opponent mills half their library, rounded up.",
+            CardType.Instant);
+
+        Assert.True(CardCompiler.Compile(traumatize).IsComplete);
+        Assert.True(CardCompiler.Compile(kitsune).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // An odd library, so the two roundings cannot agree by accident.
+        if (game.State.GetPlayer(bob).Library.Count % 2 == 0)
+            game.Create(bob, TestCards.Creature("R21 Mill Padding", 1, 1), Zone.Library);
+
+        var before = game.State.GetPlayer(bob).Library.Count;
+        var aliceBefore = game.State.GetPlayer(alice).Library.Count;
+        Assert.Equal(1, before % 2);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, traumatize), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(before - (before / 2), game.State.GetPlayer(bob).Library.Count);
+        Assert.Equal(before / 2, game.State.GetPlayer(bob).Graveyard.Count);
+
+        // The control: the other player's library was not touched by a spell aimed elsewhere.
+        Assert.Equal(aliceBefore, game.State.GetPlayer(alice).Library.Count);
+
+        // And the other rounding, on a library that is odd again.
+        var second = game.State.GetPlayer(bob).Library.Count;
+        if (second % 2 == 0)
+        {
+            game.Create(bob, TestCards.Creature("R21 Mill Padding Two", 1, 1), Zone.Library);
+            second++;
+        }
+
+        var buried = game.State.GetPlayer(bob).Graveyard.Count;
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, kitsune), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal((second + 1) / 2, game.State.GetPlayer(bob).Graveyard.Count - buried);
+        Assert.NotEqual(second / 2, (second + 1) / 2);
+    }
+
     // ---- Flicker (CR 400.7) --------------------------------------------------
 
     [Fact]

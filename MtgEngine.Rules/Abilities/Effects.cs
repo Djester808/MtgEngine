@@ -6024,7 +6024,7 @@ public sealed record LoseHalfLife(
 }
 
 /// <summary>
-/// "Target player mills half their library, rounded down" (CR 701.13a, 107.15).
+/// "Target player mills half their library, rounded down" (CR 701.17a, 107.15).
 /// </summary>
 /// <remarks>
 /// The library half of <see cref="LoseHalfLife"/>, and it is a separate effect for the identical
@@ -6039,7 +6039,7 @@ public sealed record LoseHalfLife(
 /// </para>
 /// <para>
 /// The milling itself goes through <see cref="Milling"/> like every other mill, so a player who
-/// cannot mill that many mills what they have and does not lose for it (CR 701.13b).
+/// cannot mill that many mills what they have and does not lose for it (CR 701.17b).
 /// </para>
 /// </remarks>
 public sealed record MillHalfLibrary(
