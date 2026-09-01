@@ -594,6 +594,30 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         foreach (var (why, n) in Refusals.OrderByDescending(p => p.Value).Take(10))
             output.WriteLine($"  refused {n,5}  {why}");
 
+        // The histogram that ranks the work: one entry per CARD that never resolved, keyed by
+        // the last thing the engine said about it. A refusal count is attempts, not cards - the
+        // combat-retry investigation recorded that reading attempts as a ceiling overcounted by
+        // 20x - so the ranking below is what says where the unresolved spells actually are.
+        var unresolved = spells
+            .Where(c => !ResolvedSpells.Contains(c.Name))
+            .ToList();
+
+        output.WriteLine(string.Empty);
+        output.WriteLine($"spells that never resolved: {unresolved.Count} of {spells.Count}");
+
+        var byCause = unresolved
+            .GroupBy(
+                c => LastRefusal.GetValueOrDefault(c.Name, "(no refusal recorded at all)"),
+                StringComparer.Ordinal)
+            .OrderByDescending(g => g.Count());
+
+        foreach (var group in byCause)
+        {
+            output.WriteLine($"  {group.Count(),5}  {group.Key}");
+            foreach (var card in group.Take(6))
+                output.WriteLine($"           {card.Name}");
+        }
+
         Assert.True(
             faults.Count == 0,
             $"{faults.Count} hands broke when their spells were cast:\n  "
@@ -1623,11 +1647,14 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
     private static bool Speak(
         Game game, Guid player, ObjectId card, IEnumerable<IReadOnlyList<Target>> shapes)
     {
+        var name = game.State.GetObject(card).Card.Name;
+
         foreach (var targets in shapes)
         {
             try
             {
                 game.CastSpell(player, card, targets);
+                ResolvedSpells.Add(name);
                 return true;
             }
             catch (InvalidOperationException refused)
@@ -1638,6 +1665,11 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 // harness is being told "no" by the game or by its own arrangements.
                 Refusals[Shorten(refused.Message)] =
                     Refusals.GetValueOrDefault(Shorten(refused.Message)) + 1;
+
+                // Folded rather than shortened, so "no legal target for 'Foo'" and "... 'Bar'"
+                // are one cause: card-specific names and numbers would split one finding into a
+                // thousand rows of one.
+                LastRefusal[name] = FoldMessage(refused.Message);
             }
         }
 
@@ -1646,6 +1678,52 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
     /// <summary>Why the engine said no, and how often. Diagnosis, not assertion.</summary>
     private static readonly Dictionary<string, int> Refusals = new(StringComparer.Ordinal);
+
+    /// <summary>Every spell that was successfully cast at least once, by name.</summary>
+    private static readonly HashSet<string> ResolvedSpells = new(StringComparer.Ordinal);
+
+    /// <summary>The last refusal the engine gave for each card, folded so causes group.</summary>
+    private static readonly Dictionary<string, string> LastRefusal = new(StringComparer.Ordinal);
+
+    /// <summary>Numbers become <c>#</c> and quoted text <c>~</c>, so refusals group by cause.</summary>
+    private static string FoldMessage(string message)
+    {
+        var text = new System.Text.StringBuilder(160);
+        var quoted = false;
+        var digits = false;
+
+        foreach (var c in message)
+        {
+            if (c is '\'' or '"')
+            {
+                if (!quoted)
+                    text.Append('~');
+
+                quoted = !quoted;
+                continue;
+            }
+
+            if (quoted)
+                continue;
+
+            if (char.IsAsciiDigit(c))
+            {
+                if (!digits)
+                    text.Append('#');
+
+                digits = true;
+                continue;
+            }
+
+            digits = false;
+            text.Append(c is '\r' or '\n' ? ' ' : c);
+
+            if (text.Length >= 150)
+                break;
+        }
+
+        return text.ToString();
+    }
 
     /// <summary>How many times the combat retry actually got as far as re-offering a card.</summary>
     /// <remarks>
