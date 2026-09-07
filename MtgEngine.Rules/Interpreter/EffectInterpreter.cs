@@ -58,12 +58,22 @@ public sealed partial class EffectInterpreter(
     }
 
     /// <summary>Run an effect outside the stack: a replacement's With, a scenario step, a delayed trigger.</summary>
-    public Outcome Run(GameState state, Effect effect, EffectContext context)
+    public Outcome Run(GameState state, Effect effect, EffectContext context) => Run(state, effect, context, null);
+
+    /// <summary>
+    /// Run an effect outside the stack, saying which of the source's abilities it came from. A
+    /// question raised here has no stack object, so the index is how <see cref="Resume"/> finds the
+    /// tree again: ability <paramref name="abilityIndex"/> of the source is a
+    /// <see cref="ReplacementAbility"/> whose <c>With</c> this is, or a triggered ability's body
+    /// (CR 101.4, 614.1a).
+    /// </summary>
+    [RuleRef("101.4")]
+    public Outcome Run(GameState state, Effect effect, EffectContext context, int? abilityIndex)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(context);
-        var run = Execute(new EffectRun(state, context, [], false, "0"), effect);
+        var run = Execute(new EffectRun(state, context, [], false, "0", abilityIndex, OffStack: true), effect);
         return new Outcome(run.State, run.Events);
     }
 
@@ -164,10 +174,12 @@ public sealed partial class EffectInterpreter(
 
     /// <summary>
     /// One step of a resolution: where the state is, what the effect remembers, and whether the
-    /// game stopped to ask. The last four fields are only set while a question is being resumed:
-    /// which ability is resolving, the path back to the node that asked, and the answer it is
-    /// waiting for. There is never a captured continuation, so a game rebuilt from its log
-    /// resumes the same way (CR 101.4).
+    /// game stopped to ask. <c>Resume</c>, <c>Answer</c> and <c>AnswerPath</c> are only set while a
+    /// question is being resumed: the path back to the node that asked and the answer it is waiting
+    /// for. <c>Marks</c> is what the enclosing loops had already worked out, which a question
+    /// carries in its <see cref="ChoiceContext"/>; <c>OffStack</c> says the walk came from
+    /// <c>Run</c> and so has no stack object to be found again by. There is never a captured
+    /// continuation, so a game rebuilt from its log resumes the same way (CR 101.4).
     /// </summary>
     internal sealed record EffectRun(
         GameState State,
@@ -178,7 +190,9 @@ public sealed partial class EffectInterpreter(
         int? AbilityIndex = null,
         string? Resume = null,
         Resumption? Answer = null,
-        string? AnswerPath = null);
+        string? AnswerPath = null,
+        ImmutableDictionary<string, string>? Marks = null,
+        bool OffStack = false);
 
     private EffectRun Execute(EffectRun run, Effect effect)
     {
@@ -258,9 +272,21 @@ public sealed partial class EffectInterpreter(
         int max,
         string? storeAs = null)
     {
-        var extra = ImmutableDictionary<string, string>.Empty;
+        var extra = run.Marks ?? ImmutableDictionary<string, string>.Empty;
         if (storeAs is not null)
             extra = extra.SetItem("storeAs", storeAs);
+
+        // CR 101.4: a question raised outside a resolution has no stack object to rebuild the
+        // context from, so what the walk was running in travels with the question instead.
+        if (run.OffStack)
+        {
+            extra = extra.SetItem("controller", run.Context.Controller.Value.ToString(CultureInfo.InvariantCulture));
+            if (!run.Context.Triggering.IsEmpty)
+                extra = extra.SetItem("triggering", Joined(run.Context.Triggering.Select(t => t.Value)));
+            if (run.Context.TriggeringPlayer is { } triggeringPlayer)
+                extra = extra.SetItem("triggeringPlayer", triggeringPlayer.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
         var choice = new PendingChoice(
             new ChoiceId(run.State.NextChoiceId),
             player,
@@ -294,6 +320,47 @@ public sealed partial class EffectInterpreter(
 
     private static EffectRun Recall(EffectRun run, string? key, IEnumerable<ObjectId> objects) =>
         key is null ? run : run with { Context = run.Context with { Remembered = run.Context.Remembered.SetItem(key, [.. objects]) } };
+
+    /* ---------------------------------------------------------------------------------------- *
+     * Progress markers: how a loop that stopped to ask starts again where it stopped.
+     * ---------------------------------------------------------------------------------------- */
+
+    /// <summary>
+    /// What a loop at this path had worked out, remembered under the loop's own path so a question
+    /// raised inside it carries it. Without this a resumed loop re-resolves its selector against a
+    /// state its own earlier iterations changed, and the iteration the answer belongs to is no
+    /// longer at the index the question's path names (CR 101.4).
+    /// </summary>
+    [RuleRef("101.4")]
+    private static EffectRun Mark(EffectRun run, IEnumerable<int> values) => run with
+    {
+        Marks = (run.Marks ?? ImmutableDictionary<string, string>.Empty)
+            .SetItem(LoopKey(run.Path), Joined(values)),
+    };
+
+    /// <summary>The mark this loop left before it asked, when the answer being resumed came from inside it.</summary>
+    private static ImmutableList<int>? Marked(EffectRun run)
+    {
+        if (run.Answer is not { } answer || run.AnswerPath is not { } asked || !OnPath(run.Path, asked))
+            return null;
+        return answer.Context.Extra.TryGetValue(LoopKey(run.Path), out var marked) ? Numbers(marked) : null;
+    }
+
+    /// <summary>A finished loop's mark is dropped, so a later question in the same walk does not carry it.</summary>
+    private static EffectRun Unmark(EffectRun run) =>
+        run.Marks is null ? run : run with { Marks = run.Marks.Remove(LoopKey(run.Path)) };
+
+    private static string LoopKey(string path) => "loop:" + path;
+
+    private static string Joined(IEnumerable<int> values) =>
+        string.Join(",", values.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+
+    private static ImmutableList<int> Numbers(string joined) =>
+    [
+        .. joined.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => int.TryParse(s, CultureInfo.InvariantCulture, out var n) ? n : -1)
+            .Where(n => n >= 0),
+    ];
 
     private static ImmutableList<ChoiceOption> OptionsFor(GameState state, IEnumerable<ObjectId> ids) =>
         [.. ids.Where(state.Objects.ContainsKey).Select(id => new ChoiceOption(

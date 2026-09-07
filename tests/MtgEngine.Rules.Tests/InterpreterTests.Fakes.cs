@@ -169,6 +169,16 @@ internal sealed class InterpreterTable
     public ImmutableList<GameEvent> Run(Effect effect, EffectContext? context = null) =>
         Run(Subject.Run(State, effect, context ?? Context()));
 
+    /// <summary>
+    /// Run an effect outside the stack, saying which of the source's abilities it is: what the
+    /// replacement system does with a <c>ReplacementAbility.With</c>, CR 614.1a.
+    /// </summary>
+    public ImmutableList<GameEvent> RunFrom(Effect effect, EffectContext context, int? abilityIndex) =>
+        Run(Subject.Run(State, effect, context, abilityIndex));
+
+    /// <summary>Turn a permanent over without going through the interpreter, so a test can set the board up.</summary>
+    public void SetTapped(ObjectId id, bool tapped) => State = new ObjectChanged(id, Tapped: tapped).Apply(State);
+
     public EffectContext Context(ObjectId? source = null, int? x = null) => new(
         source,
         A,

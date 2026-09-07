@@ -69,16 +69,35 @@ public sealed partial class EffectInterpreter
                 {
                     var target = Number(run, set.N);
                     foreach (var player in PlayersOrYou(run, set.Who))
-                        run = Emit(run, new LifeChanged(player, target - run.State.Player(player).Life, "setLife"));
+                    {
+                        var delta = target - run.State.Player(player).Life;
+                        if (delta == 0)
+                            continue;
+                        run = Propose(run, new LifeChanged(player, delta, "setLife"), player);
+                        if (run.Halted)
+                            return run;
+                    }
+
                     return run;
                 }
 
-            // CR 122.1: counters are put on and removed from objects one kind at a time.
+            // CR 122.1: counters are put on and removed from objects one kind at a time. Putting
+            // them on is offered to the replacement system first, CR 614.1: "with an additional
+            // counter" and "enters with counters instead" are replacements of this event.
             case PutCounters put:
                 {
                     var count = Number(run, put.N);
+                    if (count <= 0)
+                        return run;
                     foreach (var id in Objects(run, put.On))
-                        run = Emit(run, new CountersChanged(id, put.Counter, count));
+                    {
+                        if (!run.State.Objects.ContainsKey(id))
+                            continue;
+                        run = Propose(run, new CountersChanged(id, put.Counter, count), characteristics.ControllerOf(run.State, id));
+                        if (run.Halted)
+                            return run;
+                    }
+
                     return run;
                 }
 
@@ -168,12 +187,24 @@ public sealed partial class EffectInterpreter
         }
     }
 
+    /// <summary>
+    /// CR 614.1a: gaining and losing life are offered to the replacement system before they
+    /// happen, so "if you would gain life, gain twice that much" and "you can't lose life" are
+    /// applied to the event rather than after it. A replacement that drops the event leaves no
+    /// <see cref="LifeChanged"/> behind at all.
+    /// </summary>
+    [RuleRef("614.1a")]
     private EffectRun Life(EffectRun run, PlayerRef? who, int delta, string reason)
     {
         if (delta == 0)
             return run;
         foreach (var player in PlayersOrYou(run, who))
-            run = Emit(run, new LifeChanged(player, delta, reason));
+        {
+            run = Propose(run, new LifeChanged(player, delta, reason), player);
+            if (run.Halted)
+                return run;
+        }
+
         return run;
     }
 

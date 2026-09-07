@@ -56,11 +56,18 @@ public sealed partial class EffectInterpreter
                 }
 
             // CR 608.2: "for each" runs once per object, with that object as the triggering one.
+            // The objects are worked out once and remembered (CR 101.4): a question raised in the
+            // third iteration is answered against a state the first two changed, and re-resolving
+            // the selector then would put a different object at the index the answer names.
             case ForEach each:
                 {
                     var outer = run.Context;
+                    ImmutableList<ObjectId> over = Marked(run) is { } resumed
+                        ? [.. resumed.Select(id => new ObjectId(id))]
+                        : Objects(run, each.Over);
+                    run = Mark(run, over.Select(id => id.Value));
                     var index = 0;
-                    foreach (var id in Objects(run, each.Over))
+                    foreach (var id in over)
                     {
                         run = run with { Context = run.Context with { Triggering = [id] } };
                         run = Child(run, index++, each.Do);
@@ -68,14 +75,18 @@ public sealed partial class EffectInterpreter
                             break;
                     }
 
-                    return run with { Context = run.Context with { Triggering = outer.Triggering } };
+                    return Unmark(run) with { Context = run.Context with { Triggering = outer.Triggering } };
                 }
 
             case ForEachPlayer each:
                 {
                     var outer = run.Context;
+                    ImmutableList<PlayerId> over = Marked(run) is { } resumed
+                        ? [.. resumed.Select(seat => new PlayerId(seat))]
+                        : PlayersOrYou(run, each.Over);
+                    run = Mark(run, over.Select(player => player.Value));
                     var index = 0;
-                    foreach (var player in PlayersOrYou(run, each.Over))
+                    foreach (var player in over)
                     {
                         run = run with { Context = run.Context with { TriggeringPlayer = player } };
                         run = Child(run, index++, each.Do);
@@ -83,7 +94,7 @@ public sealed partial class EffectInterpreter
                             break;
                     }
 
-                    return run with { Context = run.Context with { TriggeringPlayer = outer.TriggeringPlayer } };
+                    return Unmark(run) with { Context = run.Context with { TriggeringPlayer = outer.TriggeringPlayer } };
                 }
 
             case Repeat repeat:
