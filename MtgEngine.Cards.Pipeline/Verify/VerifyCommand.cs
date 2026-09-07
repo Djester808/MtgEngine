@@ -75,7 +75,10 @@ public static class VerifyCommand
 
         var engineHash = EventLogSerializer.EngineHash();
         var runId = RunId();
-        var stage = new VerifyStage(new ScenarioRunner(new Game(Subsystems.Wave2(), directory)), writer, engineHash);
+        // CR 101.4: a generated scenario cannot name an option id, so the runner answers the
+        // questions it did not ask with the first legal option. A scenario that answers its own
+        // questions still does (seam-requests/P8.md § 2).
+        var stage = new VerifyStage(new ScenarioRunner(new Game(Subsystems.Wave2(), directory), autoAnswer: true), writer, engineHash);
         var at = DateTimeOffset.UtcNow;
 
         var outcomes = new List<VerifyOutcome>();

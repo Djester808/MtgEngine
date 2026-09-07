@@ -6,8 +6,13 @@ namespace MtgEngine.Api.Dtos;
 /// <summary>One scenario a card carries, and whether it passed the last verification run.</summary>
 public sealed record ScenarioSummaryDto(string Name, string Source, bool? Passed);
 
-/// <summary>The last time the runner played this card's scenarios, and what came of it.</summary>
-public sealed record VerificationDto(string EngineHash, string RunId, int Passed, int Total, DateTimeOffset At);
+/// <summary>
+/// The last time the runner played this card's scenarios, and what came of it.
+/// <paramref name="WithoutScenarios"/> is how many cards the run had nothing to play at all — a
+/// gap in the scenarios rather than a card that failed, and the dashboard has to show it apart
+/// from both. It is a count over a run, so it is zero on one card's own verification.
+/// </summary>
+public sealed record VerificationDto(string EngineHash, string RunId, int Passed, int Total, DateTimeOffset At, int WithoutScenarios = 0);
 
 /// <summary>How far along one card is: the status the deck gate reads, and the evidence behind it.</summary>
 public sealed record CardImplementationDto(
