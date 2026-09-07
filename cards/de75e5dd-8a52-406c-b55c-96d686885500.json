@@ -40,9 +40,6 @@
                   "kind": "You"
                 },
                 "what": {
-                  "types": [
-                    "Land"
-                  ],
                   "subtypes": [
                     "Forest"
                   ]
@@ -107,12 +104,16 @@
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
-                "restriction": true,
-                "restrictedTo": "Spend this mana only to cast creature spells or activate abilities of creatures."
+                "restriction": false
               },
               "n": {
                 "kind": "Fixed",
                 "n": 6
+              },
+              "spendOnlyOn": {
+                "types": [
+                  "Creature"
+                ]
               }
             },
             "timing": "Any",
@@ -144,9 +145,6 @@
                   "kind": "You"
                 },
                 "what": {
-                  "types": [
-                    "Land"
-                  ],
                   "subtypes": [
                     "Forest"
                   ]
@@ -211,12 +209,16 @@
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
-                "restriction": true,
-                "restrictedTo": "Spend this mana only to cast creature spells or activate abilities of creatures."
+                "restriction": false
               },
               "n": {
                 "kind": "Fixed",
                 "n": 6
+              },
+              "spendOnlyOn": {
+                "types": [
+                  "Creature"
+                ]
               }
             },
             "timing": "Any",
@@ -228,474 +230,1347 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "de75e5dd-8a52-406c-b55c-96d686885500",
-        "name": "Castle Garenbrig",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-de75e5dd-8a52-406c-b55c-96d686885500",
+      "title": "playing Castle Garenbrig puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Castle Garenbrig",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "types": [
-                        "Land"
-                      ],
-                      "subtypes": [
-                        "Forest"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Forest."
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{G}{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "Spend this mana only to cast creature spells or activate abilities of creatures."
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 6
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "This land enters tapped unless you control a Forest.\n{T}: Add {G}.\n{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "types": [
-                        "Land"
-                      ],
-                      "subtypes": [
-                        "Forest"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Forest."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{G}{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "Spend this mana only to cast creature spells or activate abilities of creatures."
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 6
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Castle Garenbrig"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Castle Garenbrig",
+          "zone": "Battlefield"
+        }
+      ]
     },
     {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "de75e5dd-8a52-406c-b55c-96d686885500",
-        "name": "Castle Garenbrig",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-activate-de75e5dd-8a52-406c-b55c-96d686885500-1",
+      "title": "activating an ability of Castle Garenbrig does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Castle Garenbrig",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "types": [
-                        "Land"
-                      ],
-                      "subtypes": [
-                        "Forest"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Forest."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{G}{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "cast creature spells or activate abilities of creatures"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 6
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures."
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "This land enters tapped unless you control a Forest.\n{T}: Add {G}.\n{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "types": [
-                        "Land"
-                      ],
-                      "subtypes": [
-                        "Forest"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Forest."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{G}{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "cast creature spells or activate abilities of creatures"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 6
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{G}{G}, {T}: Add six {G}. Spend this mana only to cast creature spells or activate abilities of creatures."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Castle Garenbrig",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Castle Garenbrig",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-de75e5dd-8a52-406c-b55c-96d686885500-2",
+      "title": "activating an ability of Castle Garenbrig does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Castle Garenbrig",
+          "abilityIndex": 2
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Castle Garenbrig",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 3,
+    "total": 3,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-de75e5dd-8a52-406c-b55c-96d686885500",
+      "title": "playing Castle Garenbrig puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Castle Garenbrig"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Castle Garenbrig",
+          "zone": "Battlefield"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-de75e5dd-8a52-406c-b55c-96d686885500-1",
+      "title": "activating an ability of Castle Garenbrig does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Castle Garenbrig",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Castle Garenbrig",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-de75e5dd-8a52-406c-b55c-96d686885500-2",
+      "title": "activating an ability of Castle Garenbrig does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Castle Garenbrig",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Castle Garenbrig",
+          "abilityIndex": 2
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Castle Garenbrig",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

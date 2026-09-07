@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: ManaProduction.landCouldProduce cannot say whose lands are read: it carries no player or ObjectFilter, so \u0027a land an opponent controls\u0027 has nowhere to go and the flag alone reads as \u0027a land you control\u0027 (Reflecting Pool), a different card. ManaProduction needs a filter for the lands whose colours are surveyed.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
 }

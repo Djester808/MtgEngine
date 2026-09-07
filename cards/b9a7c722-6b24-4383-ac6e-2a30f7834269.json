@@ -30,9 +30,6 @@
                 "types": [
                   "Creature"
                 ],
-                "controlledBy": {
-                  "kind": "You"
-                },
                 "colors": [
                   "Green"
                 ],
@@ -131,9 +128,6 @@
                 "types": [
                   "Creature"
                 ],
-                "controlledBy": {
-                  "kind": "You"
-                },
                 "colors": [
                   "Green"
                 ],
@@ -231,7 +225,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -265,9 +259,6 @@
                     "types": [
                       "Creature"
                     ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "Green"
                     ],
@@ -366,9 +357,6 @@
                     "types": [
                       "Creature"
                     ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "Green"
                     ],
@@ -495,7 +483,8 @@
                     },
                     "colors": [
                       "Green"
-                    ]
+                    ],
+                    "spell": true
                   },
                   "delta": {
                     "kind": "Fixed",
@@ -517,7 +506,8 @@
                   "spell": {
                     "types": [
                       "Creature"
-                    ]
+                    ],
+                    "spell": true
                   },
                   "by": {
                     "kind": "You"
@@ -564,18 +554,8 @@
                         "keyword": "Trample"
                       },
                       "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
+                        "kind": "Remembered",
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -604,7 +584,8 @@
                     },
                     "colors": [
                       "Green"
-                    ]
+                    ],
+                    "spell": true
                   },
                   "delta": {
                     "kind": "Fixed",
@@ -626,7 +607,8 @@
                   "spell": {
                     "types": [
                       "Creature"
-                    ]
+                    ],
+                    "spell": true
                   },
                   "by": {
                     "kind": "You"
@@ -673,18 +655,8 @@
                         "keyword": "Trample"
                       },
                       "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
+                        "kind": "Remembered",
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"

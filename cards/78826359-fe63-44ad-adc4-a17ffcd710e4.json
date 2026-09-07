@@ -65,154 +65,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "78826359-fe63-44ad-adc4-a17ffcd710e4",
-        "name": "Nature\u0027s Lore",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nature\u0027s Lore",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "78826359-fe63-44ad-adc4-a17ffcd710e4",
-        "name": "Nature\u0027s Lore",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nature\u0027s Lore",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

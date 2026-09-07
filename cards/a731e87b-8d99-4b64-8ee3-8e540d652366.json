@@ -26,21 +26,6 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Remember",
-                  "key": "k1",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ]
-                    },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  }
-                },
-                {
                   "kind": "LoseLife",
                   "n": {
                     "kind": "Fixed",
@@ -81,14 +66,20 @@
                         "ownersChoiceOfOrder": true
                       },
                       "optional": false,
-                      "where": "Graveyard",
+                      "where": "Battlefield",
                       "oncePerTurn": false,
                       "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control."
                     }
                   },
                   "to": {
-                    "kind": "Remembered",
-                    "key": "k1"
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -107,21 +98,6 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Remember",
-                  "key": "k1",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ]
-                    },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  }
-                },
-                {
                   "kind": "LoseLife",
                   "n": {
                     "kind": "Fixed",
@@ -162,14 +138,20 @@
                         "ownersChoiceOfOrder": true
                       },
                       "optional": false,
-                      "where": "Graveyard",
+                      "where": "Battlefield",
                       "oncePerTurn": false,
                       "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control."
                     }
                   },
                   "to": {
-                    "kind": "Remembered",
-                    "key": "k1"
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -291,7 +273,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -321,21 +303,6 @@
                   "kind": "Sequence",
                   "steps": [
                     {
-                      "kind": "Remember",
-                      "key": "k1",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      }
-                    },
-                    {
                       "kind": "LoseLife",
                       "n": {
                         "kind": "Fixed",
@@ -376,14 +343,20 @@
                             "ownersChoiceOfOrder": true
                           },
                           "optional": false,
-                          "where": "Graveyard",
+                          "where": "Battlefield",
                           "oncePerTurn": false,
                           "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control."
                         }
                       },
                       "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -402,21 +375,6 @@
                   "kind": "Sequence",
                   "steps": [
                     {
-                      "kind": "Remember",
-                      "key": "k1",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      }
-                    },
-                    {
                       "kind": "LoseLife",
                       "n": {
                         "kind": "Fixed",
@@ -457,14 +415,20 @@
                             "ownersChoiceOfOrder": true
                           },
                           "optional": false,
-                          "where": "Graveyard",
+                          "where": "Battlefield",
                           "oncePerTurn": false,
                           "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control."
                         }
                       },
                       "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -629,14 +593,16 @@
                           "do": {
                             "kind": "Move",
                             "what": {
-                              "kind": "Self"
+                              "kind": "Triggering",
+                              "role": "Subject"
                             },
                             "to": "Battlefield",
                             "where": "Default",
                             "underControlOf": {
                               "kind": "OwnerOf",
                               "of": {
-                                "kind": "Self"
+                                "kind": "Triggering",
+                                "role": "Subject"
                               }
                             },
                             "tapped": true,
@@ -659,7 +625,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -702,14 +667,16 @@
                           "do": {
                             "kind": "Move",
                             "what": {
-                              "kind": "Self"
+                              "kind": "Triggering",
+                              "role": "Subject"
                             },
                             "to": "Battlefield",
                             "where": "Default",
                             "underControlOf": {
                               "kind": "OwnerOf",
                               "of": {
-                                "kind": "Self"
+                                "kind": "Triggering",
+                                "role": "Subject"
                               }
                             },
                             "tapped": true,
@@ -732,7 +699,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "until": {

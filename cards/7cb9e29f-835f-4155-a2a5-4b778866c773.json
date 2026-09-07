@@ -111,13 +111,9 @@
                 }
               },
               "then": {
-                "kind": "MayCast",
-                "what": {
-                  "kind": "Remembered",
-                  "key": "k1"
-                },
-                "withoutPayingManaCost": true,
-                "asCopy": false
+                "kind": "Unsupported",
+                "reason": "No selector names the card hideaway exiled with this permanent (CR 702.75a): the exile happens inside the Hideaway keyword ability, which has no RememberAs, and neither ObjectFilter nor Predicate can say \u0027exiled with this permanent\u0027, so \u0027the exiled card\u0027 cannot be pointed at.",
+                "text": "You may play the exiled card without paying its mana cost"
               }
             },
             "timing": "Any",
@@ -220,13 +216,9 @@
                 }
               },
               "then": {
-                "kind": "MayCast",
-                "what": {
-                  "kind": "Remembered",
-                  "key": "k1"
-                },
-                "withoutPayingManaCost": true,
-                "asCopy": false
+                "kind": "Unsupported",
+                "reason": "No selector names the card hideaway exiled with this permanent (CR 702.75a): the exile happens inside the Hideaway keyword ability, which has no RememberAs, and neither ObjectFilter nor Predicate can say \u0027exiled with this permanent\u0027, so \u0027the exiled card\u0027 cannot be pointed at.",
+                "text": "You may play the exiled card without paying its mana cost"
               }
             },
             "timing": "Any",
@@ -244,7 +236,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -361,13 +353,9 @@
                     }
                   },
                   "then": {
-                    "kind": "MayCast",
-                    "what": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "withoutPayingManaCost": true,
-                    "asCopy": false
+                    "kind": "Unsupported",
+                    "reason": "No selector names the card hideaway exiled with this permanent (CR 702.75a): the exile happens inside the Hideaway keyword ability, which has no RememberAs, and neither ObjectFilter nor Predicate can say \u0027exiled with this permanent\u0027, so \u0027the exiled card\u0027 cannot be pointed at.",
+                    "text": "You may play the exiled card without paying its mana cost"
                   }
                 },
                 "timing": "Any",
@@ -470,13 +458,9 @@
                     }
                   },
                   "then": {
-                    "kind": "MayCast",
-                    "what": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "withoutPayingManaCost": true,
-                    "asCopy": false
+                    "kind": "Unsupported",
+                    "reason": "No selector names the card hideaway exiled with this permanent (CR 702.75a): the exile happens inside the Hideaway keyword ability, which has no RememberAs, and neither ObjectFilter nor Predicate can say \u0027exiled with this permanent\u0027, so \u0027the exiled card\u0027 cannot be pointed at.",
+                    "text": "You may play the exiled card without paying its mana cost"
                   }
                 },
                 "timing": "Any",
@@ -515,7 +499,7 @@
                   "n": 4
                 },
                 "repeatable": false,
-                "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+                "text": "Hideaway 4"
               },
               {
                 "kind": "ReplacementAbility",
@@ -588,7 +572,8 @@
                       "of": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Self"
+                          "kind": "Triggering",
+                          "role": "Subject"
                         }
                       }
                     },
@@ -599,13 +584,9 @@
                     }
                   },
                   "then": {
-                    "kind": "MayCast",
-                    "what": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "withoutPayingManaCost": true,
-                    "asCopy": false
+                    "kind": "Unsupported",
+                    "reason": "No selector or predicate names the card Hideaway exiled with this permanent (CR 702.107): the exile happens inside the Hideaway keyword ability, which has no rememberAs/key parameter, and neither ObjectFilter nor Predicate has an \u0027exiled with this permanent\u0027 relation, so \u0027the exiled card\u0027 cannot be pointed at from this separate activated ability.",
+                    "text": "You may play the exiled card without paying its mana cost"
                   }
                 },
                 "timing": "Any",
@@ -624,7 +605,7 @@
                   "n": 4
                 },
                 "repeatable": false,
-                "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+                "text": "Hideaway 4"
               },
               {
                 "kind": "ReplacementAbility",
@@ -697,7 +678,8 @@
                       "of": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Self"
+                          "kind": "Triggering",
+                          "role": "Subject"
                         }
                       }
                     },
@@ -708,13 +690,9 @@
                     }
                   },
                   "then": {
-                    "kind": "MayCast",
-                    "what": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "withoutPayingManaCost": true,
-                    "asCopy": false
+                    "kind": "Unsupported",
+                    "reason": "No selector or predicate names the card Hideaway exiled with this permanent (CR 702.107): the exile happens inside the Hideaway keyword ability, which has no rememberAs/key parameter, and neither ObjectFilter nor Predicate has an \u0027exiled with this permanent\u0027 relation, so \u0027the exiled card\u0027 cannot be pointed at from this separate activated ability.",
+                    "text": "You may play the exiled card without paying its mana cost"
                   }
                 },
                 "timing": "Any",

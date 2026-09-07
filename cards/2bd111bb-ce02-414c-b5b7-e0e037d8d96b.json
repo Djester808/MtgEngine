@@ -46,14 +46,15 @@
                 "kind": "You"
               },
               "from": "Library",
-              "topOfLibraryOnly": true
+              "topOfLibraryOnly": true,
+              "withoutPayingManaCost": false
             },
             "players": {
               "kind": "You"
             },
             "where": "Battlefield",
             "characteristicDefining": false,
-            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+            "text": "You may play lands and cast spells from the top of your library."
           },
           {
             "kind": "StaticAbility",
@@ -69,7 +70,7 @@
             },
             "where": "Battlefield",
             "characteristicDefining": false,
-            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+            "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
           },
           {
             "kind": "ActivatedAbility",
@@ -133,14 +134,15 @@
                 "kind": "You"
               },
               "from": "Library",
-              "topOfLibraryOnly": true
+              "topOfLibraryOnly": true,
+              "withoutPayingManaCost": false
             },
             "players": {
               "kind": "You"
             },
             "where": "Battlefield",
             "characteristicDefining": false,
-            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+            "text": "You may play lands and cast spells from the top of your library."
           },
           {
             "kind": "StaticAbility",
@@ -156,7 +158,7 @@
             },
             "where": "Battlefield",
             "characteristicDefining": false,
-            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+            "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
           },
           {
             "kind": "ActivatedAbility",
@@ -203,7 +205,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -253,14 +255,15 @@
                     "kind": "You"
                   },
                   "from": "Library",
-                  "topOfLibraryOnly": true
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false
                 },
                 "players": {
                   "kind": "You"
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "You may play lands and cast spells from the top of your library."
               },
               {
                 "kind": "StaticAbility",
@@ -276,7 +279,7 @@
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
               },
               {
                 "kind": "ActivatedAbility",
@@ -340,14 +343,15 @@
                     "kind": "You"
                   },
                   "from": "Library",
-                  "topOfLibraryOnly": true
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false
                 },
                 "players": {
                   "kind": "You"
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "You may play lands and cast spells from the top of your library."
               },
               {
                 "kind": "StaticAbility",
@@ -363,7 +367,7 @@
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
               },
               {
                 "kind": "ActivatedAbility",
@@ -430,9 +434,6 @@
                 "kind": "StaticAbility",
                 "effect": {
                   "kind": "MayLookAtTopCard",
-                  "who": {
-                    "kind": "You"
-                  },
                   "anyTime": true
                 },
                 "where": "Battlefield",
@@ -443,28 +444,13 @@
                 "kind": "StaticAbility",
                 "effect": {
                   "kind": "MayPlayFromZone",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
-                  "topOfLibraryOnly": true
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SpellsCostLifeInsteadOfMana",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "colors": []
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
               },
               {
                 "kind": "ActivatedAbility",
@@ -477,8 +463,7 @@
                     "what": {
                       "notTypes": [
                         "Land"
-                      ],
-                      "permanent": true
+                      ]
                     },
                     "count": {
                       "kind": "Fixed",
@@ -508,9 +493,6 @@
                 "kind": "StaticAbility",
                 "effect": {
                   "kind": "MayLookAtTopCard",
-                  "who": {
-                    "kind": "You"
-                  },
                   "anyTime": true
                 },
                 "where": "Battlefield",
@@ -521,28 +503,13 @@
                 "kind": "StaticAbility",
                 "effect": {
                   "kind": "MayPlayFromZone",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
-                  "topOfLibraryOnly": true
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
-                "text": "You may play lands and cast spells from the top of your library."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SpellsCostLifeInsteadOfMana",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "colors": []
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
               },
               {
                 "kind": "ActivatedAbility",
@@ -555,8 +522,7 @@
                     "what": {
                       "notTypes": [
                         "Land"
-                      ],
-                      "permanent": true
+                      ]
                     },
                     "count": {
                       "kind": "Fixed",

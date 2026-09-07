@@ -27,17 +27,9 @@
               }
             ],
             "do": {
-              "kind": "AddMana",
-              "mana": {
-                "anyColor": false,
-                "commanderIdentity": false,
-                "chosenColor": false,
-                "colorOfAttachedOrTarget": false,
-                "landCouldProduce": true,
-                "anyType": false,
-                "restriction": true,
-                "restrictedTo": "an opponent controls"
-              }
+              "kind": "Unsupported",
+              "reason": "ManaProduction.landCouldProduce cannot say whose lands are read: it carries no player or ObjectFilter, so \u0027a land an opponent controls\u0027 has nowhere to go and the flag alone reads as \u0027a land you control\u0027 (Reflecting Pool), a different card. ManaProduction needs a filter for the lands whose colours are surveyed.",
+              "text": "Add one mana of any color that a land an opponent controls could produce."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -55,17 +47,9 @@
               }
             ],
             "do": {
-              "kind": "AddMana",
-              "mana": {
-                "anyColor": false,
-                "commanderIdentity": false,
-                "chosenColor": false,
-                "colorOfAttachedOrTarget": false,
-                "landCouldProduce": true,
-                "anyType": false,
-                "restriction": true,
-                "restrictedTo": "an opponent controls"
-              }
+              "kind": "Unsupported",
+              "reason": "ManaProduction.landCouldProduce cannot say whose lands are read: it carries no player or ObjectFilter, so \u0027a land an opponent controls\u0027 has nowhere to go and the flag alone reads as \u0027a land you control\u0027 (Reflecting Pool), a different card. ManaProduction needs a filter for the lands whose colours are surveyed.",
+              "text": "Add one mana of any color that a land an opponent controls could produce."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -76,154 +60,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
+      "claude-opus-5",
       "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "27b047e3-0d41-45e2-98e9-9391d7923a1e",
-        "name": "Exotic Orchard",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Exotic Orchard",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "ManaProduction cannot restrict \u0027a land could produce\u0027 to lands an opponent controls",
-                  "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-              }
-            ],
-            "oracleText": "{T}: Add one mana of any color that a land an opponent controls could produce.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "ManaProduction cannot restrict \u0027a land could produce\u0027 to lands an opponent controls",
-                  "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "27b047e3-0d41-45e2-98e9-9391d7923a1e",
-        "name": "Exotic Orchard",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Exotic Orchard",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "an opponent controls"
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-              }
-            ],
-            "oracleText": "{T}: Add one mana of any color that a land an opponent controls could produce.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "an opponent controls"
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color that a land an opponent controls could produce."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

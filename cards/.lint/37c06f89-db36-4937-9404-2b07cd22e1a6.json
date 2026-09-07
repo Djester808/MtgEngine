@@ -3,15 +3,15 @@
     {
       "severity": "Warning",
       "code": "L002",
-      "message": "The definition has Hexproof and Scryfall does not list it; check it is granted, not printed.",
+      "message": "The definition has Indestructible and Scryfall does not list it; check it is granted, not printed.",
       "path": "scryfallKeywords"
     },
     {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No condition expresses whether the gift was promised",
-      "path": "faces[0].abilities[1]"
+      "severity": "Warning",
+      "code": "L002",
+      "message": "The definition has Hexproof and Scryfall does not list it; check it is granted, not printed.",
+      "path": "scryfallKeywords"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

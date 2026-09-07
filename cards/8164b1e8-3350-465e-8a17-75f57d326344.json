@@ -23,30 +23,53 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "ForEachPlayer",
-              "over": {
-                "kind": "EachOpponent"
-              },
-              "do": {
-                "kind": "Sequence",
-                "steps": [
-                  {
-                    "kind": "LoseLife",
-                    "n": {
-                      "kind": "X"
-                    },
-                    "who": {
-                      "kind": "TriggeringPlayer"
-                    }
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "X"
                   },
-                  {
-                    "kind": "GainLife",
-                    "n": {
-                      "kind": "X"
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "Store",
+                  "key": "k1",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
+                {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "Store",
+                    "key": "k1",
+                    "value": {
+                      "kind": "Sum",
+                      "left": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "right": {
+                        "kind": "X"
+                      }
                     }
                   }
-                ]
-              }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
+                }
+              ]
             },
             "text": "Each opponent loses X life. You gain life equal to the life lost this way."
           }
@@ -56,30 +79,53 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "ForEachPlayer",
-              "over": {
-                "kind": "EachOpponent"
-              },
-              "do": {
-                "kind": "Sequence",
-                "steps": [
-                  {
-                    "kind": "LoseLife",
-                    "n": {
-                      "kind": "X"
-                    },
-                    "who": {
-                      "kind": "TriggeringPlayer"
-                    }
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "X"
                   },
-                  {
-                    "kind": "GainLife",
-                    "n": {
-                      "kind": "X"
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "Store",
+                  "key": "k1",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
+                {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "Store",
+                    "key": "k1",
+                    "value": {
+                      "kind": "Sum",
+                      "left": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "right": {
+                        "kind": "X"
+                      }
                     }
                   }
-                ]
-              }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
+                }
+              ]
             },
             "text": "Each opponent loses X life. You gain life equal to the life lost this way."
           }
@@ -87,248 +133,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "8164b1e8-3350-465e-8a17-75f57d326344",
-        "name": "Exsanguinate",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Exsanguinate",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{B}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ForEachPlayer",
-                  "over": {
-                    "kind": "EachOpponent"
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "X"
-                        },
-                        "who": {
-                          "kind": "TriggeringPlayer"
-                        }
-                      },
-                      {
-                        "kind": "GainLife",
-                        "n": {
-                          "kind": "X"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "text": "Each opponent loses X life. You gain life equal to the life lost this way."
-              }
-            ],
-            "oracleText": "Each opponent loses X life. You gain life equal to the life lost this way.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ForEachPlayer",
-                  "over": {
-                    "kind": "EachOpponent"
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "X"
-                        },
-                        "who": {
-                          "kind": "TriggeringPlayer"
-                        }
-                      },
-                      {
-                        "kind": "GainLife",
-                        "n": {
-                          "kind": "X"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "text": "Each opponent loses X life. You gain life equal to the life lost this way."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "8164b1e8-3350-465e-8a17-75f57d326344",
-        "name": "Exsanguinate",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Exsanguinate",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{B}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 0
-                      }
-                    },
-                    {
-                      "kind": "ForEachPlayer",
-                      "over": {
-                        "kind": "EachOpponent"
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "X"
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Store",
-                            "key": "k1",
-                            "value": {
-                              "kind": "Sum",
-                              "left": {
-                                "kind": "Stored",
-                                "key": "k1"
-                              },
-                              "right": {
-                                "kind": "X"
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "text": "Each opponent loses X life. You gain life equal to the life lost this way."
-              }
-            ],
-            "oracleText": "Each opponent loses X life. You gain life equal to the life lost this way.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 0
-                      }
-                    },
-                    {
-                      "kind": "ForEachPlayer",
-                      "over": {
-                        "kind": "EachOpponent"
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "X"
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Store",
-                            "key": "k1",
-                            "value": {
-                              "kind": "Sum",
-                              "left": {
-                                "kind": "Stored",
-                                "key": "k1"
-                              },
-                              "right": {
-                                "kind": "X"
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "text": "Each opponent loses X life. You gain life equal to the life lost this way."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

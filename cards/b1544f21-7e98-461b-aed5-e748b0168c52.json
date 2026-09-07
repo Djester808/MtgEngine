@@ -38,8 +38,7 @@
                     "key": "k1",
                     "distinct": true
                   },
-                  "faceDown": false,
-                  "rememberAs": "k1"
+                  "faceDown": false
                 },
                 {
                   "kind": "GainLife",
@@ -83,8 +82,7 @@
                     "key": "k1",
                     "distinct": true
                   },
-                  "faceDown": false,
-                  "rememberAs": "k1"
+                  "faceDown": false
                 },
                 {
                   "kind": "GainLife",
@@ -117,7 +115,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -159,8 +157,7 @@
                         "key": "k1",
                         "distinct": true
                       },
-                      "faceDown": false,
-                      "rememberAs": "k1"
+                      "faceDown": false
                     },
                     {
                       "kind": "GainLife",
@@ -204,8 +201,7 @@
                         "key": "k1",
                         "distinct": true
                       },
-                      "faceDown": false,
-                      "rememberAs": "k1"
+                      "faceDown": false
                     },
                     {
                       "kind": "GainLife",
@@ -267,7 +263,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false
@@ -277,15 +272,13 @@
                       "n": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       }
                     }
@@ -311,7 +304,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false
@@ -321,15 +313,13 @@
                       "n": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       }
                     }

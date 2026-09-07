@@ -205,9 +205,9 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -251,9 +251,68 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Unsupported",
-                      "reason": "cannot express choosing a subset of the remembered revealed cards to put onto the battlefield and then moving only the remainder to the graveyard",
-                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Matches",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Battle",
+                              "Creature",
+                              "Enchantment",
+                              "Land",
+                              "Planeswalker"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "May",
+                          "do": {
+                            "kind": "Move",
+                            "what": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            },
+                            "to": "Battlefield",
+                            "where": "Default",
+                            "tapped": false,
+                            "faceDown": false,
+                            "attacking": false,
+                            "transformed": false,
+                            "ownersChoiceOfOrder": true
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     }
                   ]
                 },
@@ -282,9 +341,68 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Unsupported",
-                      "reason": "cannot express choosing a subset of the remembered revealed cards to put onto the battlefield and then moving only the remainder to the graveyard",
-                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Matches",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Battle",
+                              "Creature",
+                              "Enchantment",
+                              "Land",
+                              "Planeswalker"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "May",
+                          "do": {
+                            "kind": "Move",
+                            "what": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            },
+                            "to": "Battlefield",
+                            "where": "Default",
+                            "tapped": false,
+                            "faceDown": false,
+                            "attacking": false,
+                            "transformed": false,
+                            "ownersChoiceOfOrder": true
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     }
                   ]
                 },
@@ -334,68 +452,9 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "If",
-                        "test": {
-                          "kind": "Matches",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "filter": {
-                            "anyTypes": [
-                              "Artifact",
-                              "Battle",
-                              "Creature",
-                              "Enchantment",
-                              "Land",
-                              "Planeswalker"
-                            ],
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
-                            }
-                          }
-                        },
-                        "then": {
-                          "kind": "May",
-                          "do": {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
+                      "kind": "Unsupported",
+                      "reason": "The vocabulary has no way to choose a subset of a specific remembered group of objects: Choose only filters by ObjectFilter over a zone, and there is no predicate for \u0027is one of the objects remembered under a key\u0027. So neither \u0027put any number of permanent cards with mana value X or less from among them onto the battlefield\u0027 nor tracking which of the revealed cards were not chosen (to move only that remainder to the graveyard) can be expressed.",
+                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
                     }
                   ]
                 },
@@ -424,68 +483,9 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "If",
-                        "test": {
-                          "kind": "Matches",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "filter": {
-                            "anyTypes": [
-                              "Artifact",
-                              "Battle",
-                              "Creature",
-                              "Enchantment",
-                              "Land",
-                              "Planeswalker"
-                            ],
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
-                            }
-                          }
-                        },
-                        "then": {
-                          "kind": "May",
-                          "do": {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
+                      "kind": "Unsupported",
+                      "reason": "The vocabulary has no way to choose a subset of a specific remembered group of objects: Choose only filters by ObjectFilter over a zone, and there is no predicate for \u0027is one of the objects remembered under a key\u0027. So neither \u0027put any number of permanent cards with mana value X or less from among them onto the battlefield\u0027 nor tracking which of the revealed cards were not chosen (to move only that remainder to the graveyard) can be expressed.",
+                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
                     }
                   ]
                 },

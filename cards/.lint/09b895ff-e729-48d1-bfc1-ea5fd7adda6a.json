@@ -1,17 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L003",
-      "message": "\u0027k1\u0027 is referenced but nothing in this ability produces it.",
-      "path": "faces[0].abilities[1]"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: Cannot express a mana-addition replacement restricted to mana of a previously chosen color, nor adding an additional mana of that same color.",
-      "path": "faces[0].abilities[2]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

@@ -1,17 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L002",
-      "message": "Scryfall lists the keyword action \u0027Scry\u0027 and the definition has no Scry effect.",
-      "path": "scryfallKeywords"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

@@ -39,9 +39,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "types": [
-                  "Land"
-                ],
                 "subtypes": [
                   "Plains",
                   "Island"
@@ -83,9 +80,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "types": [
-                  "Land"
-                ],
                 "subtypes": [
                   "Plains",
                   "Island"
@@ -114,7 +108,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -157,9 +151,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "types": [
-                      "Land"
-                    ],
                     "subtypes": [
                       "Plains",
                       "Island"
@@ -201,9 +192,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "types": [
-                      "Land"
-                    ],
                     "subtypes": [
                       "Plains",
                       "Island"
@@ -265,7 +253,7 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "anyTypes": [
+                    "types": [
                       "Land"
                     ],
                     "subtypes": [
@@ -309,7 +297,7 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "anyTypes": [
+                    "types": [
                       "Land"
                     ],
                     "subtypes": [

@@ -148,6 +148,17 @@
             },
             "timing": "Any",
             "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "X"
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "Fixed",
+                "n": 0
+              }
+            },
             "anyPlayerMayActivate": false,
             "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
           }
@@ -283,6 +294,17 @@
             },
             "timing": "Any",
             "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "X"
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "Fixed",
+                "n": 0
+              }
+            },
             "anyPlayerMayActivate": false,
             "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
           }
@@ -296,7 +318,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -448,6 +470,17 @@
                 },
                 "timing": "Any",
                 "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "X"
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
                 "anyPlayerMayActivate": false,
                 "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
               }
@@ -583,6 +616,17 @@
                 },
                 "timing": "Any",
                 "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "X"
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
                 "anyPlayerMayActivate": false,
                 "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
               }
@@ -631,9 +675,6 @@
                     "types": [
                       "Land"
                     ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "other": true
                   },
                   "count": {
@@ -780,9 +821,6 @@
                     "types": [
                       "Land"
                     ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "other": true
                   },
                   "count": {

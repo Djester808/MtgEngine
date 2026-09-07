@@ -40,18 +40,32 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "EntersBattlefield",
-              "what": {
-                "types": [
-                  "Creature"
-                ],
-                "controlledBy": {
-                  "kind": "You"
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
                 },
-                "colors": [
-                  "Black"
-                ]
-              }
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ],
+                    "other": true
+                  }
+                }
+              ]
             },
             "do": {
               "kind": "Sequence",
@@ -117,18 +131,32 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "EntersBattlefield",
-              "what": {
-                "types": [
-                  "Creature"
-                ],
-                "controlledBy": {
-                  "kind": "You"
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
                 },
-                "colors": [
-                  "Black"
-                ]
-              }
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ],
+                    "other": true
+                  }
+                }
+              ]
             },
             "do": {
               "kind": "Sequence",
@@ -198,7 +226,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -242,18 +270,32 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
                     },
-                    "colors": [
-                      "Black"
-                    ]
-                  }
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ],
+                        "other": true
+                      }
+                    }
+                  ]
                 },
                 "do": {
                   "kind": "Sequence",
@@ -319,18 +361,32 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
                     },
-                    "colors": [
-                      "Black"
-                    ]
-                  }
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ],
+                        "other": true
+                      }
+                    }
+                  ]
                 },
                 "do": {
                   "kind": "Sequence",
@@ -445,9 +501,6 @@
                     "colors": [
                       "Black"
                     ]
-                  },
-                  "underControlOf": {
-                    "kind": "You"
                   }
                 },
                 "do": {
@@ -525,9 +578,6 @@
                     "colors": [
                       "Black"
                     ]
-                  },
-                  "underControlOf": {
-                    "kind": "You"
                   }
                 },
                 "do": {

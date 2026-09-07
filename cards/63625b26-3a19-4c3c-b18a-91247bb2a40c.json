@@ -153,327 +153,487 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Enchant"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "63625b26-3a19-4c3c-b18a-91247bb2a40c",
-        "name": "Lignify",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-63625b26-3a19-4c3c-b18a-91247bb2a40c",
+      "title": "casting Lignify does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Lignify",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment",
-                "Kindred"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Treefolk",
-                "Aura"
-              ],
-              "subtypeList": [
-                "Treefolk",
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "subtypes": [
-                    "Treefolk"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Enchant creature\nEnchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
+                "name": "Lignify",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "subtypes": [
-                    "Treefolk"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "63625b26-3a19-4c3c-b18a-91247bb2a40c",
-        "name": "Lignify",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Lignify",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Treefolk",
-                "Aura"
-              ],
-              "subtypeList": [
-                "Treefolk",
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "subtypes": [
-                    "Treefolk"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              }
-            ],
-            "oracleText": "Enchant creature\nEnchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "subtypes": [
-                    "Treefolk"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Lignify",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Lignify",
+          "to": "Scenario Filler Creature"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [
     "Enchant"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-63625b26-3a19-4c3c-b18a-91247bb2a40c",
+      "title": "casting Lignify does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Lignify",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Lignify",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Lignify",
+          "to": "Scenario Filler Creature"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

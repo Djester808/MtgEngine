@@ -36,7 +36,6 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Battlefield",
@@ -84,7 +83,6 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Battlefield",
@@ -123,7 +121,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -163,7 +161,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -211,7 +208,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -280,7 +276,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -299,8 +294,7 @@
                       "n": {
                         "kind": "ManaValueOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       }
                     }
@@ -327,7 +321,6 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -346,8 +339,7 @@
                       "n": {
                         "kind": "ManaValueOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "ThisSpellsTargets"
                         }
                       }
                     }

@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L003",
-      "message": "\u0027k1\u0027 is referenced but nothing in this ability produces it.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

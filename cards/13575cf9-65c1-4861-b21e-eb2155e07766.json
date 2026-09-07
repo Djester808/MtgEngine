@@ -52,10 +52,7 @@
                     "kind": "Remembered",
                     "key": "k1"
                   },
-                  "where": "AnyOrder",
-                  "by": {
-                    "kind": "You"
-                  }
+                  "where": "AnyOrder"
                 }
               ]
             },
@@ -136,10 +133,7 @@
                     "kind": "Remembered",
                     "key": "k1"
                   },
-                  "where": "AnyOrder",
-                  "by": {
-                    "kind": "You"
-                  }
+                  "where": "AnyOrder"
                 }
               ]
             },
@@ -195,7 +189,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -251,10 +245,7 @@
                         "kind": "Remembered",
                         "key": "k1"
                       },
-                      "where": "AnyOrder",
-                      "by": {
-                        "kind": "You"
-                      }
+                      "where": "AnyOrder"
                     }
                   ]
                 },
@@ -335,10 +326,7 @@
                         "kind": "Remembered",
                         "key": "k1"
                       },
-                      "where": "AnyOrder",
-                      "by": {
-                        "kind": "You"
-                      }
+                      "where": "AnyOrder"
                     }
                   ]
                 },
@@ -431,20 +419,14 @@
                           "n": 3
                         },
                         "zone": "Library"
-                      }
+                      },
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Reorder",
                       "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 3
-                        },
-                        "zone": "Library"
+                        "kind": "Remembered",
+                        "key": "k1"
                       },
                       "where": "AnyOrder",
                       "by": {
@@ -521,20 +503,14 @@
                           "n": 3
                         },
                         "zone": "Library"
-                      }
+                      },
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Reorder",
                       "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 3
-                        },
-                        "zone": "Library"
+                        "kind": "Remembered",
+                        "key": "k1"
                       },
                       "where": "AnyOrder",
                       "by": {

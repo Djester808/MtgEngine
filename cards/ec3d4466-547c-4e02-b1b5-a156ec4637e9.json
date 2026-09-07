@@ -40,15 +40,14 @@
                     "Artifact",
                     "Land"
                   ],
-                  "controlledBy": {
+                  "ownedBy": {
                     "kind": "You"
                   }
                 },
                 "chooser": {
                   "kind": "You"
                 },
-                "upTo": true,
-                "key": "k1"
+                "upTo": false
               },
               "faceDown": false,
               "rememberAs": "k1"
@@ -66,16 +65,9 @@
               }
             ],
             "do": {
-              "kind": "AddMana",
-              "mana": {
-                "anyColor": false,
-                "commanderIdentity": false,
-                "chosenColor": false,
-                "colorOfAttachedOrTarget": true,
-                "landCouldProduce": false,
-                "anyType": false,
-                "restriction": false
-              }
+              "kind": "Unsupported",
+              "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
+              "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -105,15 +97,14 @@
                     "Artifact",
                     "Land"
                   ],
-                  "controlledBy": {
+                  "ownedBy": {
                     "kind": "You"
                   }
                 },
                 "chooser": {
                   "kind": "You"
                 },
-                "upTo": true,
-                "key": "k1"
+                "upTo": false
               },
               "faceDown": false,
               "rememberAs": "k1"
@@ -131,16 +122,9 @@
               }
             ],
             "do": {
-              "kind": "AddMana",
-              "mana": {
-                "anyColor": false,
-                "commanderIdentity": false,
-                "chosenColor": false,
-                "colorOfAttachedOrTarget": true,
-                "landCouldProduce": false,
-                "anyType": false,
-                "restriction": false
-              }
+              "kind": "Unsupported",
+              "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
+              "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -155,9 +139,9 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -194,31 +178,28 @@
                   }
                 },
                 "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Exile",
-                    "what": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "notTypes": [
-                          "Artifact",
-                          "Land"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "chooser": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "notTypes": [
+                        "Artifact",
+                        "Land"
+                      ],
+                      "ownedBy": {
                         "kind": "You"
-                      },
-                      "upTo": false
+                      }
                     },
-                    "faceDown": false,
-                    "rememberAs": "k1"
-                  }
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
                 },
-                "optional": false,
+                "optional": true,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
@@ -232,8 +213,8 @@
                 ],
                 "do": {
                   "kind": "Unsupported",
-                  "reason": "ManaProduction cannot express \u0027one mana of any of the exiled card\u0027s colors\u0027",
-                  "text": "Add one mana of any of the exiled card\u0027s colors."
+                  "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
+                  "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -254,31 +235,28 @@
                   }
                 },
                 "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Exile",
-                    "what": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "notTypes": [
-                          "Artifact",
-                          "Land"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "chooser": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "notTypes": [
+                        "Artifact",
+                        "Land"
+                      ],
+                      "ownedBy": {
                         "kind": "You"
-                      },
-                      "upTo": false
+                      }
                     },
-                    "faceDown": false,
-                    "rememberAs": "k1"
-                  }
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
                 },
-                "optional": false,
+                "optional": true,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
@@ -292,8 +270,8 @@
                 ],
                 "do": {
                   "kind": "Unsupported",
-                  "reason": "ManaProduction cannot express \u0027one mana of any of the exiled card\u0027s colors\u0027",
-                  "text": "Add one mana of any of the exiled card\u0027s colors."
+                  "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
+                  "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -335,29 +313,31 @@
                   }
                 },
                 "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "notTypes": [
-                        "Artifact",
-                        "Land"
-                      ],
-                      "controlledBy": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "notTypes": [
+                          "Artifact",
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
                         "kind": "You"
-                      }
+                      },
+                      "upTo": false
                     },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": true,
-                    "key": "k1"
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k1"
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
@@ -370,16 +350,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": true,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
+                  "kind": "Unsupported",
+                  "reason": "ManaProduction has no way to say \u0027a color of a remembered object\u0027 \u2014 it can name a fixed color, any color, a chosen color, or the color of an attached or targeted object (colorOfAttachedOrTarget), but not the color of a card remembered earlier under a key (the exiled imprinted card).",
+                  "text": "Add one mana of any of the exiled card\u0027s colors."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -400,29 +373,31 @@
                   }
                 },
                 "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "notTypes": [
-                        "Artifact",
-                        "Land"
-                      ],
-                      "controlledBy": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "notTypes": [
+                          "Artifact",
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
                         "kind": "You"
-                      }
+                      },
+                      "upTo": false
                     },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": true,
-                    "key": "k1"
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k1"
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
@@ -435,16 +410,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": true,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
+                  "kind": "Unsupported",
+                  "reason": "ManaProduction has no way to say \u0027a color of a remembered object\u0027 \u2014 it can name a fixed color, any color, a chosen color, or the color of an attached or targeted object (colorOfAttachedOrTarget), but not the color of a card remembered earlier under a key (the exiled imprinted card).",
+                  "text": "Add one mana of any of the exiled card\u0027s colors."
                 },
                 "timing": "Any",
                 "where": "Battlefield",

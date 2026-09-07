@@ -67,160 +67,541 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "038519b9-bca8-4b27-b5ac-2409595469d0",
-        "name": "Diabolic Intent",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-038519b9-bca8-4b27-b5ac-2409595469d0",
+      "title": "casting Diabolic Intent does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Diabolic Intent",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{B}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {},
-                  "to": "Hand",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle."
+                "name": "Scenario Filler Creature",
+                "alias": "cost-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "additionalCosts": [
+            "hand": [
               {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Creature"
-                  ]
-                }
+                "name": "Diabolic Intent",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {},
-                  "to": "Hand",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle."
+                "name": "Scenario Filler Basic Land",
+                "alias": "find-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "038519b9-bca8-4b27-b5ac-2409595469d0",
-        "name": "Diabolic Intent",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Diabolic Intent",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {},
-                  "to": "Hand",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle."
-              }
-            ],
-            "additionalCosts": [
-              {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Creature"
-                  ]
-                }
-              }
-            ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {},
-                  "to": "Hand",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Diabolic Intent",
+          "costObjects": [
+            "cost-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "find-1",
+          "zone": "Hand"
+        },
+        {
+          "kind": "Shuffled",
+          "player": "A"
+        },
+        {
+          "kind": "InZone",
+          "card": "Diabolic Intent",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Hand",
+          "count": 4
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Library",
+          "count": 7
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 2
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-038519b9-bca8-4b27-b5ac-2409595469d0",
+      "title": "casting Diabolic Intent does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "cost-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Diabolic Intent",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Basic Land",
+                "alias": "find-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Diabolic Intent",
+          "costObjects": [
+            "cost-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "find-1",
+          "zone": "Hand"
+        },
+        {
+          "kind": "Shuffled",
+          "player": "A"
+        },
+        {
+          "kind": "InZone",
+          "card": "Diabolic Intent",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Hand",
+          "count": 4
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Library",
+          "count": 7
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 2
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

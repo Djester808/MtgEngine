@@ -174,10 +174,7 @@
               }
             },
             "with": {
-              "kind": "Unless",
-              "do": {
-                "kind": "EntersTapped"
-              },
+              "kind": "MayPay",
               "paid": {
                 "kind": "PayLife",
                 "amount": {
@@ -185,8 +182,11 @@
                   "n": 3
                 }
               },
-              "who": {
-                "kind": "You"
+              "then": {
+                "kind": "DoNothing"
+              },
+              "else": {
+                "kind": "EntersTapped"
               }
             },
             "optional": false,
@@ -233,10 +233,7 @@
               }
             },
             "with": {
-              "kind": "Unless",
-              "do": {
-                "kind": "EntersTapped"
-              },
+              "kind": "MayPay",
               "paid": {
                 "kind": "PayLife",
                 "amount": {
@@ -244,8 +241,11 @@
                   "n": 3
                 }
               },
-              "who": {
-                "kind": "You"
+              "then": {
+                "kind": "DoNothing"
+              },
+              "else": {
+                "kind": "EntersTapped"
               }
             },
             "optional": false,
@@ -288,7 +288,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -466,10 +466,7 @@
                   }
                 },
                 "with": {
-                  "kind": "Unless",
-                  "do": {
-                    "kind": "EntersTapped"
-                  },
+                  "kind": "MayPay",
                   "paid": {
                     "kind": "PayLife",
                     "amount": {
@@ -477,8 +474,11 @@
                       "n": 3
                     }
                   },
-                  "who": {
-                    "kind": "You"
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "EntersTapped"
                   }
                 },
                 "optional": false,
@@ -525,10 +525,7 @@
                   }
                 },
                 "with": {
-                  "kind": "Unless",
-                  "do": {
-                    "kind": "EntersTapped"
-                  },
+                  "kind": "MayPay",
                   "paid": {
                     "kind": "PayLife",
                     "amount": {
@@ -536,8 +533,11 @@
                       "n": 3
                     }
                   },
-                  "who": {
-                    "kind": "You"
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "EntersTapped"
                   }
                 },
                 "optional": false,
@@ -580,7 +580,7 @@
       "definition": {
         "oracleId": "2699005b-a471-429f-a9d8-fbf2077ee2fd",
         "name": "Disciple of Freyalise // Garden of Freyalise",
-        "layout": "Transform",
+        "layout": "ModalDfc",
         "faces": [
           {
             "name": "Disciple of Freyalise",
@@ -742,34 +742,20 @@
                   }
                 },
                 "with": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 3
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "NotCondition",
-                        "of": {
-                          "kind": "ChoiceIs",
-                          "key": "k1",
-                          "value": "yes"
-                        }
-                      },
-                      "then": {
-                        "kind": "EntersTapped"
-                      }
+                  "kind": "MayPay",
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
                     }
-                  ]
+                  },
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "EntersTapped"
+                  }
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -815,34 +801,20 @@
                   }
                 },
                 "with": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 3
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "NotCondition",
-                        "of": {
-                          "kind": "ChoiceIs",
-                          "key": "k1",
-                          "value": "yes"
-                        }
-                      },
-                      "then": {
-                        "kind": "EntersTapped"
-                      }
+                  "kind": "MayPay",
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
                     }
-                  ]
+                  },
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "EntersTapped"
+                  }
                 },
                 "optional": false,
                 "where": "Battlefield",

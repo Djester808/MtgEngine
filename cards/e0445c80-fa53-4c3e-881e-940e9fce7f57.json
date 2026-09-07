@@ -71,57 +71,48 @@
                       "kind": "EachOpponent"
                     },
                     "do": {
-                      "kind": "VillainousChoice",
-                      "who": {
-                        "kind": "TriggeringPlayer"
-                      },
-                      "optionA": {
-                        "text": "sacrifice a permanent of their choice that shares a card type with it",
-                        "do": {
-                          "kind": "Sacrifice",
-                          "choice": {
-                            "controlledBy": {
-                              "kind": "TriggeringPlayer"
+                      "kind": "MayPay",
+                      "paid": {
+                        "kind": "SacrificeCost",
+                        "what": {
+                          "permanent": true,
+                          "also": {
+                            "kind": "SharesTypeWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
                             },
-                            "permanent": true,
-                            "also": {
-                              "kind": "SharesTypeWith",
-                              "with": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              },
-                              "creatureTypeOnly": false
-                            }
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
+                            "creatureTypeOnly": false
                           }
                         }
                       },
-                      "optionB": {
-                        "text": "that player loses 2 life and you draw a card",
-                        "do": {
-                          "kind": "Sequence",
-                          "steps": [
-                            {
-                              "kind": "LoseLife",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 2
-                              },
-                              "who": {
-                                "kind": "TriggeringPlayer"
-                              }
+                      "then": {
+                        "kind": "DoNothing"
+                      },
+                      "else": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 2
                             },
-                            {
-                              "kind": "Draw",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 1
-                              }
+                            "who": {
+                              "kind": "TriggeringPlayer"
                             }
-                          ]
-                        }
+                          },
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 1
+                            }
+                          }
+                        ]
+                      },
+                      "who": {
+                        "kind": "TriggeringPlayer"
                       }
                     }
                   }
@@ -172,57 +163,48 @@
                       "kind": "EachOpponent"
                     },
                     "do": {
-                      "kind": "VillainousChoice",
-                      "who": {
-                        "kind": "TriggeringPlayer"
-                      },
-                      "optionA": {
-                        "text": "sacrifice a permanent of their choice that shares a card type with it",
-                        "do": {
-                          "kind": "Sacrifice",
-                          "choice": {
-                            "controlledBy": {
-                              "kind": "TriggeringPlayer"
+                      "kind": "MayPay",
+                      "paid": {
+                        "kind": "SacrificeCost",
+                        "what": {
+                          "permanent": true,
+                          "also": {
+                            "kind": "SharesTypeWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
                             },
-                            "permanent": true,
-                            "also": {
-                              "kind": "SharesTypeWith",
-                              "with": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              },
-                              "creatureTypeOnly": false
-                            }
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
+                            "creatureTypeOnly": false
                           }
                         }
                       },
-                      "optionB": {
-                        "text": "that player loses 2 life and you draw a card",
-                        "do": {
-                          "kind": "Sequence",
-                          "steps": [
-                            {
-                              "kind": "LoseLife",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 2
-                              },
-                              "who": {
-                                "kind": "TriggeringPlayer"
-                              }
+                      "then": {
+                        "kind": "DoNothing"
+                      },
+                      "else": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 2
                             },
-                            {
-                              "kind": "Draw",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 1
-                              }
+                            "who": {
+                              "kind": "TriggeringPlayer"
                             }
-                          ]
-                        }
+                          },
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 1
+                            }
+                          }
+                        ]
+                      },
+                      "who": {
+                        "kind": "TriggeringPlayer"
                       }
                     }
                   }
@@ -244,7 +226,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -319,57 +301,48 @@
                           "kind": "EachOpponent"
                         },
                         "do": {
-                          "kind": "VillainousChoice",
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          },
-                          "optionA": {
-                            "text": "sacrifice a permanent of their choice that shares a card type with it",
-                            "do": {
-                              "kind": "Sacrifice",
-                              "choice": {
-                                "controlledBy": {
-                                  "kind": "TriggeringPlayer"
+                          "kind": "MayPay",
+                          "paid": {
+                            "kind": "SacrificeCost",
+                            "what": {
+                              "permanent": true,
+                              "also": {
+                                "kind": "SharesTypeWith",
+                                "with": {
+                                  "kind": "Remembered",
+                                  "key": "k1"
                                 },
-                                "permanent": true,
-                                "also": {
-                                  "kind": "SharesTypeWith",
-                                  "with": {
-                                    "kind": "Remembered",
-                                    "key": "k1"
-                                  },
-                                  "creatureTypeOnly": false
-                                }
-                              },
-                              "who": {
-                                "kind": "TriggeringPlayer"
+                                "creatureTypeOnly": false
                               }
                             }
                           },
-                          "optionB": {
-                            "text": "that player loses 2 life and you draw a card",
-                            "do": {
-                              "kind": "Sequence",
-                              "steps": [
-                                {
-                                  "kind": "LoseLife",
-                                  "n": {
-                                    "kind": "Fixed",
-                                    "n": 2
-                                  },
-                                  "who": {
-                                    "kind": "TriggeringPlayer"
-                                  }
+                          "then": {
+                            "kind": "DoNothing"
+                          },
+                          "else": {
+                            "kind": "Sequence",
+                            "steps": [
+                              {
+                                "kind": "LoseLife",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 2
                                 },
-                                {
-                                  "kind": "Draw",
-                                  "n": {
-                                    "kind": "Fixed",
-                                    "n": 1
-                                  }
+                                "who": {
+                                  "kind": "TriggeringPlayer"
                                 }
-                              ]
-                            }
+                              },
+                              {
+                                "kind": "Draw",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 1
+                                }
+                              }
+                            ]
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
                           }
                         }
                       }
@@ -420,57 +393,48 @@
                           "kind": "EachOpponent"
                         },
                         "do": {
-                          "kind": "VillainousChoice",
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          },
-                          "optionA": {
-                            "text": "sacrifice a permanent of their choice that shares a card type with it",
-                            "do": {
-                              "kind": "Sacrifice",
-                              "choice": {
-                                "controlledBy": {
-                                  "kind": "TriggeringPlayer"
+                          "kind": "MayPay",
+                          "paid": {
+                            "kind": "SacrificeCost",
+                            "what": {
+                              "permanent": true,
+                              "also": {
+                                "kind": "SharesTypeWith",
+                                "with": {
+                                  "kind": "Remembered",
+                                  "key": "k1"
                                 },
-                                "permanent": true,
-                                "also": {
-                                  "kind": "SharesTypeWith",
-                                  "with": {
-                                    "kind": "Remembered",
-                                    "key": "k1"
-                                  },
-                                  "creatureTypeOnly": false
-                                }
-                              },
-                              "who": {
-                                "kind": "TriggeringPlayer"
+                                "creatureTypeOnly": false
                               }
                             }
                           },
-                          "optionB": {
-                            "text": "that player loses 2 life and you draw a card",
-                            "do": {
-                              "kind": "Sequence",
-                              "steps": [
-                                {
-                                  "kind": "LoseLife",
-                                  "n": {
-                                    "kind": "Fixed",
-                                    "n": 2
-                                  },
-                                  "who": {
-                                    "kind": "TriggeringPlayer"
-                                  }
+                          "then": {
+                            "kind": "DoNothing"
+                          },
+                          "else": {
+                            "kind": "Sequence",
+                            "steps": [
+                              {
+                                "kind": "LoseLife",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 2
                                 },
-                                {
-                                  "kind": "Draw",
-                                  "n": {
-                                    "kind": "Fixed",
-                                    "n": 1
-                                  }
+                                "who": {
+                                  "kind": "TriggeringPlayer"
                                 }
-                              ]
-                            }
+                              },
+                              {
+                                "kind": "Draw",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 1
+                                }
+                              }
+                            ]
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
                           }
                         }
                       }
@@ -544,10 +508,7 @@
                             "Enchantment",
                             "Land",
                             "Planeswalker"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
+                          ]
                         },
                         "rememberAs": "k1"
                       },
@@ -557,69 +518,46 @@
                           "kind": "EachOpponent"
                         },
                         "do": {
-                          "kind": "Sequence",
-                          "steps": [
-                            {
-                              "kind": "May",
-                              "do": {
-                                "kind": "Sacrifice",
-                                "choice": {
-                                  "controlledBy": {
-                                    "kind": "TriggeringPlayer"
-                                  },
-                                  "permanent": true,
-                                  "also": {
-                                    "kind": "SharesTypeWith",
-                                    "with": {
-                                      "kind": "Remembered",
-                                      "key": "k1"
-                                    },
-                                    "creatureTypeOnly": false
-                                  }
+                          "kind": "Unless",
+                          "do": {
+                            "kind": "Sequence",
+                            "steps": [
+                              {
+                                "kind": "LoseLife",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 2
                                 },
                                 "who": {
                                   "kind": "TriggeringPlayer"
                                 }
                               },
-                              "who": {
-                                "kind": "TriggeringPlayer"
-                              },
-                              "storeChoiceAs": "k2"
-                            },
-                            {
-                              "kind": "If",
-                              "test": {
-                                "kind": "NotCondition",
-                                "of": {
-                                  "kind": "ChoiceIs",
-                                  "key": "k2",
-                                  "value": "yes"
+                              {
+                                "kind": "Draw",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 1
                                 }
-                              },
-                              "then": {
-                                "kind": "Sequence",
-                                "steps": [
-                                  {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 2
-                                    },
-                                    "who": {
-                                      "kind": "TriggeringPlayer"
-                                    }
-                                  },
-                                  {
-                                    "kind": "Draw",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  }
-                                ]
+                              }
+                            ]
+                          },
+                          "paid": {
+                            "kind": "SacrificeCost",
+                            "what": {
+                              "permanent": true,
+                              "also": {
+                                "kind": "SharesTypeWith",
+                                "with": {
+                                  "kind": "Remembered",
+                                  "key": "k1"
+                                },
+                                "creatureTypeOnly": false
                               }
                             }
-                          ]
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          }
                         }
                       }
                     ]
@@ -656,10 +594,7 @@
                             "Enchantment",
                             "Land",
                             "Planeswalker"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
+                          ]
                         },
                         "rememberAs": "k1"
                       },
@@ -669,69 +604,46 @@
                           "kind": "EachOpponent"
                         },
                         "do": {
-                          "kind": "Sequence",
-                          "steps": [
-                            {
-                              "kind": "May",
-                              "do": {
-                                "kind": "Sacrifice",
-                                "choice": {
-                                  "controlledBy": {
-                                    "kind": "TriggeringPlayer"
-                                  },
-                                  "permanent": true,
-                                  "also": {
-                                    "kind": "SharesTypeWith",
-                                    "with": {
-                                      "kind": "Remembered",
-                                      "key": "k1"
-                                    },
-                                    "creatureTypeOnly": false
-                                  }
+                          "kind": "Unless",
+                          "do": {
+                            "kind": "Sequence",
+                            "steps": [
+                              {
+                                "kind": "LoseLife",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 2
                                 },
                                 "who": {
                                   "kind": "TriggeringPlayer"
                                 }
                               },
-                              "who": {
-                                "kind": "TriggeringPlayer"
-                              },
-                              "storeChoiceAs": "k2"
-                            },
-                            {
-                              "kind": "If",
-                              "test": {
-                                "kind": "NotCondition",
-                                "of": {
-                                  "kind": "ChoiceIs",
-                                  "key": "k2",
-                                  "value": "yes"
+                              {
+                                "kind": "Draw",
+                                "n": {
+                                  "kind": "Fixed",
+                                  "n": 1
                                 }
-                              },
-                              "then": {
-                                "kind": "Sequence",
-                                "steps": [
-                                  {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 2
-                                    },
-                                    "who": {
-                                      "kind": "TriggeringPlayer"
-                                    }
-                                  },
-                                  {
-                                    "kind": "Draw",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  }
-                                ]
+                              }
+                            ]
+                          },
+                          "paid": {
+                            "kind": "SacrificeCost",
+                            "what": {
+                              "permanent": true,
+                              "also": {
+                                "kind": "SharesTypeWith",
+                                "with": {
+                                  "kind": "Remembered",
+                                  "key": "k1"
+                                },
+                                "creatureTypeOnly": false
                               }
                             }
-                          ]
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          }
                         }
                       }
                     ]

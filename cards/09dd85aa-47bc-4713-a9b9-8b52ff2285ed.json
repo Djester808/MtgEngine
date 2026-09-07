@@ -39,9 +39,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "types": [
-                  "Land"
-                ],
                 "subtypes": [
                   "Forest",
                   "Island"
@@ -83,9 +80,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "types": [
-                  "Land"
-                ],
                 "subtypes": [
                   "Forest",
                   "Island"
@@ -114,13 +108,115 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
   "candidates": [
     {
       "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "09dd85aa-47bc-4713-a9b9-8b52ff2285ed",
+        "name": "Misty Rainforest",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Misty Rainforest",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "subtypes": [
+                      "Forest",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle."
+              }
+            ],
+            "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "subtypes": [
+                      "Forest",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
       "definition": {
         "oracleId": "09dd85aa-47bc-4713-a9b9-8b52ff2285ed",
         "name": "Misty Rainforest",

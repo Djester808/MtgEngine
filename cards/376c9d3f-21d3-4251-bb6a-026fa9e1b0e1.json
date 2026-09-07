@@ -73,91 +73,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "376c9d3f-21d3-4251-bb6a-026fa9e1b0e1",
-        "name": "Skyshroud Claim",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Skyshroud Claim",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{3}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

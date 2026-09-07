@@ -28,24 +28,20 @@
               }
             ],
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                {
-                  "kind": "Unsupported",
-                  "reason": "No condition kind expresses \u0027you created a token this turn\u0027 as an activation restriction.",
-                  "text": "Activate only if you created a token this turn."
-                }
-              ]
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
             },
             "timing": "Any",
             "where": "Battlefield",
+            "onlyIf": {
+              "kind": "CreatedTokenThisTurn",
+              "who": {
+                "kind": "You"
+              }
+            },
             "anyPlayerMayActivate": false,
             "text": "{T}: Draw a card. Activate only if you created a token this turn."
           },
@@ -98,24 +94,20 @@
               }
             ],
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                {
-                  "kind": "Unsupported",
-                  "reason": "No condition kind expresses \u0027you created a token this turn\u0027 as an activation restriction.",
-                  "text": "Activate only if you created a token this turn."
-                }
-              ]
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
             },
             "timing": "Any",
             "where": "Battlefield",
+            "onlyIf": {
+              "kind": "CreatedTokenThisTurn",
+              "who": {
+                "kind": "You"
+              }
+            },
             "anyPlayerMayActivate": false,
             "text": "{T}: Draw a card. Activate only if you created a token this turn."
           },
@@ -161,179 +153,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "c232d974-9c65-4bce-b045-e5a7cc0c62e0",
-        "name": "Idol of Oblivion",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-c232d974-9c65-4bce-b045-e5a7cc0c62e0",
+      "title": "casting Idol of Oblivion does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Idol of Oblivion",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No condition kind expresses \u0027you created a token this turn\u0027 as an activation restriction.",
-                      "text": "Activate only if you created a token this turn."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Draw a card. Activate only if you created a token this turn."
+                "name": "Idol of Oblivion",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{8}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Eldrazi",
-                    "colors": [],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Eldrazi"
-                    ],
-                    "supertypes": [],
-                    "power": 10,
-                    "toughness": 10,
-                    "isPredefined": false
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{8}, {T}, Sacrifice this artifact: Create a 10/10 colorless Eldrazi creature token."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "{T}: Draw a card. Activate only if you created a token this turn.\n{8}, {T}, Sacrifice this artifact: Create a 10/10 colorless Eldrazi creature token.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No condition kind expresses \u0027you created a token this turn\u0027 as an activation restriction.",
-                      "text": "Activate only if you created a token this turn."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Draw a card. Activate only if you created a token this turn."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{8}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Eldrazi",
-                    "colors": [],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Eldrazi"
-                    ],
-                    "supertypes": [],
-                    "power": 10,
-                    "toughness": 10,
-                    "isPredefined": false
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{8}, {T}, Sacrifice this artifact: Create a 10/10 colorless Eldrazi creature token."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Idol of Oblivion"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Idol of Oblivion",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-c232d974-9c65-4bce-b045-e5a7cc0c62e0",
+      "title": "casting Idol of Oblivion does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Idol of Oblivion",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Idol of Oblivion"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Idol of Oblivion",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

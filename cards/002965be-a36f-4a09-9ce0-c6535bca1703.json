@@ -64,7 +64,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Stack",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -81,25 +80,8 @@
                     "kind": "GrantKeyword",
                     "keyword": "Hexproof",
                     "of": {
-                      "colors": [
-                        "Blue"
-                      ]
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                {
-                  "kind": "ApplyToPlayer",
-                  "what": {
-                    "kind": "GrantKeyword",
-                    "keyword": "Hexproof",
-                    "of": {
-                      "colors": [
+                      "anyColor": [
+                        "Blue",
                         "Black"
                       ]
                     }
@@ -117,31 +99,8 @@
                     "kind": "GrantKeyword",
                     "keyword": "Hexproof",
                     "of": {
-                      "colors": [
-                        "Blue"
-                      ]
-                    }
-                  },
-                  "to": {
-                    "kind": "Each",
-                    "filter": {
-                      "controlledBy": {
-                        "kind": "You"
-                      },
-                      "permanent": true
-                    }
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                {
-                  "kind": "Apply",
-                  "what": {
-                    "kind": "GrantKeyword",
-                    "keyword": "Hexproof",
-                    "of": {
-                      "colors": [
+                      "anyColor": [
+                        "Blue",
                         "Black"
                       ]
                     }
@@ -210,7 +169,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Stack",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -227,25 +185,8 @@
                     "kind": "GrantKeyword",
                     "keyword": "Hexproof",
                     "of": {
-                      "colors": [
-                        "Blue"
-                      ]
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                {
-                  "kind": "ApplyToPlayer",
-                  "what": {
-                    "kind": "GrantKeyword",
-                    "keyword": "Hexproof",
-                    "of": {
-                      "colors": [
+                      "anyColor": [
+                        "Blue",
                         "Black"
                       ]
                     }
@@ -263,31 +204,8 @@
                     "kind": "GrantKeyword",
                     "keyword": "Hexproof",
                     "of": {
-                      "colors": [
-                        "Blue"
-                      ]
-                    }
-                  },
-                  "to": {
-                    "kind": "Each",
-                    "filter": {
-                      "controlledBy": {
-                        "kind": "You"
-                      },
-                      "permanent": true
-                    }
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                {
-                  "kind": "Apply",
-                  "what": {
-                    "kind": "GrantKeyword",
-                    "keyword": "Hexproof",
-                    "of": {
-                      "colors": [
+                      "anyColor": [
+                        "Blue",
                         "Black"
                       ]
                     }
@@ -319,7 +237,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -387,7 +305,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Stack",
                           "controlledBy": {
                             "kind": "You"
                           },
@@ -404,25 +321,8 @@
                         "kind": "GrantKeyword",
                         "keyword": "Hexproof",
                         "of": {
-                          "colors": [
-                            "Blue"
-                          ]
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "colors": [
+                          "anyColor": [
+                            "Blue",
                             "Black"
                           ]
                         }
@@ -440,31 +340,8 @@
                         "kind": "GrantKeyword",
                         "keyword": "Hexproof",
                         "of": {
-                          "colors": [
-                            "Blue"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "permanent": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "colors": [
+                          "anyColor": [
+                            "Blue",
                             "Black"
                           ]
                         }
@@ -533,7 +410,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Stack",
                           "controlledBy": {
                             "kind": "You"
                           },
@@ -550,25 +426,8 @@
                         "kind": "GrantKeyword",
                         "keyword": "Hexproof",
                         "of": {
-                          "colors": [
-                            "Blue"
-                          ]
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "colors": [
+                          "anyColor": [
+                            "Blue",
                             "Black"
                           ]
                         }
@@ -586,31 +445,8 @@
                         "kind": "GrantKeyword",
                         "keyword": "Hexproof",
                         "of": {
-                          "colors": [
-                            "Blue"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "permanent": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "colors": [
+                          "anyColor": [
+                            "Blue",
                             "Black"
                           ]
                         }
@@ -710,6 +546,29 @@
                       }
                     },
                     {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "CantBeTargeted",
+                        "bySpells": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        }
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
                       "kind": "ApplyToPlayer",
                       "what": {
                         "kind": "CantBeTargeted",
@@ -726,37 +585,13 @@
                       "until": {
                         "kind": "UntilEndOfTurn"
                       }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "permanent": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
                     }
                   ]
                 },
                 "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn."
               }
             ],
-            "oracleText": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn.",
+            "oracleText": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)",
             "abilityList": [
               {
                 "kind": "SpellAbility",
@@ -812,24 +647,6 @@
                       }
                     },
                     {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
                       "kind": "Apply",
                       "what": {
                         "kind": "CantBeTargeted",
@@ -845,9 +662,26 @@
                         "filter": {
                           "controlledBy": {
                             "kind": "You"
-                          },
-                          "permanent": true
+                          }
                         }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "CantBeTargeted",
+                        "bySpells": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        }
+                      },
+                      "who": {
+                        "kind": "You"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"

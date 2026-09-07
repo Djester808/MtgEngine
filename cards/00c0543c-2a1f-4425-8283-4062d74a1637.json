@@ -55,10 +55,6 @@
                 ]
               },
               "to": "Battlefield",
-              "upTo": {
-                "kind": "Fixed",
-                "n": 1
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -117,10 +113,6 @@
                 ]
               },
               "to": "Battlefield",
-              "upTo": {
-                "kind": "Fixed",
-                "n": 1
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -165,7 +157,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -224,10 +216,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -286,10 +274,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -320,6 +304,169 @@
                   }
                 },
                 "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature dies, you may draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "00c0543c-2a1f-4425-8283-4062d74a1637",
+        "name": "Solemn Simulacrum",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Solemn Simulacrum",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact",
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Golem"
+              ],
+              "subtypeList": [
+                "Golem"
+              ]
+            },
+            "manaCost": "{4}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature dies, you may draw a card."
+              }
+            ],
+            "oracleText": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "When this creature dies, you may draw a card."

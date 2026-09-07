@@ -1,17 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L013",
-      "message": "A Disputed file must keep both readings in Candidates.",
-      "path": "status"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No condition kind expresses \u0027you created a token this turn\u0027 as an activation restriction.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

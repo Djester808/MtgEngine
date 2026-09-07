@@ -69,19 +69,15 @@
                   "types": [
                     "Creature"
                   ],
-                  "attacking": true,
-                  "blocking": true
+                  "inCombat": true
                 },
                 "upTo": false,
                 "distinct": true
               },
-              "source": {
-                "kind": "Self"
-              },
               "cantBePrevented": false
             },
             "timing": "Any",
-            "where": "Battlefield",
+            "where": "Hand",
             "anyPlayerMayActivate": false,
             "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
           },
@@ -115,9 +111,9 @@
               "who": {
                 "kind": "You"
               },
-              "ability": "NonMana"
+              "ability": "Any"
             },
-            "where": "Battlefield",
+            "where": "Hand",
             "characteristicDefining": false,
             "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
           }
@@ -172,19 +168,15 @@
                   "types": [
                     "Creature"
                   ],
-                  "attacking": true,
-                  "blocking": true
+                  "inCombat": true
                 },
                 "upTo": false,
                 "distinct": true
               },
-              "source": {
-                "kind": "Self"
-              },
               "cantBePrevented": false
             },
             "timing": "Any",
-            "where": "Battlefield",
+            "where": "Hand",
             "anyPlayerMayActivate": false,
             "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
           },
@@ -218,9 +210,9 @@
               "who": {
                 "kind": "You"
               },
-              "ability": "NonMana"
+              "ability": "Any"
             },
-            "where": "Battlefield",
+            "where": "Hand",
             "characteristicDefining": false,
             "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
           }
@@ -228,442 +220,905 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
+      "claude-opus-5",
       "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Channel"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
-        "name": "Eiganjo, Seat of the Empire",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+      "title": "playing Eiganjo, Seat of the Empire puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Eiganjo, Seat of the Empire",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
+                "name": "Eiganjo, Seat of the Empire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "No way to describe a creature that is attacking or blocking (disjunction of attacking/blocking) in an ObjectFilter",
-                  "text": "It deals 4 damage to target attacking or blocking creature."
-                },
-                "timing": "Any",
-                "where": "Hand",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "Any"
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "No way to describe a creature that is attacking or blocking (disjunction of attacking/blocking) in an ObjectFilter",
-                  "text": "It deals 4 damage to target attacking or blocking creature."
-                },
-                "timing": "Any",
-                "where": "Hand",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "Any"
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Eiganjo, Seat of the Empire"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Eiganjo, Seat of the Empire",
+          "zone": "Battlefield"
+        }
+      ]
     },
     {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
-        "name": "Eiganjo, Seat of the Empire",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-activate-7edb3d15-4f70-4ebe-8c5e-caf6a225076d-0",
+      "title": "activating an ability of Eiganjo, Seat of the Empire does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Eiganjo, Seat of the Empire",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "attacking": true,
-                      "blocking": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "NonMana"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Eiganjo, Seat of the Empire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "attacking": true,
-                      "blocking": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "NonMana"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Eiganjo, Seat of the Empire",
+          "abilityIndex": 0
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Eiganjo, Seat of the Empire",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 2,
+    "total": 2,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [
     "Channel"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+      "title": "playing Eiganjo, Seat of the Empire puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Eiganjo, Seat of the Empire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Eiganjo, Seat of the Empire"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Eiganjo, Seat of the Empire",
+          "zone": "Battlefield"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-7edb3d15-4f70-4ebe-8c5e-caf6a225076d-0",
+      "title": "activating an ability of Eiganjo, Seat of the Empire does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Eiganjo, Seat of the Empire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Eiganjo, Seat of the Empire",
+          "abilityIndex": 0
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Eiganjo, Seat of the Empire",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

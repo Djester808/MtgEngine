@@ -25,7 +25,7 @@
             "keyword": "Escalate",
             "cost": "{G}",
             "repeatable": false,
-            "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+            "text": "Escalate {G}"
           },
           {
             "kind": "SpellAbility",
@@ -44,7 +44,6 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "k1",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -62,7 +61,6 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "k2",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -87,7 +85,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "k3",
+                          "key": "k1",
                           "distinct": true
                         },
                         "until": {
@@ -101,15 +99,8 @@
                           "keyword": "Indestructible"
                         },
                         "to": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k3",
-                          "distinct": true
+                          "kind": "Remembered",
+                          "key": "k1"
                         },
                         "until": {
                           "kind": "UntilEndOfTurn"
@@ -133,7 +124,7 @@
             "keyword": "Escalate",
             "cost": "{G}",
             "repeatable": false,
-            "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+            "text": "Escalate {G}"
           },
           {
             "kind": "SpellAbility",
@@ -152,7 +143,6 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "k1",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -170,7 +160,6 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "k2",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -195,7 +184,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "k3",
+                          "key": "k1",
                           "distinct": true
                         },
                         "until": {
@@ -209,15 +198,8 @@
                           "keyword": "Indestructible"
                         },
                         "to": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k3",
-                          "distinct": true
+                          "kind": "Remembered",
+                          "key": "k1"
                         },
                         "until": {
                           "kind": "UntilEndOfTurn"
@@ -237,259 +219,517 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
+      "claude-opus-5",
       "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Escalate"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "bffdfe7b-f17a-41b6-a460-80280fe497d4",
-        "name": "Collective Resistance",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-bffdfe7b-f17a-41b6-a460-80280fe497d4",
+      "title": "casting Collective Resistance does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Collective Resistance",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Escalate",
-                "cost": "{G}",
-                "repeatable": false,
-                "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+                "name": "Collective Resistance",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Destroy target artifact.",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Artifact"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k1",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "text": "Destroy target enchantment.",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Enchantment"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k2",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "text": "Target creature gains hexproof and indestructible until end of turn.",
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Apply",
-                            "what": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Hexproof"
-                            },
-                            "to": {
-                              "kind": "Target",
-                              "filter": {
-                                "types": [
-                                  "Creature"
-                                ]
-                              },
-                              "upTo": false,
-                              "key": "k3",
-                              "distinct": true
-                            },
-                            "until": {
-                              "kind": "UntilEndOfTurn"
-                            }
-                          },
-                          {
-                            "kind": "Apply",
-                            "what": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Indestructible"
-                            },
-                            "to": {
-                              "kind": "Target",
-                              "filter": {
-                                "types": [
-                                  "Creature"
-                                ]
-                              },
-                              "upTo": false,
-                              "key": "k3",
-                              "distinct": true
-                            },
-                            "until": {
-                              "kind": "UntilEndOfTurn"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 3,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)\nChoose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Escalate",
-                "cost": "{G}",
-                "repeatable": false,
-                "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Destroy target artifact.",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Artifact"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k1",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "text": "Destroy target enchantment.",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "types": [
-                              "Enchantment"
-                            ]
-                          },
-                          "upTo": false,
-                          "key": "k2",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "text": "Target creature gains hexproof and indestructible until end of turn.",
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Apply",
-                            "what": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Hexproof"
-                            },
-                            "to": {
-                              "kind": "Target",
-                              "filter": {
-                                "types": [
-                                  "Creature"
-                                ]
-                              },
-                              "upTo": false,
-                              "key": "k3",
-                              "distinct": true
-                            },
-                            "until": {
-                              "kind": "UntilEndOfTurn"
-                            }
-                          },
-                          {
-                            "kind": "Apply",
-                            "what": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Indestructible"
-                            },
-                            "to": {
-                              "kind": "Target",
-                              "filter": {
-                                "types": [
-                                  "Creature"
-                                ]
-                              },
-                              "upTo": false,
-                              "key": "k3",
-                              "distinct": true
-                            },
-                            "until": {
-                              "kind": "UntilEndOfTurn"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 3,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Artifact",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Collective Resistance",
+          "targets": [
+            "Scenario Filler Artifact"
+          ],
+          "modes": [
+            0
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Scenario Filler Artifact",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Collective Resistance",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [
     "Escalate"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-bffdfe7b-f17a-41b6-a460-80280fe497d4",
+      "title": "casting Collective Resistance does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Collective Resistance",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Artifact",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Collective Resistance",
+          "targets": [
+            "Scenario Filler Artifact"
+          ],
+          "modes": [
+            0
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Scenario Filler Artifact",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Collective Resistance",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

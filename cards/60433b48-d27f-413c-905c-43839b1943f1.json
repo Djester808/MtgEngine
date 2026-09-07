@@ -144,308 +144,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "60433b48-d27f-413c-905c-43839b1943f1",
-        "name": "Mother of Runes",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-60433b48-d27f-413c-905c-43839b1943f1",
+      "title": "casting Mother of Runes does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Mother of Runes",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Human",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Human",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{W}",
-            "power": {
-              "text": "1",
-              "number": 1
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "ChooseValue",
-                      "what": "Color",
-                      "key": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Protection",
-                        "of": {
-                          "also": {
-                            "kind": "IsChosenColor",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Target creature you control gains protection from the color of your choice until end of turn."
+                "name": "Mother of Runes",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "ChooseValue",
-                      "what": "Color",
-                      "key": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Protection",
-                        "of": {
-                          "also": {
-                            "kind": "IsChosenColor",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Target creature you control gains protection from the color of your choice until end of turn."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "60433b48-d27f-413c-905c-43839b1943f1",
-        "name": "Mother of Runes",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Mother of Runes",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Human",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Human",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{W}",
-            "power": {
-              "text": "1",
-              "number": 1
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "ChooseValue",
-                      "what": "Color",
-                      "key": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Protection",
-                        "of": {
-                          "also": {
-                            "kind": "IsChosenColor",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k2",
-                        "distinct": true
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Target creature you control gains protection from the color of your choice until end of turn."
-              }
-            ],
-            "oracleText": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "ChooseValue",
-                      "what": "Color",
-                      "key": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Protection",
-                        "of": {
-                          "also": {
-                            "kind": "IsChosenColor",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k2",
-                        "distinct": true
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Target creature you control gains protection from the color of your choice until end of turn."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Mother of Runes"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Mother of Runes",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-60433b48-d27f-413c-905c-43839b1943f1",
+      "title": "casting Mother of Runes does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Mother of Runes",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Mother of Runes"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Mother of Runes",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

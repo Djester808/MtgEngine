@@ -81,7 +81,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -188,16 +188,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": false
-                  }
+                  "kind": "Unsupported",
+                  "reason": "ManaProduction\u0027s landCouldProduce flag has no controller qualifier, so it cannot express \u0027a land an opponent controls\u0027 as opposed to any land or a land you control; using it unqualified would risk silently changing which lands are consulted.",
+                  "text": "Add one mana of any color that a land an opponent controls could produce."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -215,16 +208,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": false
-                  }
+                  "kind": "Unsupported",
+                  "reason": "ManaProduction\u0027s landCouldProduce flag has no controller qualifier, so it cannot express \u0027a land an opponent controls\u0027 as opposed to any land or a land you control; using it unqualified would risk silently changing which lands are consulted.",
+                  "text": "Add one mana of any color that a land an opponent controls could produce."
                 },
                 "timing": "Any",
                 "where": "Battlefield",

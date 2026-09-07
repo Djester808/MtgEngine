@@ -59,7 +59,7 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "BecomesTapped",
+              "kind": "TappedForMana",
               "what": {
                 "subtypes": [
                   "Forest"
@@ -133,7 +133,7 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "BecomesTapped",
+              "kind": "TappedForMana",
               "what": {
                 "subtypes": [
                   "Forest"
@@ -180,7 +180,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -245,7 +245,7 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "BecomesTapped",
+                  "kind": "TappedForMana",
                   "what": {
                     "subtypes": [
                       "Forest"
@@ -319,7 +319,7 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "BecomesTapped",
+                  "kind": "TappedForMana",
                   "what": {
                     "subtypes": [
                       "Forest"
@@ -419,8 +419,8 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "AbilityActivated",
-                  "source": {
+                  "kind": "TappedForMana",
+                  "what": {
                     "subtypes": [
                       "Forest"
                     ],
@@ -431,14 +431,14 @@
                       }
                     }
                   },
-                  "ability": "Mana"
+                  "ofChosenColorKey": "color"
                 },
                 "do": {
                   "kind": "AddMana",
                   "mana": {
                     "anyColor": false,
                     "commanderIdentity": false,
-                    "chosenColor": true,
+                    "chosenColor": false,
                     "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
@@ -448,8 +448,7 @@
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
+                      "kind": "Attached"
                     }
                   }
                 },
@@ -495,8 +494,8 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "AbilityActivated",
-                  "source": {
+                  "kind": "TappedForMana",
+                  "what": {
                     "subtypes": [
                       "Forest"
                     ],
@@ -507,14 +506,14 @@
                       }
                     }
                   },
-                  "ability": "Mana"
+                  "ofChosenColorKey": "color"
                 },
                 "do": {
                   "kind": "AddMana",
                   "mana": {
                     "anyColor": false,
                     "commanderIdentity": false,
-                    "chosenColor": true,
+                    "chosenColor": false,
                     "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
@@ -524,8 +523,7 @@
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
+                      "kind": "Attached"
                     }
                   }
                 },

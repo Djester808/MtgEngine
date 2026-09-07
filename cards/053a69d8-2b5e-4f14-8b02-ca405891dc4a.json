@@ -85,10 +85,7 @@
               }
             },
             "with": {
-              "kind": "Unless",
-              "do": {
-                "kind": "EntersTapped"
-              },
+              "kind": "MayPay",
               "paid": {
                 "kind": "PayLife",
                 "amount": {
@@ -96,8 +93,11 @@
                   "n": 3
                 }
               },
-              "who": {
-                "kind": "You"
+              "then": {
+                "kind": "DoNothing"
+              },
+              "else": {
+                "kind": "EntersTapped"
               }
             },
             "optional": false,
@@ -144,10 +144,7 @@
               }
             },
             "with": {
-              "kind": "Unless",
-              "do": {
-                "kind": "EntersTapped"
-              },
+              "kind": "MayPay",
               "paid": {
                 "kind": "PayLife",
                 "amount": {
@@ -155,8 +152,11 @@
                   "n": 3
                 }
               },
-              "who": {
-                "kind": "You"
+              "then": {
+                "kind": "DoNothing"
+              },
+              "else": {
+                "kind": "EntersTapped"
               }
             },
             "optional": false,
@@ -193,432 +193,507 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
-        "name": "Fell the Profane // Fell Mire",
-        "layout": "ModalDfc",
-        "faces": [
+      "id": "smoke-053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+      "title": "casting Fell the Profane // Fell Mire does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Fell the Profane",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{B}{B}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Creature",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "text": "Destroy target creature or planeswalker."
+                "name": "Fell the Profane // Fell Mire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Destroy target creature or planeswalker.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Creature",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "text": "Destroy target creature or planeswalker."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
-            ]
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
           },
           {
-            "name": "Fell Mire",
-            "role": "Back",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "B",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "Unless",
-                  "do": {
-                    "kind": "EntersTapped"
-                  },
-                  "paid": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 3
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {B}."
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "Unless",
-                  "do": {
-                    "kind": "EntersTapped"
-                  },
-                  "paid": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 3
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {B}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
-        "name": "Fell the Profane // Fell Mire",
-        "layout": "ModalDfc",
-        "faces": [
-          {
-            "name": "Fell the Profane",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{B}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Creature",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "text": "Destroy target creature or planeswalker."
-              }
-            ],
-            "oracleText": "Destroy target creature or planeswalker.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Creature",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "text": "Destroy target creature or planeswalker."
-              }
-            ]
-          },
-          {
-            "name": "Fell Mire",
-            "role": "Back",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 3
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "NotCondition",
-                        "of": {
-                          "kind": "ChoiceIs",
-                          "key": "k1",
-                          "value": "yes"
-                        }
-                      },
-                      "then": {
-                        "kind": "EntersTapped"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {B}."
-              }
-            ],
-            "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 3
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "NotCondition",
-                        "of": {
-                          "kind": "ChoiceIs",
-                          "key": "k1",
-                          "value": "yes"
-                        }
-                      },
-                      "then": {
-                        "kind": "EntersTapped"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {B}."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Fell the Profane // Fell Mire",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Scenario Filler Creature",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Fell the Profane // Fell Mire",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+      "title": "casting Fell the Profane // Fell Mire does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Fell the Profane // Fell Mire",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Fell the Profane // Fell Mire",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Scenario Filler Creature",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Fell the Profane // Fell Mire",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

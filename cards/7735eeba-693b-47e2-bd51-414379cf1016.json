@@ -33,7 +33,6 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -59,8 +58,12 @@
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
+                      "kind": "Target",
+                      "filter": {
+                        "permanent": true
+                      },
+                      "upTo": false,
+                      "distinct": true
                     }
                   },
                   "tapped": false,
@@ -86,7 +89,6 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -112,8 +114,12 @@
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
+                      "kind": "Target",
+                      "filter": {
+                        "permanent": true
+                      },
+                      "upTo": false,
+                      "distinct": true
                     }
                   },
                   "tapped": false,
@@ -133,7 +139,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -170,7 +176,6 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -196,8 +201,12 @@
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "Target",
+                          "filter": {
+                            "permanent": true
+                          },
+                          "upTo": false,
+                          "distinct": true
                         }
                       },
                       "tapped": false,
@@ -223,7 +232,6 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -249,8 +257,12 @@
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                          "kind": "Target",
+                          "filter": {
+                            "permanent": true
+                          },
+                          "upTo": false,
+                          "distinct": true
                         }
                       },
                       "tapped": false,
@@ -323,13 +335,8 @@
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Target",
-                          "filter": {
-                            "permanent": true
-                          },
-                          "upTo": false,
-                          "key": "k1",
-                          "distinct": true
+                          "kind": "Remembered",
+                          "key": "k1"
                         }
                       },
                       "tapped": false,
@@ -381,13 +388,8 @@
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
-                          "kind": "Target",
-                          "filter": {
-                            "permanent": true
-                          },
-                          "upTo": false,
-                          "key": "k1",
-                          "distinct": true
+                          "kind": "Remembered",
+                          "key": "k1"
                         }
                       },
                       "tapped": false,

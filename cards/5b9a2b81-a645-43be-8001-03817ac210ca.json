@@ -59,12 +59,19 @@
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
-                "restriction": true,
-                "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
+                "restriction": false
               },
               "n": {
                 "kind": "Fixed",
                 "n": 4
+              },
+              "spendOnlyOn": {
+                "monocolored": true,
+                "spell": true,
+                "also": {
+                  "kind": "IsChosenColor",
+                  "key": "k1"
+                }
               }
             },
             "timing": "Any",
@@ -95,7 +102,7 @@
                 },
                 {
                   "kind": "Unsupported",
-                  "reason": "Cannot express a restriction on which mana may be spent to activate an ability.",
+                  "reason": "An activation may be restricted to mana of the chosen colour, and neither field on ActivatedAbility can say it: PayOnlyWith takes printed colours only and PayOnlyFrom describes the source permanent, not a colour a ChooseValue stored. Needs a PayOnlyWith that can name a chosen-colour key.",
                   "text": "Spend only mana of the chosen color to activate this ability."
                 }
               ]
@@ -145,12 +152,19 @@
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
-                "restriction": true,
-                "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
+                "restriction": false
               },
               "n": {
                 "kind": "Fixed",
                 "n": 4
+              },
+              "spendOnlyOn": {
+                "monocolored": true,
+                "spell": true,
+                "also": {
+                  "kind": "IsChosenColor",
+                  "key": "k1"
+                }
               }
             },
             "timing": "Any",
@@ -181,7 +195,7 @@
                 },
                 {
                   "kind": "Unsupported",
-                  "reason": "Cannot express a restriction on which mana may be spent to activate an ability.",
+                  "reason": "An activation may be restricted to mana of the chosen colour, and neither field on ActivatedAbility can say it: PayOnlyWith takes printed colours only and PayOnlyFrom describes the source permanent, not a colour a ChooseValue stored. Needs a PayOnlyWith that can name a chosen-colour key.",
                   "text": "Spend only mana of the chosen color to activate this ability."
                 }
               ]
@@ -195,408 +209,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "5b9a2b81-a645-43be-8001-03817ac210ca",
-        "name": "Throne of Eldraine",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Throne of Eldraine",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{5}",
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "ChooseValue",
-                  "what": "Color",
-                  "key": "k1"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As Throne of Eldraine enters, choose a color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": true,
-                    "chosenColorKey": "k1",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Cannot express a restriction on which mana may be spent to activate an ability.",
-                      "text": "Spend only mana of the chosen color to activate this ability."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability."
-              }
-            ],
-            "oracleText": "As Throne of Eldraine enters, choose a color.\n{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color.\n{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "ChooseValue",
-                  "what": "Color",
-                  "key": "k1"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As Throne of Eldraine enters, choose a color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": true,
-                    "chosenColorKey": "k1",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Cannot express a restriction on which mana may be spent to activate an ability.",
-                      "text": "Spend only mana of the chosen color to activate this ability."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "5b9a2b81-a645-43be-8001-03817ac210ca",
-        "name": "Throne of Eldraine",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Throne of Eldraine",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{5}",
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "ChooseValue",
-                  "what": "Color",
-                  "key": "k1"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As Throne of Eldraine enters, choose a color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": true,
-                    "chosenColorKey": "k1",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "monocolored spells of that color"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No primitive expresses a restriction that only mana of a chosen color may be spent to activate this specific ability.",
-                      "text": "Spend only mana of the chosen color to activate this ability."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability."
-              }
-            ],
-            "oracleText": "As Throne of Eldraine enters, choose a color.\n{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color.\n{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "ChooseValue",
-                  "what": "Color",
-                  "key": "k1"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "As Throne of Eldraine enters, choose a color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": true,
-                    "chosenColorKey": "k1",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": true,
-                    "restrictedTo": "monocolored spells of that color"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 4
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No primitive expresses a restriction that only mana of a chosen color may be spent to activate this specific ability.",
-                      "text": "Spend only mana of the chosen color to activate this ability."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

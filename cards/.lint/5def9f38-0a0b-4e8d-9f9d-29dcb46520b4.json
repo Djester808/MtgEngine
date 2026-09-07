@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: An \u0027unless that player pays {X}\u0027 cost where X is defined as this creature\u0027s power cannot be expressed: Cost records take printed mana only and cannot reference PowerOf(Self).",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

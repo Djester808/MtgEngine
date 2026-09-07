@@ -57,12 +57,39 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  }
+                  },
+                  "key": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
-                  "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "ManaSpent",
+                    "manaKey": "mana",
+                    "onSpell": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "spell": true,
+                      "also": {
+                        "kind": "SharesTypeWith",
+                        "with": {
+                          "kind": "Commander",
+                          "whose": {
+                            "kind": "You"
+                          }
+                        },
+                        "creatureTypeOnly": true
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Scry",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "once": true
                 }
               ]
             },
@@ -112,12 +139,39 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  }
+                  },
+                  "key": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
-                  "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "ManaSpent",
+                    "manaKey": "mana",
+                    "onSpell": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "spell": true,
+                      "also": {
+                        "kind": "SharesTypeWith",
+                        "with": {
+                          "kind": "Commander",
+                          "whose": {
+                            "kind": "You"
+                          }
+                        },
+                        "creatureTypeOnly": true
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Scry",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "once": true
                 }
               ]
             },
@@ -130,282 +184,459 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Scry"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
-        "name": "Path of Ancestry",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-b473e293-59e3-4e04-acf2-622604aeb25f",
+      "title": "playing Path of Ancestry puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Path of Ancestry",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped."
+                "name": "Path of Ancestry",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "anyColor": false,
-                        "commanderIdentity": true,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
-                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "This land enters tapped.\n{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "anyColor": false,
-                        "commanderIdentity": true,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
-                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
-        "name": "Path of Ancestry",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Path of Ancestry",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "anyColor": false,
-                        "commanderIdentity": true,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No trigger exists for \u0027when that mana is spent to cast a spell\u0027, tracking the specific mana produced by this source and its use to cast a creature spell sharing a creature type with the commander.",
-                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-              }
-            ],
-            "oracleText": "This land enters tapped.\n{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "anyColor": false,
-                        "commanderIdentity": true,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "No trigger exists for \u0027when that mana is spent to cast a spell\u0027, tracking the specific mana produced by this source and its use to cast a creature spell sharing a creature type with the commander.",
-                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Path of Ancestry"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Path of Ancestry",
+          "zone": "Battlefield"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [
     "Scry"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-b473e293-59e3-4e04-acf2-622604aeb25f",
+      "title": "playing Path of Ancestry puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Path of Ancestry",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Path of Ancestry"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Path of Ancestry",
+          "zone": "Battlefield"
+        }
+      ]
+    }
+  ]
 }

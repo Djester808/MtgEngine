@@ -120,7 +120,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -284,25 +284,30 @@
                   }
                 },
                 "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Graveyard"
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard",
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "distinct": true
                     },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
+                    "to": "Hand",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "When this creature enters, you may return target card from your graveyard to your hand."
@@ -321,25 +326,30 @@
                   }
                 },
                 "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Graveyard"
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard",
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "distinct": true
                     },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
+                    "to": "Hand",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "When this creature enters, you may return target card from your graveyard to your hand."

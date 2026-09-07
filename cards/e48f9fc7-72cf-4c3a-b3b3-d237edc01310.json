@@ -31,24 +31,27 @@
               }
             },
             "do": {
-              "kind": "Exile",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "faceDown": false,
-              "rememberAs": "k1"
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -56,7 +59,7 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "BecomesTapped",
+              "kind": "TappedForMana",
               "what": {
                 "types": [
                   "Land"
@@ -108,24 +111,27 @@
               }
             },
             "do": {
-              "kind": "Exile",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "faceDown": false,
-              "rememberAs": "k1"
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -133,7 +139,7 @@
           {
             "kind": "TriggeredAbility",
             "when": {
-              "kind": "BecomesTapped",
+              "kind": "TappedForMana",
               "what": {
                 "types": [
                   "Land"
@@ -179,9 +185,9 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -243,7 +249,7 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "BecomesTapped",
+                  "kind": "TappedForMana",
                   "what": {
                     "types": [
                       "Land"
@@ -258,23 +264,9 @@
                   }
                 },
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
+                  "kind": "Unsupported",
+                  "reason": "\u0022adds one mana of any type that land produced\u0022: ManaProduction cannot say it. LandCouldProduce is the types a land could produce, not the types this tapping actually produced -- for a dual land tapped for {W} the two sets differ -- and it carries no player or ObjectFilter, so it cannot point at the triggering land either. AnyType is unrestricted, OneOf and Fixed take printed mana, and no key field reads the mana an event produced. Needs a production that names a land and the type it produced.",
+                  "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -320,7 +312,7 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "BecomesTapped",
+                  "kind": "TappedForMana",
                   "what": {
                     "types": [
                       "Land"
@@ -335,23 +327,9 @@
                   }
                 },
                 "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
+                  "kind": "Unsupported",
+                  "reason": "\u0022adds one mana of any type that land produced\u0022: ManaProduction cannot say it. LandCouldProduce is the types a land could produce, not the types this tapping actually produced -- for a dual land tapped for {W} the two sets differ -- and it carries no player or ObjectFilter, so it cannot point at the triggering land either. AnyType is unrestricted, OneOf and Fixed take printed mana, and no key field reads the mana an event produced. Needs a production that names a land and the type it produced.",
+                  "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -393,25 +371,27 @@
                   }
                 },
                 "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "distinct": true
                     },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k2"
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -419,8 +399,8 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "AbilityActivated",
-                  "source": {
+                  "kind": "TappedForMana",
+                  "what": {
                     "types": [
                       "Land"
                     ],
@@ -428,11 +408,10 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "k2"
+                        "key": "k1"
                       }
                     }
-                  },
-                  "ability": "Mana"
+                  }
                 },
                 "do": {
                   "kind": "AddMana",
@@ -472,25 +451,27 @@
                   }
                 },
                 "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "distinct": true
                     },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k2"
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
                 },
-                "optional": true,
+                "optional": false,
                 "where": "Battlefield",
                 "oncePerTurn": false,
                 "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -498,8 +479,8 @@
               {
                 "kind": "TriggeredAbility",
                 "when": {
-                  "kind": "AbilityActivated",
-                  "source": {
+                  "kind": "TappedForMana",
+                  "what": {
                     "types": [
                       "Land"
                     ],
@@ -507,11 +488,10 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "k2"
+                        "key": "k1"
                       }
                     }
-                  },
-                  "ability": "Mana"
+                  }
                 },
                 "do": {
                   "kind": "AddMana",

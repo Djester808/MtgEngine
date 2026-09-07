@@ -37,21 +37,43 @@
             "text": "Enchant land"
           },
           {
-            "kind": "StaticAbility",
-            "effect": {
-              "kind": "ManaProducesAdditional",
-              "sources": {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "TappedForMana",
+              "what": {
                 "types": [
                   "Land"
-                ]
+                ],
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{G}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
               },
-              "mana": "{G}"
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Attached"
+                }
+              }
             },
-            "to": {
-              "kind": "Attached"
-            },
+            "optional": false,
             "where": "Battlefield",
-            "characteristicDefining": false,
+            "oncePerTurn": false,
             "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
           }
         ],
@@ -69,223 +91,530 @@
             "text": "Enchant land"
           },
           {
-            "kind": "StaticAbility",
-            "effect": {
-              "kind": "ManaProducesAdditional",
-              "sources": {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "TappedForMana",
+              "what": {
                 "types": [
                   "Land"
-                ]
+                ],
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{G}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
               },
-              "mana": "{G}"
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Attached"
+                }
+              }
             },
-            "to": {
-              "kind": "Attached"
-            },
+            "optional": false,
             "where": "Battlefield",
-            "characteristicDefining": false,
+            "oncePerTurn": false,
             "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
           }
         ]
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Enchant"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "706ae742-1807-44b7-a4fa-f2e26f61519a",
-        "name": "Wild Growth",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-706ae742-1807-44b7-a4fa-f2e26f61519a",
+      "title": "casting Wild Growth does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Wild Growth",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{G}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant land"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "ManaProducesAdditional",
-                  "sources": {
-                    "types": [
-                      "Land"
-                    ]
-                  },
-                  "mana": "{G}"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant land"
+                "name": "Wild Growth",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "ManaProducesAdditional",
-                  "sources": {
-                    "types": [
-                      "Land"
-                    ]
-                  },
-                  "mana": "{G}"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "706ae742-1807-44b7-a4fa-f2e26f61519a",
-        "name": "Wild Growth",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Wild Growth",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant land"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "ManaProducesAdditional",
-                  "sources": {
-                    "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
-                      }
-                    }
-                  },
-                  "mana": "{G}"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
-              }
-            ],
-            "oracleText": "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant land"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "ManaProducesAdditional",
-                  "sources": {
-                    "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
-                      }
-                    }
-                  },
-                  "mana": "{G}"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever enchanted land is tapped for mana, its controller adds an additional {G}."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Wild Growth",
+          "targets": [
+            "Scenario Filler Land"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Wild Growth",
+          "to": "Scenario Filler Land"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 0,
+    "total": 1,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [
     "Enchant"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-706ae742-1807-44b7-a4fa-f2e26f61519a",
+      "title": "casting Wild Growth does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Wild Growth",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Wild Growth",
+          "targets": [
+            "Scenario Filler Land"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Wild Growth",
+          "to": "Scenario Filler Land"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

@@ -11,13 +11,7 @@
       "code": "L002",
       "message": "The definition has Hexproof and Scryfall does not list it; check it is granted, not printed.",
       "path": "scryfallKeywords"
-    },
-    {
-      "severity": "Error",
-      "code": "L013",
-      "message": "A Disputed file must keep both readings in Candidates.",
-      "path": "status"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

@@ -5,13 +5,7 @@
       "code": "L004",
       "message": "A negative literal amount (-3); use the record\u0027s own direction instead.",
       "path": "faces[0].abilities[0]"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No effect record for changing the target of a spell or ability",
-      "path": "faces[0].abilities[1]"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

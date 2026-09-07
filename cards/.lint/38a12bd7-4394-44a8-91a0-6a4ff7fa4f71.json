@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Prevention of combat damage dealt BY one named creature cannot be said: a PreventDamage shield covers only damage dealt to what it is applied to, and its From names the damage\u0027s source with an ObjectFilter, which describes objects and cannot point at the single creature this ability targeted; no predicate identifies a remembered object either (TargetedBy is false once the ability has resolved, and SharesNameWith would also cover other copies).",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
 }

@@ -5,13 +5,7 @@
       "code": "L004",
       "message": "A negative literal amount (-1); use the record\u0027s own direction instead.",
       "path": "faces[0].abilities[0]"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No vocabulary for distributing counters among a variable number of targets",
-      "path": "faces[0].abilities[2]"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

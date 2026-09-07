@@ -43,9 +43,17 @@
               }
             },
             "do": {
-              "kind": "Unsupported",
-              "reason": "Optional mana payment inside a resolving effect (\u0027you may pay {4}. If you do, ...\u0027) cannot be expressed; there is no pay-cost effect.",
-              "text": "you may pay {4}. If you do, untap this artifact."
+              "kind": "MayPay",
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{4}"
+              },
+              "then": {
+                "kind": "Untap",
+                "what": {
+                  "kind": "Self"
+                }
+              }
             },
             "optional": false,
             "where": "Battlefield",
@@ -69,9 +77,6 @@
               },
               "toPlayer": {
                 "kind": "You"
-              },
-              "source": {
-                "kind": "Self"
               },
               "cantBePrevented": false
             },
@@ -137,9 +142,17 @@
               }
             },
             "do": {
-              "kind": "Unsupported",
-              "reason": "Optional mana payment inside a resolving effect (\u0027you may pay {4}. If you do, ...\u0027) cannot be expressed; there is no pay-cost effect.",
-              "text": "you may pay {4}. If you do, untap this artifact."
+              "kind": "MayPay",
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{4}"
+              },
+              "then": {
+                "kind": "Untap",
+                "what": {
+                  "kind": "Self"
+                }
+              }
             },
             "optional": false,
             "where": "Battlefield",
@@ -163,9 +176,6 @@
               },
               "toPlayer": {
                 "kind": "You"
-              },
-              "source": {
-                "kind": "Self"
               },
               "cantBePrevented": false
             },
@@ -209,464 +219,907 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
-        "name": "Mana Vault",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "title": "casting Mana Vault does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Mana Vault",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CantUntap",
-                  "duringUntapStepOnly": true
-                },
-                "to": {
-                  "kind": "Self"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This artifact doesn\u0027t untap during your untap step."
+                "name": "Mana Vault",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Upkeep",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "Optional mana payment inside a resolving effect (\u0027you may pay {4}. If you do, ...\u0027) cannot be expressed; there is no pay-cost effect.",
-                  "text": "you may pay {4}. If you do, untap this artifact."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your upkeep, you may pay {4}. If you do, untap this artifact."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "toPlayer": {
-                    "kind": "You"
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "if": {
-                  "kind": "IsTapped",
-                  "of": {
-                    "kind": "Self"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{C}{C}{C}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}{C}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "This artifact doesn\u0027t untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you.\n{T}: Add {C}{C}{C}.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CantUntap",
-                  "duringUntapStepOnly": true
-                },
-                "to": {
-                  "kind": "Self"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This artifact doesn\u0027t untap during your untap step."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Upkeep",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "Optional mana payment inside a resolving effect (\u0027you may pay {4}. If you do, ...\u0027) cannot be expressed; there is no pay-cost effect.",
-                  "text": "you may pay {4}. If you do, untap this artifact."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your upkeep, you may pay {4}. If you do, untap this artifact."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "toPlayer": {
-                    "kind": "You"
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "if": {
-                  "kind": "IsTapped",
-                  "of": {
-                    "kind": "Self"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{C}{C}{C}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}{C}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Mana Vault"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Mana Vault",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     },
     {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
-        "name": "Mana Vault",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-activate-736892cb-a34b-4bb9-b56c-e26e3db207a2-3",
+      "title": "activating an ability of Mana Vault does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Mana Vault",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CantUntap",
-                  "duringUntapStepOnly": true
-                },
-                "to": {
-                  "kind": "Self"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This artifact doesn\u0027t untap during your untap step."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Upkeep",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Unsupported",
-                        "reason": "No Effect exists for paying generic mana as part of a resolving ability\u0027s effect; only Cost forms exist for activated-ability costs.",
-                        "text": "pay {4}"
-                      },
-                      {
-                        "kind": "Untap",
-                        "what": {
-                          "kind": "Self"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your upkeep, you may pay {4}. If you do, untap this artifact."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "toPlayer": {
-                    "kind": "You"
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "if": {
-                  "kind": "IsTapped",
-                  "of": {
-                    "kind": "Self"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{C}{C}{C}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}{C}."
+                "name": "Mana Vault",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "This artifact doesn\u0027t untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you.\n{T}: Add {C}{C}{C}.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CantUntap",
-                  "duringUntapStepOnly": true
-                },
-                "to": {
-                  "kind": "Self"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This artifact doesn\u0027t untap during your untap step."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Upkeep",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Unsupported",
-                        "reason": "No Effect exists for paying generic mana as part of a resolving ability\u0027s effect; only Cost forms exist for activated-ability costs.",
-                        "text": "pay {4}"
-                      },
-                      {
-                        "kind": "Untap",
-                        "what": {
-                          "kind": "Self"
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your upkeep, you may pay {4}. If you do, untap this artifact."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
-                  "toPlayer": {
-                    "kind": "You"
-                  },
-                  "source": {
-                    "kind": "Self"
-                  },
-                  "cantBePrevented": false
-                },
-                "if": {
-                  "kind": "IsTapped",
-                  "of": {
-                    "kind": "Self"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{C}{C}{C}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}{C}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Mana Vault",
+          "abilityIndex": 3
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Mana Vault",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T203611-93b7a8",
+    "passed": 2,
+    "total": 2,
+    "at": "2026-09-07T20:36:11.9695559+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "title": "casting Mana Vault does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Mana Vault",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Mana Vault"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Mana Vault",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-736892cb-a34b-4bb9-b56c-e26e3db207a2-3",
+      "title": "activating an ability of Mana Vault does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Mana Vault",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Mana Vault",
+          "abilityIndex": 3
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Mana Vault",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

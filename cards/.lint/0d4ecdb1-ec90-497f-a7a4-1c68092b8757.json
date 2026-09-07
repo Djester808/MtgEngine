@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No vocabulary for a player\u0027s life total being unable to change or for a player gaining protection from everything.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

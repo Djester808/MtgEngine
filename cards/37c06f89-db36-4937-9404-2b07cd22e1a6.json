@@ -65,9 +65,29 @@
                   }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "No condition expresses whether the gift was promised",
-                  "text": "If the gift was promised, permanents you control also gain indestructible until end of turn."
+                  "kind": "If",
+                  "test": {
+                    "kind": "GiftPromised"
+                  },
+                  "then": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "GrantKeyword",
+                      "keyword": "Indestructible"
+                    },
+                    "to": {
+                      "kind": "Each",
+                      "filter": {
+                        "controlledBy": {
+                          "kind": "You"
+                        },
+                        "permanent": true
+                      }
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  }
                 }
               ]
             },
@@ -121,9 +141,29 @@
                   }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "No condition expresses whether the gift was promised",
-                  "text": "If the gift was promised, permanents you control also gain indestructible until end of turn."
+                  "kind": "If",
+                  "test": {
+                    "kind": "GiftPromised"
+                  },
+                  "then": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "GrantKeyword",
+                      "keyword": "Indestructible"
+                    },
+                    "to": {
+                      "kind": "Each",
+                      "filter": {
+                        "controlledBy": {
+                          "kind": "You"
+                        },
+                        "permanent": true
+                      }
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  }
                 }
               ]
             },
@@ -133,18 +173,361 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Disputed",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5",
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
-    "agreed": true
+    "promptVersion": "pilot-f0e1d635d3a8",
+    "agreed": false
   },
   "scryfallKeywords": [
     "Gift"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "37c06f89-db36-4937-9404-2b07cd22e1a6",
+        "name": "Dawn\u0027s Truce",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Dawn\u0027s Truce",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Gift",
+                "detail": "a card",
+                "repeatable": false,
+                "text": "Gift a card"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "GiftPromised"
+                      },
+                      "then": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "controlledBy": {
+                              "kind": "You"
+                            },
+                            "permanent": true
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Gift",
+                "detail": "a card",
+                "repeatable": false,
+                "text": "Gift a card"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "GiftPromised"
+                      },
+                      "then": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "controlledBy": {
+                              "kind": "You"
+                            },
+                            "permanent": true
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "37c06f89-db36-4937-9404-2b07cd22e1a6",
+        "name": "Dawn\u0027s Truce",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Dawn\u0027s Truce",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Gift",
+                "detail": "a card",
+                "repeatable": false,
+                "text": "Gift a card"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "GiftPromised"
+                      },
+                      "then": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Gift",
+                "detail": "a card",
+                "repeatable": false,
+                "text": "Gift a card"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "GiftPromised"
+                      },
+                      "then": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
   ],
   "keywordList": [
     "Gift"

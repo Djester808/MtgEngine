@@ -5,19 +5,7 @@
       "code": "L002",
       "message": "The definition has Kicker and Scryfall does not list it; check it is granted, not printed.",
       "path": "scryfallKeywords"
-    },
-    {
-      "severity": "Error",
-      "code": "L013",
-      "message": "A Disputed file must keep both readings in Candidates.",
-      "path": "status"
-    },
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No Amount expresses the number of times a spell was kicked (multikicker count).",
-      "path": "faces[0].abilities[1]"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

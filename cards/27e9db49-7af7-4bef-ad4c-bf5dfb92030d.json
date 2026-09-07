@@ -75,7 +75,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -175,11 +175,10 @@
                   "what": {
                     "kind": "PreventDamage",
                     "combat": true,
-                    "toPlayersToo": false
+                    "toPlayersToo": true
                   },
                   "to": {
-                    "kind": "Each",
-                    "filter": {}
+                    "kind": "Self"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -197,11 +196,10 @@
                   "what": {
                     "kind": "PreventDamage",
                     "combat": true,
-                    "toPlayersToo": false
+                    "toPlayersToo": true
                   },
                   "to": {
-                    "kind": "Each",
-                    "filter": {}
+                    "kind": "Self"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"

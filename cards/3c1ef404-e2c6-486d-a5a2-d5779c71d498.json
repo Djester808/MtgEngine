@@ -43,7 +43,7 @@
                         "where": "Default",
                         "reveal": true,
                         "tapped": false,
-                        "shuffleAfter": false,
+                        "shuffleAfter": true,
                         "rememberAs": "k1",
                         "shuffleOnlyIfFound": false
                       },
@@ -75,9 +75,6 @@
                           "transformed": false,
                           "ownersChoiceOfOrder": true
                         }
-                      },
-                      {
-                        "kind": "Shuffle"
                       }
                     ]
                   }
@@ -191,7 +188,7 @@
                         "where": "Default",
                         "reveal": true,
                         "tapped": false,
-                        "shuffleAfter": false,
+                        "shuffleAfter": true,
                         "rememberAs": "k1",
                         "shuffleOnlyIfFound": false
                       },
@@ -223,9 +220,6 @@
                           "transformed": false,
                           "ownersChoiceOfOrder": true
                         }
-                      },
-                      {
-                        "kind": "Shuffle"
                       }
                     ]
                   }
@@ -323,7 +317,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -370,7 +364,7 @@
                             "where": "Default",
                             "reveal": true,
                             "tapped": false,
-                            "shuffleAfter": false,
+                            "shuffleAfter": true,
                             "rememberAs": "k1",
                             "shuffleOnlyIfFound": false
                           },
@@ -402,9 +396,6 @@
                               "transformed": false,
                               "ownersChoiceOfOrder": true
                             }
-                          },
-                          {
-                            "kind": "Shuffle"
                           }
                         ]
                       }
@@ -518,7 +509,7 @@
                             "where": "Default",
                             "reveal": true,
                             "tapped": false,
-                            "shuffleAfter": false,
+                            "shuffleAfter": true,
                             "rememberAs": "k1",
                             "shuffleOnlyIfFound": false
                           },
@@ -550,9 +541,6 @@
                               "transformed": false,
                               "ownersChoiceOfOrder": true
                             }
-                          },
-                          {
-                            "kind": "Shuffle"
                           }
                         ]
                       }
@@ -767,10 +755,12 @@
                               "filter": {
                                 "types": [
                                   "Creature"
-                                ]
+                                ],
+                                "controlledBy": {
+                                  "kind": "EachOpponent"
+                                }
                               },
                               "upTo": false,
-                              "key": "k3",
                               "distinct": true
                             },
                             "source": {
@@ -913,10 +903,12 @@
                               "filter": {
                                 "types": [
                                   "Creature"
-                                ]
+                                ],
+                                "controlledBy": {
+                                  "kind": "EachOpponent"
+                                }
                               },
                               "upTo": false,
-                              "key": "k3",
                               "distinct": true
                             },
                             "source": {

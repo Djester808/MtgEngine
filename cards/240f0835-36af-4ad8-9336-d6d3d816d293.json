@@ -27,9 +27,6 @@
             "effect": {
               "kind": "CostModifier",
               "spells": {
-                "controlledBy": {
-                  "kind": "You"
-                },
                 "colors": [
                   "White"
                 ],
@@ -49,21 +46,15 @@
             "text": "White spells you cast cost {1} less to cast."
           },
           {
-            "kind": "ReplacementAbility",
-            "instead": {
-              "kind": "WouldGainLife",
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
               "who": {
                 "kind": "You"
               }
             },
-            "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
-            },
-            "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "characteristicDefining": false,
             "text": "If you would gain life, you gain twice that much life instead."
           },
           {
@@ -137,9 +128,6 @@
             "effect": {
               "kind": "CostModifier",
               "spells": {
-                "controlledBy": {
-                  "kind": "You"
-                },
                 "colors": [
                   "White"
                 ],
@@ -159,21 +147,15 @@
             "text": "White spells you cast cost {1} less to cast."
           },
           {
-            "kind": "ReplacementAbility",
-            "instead": {
-              "kind": "WouldGainLife",
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
               "who": {
                 "kind": "You"
               }
             },
-            "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
-            },
-            "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "characteristicDefining": false,
             "text": "If you would gain life, you gain twice that much life instead."
           },
           {
@@ -249,7 +231,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -280,9 +262,6 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "White"
                     ],
@@ -302,21 +281,15 @@
                 "text": "White spells you cast cost {1} less to cast."
               },
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldGainLife",
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LifeGainDoubled",
                   "who": {
                     "kind": "You"
                   }
                 },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "characteristicDefining": false,
                 "text": "If you would gain life, you gain twice that much life instead."
               },
               {
@@ -390,9 +363,6 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "White"
                     ],
@@ -412,21 +382,15 @@
                 "text": "White spells you cast cost {1} less to cast."
               },
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldGainLife",
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LifeGainDoubled",
                   "who": {
                     "kind": "You"
                   }
                 },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "characteristicDefining": false,
                 "text": "If you would gain life, you gain twice that much life instead."
               },
               {
@@ -523,6 +487,9 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
                     "colors": [
                       "White"
                     ],
@@ -630,6 +597,9 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
                     "colors": [
                       "White"
                     ],

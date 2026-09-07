@@ -205,7 +205,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -449,15 +449,8 @@
                         "of": {
                           "kind": "PowerOf",
                           "of": {
-                            "kind": "Each",
-                            "filter": {
-                              "types": [
-                                "Creature"
-                              ],
-                              "controlledBy": {
-                                "kind": "You"
-                              }
-                            }
+                            "kind": "Triggering",
+                            "role": "Subject"
                           }
                         }
                       }
@@ -539,15 +532,8 @@
                         "of": {
                           "kind": "PowerOf",
                           "of": {
-                            "kind": "Each",
-                            "filter": {
-                              "types": [
-                                "Creature"
-                              ],
-                              "controlledBy": {
-                                "kind": "You"
-                              }
-                            }
+                            "kind": "Triggering",
+                            "role": "Subject"
                           }
                         }
                       }

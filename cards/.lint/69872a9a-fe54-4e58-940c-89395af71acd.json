@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: Search cannot span both library and graveyard in one instruction",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }
