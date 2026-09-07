@@ -255,7 +255,8 @@ public sealed partial class EffectInterpreter
     }
 
     /// <summary>
-    /// What a search found, CR 701.23a: each card goes to the zone the effect names, and then
+    /// What a search found, CR 701.23a: each card goes to the zone the effect names — or, when the
+    /// card names an "instead" destination it matches, there (<see cref="Destination"/>) — and then
     /// CR 701.23c shuffles the libraries that were searched — and only those, so a search of a
     /// graveyard shuffles nothing. The printed rider "if you do, shuffle" is
     /// <c>ShuffleOnlyIfFound</c>: no shuffle when nothing came out of the library.
@@ -267,10 +268,41 @@ public sealed partial class EffectInterpreter
         var library = ZoneSystem.KeyFor(Zone.Library, searcher);
         var fromLibrary = found.Any(id => before.Objects.TryGetValue(id, out var card) && card.Zone == library);
         foreach (var id in found)
-            (run, _) = Relocate(run, id, search.To, search.Where, search.Tapped, controller: null);
+        {
+            var (to, where, tapped) = Destination(run, search, id);
+            (run, _) = Relocate(run, id, to, where, tapped, controller: null);
+        }
+
         if (search.ShuffleAfter && Searched(search).Contains(Zone.Library) && (!search.ShuffleOnlyIfFound || fromLibrary))
             run = Merge(run, zones.Shuffle(run.State, searcher));
         return Recall(run, search.RememberAs, Landed(before, run));
+    }
+
+    /// <summary>
+    /// Where one card a search found goes, CR 701.23a: "put it into your hand. If it's a land card,
+    /// put it onto the battlefield tapped instead". The card is read against each
+    /// <c>Instead</c> entry's <c>Matching</c> in the order the card printed them, and the first
+    /// entry that admits it wins, giving its <c>To</c> and <c>Tapped</c>; a card no entry admits
+    /// goes to the search's own <c>To</c> with its <c>Where</c> and <c>Tapped</c>. The filter
+    /// carries no zone (V10), so it is read against the card where it lies as it is found — the
+    /// library, before it moves — whatever zone the record named: a filter defaulting to the
+    /// battlefield would admit nothing. With several cards found each is read on its own, in the
+    /// state the earlier ones left, so a card not yet moved is still where the search found it.
+    /// </summary>
+    [RuleRef("701.23a")]
+    private (Zone To, Placement Where, bool Tapped) Destination(EffectRun run, Cards.Search search, ObjectId id)
+    {
+        if (search.Instead is { Count: > 0 } instead && run.State.Objects.TryGetValue(id, out var card))
+        {
+            foreach (var entry in instead)
+            {
+                var matching = entry.Matching with { In = card.Zone.Zone };
+                if (query.Matches(run.State, matching, id, run.Context))
+                    return (entry.To, Placement.Default, entry.Tapped);
+            }
+        }
+
+        return (search.To, search.Where, search.Tapped);
     }
 
     /// <summary>
