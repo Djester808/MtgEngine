@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Turn;
@@ -236,5 +237,84 @@ public sealed class TurnStructureTests
 
         Assert.Empty(outcome.Events);
         Assert.Equal(Step.End, outcome.State.Turn.Step);
+    }
+
+    [Fact]
+    [RuleRef("703.4m")]
+    public void Combat_damage_is_dealt_as_each_combat_damage_step_begins()
+    {
+        // CR 510.1 and CR 703.4m: assigning and dealing combat damage is a turn-based action at
+        // the beginning of the step, so it happens before anyone receives priority in it.
+        var spy = new CombatSpy();
+        var turns = new TurnSystem(_zones, _casting, spy);
+
+        var first = turns.Advance(TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0));
+        var second = turns.Advance(first.State);
+
+        Assert.Equal<bool>([true, false], spy.Dealt);
+        Assert.Single(first.Events.OfType<DamageDealt>());
+        Assert.Single(second.Events.OfType<DamageDealt>());
+
+        // Before priority: the step began, damage was dealt, and only then was priority granted.
+        var order = second.Events.Select(e => e.GetType().Name).ToList();
+        Assert.True(order.IndexOf(nameof(StepBegan)) < order.IndexOf(nameof(DamageDealt)));
+        Assert.True(order.IndexOf(nameof(DamageDealt)) < order.IndexOf(nameof(PriorityGranted)));
+    }
+
+    [Fact]
+    [RuleRef("511.3")]
+    public void Creatures_are_removed_from_combat_as_the_end_of_combat_step_ends()
+    {
+        var spy = new CombatSpy();
+        var turns = new TurnSystem(_zones, _casting, spy);
+
+        var outcome = turns.Advance(TurnFixture.Table(2).At(Step.EndOfCombat, TurnFixture.P0));
+
+        Assert.Equal(1, spy.Ended);
+        Assert.Single(outcome.Events.OfType<CombatEnded>());
+        Assert.Equal(Step.PostcombatMain, outcome.State.Turn.Step);
+    }
+
+    [Fact]
+    [RuleRef("510")]
+    public void A_turn_system_built_without_a_combat_system_deals_no_damage()
+    {
+        // The optional seam, stated as behaviour: the steps still happen and nothing is dealt.
+        var outcome = Turns.Advance(TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0));
+
+        Assert.Equal(Step.FirstStrikeCombatDamage, outcome.State.Turn.Step);
+        Assert.Empty(outcome.Events.OfType<DamageDealt>());
+    }
+
+    /// <summary>
+    /// Combat as the turn system sees it: it records which damage step it was asked for and emits
+    /// one damage event, so "the turn-based action ran here" is what the test reads, not how much
+    /// damage a creature assigns, which is <c>CombatTests</c>'s.
+    /// </summary>
+    private sealed class CombatSpy : ICombatSystem
+    {
+        public List<bool> Dealt { get; } = [];
+
+        public int Ended { get; private set; }
+
+        public string Name => "combat spy";
+
+        public Outcome DeclareAttackers(GameState state, Rules.Commands.DeclareAttackers command) => throw new NotSupportedException();
+
+        public Outcome DeclareBlockers(GameState state, Rules.Commands.DeclareBlockers command) => throw new NotSupportedException();
+
+        public Outcome DealCombatDamage(GameState state, bool firstStrike)
+        {
+            Dealt.Add(firstStrike);
+            ImmutableList<GameEvent> events = [new DamageDealt(new ObjectId(1), null, TurnFixture.P1, 1, Combat: true, FromCommander: false)];
+            return new Outcome(GameReducer.Apply(state, events), events);
+        }
+
+        public Outcome EndCombat(GameState state)
+        {
+            Ended++;
+            ImmutableList<GameEvent> events = [new CombatEnded()];
+            return new Outcome(GameReducer.Apply(state, events), events);
+        }
     }
 }

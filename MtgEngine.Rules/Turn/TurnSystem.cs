@@ -18,11 +18,17 @@ namespace MtgEngine.Rules.Turn;
 /// <para>
 /// The turn-based actions here are the ones of CR 703.4 that need no other subsystem: untap and
 /// summoning sickness, the draw, the cleanup step, and emptying mana pools. Drawing is the zone
-/// system's; resolving the stack is the casting system's.
+/// system's; resolving the stack is the casting system's; combat damage is the combat system's,
+/// but the moment it happens is a turn-based action of CR 703.4m and so belongs here.
+/// </para>
+/// <para>
+/// <paramref name="combat"/> is optional so that a test of turn structure alone need not build a
+/// combat system. A game composed without one steps through the combat steps and deals no
+/// damage, which is wrong at a table and honest in a unit test.
 /// </para>
 /// </summary>
 [RuleRef("500")]
-public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITurnSystem
+public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, ICombatSystem? combat = null) : ITurnSystem
 {
     /// <summary>The steps of a turn in order, CR 500.1. Main phases have no steps and stand for themselves.</summary>
     [RuleRef("500.1")]
@@ -128,6 +134,11 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITur
                 break;
         }
 
+        // CR 511.3: as the end of combat step ends, all creatures and planeswalkers are removed
+        // from combat. The combat system owns what that means; the moment is the turn's.
+        if (state.Turn.Step == Step.EndOfCombat && combat is not null)
+            log.Merge(combat.EndCombat(log.State));
+
         // CR 500.5 and CR 703.4q: as a step ends, unspent mana empties.
         EmptyManaPools(log);
 
@@ -135,6 +146,7 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITur
         log.Add(new StepBegan(next));
         if (next == Step.Draw)
             DrawStep(log);
+        CombatDamageStep(log, next);
 
         if (next == Step.Cleanup)
         {
@@ -202,6 +214,22 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITur
             return;
 
         log.Merge(zones.Draw(state, state.Turn.ActivePlayer, 1));
+    }
+
+    /// <summary>
+    /// CR 510.1 and CR 703.4m: combat damage is assigned and dealt as a turn-based action at the
+    /// beginning of a combat damage step, before any player receives priority. CR 510.4 gives the
+    /// first-strike step to creatures with first or double strike; the combat system decides who
+    /// assigns in which of the two, so both steps are walked and the second is where an ordinary
+    /// creature deals.
+    /// </summary>
+    [RuleRef("703.4m")]
+    private void CombatDamageStep(Log log, Step next)
+    {
+        if (combat is null || next is not (Step.FirstStrikeCombatDamage or Step.CombatDamage))
+            return;
+
+        log.Merge(combat.DealCombatDamage(log.State, next == Step.FirstStrikeCombatDamage));
     }
 
     /// <summary>
