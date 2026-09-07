@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Casting;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
@@ -111,15 +112,23 @@ public sealed partial class EffectInterpreter
             case ChooseMode modal:
                 {
                     if (!run.Context.Chosen.TryGetValue("modes", out var chosen))
+                    {
+                        // CR 700.2 with 601.2b: the ceiling was worked out as the spell or ability
+                        // was put on the stack, and a conditional one (MaxIf) rode there under
+                        // ModeAnnouncement.CeilingKey. Reading it back is how a question asked at
+                        // resolution offers the number the announcement came to; a spell whose
+                        // ceiling was never conditional carries no key and keeps modal.Max.
+                        var ceiling = Ceiling(run, modal);
                         return Ask(
                             run,
                             run.Context.Controller,
                             "mode",
                             "Choose.",
                             [.. modal.Modes.Select((m, i) => new ChoiceOption(i.ToString(CultureInfo.InvariantCulture), m.Text))],
-                            modal.Min,
-                            modal.Max,
+                            Math.Min(modal.Min, ceiling),
+                            ceiling,
                             "modes");
+                    }
 
                     foreach (var index in Indices(chosen))
                     {
@@ -340,6 +349,21 @@ public sealed partial class EffectInterpreter
     /// </summary>
     private static EffectRun Descend(EffectRun run, int index) =>
         run with { Path = run.Path + "." + index.ToString(CultureInfo.InvariantCulture) };
+
+    /// <summary>
+    /// How many modes the resolution's question may take, CR 700.2 with 601.2b. The casting system
+    /// reads a conditional ceiling (<c>MaxIf</c>/<c>MaxIfMet</c>) once, as the spell or ability is
+    /// announced, and writes the number it came to onto the stack entry under
+    /// <see cref="ModeAnnouncement.CeilingKey"/>; the condition is never asked again, so the
+    /// interpreter reads the recorded number rather than the record's own <c>MaxIf</c>. Nothing is
+    /// recorded for an ordinary modal spell, and one whose key does not parse is that spell too.
+    /// </summary>
+    [RuleRef("700.2")]
+    private static int Ceiling(EffectRun run, ChooseMode modal) =>
+        run.Context.Chosen.TryGetValue(ModeAnnouncement.CeilingKey, out var announced)
+        && int.TryParse(announced, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ceiling)
+            ? ceiling
+            : modal.Max;
 
     /// <summary>
     /// CR 700.2 with 608.2: a choice inside "for each" is made once per iteration, so a keyed

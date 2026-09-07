@@ -177,11 +177,7 @@ public sealed partial class EffectInterpreter
                 }
 
             case Cards.Shuffle shuffle:
-                {
-                    foreach (var player in PlayersOrYou(run, shuffle.Who))
-                        run = Merge(run, zones.Shuffle(run.State, player));
-                    return run;
-                }
+                return Shuffling(run, shuffle);
 
             default:
                 return null;
@@ -235,6 +231,39 @@ public sealed partial class EffectInterpreter
                 return run;
         }
 
+        return run;
+    }
+
+    /// <summary>
+    /// CR 701.24a: shuffling is one action on one library. When the effect names objects to shuffle
+    /// in, they change zones first (CR 400.7) and the libraries they landed in are the ones
+    /// shuffled — so "shuffle this spell into its owner's library" moves the resolving spell off
+    /// the stack, and CR 608.2m, which puts a spell into its owner's graveyard only if nothing else
+    /// moved it before the resolution ended, then finds nothing on the stack to move. A shuffle
+    /// that names no object is the plain one and shuffles the library the effect says, as before.
+    /// </summary>
+    [RuleRef("608.2m")]
+    private EffectRun Shuffling(EffectRun run, Cards.Shuffle shuffle)
+    {
+        var owners = new List<PlayerId>();
+        if (shuffle.IntoLibrary is { } what)
+        {
+            foreach (var id in Objects(run, what))
+            {
+                if (!run.State.Objects.TryGetValue(id, out var obj))
+                    continue;
+                owners.Add(obj.Owner);
+                (run, _) = Relocate(run, id, Zone.Library, Placement.Default, tapped: false, controller: null);
+            }
+        }
+
+        // Each owner whose card went in, plus every player the effect named itself; an effect that
+        // named no object shuffles "you", which is what PlayersOrYou answers for a null Who.
+        var players = shuffle.IntoLibrary is null || shuffle.Who is not null
+            ? owners.Concat(PlayersOrYou(run, shuffle.Who))
+            : owners;
+        foreach (var player in players.Distinct())
+            run = Merge(run, zones.Shuffle(run.State, player));
         return run;
     }
 

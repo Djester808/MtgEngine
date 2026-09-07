@@ -183,9 +183,7 @@ public sealed partial class Query
     /// <summary>Permanent cards, CR 110.4a: artifact, battle, creature, enchantment, land or planeswalker.</summary>
     private int PermanentCardsIn(GameState state, PlayerRef who, EffectContext ctx)
     {
-        const CardType permanentTypes = CardType.Artifact | CardType.Battle | CardType.Creature
-            | CardType.Enchantment | CardType.Land | CardType.Planeswalker;
-        return CardsIn(state, who, Cards.Zone.Graveyard, new ObjectFilter(In: Cards.Zone.Graveyard, AnyTypes: permanentTypes), ctx);
+        return CardsIn(state, who, Cards.Zone.Graveyard, new ObjectFilter(In: Cards.Zone.Graveyard, AnyTypes: PermanentTypes), ctx);
     }
 
     private int TotalPower(GameState state, ObjectFilter filter, EffectContext ctx) =>
