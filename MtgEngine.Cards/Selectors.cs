@@ -98,7 +98,16 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// blocking creature" is not Attacking plus Blocking, which would match nothing. That one disjunction
 /// is common enough to have its own field — InCombat, true for a creature that is an attacking or a
 /// blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is
-/// written with AnyOf in <see cref="Also"/>.
+/// written with AnyOf in <see cref="Also"/>. "Attacking or blocking creature" is InCombat and has no
+/// second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking
+/// matches nothing.
+/// <para>
+/// HasBasicLandType is "a land card with a basic land type", CR 205.3i: true when the object has
+/// any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has,
+/// and false for a nonbasic land with none of them. It is not Supertype.Basic — a shockland and a
+/// dual land have a basic land type and are not basic — and it is not a Subtypes list, which is
+/// joined with "and" and so cannot say "any of the five".
+/// </para>
 /// </summary>
 public sealed record ObjectFilter(
     Zone? In = null,
@@ -138,6 +147,7 @@ public sealed record ObjectFilter(
     string? WithCounter = null,
     bool? WithAnyCounter = null,
     bool? IsCommander = null,
+    bool? HasBasicLandType = null,
     Predicate? Also = null)
 {
     public static ObjectFilter Creature => new(Types: CardType.Creature);

@@ -64,9 +64,14 @@ public sealed record TriggeredAbility(Trigger When, Effect Do, Condition? If = n
 /// <paramref name="PayOnlyWith"/> is the printed rider "activate only using mana produced by a
 /// creature" read as a colour restriction: the mana spent on this ability's cost must be of those
 /// colours (CR 106.6b, the spend restriction's other half). Leave it null for the ordinary case,
-/// where any mana pays. A restriction that names a source rather than a colour — "mana produced by
-/// artifacts" — is not this field; it goes to a primitive request, because paying with the wrong
-/// mana is a different game action, not a rounding error.
+/// where any mana pays.
+/// <paramref name="PayOnlyFrom"/> is the other half of that rider: "activate only using mana
+/// produced by artifacts" names the source the mana came from rather than its colour, and
+/// a colour cannot say it (CR 106.6b). The filter describes the permanent whose mana ability
+/// produced the mana. Set one field or the other, never both — a card prints one restriction, and
+/// two would be read as an "and" no card asked for. A restriction neither can express goes to a
+/// primitive request rather than being dropped, because paying with the wrong mana is a different
+/// game action, not a rounding error.
 /// </summary>
 [RuleRef("602")]
 public sealed record ActivatedAbility(
@@ -77,7 +82,8 @@ public sealed record ActivatedAbility(
     Condition? OnlyIf = null,
     Amount? MaxPerTurn = null,
     bool AnyPlayerMayActivate = false,
-    Color? PayOnlyWith = null) : Ability;
+    Color? PayOnlyWith = null,
+    ObjectFilter? PayOnlyFrom = null) : Ability;
 
 /// <summary>A continuous effect from a static ability, CR 604. Applies to objects via <paramref name="To"/> or to players via <paramref name="Players"/>.</summary>
 [RuleRef("604")]

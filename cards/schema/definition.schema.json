@@ -433,6 +433,9 @@
           "$ref": "#/$defs/Coven"
         },
         {
+          "$ref": "#/$defs/CreatedTokenThisTurn"
+        },
+        {
           "$ref": "#/$defs/Delirium"
         },
         {
@@ -697,6 +700,16 @@
             }
           ]
         },
+        "payOnlyFrom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "anyOf": [
             {
@@ -714,7 +727,7 @@
         "costs",
         "do"
       ],
-      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a LoyaltyCost; mana abilities are recognised by the engine, CR 605. PayOnlyWith is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. A restriction that names a source rather than a colour \u2014 \u0022mana produced by artifacts\u0022 \u2014 is not this field; it goes to a primitive request, because paying with the wrong mana is a different game action, not a rounding error."
+      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a LoyaltyCost; mana abilities are recognised by the engine, CR 605. PayOnlyWith is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. PayOnlyFrom is the other half of that rider: \u0022activate only using mana produced by artifacts\u0022 names the source the mana came from rather than its colour, and a colour cannot say it (CR 106.6b). The filter describes the permanent whose mana ability produced the mana. Set one field or the other, never both \u2014 a card prints one restriction, and two would be read as an \u0022and\u0022 no card asked for. A restriction neither can express goes to a primitive request rather than being dropped, because paying with the wrong mana is a different game action, not a rounding error."
     },
     "KeywordAbility": {
       "type": "object",
@@ -1997,6 +2010,33 @@
       ],
       "description": "Three or more creatures with different powers."
     },
+    "CreatedTokenThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "CreatedTokenThisTurn"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "what": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022if you created a token this turn\u0022: a player put one or more tokens onto the battlefield this turn, CR 111.1 (\u0022Some effects put tokens onto the battlefield\u0022). Counted over the whole turn and every effect in it, and a token that has since left the battlefield or ceased to exist still counts \u2014 the same reading AttackedThisTurn takes of a creature that has died. What narrows it to a kind of token when the card does (\u0022created a Treasure token this turn\u0022), read against the token as it was created rather than as it is now."
+    },
     "Delirium": {
       "type": "object",
       "properties": {
@@ -3201,6 +3241,9 @@
           "$ref": "#/$defs/MayCast"
         },
         {
+          "$ref": "#/$defs/MayPay"
+        },
+        {
           "$ref": "#/$defs/MayPlay"
         },
         {
@@ -4169,6 +4212,16 @@
             }
           ]
         },
+        "hasBasicLandType": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "also": {
           "anyOf": [
             {
@@ -4181,7 +4234,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022."
     },
     "ReplacedEvent": {
       "anyOf": [
@@ -4668,6 +4721,9 @@
           "$ref": "#/$defs/LosesLife"
         },
         {
+          "$ref": "#/$defs/ManaSpent"
+        },
+        {
           "$ref": "#/$defs/Mills"
         },
         {
@@ -4705,6 +4761,9 @@
         },
         {
           "$ref": "#/$defs/TakesInitiative"
+        },
+        {
+          "$ref": "#/$defs/TappedForMana"
         },
         {
           "$ref": "#/$defs/TokenCreated"
@@ -4821,6 +4880,16 @@
               "type": "null"
             }
           ]
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -4828,7 +4897,7 @@
         "kind",
         "mana"
       ],
-      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022. Set SpendOnlyOn for a restricted mana: \u0022add {C}. Spend this mana only to cast artifact spells\u0022 (CR 106.6a) \u2014 the filter describes what the mana may be spent on, and mana with a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say \u0022only to cast creature spells\u0022 as ObjectFilter(Spell: true, Types: CardType.Creature) and \u0022only to activate abilities\u0022 with an ability filter; a restriction the filter cannot express goes to a primitive request rather than being dropped, because unrestricted mana is a different card."
+      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022. Set SpendOnlyOn for a restricted mana: \u0022add {C}. Spend this mana only to cast artifact spells\u0022 (CR 106.6a) \u2014 the filter describes what the mana may be spent on, and mana with a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say \u0022only to cast creature spells\u0022 as ObjectFilter(Spell: true, Types: CardType.Creature) and \u0022only to activate abilities\u0022 with an ability filter; a restriction the filter cannot express goes to a primitive request rather than being dropped, because unrestricted mana is a different card. Set Key when a later step has to say \u0022that mana\u0022: CR 106.6 lets a mana instruction create a delayed triggered ability that fires when the mana it produced is spent, and the ManaSpent trigger names the mana by this key. Mana is not an object, so a Remembered selector cannot hold it and there is nothing else to point at. Leave it null otherwise \u2014 a key nothing reads is noise in the file."
     },
     "Airbend": {
       "type": "object",
@@ -6890,6 +6959,47 @@
       ],
       "description": "\u0022You may cast it without paying its mana cost\u0022, \u0022you may cast that card this turn\u0022."
     },
+    "MayPay": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "MayPay"
+        },
+        "paid": {
+          "$ref": "#/$defs/Cost"
+        },
+        "then": {
+          "$ref": "#/$defs/Effect"
+        },
+        "else": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "who": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "paid",
+        "then"
+      ],
+      "description": "\u0022You may pay {4}. If you do, ...\u0022: a cost offered to a player while the effect resolves, CR 118.12 \u2014 \u0022[A player] may [do something]. If [that player] [does, doesn\u0027t, or can\u0027t], [effect]. The action [do something] is a cost, paid when the spell or ability resolves.\u0022 Paid is that cost, Then the \u0022if you do\u0022 half, Else the \u0022if you don\u0027t\u0022 half when the card prints one, and Who the player offered the choice, defaulting to you. This is the one spelling of the whole sentence. Do not write it as May wrapping PayCost with a StoreChoiceAs key followed by If(ChoiceIs(key, \u0022yes\u0022), ...): that reads the same to a person and is four records the translator has to agree on instead of one. PayCost stays for a cost the card makes a player pay outright, with no choice and no \u0022if you do\u0022. It is the mirror of Unless, not a synonym of it. CR 118.12a: \u0022[do something] unless [a player does something else]\u0022 means \u0022[a player] may [do something else]. If [that player] doesn\u0027t, [do something]\u0022. Unless carries the effect that happens when the cost goes unpaid, which is how \u0022counter it unless its controller pays {3}\u0022 is written; MayPay carries the effect that happens when it is paid instead. Which half the card prints is the half the translator keeps, so a card is never rewritten from one into the other."
+    },
     "MayPlay": {
       "type": "object",
       "properties": {
@@ -7207,7 +7317,7 @@
         "kind",
         "cost"
       ],
-      "description": "\u0022You may pay {4}. If you do, ...\u0022 \u2014 a cost paid inside a resolving effect, CR 118.12. The cost is paid where it stands rather than as part of casting or activating, so it composes: wrap it in May with a StoreChoiceAs key for \u0022you may pay\u0022, and follow it with If(ChoiceIs(key, \u0022yes\u0022), ...) for the \u0022if you do\u0022 half. Use Unless for \u0022unless that player pays\u0022, where the cost belongs to someone else and the effect is what happens when it goes unpaid. Any Cost record works here, including PayManaCost for an amount counted from the game."
+      "description": "\u0022Sacrifice a creature\u0022, \u0022pay 3 life\u0022 \u2014 a cost paid inside a resolving effect with no choice offered and nothing hanging on it, CR 118.12. The cost is paid where it stands rather than as part of casting or activating. Any Cost record works here, including PayManaCost for an amount counted from the game. Use MayPay for \u0022you may pay {4}. If you do, ...\u0022 and Unless for \u0022unless that player pays\u0022: both are one record each and neither is spelled as a May or an If wrapped around this one. A PayCost inside a May with a StoreChoiceAs key is the shape MayPay replaced, and a canonical pass collapses it."
     },
     "PhaseOut": {
       "type": "object",
@@ -13315,6 +13425,33 @@
       ],
       "description": "CR 603"
     },
+    "ManaSpent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ManaSpent"
+        },
+        "manaKey": {
+          "type": "string"
+        },
+        "onSpell": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "manaKey"
+      ],
+      "description": "\u0022When that mana is spent to cast a spell, ...\u0022, CR 106.6: a mana instruction may create a delayed triggered ability that triggers when the mana it produced is spent (CR 603.7a). ManaKey is the Key of the AddMana in the same ability that produced that mana, which is how \u0022that mana\u0022 is said without pointing at an object \u2014 mana is not an object. One delayed ability is created for each mana that AddMana produced (CR 106.6a). OnSpell narrows what the mana was spent on when the card does (\u0022spent to cast a creature spell\u0022); leave it null for \u0022spent to cast a spell\u0022. Use it as the When of a DelayedTrigger the same resolution creates, never as a printed TriggeredAbility\u0027s own trigger: the mana it watches does not exist until the AddMana has run, and a standing trigger would have no key to match."
+    },
     "Mills": {
       "type": "object",
       "properties": {
@@ -13583,6 +13720,54 @@
         "who"
       ],
       "description": "CR 725"
+    },
+    "TappedForMana": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TappedForMana"
+        },
+        "what": {
+          "$ref": "#/$defs/ObjectFilter"
+        },
+        "ofColor": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "White",
+                  "Blue",
+                  "Black",
+                  "Red",
+                  "Green"
+                ]
+              },
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ofChosenColorKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "\u0022Whenever a land you control is tapped for mana\u0022, CR 106.12a: the trigger fires when a mana ability of the permanent whose activation cost includes {T} resolves and produces mana (CR 106.12). What describes the permanent tapped. Set OfColor for \u0022tapped for mana of a specified type\u0022 \u2014 \u0022tapped for green mana\u0022 \u2014 and set OfChosenColorKey instead when the card reads \u0022tapped for mana of the chosen color\u0022, naming the key an earlier ChooseValue(ChooseWhat.Color, key) stored the colour under. Set neither for \u0022tapped for mana\u0022 of any type. Never set both: a card prints one colour restriction, and the fixed colour and the chosen one are different cards. This is the trigger half only. What the ability then does \u2014 \u0022add an additional one mana of that color\u0022 \u2014 is an AddMana whose ManaProduction carries the same ChosenColorKey, so the two halves name the same choice."
     },
     "TokenCreated": {
       "type": "object",

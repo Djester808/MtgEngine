@@ -14,6 +14,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(If), nameof(If))]
 [JsonDerivedType(typeof(May), nameof(May))]
 [JsonDerivedType(typeof(Unless), nameof(Unless))]
+[JsonDerivedType(typeof(MayPay), nameof(MayPay))]
 [JsonDerivedType(typeof(ForEach), nameof(ForEach))]
 [JsonDerivedType(typeof(ForEachPlayer), nameof(ForEachPlayer))]
 [JsonDerivedType(typeof(Repeat), nameof(Repeat))]
@@ -158,6 +159,31 @@ public sealed record May(Effect Do, PlayerRef? Who = null, string? StoreChoiceAs
 
 /// <summary>"Counter target spell unless its controller pays {3}."</summary>
 public sealed record Unless(Effect Do, Cost Paid, PlayerRef Who) : Effect;
+
+/// <summary>
+/// "You may pay {4}. If you do, ...": a cost offered to a player while the effect resolves,
+/// CR 118.12 — "[A player] may [do something]. If [that player] [does, doesn't, or can't],
+/// [effect]. The action [do something] is a cost, paid when the spell or ability resolves."
+/// <paramref name="Paid"/> is that cost, <paramref name="Then"/> the "if you do" half,
+/// <paramref name="Else"/> the "if you don't" half when the card prints one, and
+/// <paramref name="Who"/> the player offered the choice, defaulting to you.
+/// <para>
+/// This is the one spelling of the whole sentence. Do not write it as May wrapping PayCost with a
+/// StoreChoiceAs key followed by If(ChoiceIs(key, "yes"), ...): that reads the same to a person and
+/// is four records the translator has to agree on instead of one. PayCost stays for a cost the
+/// card makes a player pay outright, with no choice and no "if you do".
+/// </para>
+/// <para>
+/// It is the mirror of Unless, not a synonym of it. CR 118.12a: "[do something] unless [a player
+/// does something else]" means "[a player] may [do something else]. If [that player] doesn't, [do
+/// something]". Unless carries the effect that happens when the cost goes unpaid, which is how
+/// "counter it unless its controller pays {3}" is written; MayPay carries the effect that happens
+/// when it is paid instead. Which half the card prints is the half the translator keeps,
+/// so a card is never rewritten from one into the other.
+/// </para>
+/// </summary>
+[RuleRef("118.12")]
+public sealed record MayPay(Cost Paid, Effect Then, Effect? Else = null, PlayerRef? Who = null) : Effect;
 
 /// <summary>"For each creature you control, ...". Inside, <see cref="Triggering"/> is the current object.</summary>
 public sealed record ForEach(Selector Over, Effect Do) : Effect;
