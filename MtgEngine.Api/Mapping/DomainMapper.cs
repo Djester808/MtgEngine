@@ -39,7 +39,7 @@ public static class DomainMapper
         Power = def.Power,
         Toughness = def.Toughness,
         StartingLoyalty = def.StartingLoyalty,
-        Keywords = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
+        Keywords = [.. def.Keywords],
         ImageUriNormal = def.ImageUriNormal,
         ImageUriLarge = def.ImageUriLarge,
         ImageUriNormalBack = def.ImageUriNormalBack,

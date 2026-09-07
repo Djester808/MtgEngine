@@ -51,22 +51,13 @@ internal static class CardParser
                 mc = ParseManaCost(mcRaw);
             }
 
-            int? power = null, toughness = null, loyalty = null, defense = null;
+            int? power = null, toughness = null, loyalty = null;
             if (json.TryGetProperty("power", out var pw) && int.TryParse(pw.GetString(), out var p))
                 power = p;
             if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t))
                 toughness = t;
             if (json.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
                 loyalty = l;
-            // A battle's defense (CR 310.4a). Every printed battle is a transforming card, so the
-            // number lives on the front face rather than at the root - the face answers for the
-            // card, exactly as the mana cost above does.
-            if (json.TryGetProperty("defense", out var df) && int.TryParse(df.GetString(), out var d))
-                defense = d;
-            else if (json.TryGetProperty("card_faces", out var dfFaces) && dfFaces.GetArrayLength() > 0
-                     && dfFaces[0].TryGetProperty("defense", out var faceDf)
-                     && int.TryParse(faceDf.GetString(), out var fd))
-                defense = fd;
 
             string? imgNormal = null, imgLarge = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
             if (json.TryGetProperty("image_uris", out var imgs))
@@ -145,8 +136,6 @@ internal static class CardParser
                 Power = power,
                 Toughness = toughness,
                 StartingLoyalty = loyalty,
-                Defense = defense,
-                AttractionLights = ParseAttractionLights(json),
                 Keywords = keywords,
                 ColorIdentity = colorId,
                 Colors = colors,
@@ -190,8 +179,6 @@ internal static class CardParser
             Power = oracle.Power,
             Toughness = oracle.Toughness,
             StartingLoyalty = oracle.StartingLoyalty,
-            Defense = oracle.Defense,
-            AttractionLights = oracle.AttractionLights,
             Keywords = oracle.Keywords,
             ColorIdentity = oracle.ColorIdentity,
             Colors = oracle.Colors,
@@ -344,8 +331,8 @@ internal static class CardParser
     /// "Human", "Werewolf", "//", "Legendary" and "Creature" — so a Human answered to "target
     /// Werewolf" before it had transformed, and 642 cards carried a subtype named "//".
     /// <para>
-    /// The card's characteristics are its front face's while it is anywhere but the battlefield
-    /// (CR 712.4a); the back face has its own entry in <c>Faces</c> and is read from there.
+    /// The card's characteristics are its front face's (CR 712.4a), which is the face it is
+    /// cast as and the one the deck builder reasons about.
     /// </para>
     /// </remarks>
     private static IReadOnlyList<string> ParseSubtypes(string typeLine)
@@ -371,86 +358,28 @@ internal static class CardParser
     private static string FrontFace(string typeLine) =>
         typeLine.Split("//", StringSplitOptions.None)[0].Trim();
 
-    private static KeywordAbility ParseKeywords(JsonElement json)
-    {
-        var flags = KeywordAbility.None;
-        if (!json.TryGetProperty("keywords", out var kwArr))
-            return flags;
-
-        foreach (var kw in kwArr.EnumerateArray())
-        {
-            flags |= kw.GetString() switch
-            {
-                "Flying" => KeywordAbility.Flying,
-                "Reach" => KeywordAbility.Reach,
-                "First strike" => KeywordAbility.FirstStrike,
-                "Double strike" => KeywordAbility.DoubleStrike,
-                "Trample" => KeywordAbility.Trample,
-                "Deathtouch" => KeywordAbility.Deathtouch,
-                "Lifelink" => KeywordAbility.Lifelink,
-                "Vigilance" => KeywordAbility.Vigilance,
-                "Haste" => KeywordAbility.Haste,
-                "Hexproof" => KeywordAbility.Hexproof,
-                "Indestructible" => KeywordAbility.Indestructible,
-                "Menace" => KeywordAbility.Menace,
-                "Flash" => KeywordAbility.Flash,
-                "Shroud" => KeywordAbility.Shroud,
-                "Defender" => KeywordAbility.Defender,
-                "Swampwalk" => KeywordAbility.Swampwalk,
-                "Forestwalk" => KeywordAbility.Forestwalk,
-                "Islandwalk" => KeywordAbility.Islandwalk,
-                "Mountainwalk" => KeywordAbility.Mountainwalk,
-                "Plainswalk" => KeywordAbility.Plainswalk,
-                "Horsemanship" => KeywordAbility.Horsemanship,
-                "Fear" => KeywordAbility.Fear,
-                "Shadow" => KeywordAbility.Shadow,
-                "Intimidate" => KeywordAbility.Intimidate,
-                "Skulk" => KeywordAbility.Skulk,
-                "Flanking" => KeywordAbility.Flanking,
-                "Banding" => KeywordAbility.Banding,
-                "Infect" => KeywordAbility.Infect,
-                "Wither" => KeywordAbility.Wither,
-                "Changeling" => KeywordAbility.Changeling,
-                "Daybound" => KeywordAbility.Daybound,
-                "Nightbound" => KeywordAbility.Nightbound,
-                "Enlist" => KeywordAbility.Enlist,
-                "Soulbond" => KeywordAbility.Soulbond,
-                _ => KeywordAbility.None,
-            };
-        }
-        return flags;
-    }
-
     /// <summary>
-    /// The numbers lit up on an Attraction (CR 717.1), which no rules text carries.
+    /// The keywords Scryfall lists, kept as printed.
     /// </summary>
     /// <remarks>
-    /// Empty for every card that is not one. Scryfall records them as an array of numeric
-    /// strings, and they are the only thing standing between an Attraction and a game: the roll
-    /// that visits one compares its result against this list (CR 701.52a), so a card that arrives
-    /// without it can never be visited. All 22 playable Attractions in the bulk file carry it.
+    /// This used to translate each string into a <c>KeywordAbility</c> flag and fold anything
+    /// it did not recognise to <c>None</c>. It knew 34 spellings; the bulk file holds 890, so
+    /// 12,399 of 38,633 cards lost at least one keyword on the way to the client and to the
+    /// AI fact sheet — Enchant, Equip, Cycling, Ward, Flashback, Kicker and Landfall among
+    /// them. Nothing downstream needs a flag: both readers want the names.
     /// </remarks>
-    private static IReadOnlyList<int> ParseAttractionLights(JsonElement json)
+    private static IReadOnlyList<string> ParseKeywords(JsonElement json)
     {
-        if (!json.TryGetProperty("attraction_lights", out var lights)
-            || lights.ValueKind != JsonValueKind.Array)
+        if (!json.TryGetProperty("keywords", out var kwArr)
+            || kwArr.ValueKind != JsonValueKind.Array)
         {
             return [];
         }
 
-        var lit = new List<int>();
-        foreach (var light in lights.EnumerateArray())
-        {
-            if (light.ValueKind == JsonValueKind.Number && light.TryGetInt32(out var number))
-                lit.Add(number);
-            else if (light.ValueKind == JsonValueKind.String
-                && int.TryParse(light.GetString(), CultureInfo.InvariantCulture, out var parsed))
-            {
-                lit.Add(parsed);
-            }
-        }
-
-        return lit;
+        return [.. kwArr.EnumerateArray()
+            .Select(kw => kw.GetString())
+            .Where(kw => !string.IsNullOrWhiteSpace(kw))
+            .Select(kw => kw!)];
     }
 
     private static IReadOnlyDictionary<string, string> ParseLegalities(JsonElement json)

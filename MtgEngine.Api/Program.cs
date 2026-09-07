@@ -6,11 +6,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using MtgEngine.Api.Cards;
 using MtgEngine.Api.Data;
-using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
-using MtgEngine.Rules.Abilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -148,30 +145,6 @@ builder.Services.AddHttpClient("DeckImport", client =>
 builder.Services.AddScoped<DeckImportService>();
 builder.Services.AddScoped<CommanderDeckSeeder>();
 
-// ---- The game ---------------------------------------------
-// One session service for the process: games live in memory, keyed by id, each with its own
-// lock. The card pool is empty until slice 8 fills it, and a deck containing anything the
-// engine does not implement is refused rather than played wrong.
-// The card pool is what the engine knows how to play; a deck holding anything outside it is
-// refused by GameTableService rather than played wrong.
-builder.Services.AddSingleton<CardPool>();
-builder.Services.AddSingleton<MtgEngine.Rules.Cards.CompiledPool>();
-
-// The compiler and the playable game used to have no wire between them: this line registered
-// CardPool - five basic lands and a small curated set - as the engine's only ability source,
-// while CompiledPool, which reads a card's printed text, was built in the test projects and
-// nowhere else. The deck gate admitted 917 cards while the compiler read every line of 15,262.
-builder.Services.AddSingleton<PlayableCards>();
-builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<PlayableCards>());
-builder.Services.AddHostedService<CardPoolResolver>();
-builder.Services.AddScoped<GameCardArt>();
-builder.Services.AddSingleton<IGameStore, SqliteGameStore>();
-builder.Services.AddSingleton<GameSessionService>();
-builder.Services.AddScoped<GameTableService>();
-builder.Services.AddSingleton<GameInviteService>();
-builder.Services.AddHostedService<IdleGameSweeper>();
-builder.Services.AddSignalR();
-
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
 
@@ -189,25 +162,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             // Pin the algorithm: without this, any signature scheme the key can satisfy
             // is accepted, which is more surface than a symmetric-key setup needs.
             ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
-        };
-
-        // A browser cannot set an Authorization header on a WebSocket handshake, so SignalR
-        // sends the token as a query parameter instead. Accepted only for the hub path, so a
-        // token cannot arrive in a URL — and therefore in access logs and referrers — anywhere
-        // else in the API.
-        opts.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = ctx =>
-            {
-                var token = ctx.Request.Query["access_token"];
-                if (!string.IsNullOrEmpty(token)
-                    && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs/game"))
-                {
-                    ctx.Token = token;
-                }
-
-                return Task.CompletedTask;
-            },
         };
     });
 
@@ -291,6 +245,5 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
-app.MapHub<GameHub>("/hubs/game");
 
 app.Run();

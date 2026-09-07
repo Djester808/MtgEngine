@@ -9,7 +9,7 @@ public enum ManaColorDto { C, W, U, B, R, G }
 // Keep in sync with Domain.Enums.CardType — a missing member here silently strips the
 // type from the DTO (Battles used to reach the client, and the AI judge, typeless).
 public enum CardTypeDto { Creature, Instant, Sorcery, Enchantment, Artifact, Land, Planeswalker, Battle, Tribal, Token, Other }
-// ---- Card / Permanent -------------------------------------
+// ---- Card --------------------------------------------------
 
 public sealed record CardDto
 {

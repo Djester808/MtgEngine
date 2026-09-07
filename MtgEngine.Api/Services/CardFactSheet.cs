@@ -158,11 +158,6 @@ internal static class CardFactSheet
 
     // ---- Adapters --------------------------------------------------------
 
-    internal static IEnumerable<string> KeywordNames(KeywordAbility keywords) =>
-        Enum.GetValues<KeywordAbility>()
-            .Where(k => k != default && keywords.HasFlag(k))
-            .Select(k => k.ToString());
-
     internal static IEnumerable<string> TypeNames(CardType types) =>
         Enum.GetValues<CardType>()
             .Where(t => t != CardType.None && types.HasFlag(t))
@@ -181,5 +176,5 @@ internal static class CardFactSheet
         oracleId, d.Name, d.ManaCostRaw, d.Cmc, d.OracleText,
         TypeLineOf(d.Supertypes, TypeNames(d.CardTypes), d.Subtypes),
         d.CardTypes, d.Subtypes, d.Power, d.Toughness, d.ColorIdentity,
-        [.. KeywordNames(d.Keywords)], d.GameChanger);
+        [.. d.Keywords], d.GameChanger);
 }

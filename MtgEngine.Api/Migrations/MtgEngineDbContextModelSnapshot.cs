@@ -485,29 +485,6 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("LifeMatchSeats");
                 });
 
-            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGame", b =>
-                {
-                    b.Property<Guid>("GameId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsOver")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("LastActivityUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Log")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("GameId");
-
-                    b.HasIndex("LastActivityUtc");
-
-                    b.ToTable("PersistedGames");
-                });
-
             modelBuilder.Entity("MtgEngine.Domain.Models.User", b =>
                 {
                     b.Property<Guid>("Id")

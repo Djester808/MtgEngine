@@ -1,9 +1,8 @@
 # Life Counter
 
 A counter for a game of Magic played with real cards, on a real table, by up to eight
-people sharing one device. It lives under **Tools** (`/tools/life-counter`) rather than
-under Play, because Play is the engine playing a game and this is a phone lying next to a
-game nobody's software is refereeing.
+people sharing one device. It lives under **Tools** (`/tools/life-counter`): it is a phone
+lying next to a game nobody's software is refereeing, not software that plays the game.
 
 Read this before changing `LifeMatchService`, `MatchesController`, `TokenService`, or the
 client's `tools/life-counter` components.

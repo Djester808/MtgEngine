@@ -1,110 +1,68 @@
-# MtgEngine - Phase 1: Domain & Rules Engine
+# MtgEngine.Api
 
-A pragmatic Magic: The Gathering rules engine built in C# / .NET 8.
+ASP.NET Core (.NET 10) API behind the MTG deck builder. The Angular client lives in the
+sibling `mtg-client` repo.
 
-## Solution Structure
+The engineering standards for this repo are in [CLAUDE.md](CLAUDE.md); read it before
+changing anything here.
+
+## Solution structure
 
 ```
 MtgEngine.sln
-├── MtgEngine.Domain/          # Pure domain models, enums, value objects, interfaces
-│   ├── Enums/Enums.cs         # CardType, KeywordAbility, ManaColor, Phase, Step, Zone, etc.
-│   ├── ValueObjects/
-│   │   └── ManaCost.cs        # Immutable ManaCost + ManaPool value objects
-│   ├── Models/
-│   │   ├── Card.cs            # CardDefinition, Card (instance), Permanent
-│   │   ├── GameState.cs       # PlayerState, GameState, CombatState (all immutable records)
-│   │   └── StackObjects.cs    # IStackObject, SpellOnStack, ActivatedAbilityOnStack, TriggeredAbilityOnStack
-│   └── Interfaces/
-│       └── IAbility.cs        # IAbility, IActivatedAbility, ITriggeredAbility, IStaticAbility, GameEvents
+├── MtgEngine.Domain/          # Models, enums, value objects. The leaf: no ASP.NET, no EF Core.
+│   ├── Enums/Enums.cs
+│   ├── Models/                # Card, Collection, User, ForumPost, LifeMatch, price snapshots
+│   └── ValueObjects/          # ManaCost, CardPrices
 │
-├── MtgEngine.Rules/           # Rules engine -- zero ASP.NET dependencies
-│   ├── GameEngine.cs          # Top-level orchestrator (pure functions)
-│   ├── ZoneManager.cs         # Zone transitions: casting, playing lands, resolving, removal
-│   ├── SBA/
-│   │   └── StateBasedActions.cs  # CR 704 SBAs: lethal damage, 0 toughness, life loss, legend rule
-│   ├── Turn/
-│   │   └── TurnStateMachine.cs   # Phase/step transitions, untap, draw, cleanup
-│   └── Combat/
-│       └── CombatEngine.cs    # Declare attackers/blockers, damage assignment, trample, deathtouch
+├── MtgEngine.Api/             # Controllers, services, EF DbContext, DTOs, mapping
+│   ├── Controllers/           # Auth, Cards, Collections, Decks, Commanders, Forum,
+│   │                          # Matches, Profile, Rules, Users, Vision, Preferences, Admin
+│   ├── Services/              # Collection/deck domain, Scryfall + bulk data, price history,
+│   │                          # AI deck building, commander analysis, comprehensive rules
+│   ├── Knowledge/             # Live runtime assets: commander doctrine, comprehensive rules
+│   ├── Data/                  # MtgEngineDbContext (SQLite)
+│   └── Migrations/
 │
-└── MtgEngine.Rules.Tests/     # xUnit + FluentAssertions test suite
-    ├── TestFactory.cs          # Test data builders
-    ├── ManaCostTests.cs
-    ├── StateBasedActionTests.cs
-    ├── CombatEngineTests.cs
-    ├── ZoneManagerTests.cs
-    ├── TurnStateMachineTests.cs
-    └── GameEngineIntegrationTests.cs
+└── tests/MtgEngine.Api.Tests/ # xUnit, including the architecture tests that enforce layering
 ```
 
-## Key Design Decisions
+## Features
 
-### Immutable GameState
-`GameState` is a C# `record` type. Every action returns a new `GameState` rather
-than mutating the existing one. This makes replaying, debugging, and testing trivial.
+- **Collection and decks** — per-printing entries with foil/non-foil quantities across
+  boards, deck import, price tracking and history. See `CARD_COLLECTION_FEATURE.md`.
+- **AI deck building** — build, refine and explain Commander decks against the doctrine in
+  `MtgEngine.Api/Knowledge/commander-doctrine.md`, which is injected verbatim into prompts.
+- **Commander tools** — stats, suggestions, synergy scoring, EDHREC-backed pools.
+- **Comprehensive Rules knowledge base** — `/api/rules` parses the published rules text at
+  startup into sections, rules, keywords and glossary.
+- **Profiles and forum** — public profiles (`USER_PROFILE_FEATURE.md`) and deck discussion.
+- **Life counter** — the table at `/tools/life-counter` and the matches it files
+  (`LIFE_COUNTER_FEATURE.md`).
 
-### Pure Functions
-`GameEngine`, `ZoneManager`, `CombatEngine`, `TurnStateMachine`, and `StateBasedActions`
-are all static classes with pure function signatures:
-```csharp
-GameState SomeAction(GameState state, ...args) => newState;
-```
+## Running
 
-No side effects, no DI required. The `MtgEngine.Rules` project has zero dependencies
-on ASP.NET or any infrastructure concerns.
-
-### SBAs Run After Every Action
-`GameEngine` calls `StateBasedActions.Apply()` after every player action. SBAs loop
-until stable (no more apply), matching CR 704 behavior.
-
-## Running Tests
+The API holds file locks on the SQLite database and its own dll, so stop it before you
+build or test:
 
 ```bash
-cd MtgEngine
-dotnet test
+Stop-Process -Name MtgEngine.Api -Force
 ```
 
-## Building
+Build, test, and run:
 
 ```bash
-cd MtgEngine
 dotnet build
 ```
 
-## What's Implemented (Phase 1)
+```bash
+dotnet test
+```
 
-- [x] Card definition and instance model
-- [x] Permanent with counters, tapped state, summoning sickness
-- [x] ManaCost and ManaPool value objects with color-aware payment
-- [x] Immutable GameState and PlayerState records
-- [x] Full zone model (library, hand, battlefield, graveyard, exile, stack)
-- [x] Turn structure: all phases and steps with correct sequencing
-- [x] Untap step (untaps active player permanents)
-- [x] Draw step (skips first player turn 1)
-- [x] Cleanup (discard to 7, clear damage, clear mana pools)
-- [x] Playing lands (one per turn, main phase only)
-- [x] Tapping basic lands for mana
-- [x] Casting spells (sorcery speed enforcement, mana payment, Flash)
-- [x] Stack with LIFO resolution
-- [x] Priority passing (simplified two-player model)
-- [x] State-based actions: lethal damage, 0 toughness, life loss, poison, legend rule, planeswalker loyalty
-- [x] Combat: declare attackers (tapping, vigilance, haste, summoning sickness)
-- [x] Combat: declare blockers (flying restriction, reach)
-- [x] Combat: damage assignment (trample, deathtouch, lifelink, first strike)
-- [x] GameEngine orchestrator tying it all together
+```bash
+dotnet run --project MtgEngine.Api
+```
 
-## What's Next (Phase 2)
+The API listens on `https://localhost:7001`; the dev client runs on `http://localhost:4200`.
 
-- [ ] Activated abilities (tap abilities, loyalty abilities)
-- [ ] Triggered abilities (ETB, dies triggers, combat triggers)
-- [ ] Targeting system with legality validation on cast and resolution
-- [ ] Instant-speed activated abilities on the stack
-- [ ] Spell effects for instants/sorceries (deal damage, destroy, draw, counter)
-- [ ] `HasLandPlayedThisTurn` reset on new turn
-- [ ] Multiple blocker ordering prompt
-- [ ] Full priority model (track "both passed" explicitly)
-
-## Phase 3+
-
-See `MTG-Rules-Engine-Architecture.docx` for the full roadmap including
-the .NET Web API, SignalR hub, Angular frontend, and Scryfall integration.
+`CARD_COLLECTION_QUICKSTART.md` walks through exercising the API by hand.
