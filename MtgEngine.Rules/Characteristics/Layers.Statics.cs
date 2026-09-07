@@ -66,7 +66,7 @@ public sealed partial class LayerSystem
         .. state.ActiveEffects
             .Where(e => e.AppliesTo.Contains(id))
             .OrderBy(e => e.Timestamp)
-            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller)),
+            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered)),
     ];
 
     /// <summary>

@@ -83,7 +83,7 @@ public sealed partial class LayerSystem : ICharacteristics
     {
         var fromEffects = state.ActiveEffects
             .Where(e => e.AppliesTo.Contains(id))
-            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller));
+            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered));
         var all = withStatics
             ? fromEffects.Concat(Statics(state).Where(l => l.AppliesTo.Contains(id)).Select(l => l.Effect))
             : fromEffects;

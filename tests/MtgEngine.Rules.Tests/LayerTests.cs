@@ -11,7 +11,7 @@ namespace MtgEngine.Rules.Tests;
 /// takes part. The rulebook's own examples under 613.4d, 613.5 and 613.9 are the acceptance
 /// tests; the rest are one test per behaviour the layer system owns.
 /// </summary>
-public sealed class LayerTests
+public sealed partial class LayerTests
 {
     private static readonly PlayerId Mine = new(0);
     private static readonly PlayerId Theirs = new(1);

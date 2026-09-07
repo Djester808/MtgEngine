@@ -261,7 +261,10 @@ public sealed partial class EffectInterpreter
             players,
             until,
             stamp,
-            FromStaticAbility: false)));
+            FromStaticAbility: false,
+            // CR 611.2c with 601.2c: the objects the effect's selectors named, fixed as it resolved, so the
+            // layer system reads a Target or a remembered key from the binding and never from the board.
+            Remembered: run.Context.Remembered)));
     }
 
     /// <summary>

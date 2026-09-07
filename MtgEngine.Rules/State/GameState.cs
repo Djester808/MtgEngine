@@ -94,7 +94,8 @@ public sealed record ActiveEffect(
     ImmutableList<PlayerId> AppliesToPlayers,
     Duration Until,
     int Timestamp,
-    bool FromStaticAbility);
+    bool FromStaticAbility,
+    ImmutableDictionary<string, ImmutableList<ObjectId>>? Remembered = null);
 
 [RuleRef("603.7")]
 public sealed record DelayedTriggerState(int Id, Trigger When, Effect Do, ObjectId? Source, PlayerId Controller, bool Once, ImmutableDictionary<string, ImmutableList<ObjectId>> Remembered);
