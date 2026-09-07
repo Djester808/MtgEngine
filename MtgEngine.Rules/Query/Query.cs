@@ -157,8 +157,8 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false; // CR 708.2
         if (f.Token is { } token && token != obj.IsToken)
             return false; // CR 111.1
-        if (f.Permanent is { } permanent && permanent != (obj.Zone.Zone == Cards.Zone.Battlefield))
-            return false; // CR 110.1: a permanent is a card or token on the battlefield
+        if (f.Permanent is { } permanent && permanent != IsPermanent(obj, c))
+            return false; // CR 110.1 on the battlefield, CR 110.4a elsewhere
         if (f.Spell is { } spell && spell != IsSpell(obj))
             return false; // CR 112.1: a spell is a card on the stack
         if (f.Attacking is { } attacking && attacking != IsAttacking(state, obj.Id))
@@ -202,6 +202,28 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false; // CR 108.3
         return true;
     }
+
+    /// <summary>CR 110.4: the six permanent types, the ones a permanent card can be put onto the battlefield as.</summary>
+    private const CardType PermanentTypes = CardType.Artifact | CardType.Battle | CardType.Creature
+        | CardType.Enchantment | CardType.Land | CardType.Planeswalker;
+
+    /// <summary>
+    /// What <c>permanent</c> asks of an object, which depends on where the object is. On the
+    /// battlefield it is CR 110.1's question — a card or token there is a permanent whatever its
+    /// types, and one that has lost them all still is (CR 110.4c). Read against a card in a
+    /// library, a graveyard, a hand or exile the word can only be CR 110.4a's "permanent card": a
+    /// card that could be put onto the battlefield, which is a question about its card types. A
+    /// card on the stack keeps the zone's answer, because a spell there is CR 110.4b's "permanent
+    /// spell" — a narrower set, no record asks for it, and guessing between the two would be the
+    /// silent wrong answer this arm already gave a library.
+    /// </summary>
+    [RuleRef("110.4a")]
+    private static bool IsPermanent(GameObject obj, Characteristics c) => obj.Zone.Zone switch
+    {
+        Cards.Zone.Battlefield => true,
+        Cards.Zone.Stack => false,
+        _ => (c.Types & PermanentTypes) != CardType.None,
+    };
 
     /// <summary>CR 112.1: a spell is a card on the stack. An ability on the stack names the ability it came from.</summary>
     private static bool IsSpell(GameObject obj) =>
