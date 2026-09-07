@@ -48,7 +48,7 @@ public sealed class TurnStructureTests
     {
         var (state, log) = Turns.PassUntilTurn(TurnFixture.Table(2), untilTurn: 2);
 
-        Assert.Equal(new List<Step>(TurnFixture.WholeTurn) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
+        Assert.Equal(new List<Step>(TurnFixture.TurnWithNoCombat) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
         Assert.Equal(new[] { TurnFixture.P0, TurnFixture.P1 }, log.OfType<TurnBegan>().Select(e => e.ActivePlayer));
         Assert.Equal(2, state.Turn.Number);
     }
@@ -58,7 +58,7 @@ public sealed class TurnStructureTests
     {
         var (state, log) = Turns.PassUntilTurn(TurnFixture.Table(4), untilTurn: 2);
 
-        Assert.Equal(new List<Step>(TurnFixture.WholeTurn) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
+        Assert.Equal(new List<Step>(TurnFixture.TurnWithNoCombat) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
         Assert.Equal(TurnFixture.P1, state.Turn.ActivePlayer);
         Assert.Equal(2, state.Turn.Number);
     }
@@ -248,7 +248,8 @@ public sealed class TurnStructureTests
         var spy = new CombatSpy();
         var turns = new TurnSystem(_zones, _casting, spy);
 
-        var first = turns.Advance(TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0));
+        var combat = TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0).InCombat(TurnFixture.P0, new ObjectId(1));
+        var first = turns.Advance(combat);
         var second = turns.Advance(first.State);
 
         Assert.Equal<bool>([true, false], spy.Dealt);
@@ -280,10 +281,81 @@ public sealed class TurnStructureTests
     public void A_turn_system_built_without_a_combat_system_deals_no_damage()
     {
         // The optional seam, stated as behaviour: the steps still happen and nothing is dealt.
-        var outcome = Turns.Advance(TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0));
+        var combat = TurnFixture.Table(2).At(Step.DeclareBlockers, TurnFixture.P0).InCombat(TurnFixture.P0, new ObjectId(1));
+
+        var outcome = Turns.Advance(combat);
 
         Assert.Equal(Step.FirstStrikeCombatDamage, outcome.State.Turn.Step);
         Assert.Empty(outcome.Events.OfType<DamageDealt>());
+    }
+
+    [Fact]
+    [RuleRef("510.4")]
+    public void There_is_no_first_strike_damage_step_when_nobody_in_combat_has_first_strike()
+    {
+        // CR 510.4: the first-strike combat damage step exists only for first and double strike.
+        // With the layer system to ask, an ordinary attacker means one damage step, so the
+        // defending player is not given a round of priority in a step that should not exist.
+        var layers = new CombatFakeCharacteristics();
+        var attacker = new ObjectId(1);
+        layers.Set(attacker, TurnFixture.Creature(TurnFixture.P0));
+        var spy = new CombatSpy();
+        var turns = new TurnSystem(_zones, _casting, spy, layers);
+        var state = TurnFixture.Table(2)
+            .With(TurnFixture.Permanent(1, TurnFixture.P0, tapped: true))
+            .At(Step.DeclareBlockers, TurnFixture.P0)
+            .InCombat(TurnFixture.P0, attacker);
+
+        var outcome = turns.Advance(state);
+
+        Assert.Equal(Step.CombatDamage, outcome.State.Turn.Step);
+        Assert.Equal<bool>([false], spy.Dealt);
+    }
+
+    [Theory]
+    [InlineData(KeywordKind.FirstStrike)]
+    [InlineData(KeywordKind.DoubleStrike)]
+    [RuleRef("510.4")]
+    public void The_first_strike_damage_step_happens_when_a_creature_in_combat_has_it(KeywordKind keyword)
+    {
+        var layers = new CombatFakeCharacteristics();
+        var attacker = new ObjectId(1);
+        layers.Set(attacker, TurnFixture.Creature(TurnFixture.P0, keyword));
+        var spy = new CombatSpy();
+        var turns = new TurnSystem(_zones, _casting, spy, layers);
+        var state = TurnFixture.Table(2)
+            .With(TurnFixture.Permanent(1, TurnFixture.P0, tapped: true))
+            .At(Step.DeclareBlockers, TurnFixture.P0)
+            .InCombat(TurnFixture.P0, attacker);
+
+        var outcome = turns.Advance(state);
+
+        Assert.Equal(Step.FirstStrikeCombatDamage, outcome.State.Turn.Step);
+        Assert.Equal<bool>([true], spy.Dealt);
+    }
+
+    [Fact]
+    [RuleRef("502.3")]
+    public void Untap_untaps_the_permanents_the_active_player_controls_now()
+    {
+        // CR 502.3: the active player untaps the permanents *they control*, and control is what
+        // the layer system computes, CR 613.1 — not who the permanent was dealt to. A creature
+        // whose control changed untaps in its new controller's untap step and not its old one's.
+        var layers = new CombatFakeCharacteristics();
+        var stolen = new ObjectId(1);
+        var theirs = new ObjectId(2);
+        layers.Set(stolen, TurnFixture.Creature(TurnFixture.P0));
+        layers.Set(theirs, TurnFixture.Creature(TurnFixture.P1));
+        var turns = new TurnSystem(_zones, _casting, null, layers);
+        var state = TurnFixture.Table(2)
+            .With(TurnFixture.Permanent(1, TurnFixture.P1, tapped: true), TurnFixture.Permanent(2, TurnFixture.P1, tapped: true));
+
+        var outcome = turns.Begin(state);
+
+        var untapped = outcome.Events.OfType<ObjectChanged>().Where(e => e.Tapped == false).Select(e => e.Id);
+        Assert.Equal([stolen], untapped);
+        Assert.False(outcome.State.Objects[stolen].Tapped);
+        Assert.True(outcome.State.Objects[theirs].Tapped);
     }
 
     /// <summary>
