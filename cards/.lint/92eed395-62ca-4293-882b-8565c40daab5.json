@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No ObjectFilter field or Predicate says \u0027drawn this turn\u0027, so the cards this step chooses cannot be described, and the later step that acts on them has nothing to name.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
 }

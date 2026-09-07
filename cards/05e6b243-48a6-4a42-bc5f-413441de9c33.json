@@ -955,6 +955,321 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "05e6b243-48a6-4a42-bc5f-413441de9c33",
+        "name": "Elspeth, Sun\u0027s Champion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Elspeth, Sun\u0027s Champion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Planeswalker"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elspeth"
+              ],
+              "subtypeList": [
+                "Elspeth"
+              ]
+            },
+            "manaCost": "{4}{W}{W}",
+            "loyalty": "4",
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "power": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 4
+                        }
+                      }
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy all creatures with power 4 or greater."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -7
+                  }
+                ],
+                "do": {
+                  "kind": "CreateEmblem",
+                  "emblem": {
+                    "name": "Elspeth, Sun\u0027s Champion Emblem",
+                    "abilities": [
+                      {
+                        "kind": "StaticAbility",
+                        "effect": {
+                          "kind": "ModifyPt",
+                          "power": {
+                            "kind": "Fixed",
+                            "n": 2
+                          },
+                          "toughness": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "where": "Battlefield",
+                        "characteristicDefining": false,
+                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
+                      },
+                      {
+                        "kind": "StaticAbility",
+                        "effect": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Flying"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "where": "Battlefield",
+                        "characteristicDefining": false,
+                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
+                      }
+                    ]
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
+              }
+            ],
+            "oracleText": "\u002B1: Create three 1/1 white Soldier creature tokens.\n\u22123: Destroy all creatures with power 4 or greater.\n\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "power": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 4
+                        }
+                      }
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy all creatures with power 4 or greater."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -7
+                  }
+                ],
+                "do": {
+                  "kind": "CreateEmblem",
+                  "emblem": {
+                    "name": "Elspeth, Sun\u0027s Champion Emblem",
+                    "abilities": [
+                      {
+                        "kind": "StaticAbility",
+                        "effect": {
+                          "kind": "ModifyPt",
+                          "power": {
+                            "kind": "Fixed",
+                            "n": 2
+                          },
+                          "toughness": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "where": "Battlefield",
+                        "characteristicDefining": false,
+                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
+                      },
+                      {
+                        "kind": "StaticAbility",
+                        "effect": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Flying"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "where": "Battlefield",
+                        "characteristicDefining": false,
+                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
+                      }
+                    ]
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

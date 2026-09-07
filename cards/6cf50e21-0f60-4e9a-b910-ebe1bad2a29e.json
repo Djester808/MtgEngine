@@ -319,6 +319,125 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "6cf50e21-0f60-4e9a-b910-ebe1bad2a29e",
+        "name": "Blasphemous Edict",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Blasphemous Edict",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "An alternative cost printed on the card itself \u2014 \u0022You may pay {B} rather than pay this spell\u0027s mana cost\u0022 \u2014 has no record: Face carries only additionalCosts and castOnlyIf, and no ContinuousEffect grants a player permission to cast this spell for a different cost.",
+                  "text": "You may pay {B} rather than pay this spell\u0027s mana cost if there are thirteen or more creatures on the battlefield."
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 13
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may pay {B} rather than pay this spell\u0027s mana cost if there are thirteen or more creatures on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 13
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "text": "Each player sacrifices thirteen creatures of their choice."
+              }
+            ],
+            "oracleText": "You may pay {B} rather than pay this spell\u0027s mana cost if there are thirteen or more creatures on the battlefield.\nEach player sacrifices thirteen creatures of their choice.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "An alternative cost printed on the card itself \u2014 \u0022You may pay {B} rather than pay this spell\u0027s mana cost\u0022 \u2014 has no record: Face carries only additionalCosts and castOnlyIf, and no ContinuousEffect grants a player permission to cast this spell for a different cost.",
+                  "text": "You may pay {B} rather than pay this spell\u0027s mana cost if there are thirteen or more creatures on the battlefield."
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 13
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may pay {B} rather than pay this spell\u0027s mana cost if there are thirteen or more creatures on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 13
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "text": "Each player sacrifices thirteen creatures of their choice."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

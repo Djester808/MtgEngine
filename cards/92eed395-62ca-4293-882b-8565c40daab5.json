@@ -30,81 +30,24 @@
               }
             },
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "May",
-                  "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
                     "kind": "Draw",
                     "n": {
                       "kind": "Fixed",
                       "n": 2
                     }
                   },
-                  "storeChoiceAs": "k1"
-                },
-                {
-                  "kind": "If",
-                  "test": {
-                    "kind": "ChoiceIs",
-                    "key": "k1",
-                    "value": "yes"
-                  },
-                  "then": {
-                    "kind": "ForEach",
-                    "over": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "also": {
-                          "kind": "EnteredThisTurn"
-                        }
-                      },
-                      "chooser": {
-                        "kind": "You"
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "upTo": false
-                    },
-                    "do": {
-                      "kind": "VillainousChoice",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "optionA": {
-                        "text": "Pay 4 life.",
-                        "do": {
-                          "kind": "LoseLife",
-                          "n": {
-                            "kind": "Fixed",
-                            "n": 4
-                          }
-                        }
-                      },
-                      "optionB": {
-                        "text": "Put the card on top of your library.",
-                        "do": {
-                          "kind": "Move",
-                          "what": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "to": "Library",
-                          "where": "Top",
-                          "tapped": false,
-                          "faceDown": false,
-                          "attacking": false,
-                          "transformed": false,
-                          "ownersChoiceOfOrder": true
-                        }
-                      }
-                    }
+                  {
+                    "kind": "Unsupported",
+                    "reason": "No ObjectFilter field or Predicate says \u0027drawn this turn\u0027, so the cards this step chooses cannot be described, and the later step that acts on them has nothing to name.",
+                    "text": "If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
                   }
-                }
-              ]
+                ]
+              }
             },
             "optional": false,
             "where": "Battlefield",
@@ -124,81 +67,24 @@
               }
             },
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "May",
-                  "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
                     "kind": "Draw",
                     "n": {
                       "kind": "Fixed",
                       "n": 2
                     }
                   },
-                  "storeChoiceAs": "k1"
-                },
-                {
-                  "kind": "If",
-                  "test": {
-                    "kind": "ChoiceIs",
-                    "key": "k1",
-                    "value": "yes"
-                  },
-                  "then": {
-                    "kind": "ForEach",
-                    "over": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "also": {
-                          "kind": "EnteredThisTurn"
-                        }
-                      },
-                      "chooser": {
-                        "kind": "You"
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "upTo": false
-                    },
-                    "do": {
-                      "kind": "VillainousChoice",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "optionA": {
-                        "text": "Pay 4 life.",
-                        "do": {
-                          "kind": "LoseLife",
-                          "n": {
-                            "kind": "Fixed",
-                            "n": 4
-                          }
-                        }
-                      },
-                      "optionB": {
-                        "text": "Put the card on top of your library.",
-                        "do": {
-                          "kind": "Move",
-                          "what": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "to": "Library",
-                          "where": "Top",
-                          "tapped": false,
-                          "faceDown": false,
-                          "attacking": false,
-                          "transformed": false,
-                          "ownersChoiceOfOrder": true
-                        }
-                      }
-                    }
+                  {
+                    "kind": "Unsupported",
+                    "reason": "No ObjectFilter field or Predicate says \u0027drawn this turn\u0027, so the cards this step chooses cannot be described, and the later step that acts on them has nothing to name.",
+                    "text": "If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
                   }
-                }
-              ]
+                ]
+              }
             },
             "optional": false,
             "where": "Battlefield",
@@ -209,322 +95,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "92eed395-62ca-4293-882b-8565c40daab5",
-        "name": "Sylvan Library",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Sylvan Library",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 2
-                        }
-                      },
-                      {
-                        "kind": "Unsupported",
-                        "reason": "No ObjectFilter field or Predicate says \u0027drawn this turn\u0027, so the cards this step chooses cannot be described, and the later step that acts on them has nothing to name.",
-                        "text": "If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-              }
-            ],
-            "oracleText": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 2
-                        }
-                      },
-                      {
-                        "kind": "Unsupported",
-                        "reason": "No ObjectFilter field or Predicate says \u0027drawn this turn\u0027, so the cards this step chooses cannot be described, and the later step that acts on them has nothing to name.",
-                        "text": "If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "92eed395-62ca-4293-882b-8565c40daab5",
-        "name": "Sylvan Library",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Sylvan Library",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 2
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "ChoiceIs",
-                        "key": "k1",
-                        "value": "yes"
-                      },
-                      "then": {
-                        "kind": "ForEach",
-                        "over": {
-                          "kind": "Choose",
-                          "filter": {
-                            "in": "Hand",
-                            "also": {
-                              "kind": "EnteredThisTurn"
-                            }
-                          },
-                          "chooser": {
-                            "kind": "You"
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "upTo": false
-                        },
-                        "do": {
-                          "kind": "VillainousChoice",
-                          "who": {
-                            "kind": "You"
-                          },
-                          "optionA": {
-                            "text": "Pay 4 life.",
-                            "do": {
-                              "kind": "LoseLife",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 4
-                              }
-                            }
-                          },
-                          "optionB": {
-                            "text": "Put the card on top of your library.",
-                            "do": {
-                              "kind": "Move",
-                              "what": {
-                                "kind": "Triggering",
-                                "role": "Subject"
-                              },
-                              "to": "Library",
-                              "where": "Top",
-                              "tapped": false,
-                              "faceDown": false,
-                              "attacking": false,
-                              "transformed": false,
-                              "ownersChoiceOfOrder": true
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-              }
-            ],
-            "oracleText": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "Draw",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 2
-                        }
-                      },
-                      "storeChoiceAs": "k1"
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "ChoiceIs",
-                        "key": "k1",
-                        "value": "yes"
-                      },
-                      "then": {
-                        "kind": "ForEach",
-                        "over": {
-                          "kind": "Choose",
-                          "filter": {
-                            "in": "Hand",
-                            "also": {
-                              "kind": "EnteredThisTurn"
-                            }
-                          },
-                          "chooser": {
-                            "kind": "You"
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "upTo": false
-                        },
-                        "do": {
-                          "kind": "VillainousChoice",
-                          "who": {
-                            "kind": "You"
-                          },
-                          "optionA": {
-                            "text": "Pay 4 life.",
-                            "do": {
-                              "kind": "LoseLife",
-                              "n": {
-                                "kind": "Fixed",
-                                "n": 4
-                              }
-                            }
-                          },
-                          "optionB": {
-                            "text": "Put the card on top of your library.",
-                            "do": {
-                              "kind": "Move",
-                              "what": {
-                                "kind": "Triggering",
-                                "role": "Subject"
-                              },
-                              "to": "Library",
-                              "where": "Top",
-                              "tapped": false,
-                              "faceDown": false,
-                              "attacking": false,
-                              "transformed": false,
-                              "ownersChoiceOfOrder": true
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

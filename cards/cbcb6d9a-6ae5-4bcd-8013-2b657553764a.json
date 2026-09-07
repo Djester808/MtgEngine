@@ -48,40 +48,18 @@
             "when": {
               "kind": "Attacks",
               "who": {
+                "types": [
+                  "Creature"
+                ],
                 "controlledBy": {
                   "kind": "EachOpponent"
                 }
-              },
-              "defending": {
-                "kind": "You"
               }
             },
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "Fixed",
-                "n": 1
-              }
-            },
-            "if": {
-              "kind": "Compare",
-              "left": {
-                "kind": "CountOf",
-                "filter": {
-                  "also": {
-                    "kind": "IsOneOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                }
-              },
-              "op": "Ge",
-              "right": {
-                "kind": "Fixed",
-                "n": 2
-              }
+              "kind": "Unsupported",
+              "reason": "No trigger fires once for an opponent\u0027s whole declaration of attackers, and no condition counts how many of those attacking creatures are attacking a particular player and/or that player\u0027s planeswalkers.",
+              "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
             },
             "optional": false,
             "where": "Battlefield",
@@ -137,40 +115,18 @@
             "when": {
               "kind": "Attacks",
               "who": {
+                "types": [
+                  "Creature"
+                ],
                 "controlledBy": {
                   "kind": "EachOpponent"
                 }
-              },
-              "defending": {
-                "kind": "You"
               }
             },
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "Fixed",
-                "n": 1
-              }
-            },
-            "if": {
-              "kind": "Compare",
-              "left": {
-                "kind": "CountOf",
-                "filter": {
-                  "also": {
-                    "kind": "IsOneOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                }
-              },
-              "op": "Ge",
-              "right": {
-                "kind": "Fixed",
-                "n": 2
-              }
+              "kind": "Unsupported",
+              "reason": "No trigger fires once for an opponent\u0027s whole declaration of attackers, and no condition counts how many of those attacking creatures are attacking a particular player and/or that player\u0027s planeswalkers.",
+              "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
             },
             "optional": false,
             "where": "Battlefield",
@@ -216,407 +172,18 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Lifelink"
-  ],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "cbcb6d9a-6ae5-4bcd-8013-2b657553764a",
-        "name": "Mangara, the Diplomat",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Mangara, the Diplomat",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Human",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Human",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{3}{W}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "4",
-              "number": 4
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Lifelink",
-                "repeatable": false,
-                "text": "Lifelink"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "controlledBy": {
-                      "kind": "EachOpponent"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "No trigger fires once for an opponent\u0027s whole declaration of attackers, and no condition counts how many of those attacking creatures are attacking a particular player and/or that player\u0027s planeswalkers.",
-                  "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {},
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "SpellsCastThisTurn",
-                    "by": {
-                      "kind": "TriggeringPlayer"
-                    }
-                  },
-                  "op": "Eq",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent casts their second spell each turn, draw a card."
-              }
-            ],
-            "oracleText": "Lifelink\nWhenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.\nWhenever an opponent casts their second spell each turn, draw a card.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Lifelink",
-                "repeatable": false,
-                "text": "Lifelink"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "controlledBy": {
-                      "kind": "EachOpponent"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "No trigger fires once for an opponent\u0027s whole declaration of attackers, and no condition counts how many of those attacking creatures are attacking a particular player and/or that player\u0027s planeswalkers.",
-                  "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {},
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "SpellsCastThisTurn",
-                    "by": {
-                      "kind": "TriggeringPlayer"
-                    }
-                  },
-                  "op": "Eq",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent casts their second spell each turn, draw a card."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "cbcb6d9a-6ae5-4bcd-8013-2b657553764a",
-        "name": "Mangara, the Diplomat",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Mangara, the Diplomat",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Human",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Human",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{3}{W}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "4",
-              "number": 4
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Lifelink",
-                "repeatable": false,
-                "text": "Lifelink"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "controlledBy": {
-                      "kind": "EachOpponent"
-                    }
-                  },
-                  "defending": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "also": {
-                        "kind": "IsOneOf",
-                        "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        }
-                      }
-                    }
-                  },
-                  "op": "Ge",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {},
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "SpellsCastThisTurn",
-                    "by": {
-                      "kind": "TriggeringPlayer"
-                    }
-                  },
-                  "op": "Eq",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent casts their second spell each turn, draw a card."
-              }
-            ],
-            "oracleText": "Lifelink\nWhenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.\nWhenever an opponent casts their second spell each turn, draw a card.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Lifelink",
-                "repeatable": false,
-                "text": "Lifelink"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "controlledBy": {
-                      "kind": "EachOpponent"
-                    }
-                  },
-                  "defending": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "also": {
-                        "kind": "IsOneOf",
-                        "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        }
-                      }
-                    }
-                  },
-                  "op": "Ge",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {},
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "SpellsCastThisTurn",
-                    "by": {
-                      "kind": "TriggeringPlayer"
-                    }
-                  },
-                  "op": "Eq",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 2
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent casts their second spell each turn, draw a card."
-              }
-            ]
-          }
-        ]
-      }
-    }
   ],
   "keywordList": [
     "Lifelink"
