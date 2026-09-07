@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 /// tests: CR 103.8a's skipped draw, CR 514.1's discard, CR 514.2's damage and "until end of
 /// turn" effects, CR 500.7's extra turn.
 /// </summary>
-public sealed class TurnStructureTests
+public sealed partial class TurnStructureTests
 {
     private readonly TurnFixture.FakeZones _zones = new();
     private readonly TurnFixture.FakeCasting _casting = new();

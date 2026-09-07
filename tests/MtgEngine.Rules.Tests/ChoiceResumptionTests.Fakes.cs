@@ -140,18 +140,39 @@ internal sealed class ChoiceResumptionFakeTurn : ITurnSystem
     public Outcome Begin(GameState state) => throw new NotSupportedException();
 
     public Outcome Pass(GameState state, PlayerId player) => throw new NotSupportedException();
+
+    /// <summary>
+    /// CR 117.3b: the state the choice system was in each time it asked for the step to be opened.
+    /// The real turn system decides whether anything is opened — nothing is, while a question still
+    /// stands — so what a test of the choice system can see is that it asked, and what stood when
+    /// it did.
+    /// </summary>
+    public List<PendingChoice?> Opens { get; } = [];
+
+    public Outcome OpenStep(GameState state)
+    {
+        Opens.Add(state.Pending);
+        return Outcome.Unchanged(state);
+    }
 }
 
-/// <summary>Stands in for the interpreter: records what it was handed back and changes nothing.</summary>
+/// <summary>Stands in for the interpreter: records what it was handed back, and does what the test told it to.</summary>
 internal sealed class ChoiceResumptionFakeResumable : IResumable
 {
     public string Name => "fake resumption";
 
     public List<Resumption> Resumed { get; } = [];
 
+    /// <summary>
+    /// What resuming does, one entry per resumption in order; anything past the end changes
+    /// nothing. A resumption that asks again is how a resolution that stops twice is written
+    /// without an interpreter (CR 101.4).
+    /// </summary>
+    public List<Func<GameState, Outcome>> Steps { get; } = [];
+
     public Outcome Resume(GameState state, Resumption resumption)
     {
         Resumed.Add(resumption);
-        return Outcome.Unchanged(state);
+        return Steps.Count >= Resumed.Count ? Steps[Resumed.Count - 1](state) : Outcome.Unchanged(state);
     }
 }

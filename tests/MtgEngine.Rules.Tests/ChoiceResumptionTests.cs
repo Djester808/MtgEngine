@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 /// kind is answered here and refused here, because a resumption that trusts its answer is the
 /// place a bad client would otherwise reach the board.
 /// </summary>
-public sealed class ChoiceResumptionTests
+public sealed partial class ChoiceResumptionTests
 {
     private static readonly PlayerId First = new(0);
     private static readonly PlayerId Second = new(1);
