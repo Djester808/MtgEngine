@@ -137,6 +137,7 @@ public static partial class Linter
             // A key one ability produces ("as this enters, choose a color") is read by another on the
             // same face, so the face's keys are what a reference is checked against.
             var faceProduced = ProducedKeys(face.AbilityList.SelectMany(Walk));
+            CheckAlternativeCosts(face, $"faces[{faceIndex}]", findings);
             var abilityIndex = 0;
             foreach (var ability in face.AbilityList)
             {
@@ -336,6 +337,7 @@ public static partial class Linter
         CheckPayments(ability, nodes, path, findings);
         CheckPermissions(nodes, path, findings);
         CheckConditionals(nodes, path, findings);
+        CheckWave19(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));

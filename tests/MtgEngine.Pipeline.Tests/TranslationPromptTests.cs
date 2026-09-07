@@ -50,6 +50,27 @@ public sealed class TranslationPromptTests
     }
 
     [Fact]
+    public void Every_wave_nineteen_record_has_a_one_spelling_line()
+    {
+        // A record the model can see with nothing telling it which of two readings to write is what
+        // cost the pilot 105 cards to disagreement (seam-requests/V11.md), so each wave-19 addition
+        // names itself in the later spellings and the whole block reaches the system text.
+        var later = TranslationPrompt.LaterSpellings;
+        foreach (var record in new[]
+        {
+            nameof(DrawnThisTurn), nameof(ZoneChange), nameof(DamageDoesNotReduceLifeBelow), nameof(AlternativeCost),
+            nameof(MayBeginGameOnBattlefield), nameof(AttacksWithCreatures), nameof(AttackersAgainst),
+            nameof(TriggeringDamage), nameof(DelayedTrigger), nameof(BecomesCopyOf),
+        })
+            Assert.Contains(record, later, StringComparison.Ordinal);
+
+        Assert.Contains("\"notFrom\": \"Battlefield\"", later, StringComparison.Ordinal);
+        Assert.Contains("\"storeAs\"", later, StringComparison.Ordinal);
+        Assert.Contains("\"exceptThisAbility\": true", later, StringComparison.Ordinal);
+        Assert.Contains(later, TranslationPrompt.SystemWithVocabulary(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_output_rules_name_the_bases_that_carry_kind_and_say_no_other_object_does()
     {
         // The bases with a "kind" are exactly the "... kinds" sections of the reference; the records

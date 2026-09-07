@@ -209,9 +209,25 @@ public sealed record Repeat(Amount Times, Effect Do) : Effect;
 /// <summary>"Choose a color", "choose a creature type", "choose a number": the choice is stored under a key.</summary>
 public sealed record ChooseValue(ChooseWhat What, string Key, PlayerRef? Who = null, IReadOnlyList<string>? Options = null) : Effect;
 
-/// <summary>"At the beginning of the next end step, return it." A trigger created by this effect, CR 603.7.</summary>
+/// <summary>
+/// "At the beginning of the next end step, return it." A trigger created by this effect, CR 603.7.
+/// <para>
+/// <paramref name="Until"/> is the printed deadline, CR 603.7c: "until end of turn, whenever a
+/// creature you control deals damage to a player, draw that many cards" is one DelayedTrigger with
+/// Once false and Until UntilEndOfTurn — the ability waits for its event for that long and is gone
+/// when the duration ends, whether or not it ever fired. It is the same "this turn" that ends a
+/// continuous effect, so it is a <see cref="Duration"/> and not a condition or a turn count.
+/// </para>
+/// <para>
+/// Leave it null for the ordinary one-shot, whose own event is its end ("at the beginning of the
+/// next end step"): a deadline there would either repeat what the event already says or contradict
+/// it. Set <paramref name="Once"/> false whenever the printed line says "whenever" inside a
+/// duration, and keep it true for the single firing; the two fields answer different questions —
+/// how many times, and for how long — and a card that prints a duration and "whenever" prints both.
+/// </para>
+/// </summary>
 [RuleRef("603.7")]
-public sealed record DelayedTrigger(Trigger When, Effect Do, bool Once = true) : Effect;
+public sealed record DelayedTrigger(Trigger When, Effect Do, bool Once = true, Duration? Until = null) : Effect;
 
 /// <summary>
 /// The translator could not express something in this vocabulary. A file containing this fails

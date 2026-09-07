@@ -29,6 +29,8 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(TimesKicked), nameof(TimesKicked))]
 [JsonDerivedType(typeof(SpellsCastThisTurn), nameof(SpellsCastThisTurn))]
 [JsonDerivedType(typeof(DamageDealtThisTurn), nameof(DamageDealtThisTurn))]
+[JsonDerivedType(typeof(TriggeringDamage), nameof(TriggeringDamage))]
+[JsonDerivedType(typeof(AttackersAgainst), nameof(AttackersAgainst))]
 [JsonDerivedType(typeof(TurnNumber), nameof(TurnNumber))]
 [JsonDerivedType(typeof(Sum), nameof(Sum))]
 [JsonDerivedType(typeof(Difference), nameof(Difference))]
@@ -125,6 +127,40 @@ public sealed record TimesKicked : Amount;
 public sealed record SpellsCastThisTurn(PlayerRef By, ObjectFilter? Matching = null) : Amount;
 
 public sealed record DamageDealtThisTurn(Selector? By = null, PlayerRef? To = null) : Amount;
+
+/// <summary>
+/// "that much damage", "draw that many cards": how much damage the event that triggered this
+/// ability dealt, CR 603.10 — the trigger's own information, read as the ability resolves and not
+/// recomputed from the board. It is the amount half of every damage trigger, whether the ability is
+/// printed or was created as a <see cref="DelayedTrigger"/> this turn.
+/// <para>
+/// It is not <see cref="DamageDealtThisTurn"/>, which totals a turn's damage and would count an
+/// earlier hit as well, and it is not a <see cref="Stored"/> key: no step of this card dealt the
+/// damage, so nothing on the card could have stored it. The ability it appears in must trigger on
+/// damage — DealsDamage, IsDealtDamage or PlayerIsDealtDamage, its own or its delayed trigger's —
+/// or there is no event to read and the amount is a lost sentence (L028).
+/// </para>
+/// </summary>
+[RuleRef("603.10")]
+public sealed record TriggeringDamage : Amount;
+
+/// <summary>
+/// "two or more of those creatures are attacking you and/or planeswalkers you control": the
+/// creatures of the current declaration of attackers, CR 508.1, that are attacking the player
+/// <paramref name="Who"/> names — and, while <paramref name="IncludingPermanentsTheyControl"/>
+/// stands, the planeswalkers and battles that player controls, because a creature attacking one of
+/// those is attacking that player's side of the board and the printed phrase says "and/or".
+/// <para>
+/// It counts the declaration, so it is read in the same moment as
+/// <see cref="AttacksWithCreatures"/> — the condition of an ability that trigger put on the stack,
+/// CR 603.4 — and it is not <c>CountOf</c> with an Attacking filter, which counts every attacking
+/// creature in the combat whoever declared it and whoever it is aimed at, so a two-player attack in
+/// a three-player game reads the wrong number. Clear the flag only for a card that names the player
+/// alone.
+/// </para>
+/// </summary>
+[RuleRef("508.1")]
+public sealed record AttackersAgainst(PlayerRef Who, bool IncludingPermanentsTheyControl = true) : Amount;
 
 public sealed record TurnNumber : Amount;
 

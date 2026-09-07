@@ -102,6 +102,8 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(DamageMultiplier), nameof(DamageMultiplier))]
 [JsonDerivedType(typeof(DealsDamageAsToughness), nameof(DealsDamageAsToughness))]
 [JsonDerivedType(typeof(AssignDamageAsThoughUnblocked), nameof(AssignDamageAsThoughUnblocked))]
+[JsonDerivedType(typeof(DamageDoesNotReduceLifeBelow), nameof(DamageDoesNotReduceLifeBelow))]
+[JsonDerivedType(typeof(MayBeginGameOnBattlefield), nameof(MayBeginGameOnBattlefield))]
 [JsonDerivedType(typeof(MayPlayFromZone), nameof(MayPlayFromZone))]
 [JsonDerivedType(typeof(MayLookAtTopCard), nameof(MayLookAtTopCard))]
 [JsonDerivedType(typeof(PlayWithHandRevealed), nameof(PlayWithHandRevealed))]
@@ -181,9 +183,25 @@ public sealed record SetColors(Color Colors) : ContinuousEffect;
 [RuleRef("613.1b")]
 public sealed record ControlBy(PlayerRef Who) : ContinuousEffect;
 
-/// <summary>Layer 1: becomes a copy of another object, with the printed exceptions.</summary>
+/// <summary>
+/// Layer 1: becomes a copy of another object, with the printed exceptions.
+/// <para>
+/// <paramref name="ExceptThisAbility"/> is the self-referential exception, CR 707.9b: "target land
+/// becomes a copy of this land, except it has this ability". "This ability" is the very ability the
+/// effect is part of, so the copy keeps a copy of it and can be used again — the exception is a
+/// flag and never a nested ability inside <paramref name="Except"/>. Writing the ability out would
+/// nest one reading of it inside another with no end to the nesting, and a reader that stopped
+/// early would produce a copy that cannot copy, which is a different card.
+/// </para>
+/// <para>
+/// The ability the flag points at is the activated or triggered ability that created this effect
+/// (CR 707.9b names an ability of the object, and CR 109.5 says "this" means the object the ability
+/// is on). A static ability or a spell ability has no such ability to hand back — a spell ability
+/// goes to the graveyard with the card — so the flag on either is a lost sentence (L029).
+/// </para>
+/// </summary>
 [RuleRef("707")]
-public sealed record BecomesCopyOf(Selector Of, IReadOnlyList<ContinuousEffect>? Except = null, bool IsLegendary = false) : ContinuousEffect;
+public sealed record BecomesCopyOf(Selector Of, IReadOnlyList<ContinuousEffect>? Except = null, bool IsLegendary = false, bool ExceptThisAbility = false) : ContinuousEffect;
 
 [RuleRef("613.1c")]
 public sealed record ChangeText(string From, string To) : ContinuousEffect;
@@ -296,6 +314,46 @@ public sealed record ExtraLandDrops(PlayerRef Who, Amount Count) : ContinuousEff
 public sealed record PreventDamage(Amount? Amount = null, ObjectFilter? From = null, bool? Combat = null, bool ToPlayersToo = false) : ContinuousEffect;
 
 public sealed record DamageMultiplier(int Factor, ObjectFilter? From = null) : ContinuousEffect;
+
+/// <summary>
+/// "Damage that would reduce your life total to less than 1 reduces it to 1 instead": a floor under
+/// a player's life total against damage, CR 120.4 (damage dealt to a player causes that player to
+/// lose that much life) with CR 119.3 (the life loss itself). It applies to the players a
+/// StaticAbility's <c>Players</c> or an ApplyToPlayer names, and it replaces only the damage event:
+/// the amount of damage is reduced so that the life total lands on <paramref name="Floor"/> and no
+/// lower, and damage that leaves the total at or above the floor is dealt unchanged.
+/// <para>
+/// It is not <see cref="PreventDamage"/>, which prevents a fixed amount or all of it whatever the
+/// life total is (CR 615), and it is not <see cref="CantLoseGame"/>, which lets the total fall and
+/// only stops the loss: a card that prints both sentences prints two abilities, and each is written
+/// as its own record. It is also not a life loss floor — <paramref name="Floor"/> bites on damage
+/// alone, so a cost that pays life or an effect that says "lose life" is untouched, exactly as the
+/// printed line says.
+/// </para>
+/// </summary>
+[RuleRef("120.4")]
+public sealed record DamageDoesNotReduceLifeBelow(Amount Floor) : ContinuousEffect;
+
+/// <summary>
+/// "If this card is in your opening hand, you may begin the game with it on the battlefield": the
+/// one kind of ability that functions before the game begins, CR 103.6. The StaticAbility that
+/// carries it names <c>Where: Zone.Hand</c>, because the hand is the zone the ability works from and
+/// a battlefield-scoped ability would never be read (L027).
+/// <para>
+/// <paramref name="OnlyIf"/> is the printed rider some of these carry — "and you're not the starting
+/// player" — read as the game is set up and never again. <paramref name="WithCounters"/> is "with a
+/// luck counter on it", the counters the permanent begins the game with, and
+/// <paramref name="IfYouDo"/> is the cost the offer carries: "if you do, exile a card from your
+/// hand". Leave each out when the card does not print it.
+/// </para>
+/// <para>
+/// The permission is one record and never a trigger: nothing has happened yet for a trigger to
+/// watch, there is no turn and no stack (CR 103.6), so an EntersBattlefield or AtStep reading of
+/// this line puts the card on the battlefield at a moment the rules do not offer.
+/// </para>
+/// </summary>
+[RuleRef("103.6")]
+public sealed record MayBeginGameOnBattlefield(Condition? OnlyIf = null, IReadOnlyList<CounterSpec>? WithCounters = null, Effect? IfYouDo = null) : ContinuousEffect;
 
 public sealed record DealsDamageAsToughness : ContinuousEffect;
 

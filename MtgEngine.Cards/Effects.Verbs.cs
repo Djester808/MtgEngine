@@ -61,8 +61,22 @@ public sealed record Draw(Amount N, PlayerRef? Who = null) : Effect;
 [RuleRef("119")]
 public sealed record GainLife(Amount N, PlayerRef? Who = null) : Effect;
 
+/// <summary>
+/// "Each opponent loses 3 life." <paramref name="StoreAs"/> is how "the life lost this way" is said,
+/// CR 119.4: the life actually lost is stored under that key — the total across every player this
+/// one instruction took life from — and a later step reads it as a
+/// <see cref="Stored"/> amount, so "you gain life equal to the life lost this way" is a GainLife
+/// whose N is Stored(that key).
+/// <para>
+/// It is the life the game took, not the number the card asked for: a player at 2 who is asked for
+/// 3 loses 2, and CR 119.4 says the effect refers to what was lost. So the key is never a second
+/// copy of the amount — writing GainLife with the same Amount the LoseLife carried is a different
+/// card, and a Devotion or an X counted twice can differ between the two readings anyway. Leave the
+/// key out when nothing on the card refers back.
+/// </para>
+/// </summary>
 [RuleRef("119")]
-public sealed record LoseLife(Amount N, PlayerRef? Who = null) : Effect;
+public sealed record LoseLife(Amount N, PlayerRef? Who = null, string? StoreAs = null) : Effect;
 
 [RuleRef("119.5")]
 public sealed record SetLife(Amount N, PlayerRef? Who = null) : Effect;
