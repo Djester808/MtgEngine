@@ -10,6 +10,7 @@ namespace MtgEngine.Cards;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Self), nameof(Self))]
 [JsonDerivedType(typeof(Target), nameof(Target))]
+[JsonDerivedType(typeof(AnyTarget), nameof(AnyTarget))]
 [JsonDerivedType(typeof(Each), nameof(Each))]
 [JsonDerivedType(typeof(Choose), nameof(Choose))]
 [JsonDerivedType(typeof(Attached), nameof(Attached))]
@@ -30,6 +31,26 @@ public sealed record Self : Selector;
 /// <summary>"target creature", "up to two target players' creatures". <paramref name="Key"/> lets later steps refer back.</summary>
 [RuleRef("115")]
 public sealed record Target(ObjectFilter Filter, Amount? Count = null, bool UpTo = false, string? Key = null, bool Distinct = true) : Selector;
+
+/// <summary>
+/// "Any target", CR 115.4: exactly one target chosen from among every creature, player,
+/// planeswalker and battle. This is the whole phrase in one selector, and it is the only spelling
+/// of it. Do not write it as a Target whose filter names Creature, Planeswalker and Battle beside
+/// a toPlayer, and do not write it as an open filter beside a toPlayer: the first cannot say the
+/// player half and the second lets the damage hit a land.
+///
+/// On DealDamage it goes in To, and ToPlayer is then left out — To of AnyTarget already means
+/// "whichever of the four was chosen". The chosen target is announced as the spell or ability is
+/// put on the stack (CR 601.2c): an object target rides in the command's Targets and a player
+/// target in its TargetPlayers, so the two halves are one choice at cast time and the resolving
+/// effect deals its damage to whichever half the stack entry holds.
+///
+/// Count, UpTo and Key are here for the same reason Target carries them: "any number of target
+/// creatures" has its counterpart in "up to one target", divided damage names several targets
+/// (CR 601.2d), and a later step refers back by Key. Count absent means one.
+/// </summary>
+[RuleRef("115.4")]
+public sealed record AnyTarget(Amount? Count = null, bool UpTo = false, string? Key = null) : Selector;
 
 /// <summary>"each creature", "all artifacts": every object matching the filter, no targeting.</summary>
 public sealed record Each(ObjectFilter Filter) : Selector;

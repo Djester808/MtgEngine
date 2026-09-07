@@ -13,8 +13,10 @@ namespace MtgEngine.Cards.Pipeline.Agree;
 /// (<c>ownedBy</c> inside a search of your own library).
 ///
 /// Nothing here decides a disagreement. Where the vocabulary genuinely has two meanings — a
-/// Search's <c>upTo</c>, "any target", <c>anyColor</c> — both readings are left as written and the
-/// card stays disputed, which is the honest outcome until the vocabulary gains the record.
+/// Search's <c>upTo</c>, <c>anyColor</c> — both readings are left as written and the card stays
+/// disputed, which is the honest outcome until the vocabulary gains the record. Two of them since
+/// have: "any target" is <see cref="AnyTarget"/> and "can't lose the game" is
+/// <see cref="CantLoseGame"/>, so the readings that spelled either the long way collapse here.
 /// </summary>
 public static partial class Canonical
 {
@@ -26,7 +28,138 @@ public static partial class Canonical
         FillLandOnBasic(obj, kind);
         DeriveSelfOnly(obj, kind);
         MergeSearchAndShuffle(obj, kind);
+        CollapseAnyTarget(obj, kind);
+        CollapsePlayerCant(obj, kind);
     }
+
+    /// <summary>
+    /// CR 115.4: "any target" is one target chosen from among creatures, players, planeswalkers and
+    /// battles, and since V4 the vocabulary has one selector that says so. Before it, a reading had
+    /// to spell the phrase across two fields that do not know about each other, and the two ways of
+    /// doing that were the last first difference in the pilot that canonicalisation was forbidden to
+    /// close: a Target naming the three permanent types beside a TargetPlayer of anyone, or — from
+    /// the wording used before battles existed (CR 115.4 as it read pre-March of the Machine) — a
+    /// Target naming just creature and planeswalker beside the same TargetPlayer. Both are that
+    /// phrase and nothing else, so both become AnyTarget and the player half goes, because AnyTarget
+    /// already carries it.
+    ///
+    /// What is deliberately not collapsed: a Target with an open filter beside a TargetPlayer, which
+    /// would let the damage hit a land and is a different instruction; a Target over only creatures,
+    /// or only a player, with no other half; and a TargetPlayer that is restricted, counted or up to,
+    /// none of which "any target" can say.
+    /// </summary>
+    private static void CollapseAnyTarget(JsonObject obj, string? kind)
+    {
+        if (!string.Equals(kind, nameof(DealDamage), StringComparison.Ordinal) || !IsAnyPlayerTarget(obj["toPlayer"]))
+            return;
+
+        if (obj["to"] is JsonObject already && Kind(already) == nameof(AnyTarget))
+        {
+            // Already the one spelling: the player half repeats what AnyTarget means.
+            obj.Remove("toPlayer");
+            return;
+        }
+
+        if (obj["to"] is not JsonObject target || Kind(target) != nameof(Target) || !IsAnyTargetFilter(target))
+            return;
+
+        var any = new JsonObject { ["kind"] = nameof(AnyTarget) };
+        foreach (var name in (string[])["count", "upTo", "key"])
+        {
+            if (target[name] is { } value)
+                any[name] = value.DeepClone();
+        }
+
+        obj["to"] = any;
+        obj.Remove("toPlayer");
+    }
+
+    /// <summary>The filter of a Target that describes exactly the permanents "any target" reaches.</summary>
+    private static bool IsAnyTargetFilter(JsonObject target)
+    {
+        // Distinct false says the same object may be chosen twice; AnyTarget has nowhere to keep that.
+        if (target["distinct"] is JsonValue distinct && distinct.TryGetValue<bool>(out var separate) && !separate)
+            return false;
+        if (target["filter"] is not JsonObject filter || filter.Count != 1 || filter["anyTypes"] is not JsonArray types)
+            return false;
+
+        var named = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var type in types)
+        {
+            if (type is not JsonValue value || !value.TryGetValue<string>(out var name))
+                return false;
+            named.Add(name);
+        }
+
+        return named.SetEquals(AnyTargetTypes) || named.SetEquals(AnyTargetTypesBeforeBattles);
+    }
+
+    /// <summary>An unrestricted, uncounted player target: the "player" half of "any target" and nothing more.</summary>
+    private static bool IsAnyPlayerTarget(JsonNode? node)
+    {
+        if (node is not JsonObject player || Kind(player) != nameof(TargetPlayer))
+            return false;
+        if (player["count"] is not null || player["key"] is not null)
+            return false;
+        if (player["upTo"] is JsonValue upTo && upTo.TryGetValue<bool>(out var atMost) && atMost)
+            return false;
+        return player["filter"] is null || (player["filter"] is JsonObject filter && filter.Count == 0);
+    }
+
+    private static readonly string[] AnyTargetTypes =
+        [nameof(CardType.Creature), nameof(CardType.Planeswalker), nameof(CardType.Battle)];
+
+    /// <summary>The same phrase as it was printed before battles were a permanent type.</summary>
+    private static readonly string[] AnyTargetTypesBeforeBattles =
+        [nameof(CardType.Creature), nameof(CardType.Planeswalker)];
+
+    /// <summary>
+    /// CR 104.3a: "can't lose the game" has a record of its own, <see cref="CantLoseGame"/>, and so
+    /// do "can't win the game" (CR 104.2a) and "can't gain life" (CR 119.5). <see cref="PlayerCant"/>
+    /// is the general form for the restrictions those three do not cover. A PlayerCant carrying
+    /// exactly one restriction that has a record of its own is that record; a PlayerCant carrying
+    /// several flags, or one flag with no record of its own, stays exactly as written, because no
+    /// single record says it.
+    ///
+    /// Today <see cref="PlayerRestriction"/> has one such flag, Lose. LifeTotalChanges is not
+    /// CantGainLife — it also forbids losing life and setting a life total (CR 119.1) — and the enum
+    /// has no Win or GainLife member, so those two records have nothing to collapse from. The map is
+    /// the place a flag joins them if one is ever added.
+    ///
+    /// The player comes from the ability doing the applying, a StaticAbility's Players or an
+    /// ApplyToPlayer's Who, because the specific records name a player and PlayerCant does not.
+    /// Absent means you, the controller of the ability (CR 109.5), as it does everywhere else here.
+    /// The parent's own field is left as written: it is what tells the engine the effect is about
+    /// players at all.
+    /// </summary>
+    private static void CollapsePlayerCant(JsonObject obj, string? kind)
+    {
+        var property = kind switch
+        {
+            nameof(StaticAbility) => "effect",
+            nameof(ApplyToPlayer) => "what",
+            _ => null,
+        };
+
+        if (property is null || obj[property] is not JsonObject effect || Kind(effect) != nameof(PlayerCant))
+            return;
+        if (effect["what"] is not JsonArray flags || flags.Count != 1)
+            return;
+        if (flags[0] is not JsonValue flag || !flag.TryGetValue<string>(out var restriction))
+            return;
+        if (!SpecificPlayerRestrictions.TryGetValue(restriction, out var record))
+            return;
+
+        var who = (string.Equals(kind, nameof(StaticAbility), StringComparison.Ordinal) ? obj["players"] : obj["who"])?.DeepClone()
+            ?? new JsonObject { ["kind"] = nameof(You) };
+        obj[property] = new JsonObject { ["kind"] = record, ["who"] = who };
+    }
+
+    /// <summary>Each restriction that a record of its own already says, and that record's name.</summary>
+    private static readonly Dictionary<string, string> SpecificPlayerRestrictions = new(StringComparer.Ordinal)
+    {
+        [nameof(PlayerRestriction.Lose)] = nameof(CantLoseGame),
+    };
 
     /// <summary>
     /// CR 701.23a: a search of a library searches the searcher's own, so "a creature card you own"

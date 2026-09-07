@@ -59,6 +59,8 @@ public static class VocabularyReference
         sb.AppendLine("- Basic lands carry the Land type. \"Basic land card\" is {\"supertypes\":[\"Basic\"],\"types\":[\"Land\"]} — write both, never Basic alone.");
         sb.AppendLine("- A search that shuffles uses Search's own \"shuffleAfter\": true. Do not write Search with \"shuffleAfter\": false followed by a Shuffle step; that is the same instruction spelled twice.");
         sb.AppendLine("- Remember a target only when a later step needs it after the object may have moved. \"Exile target creature, then its controller draws\" reads the target again; \"exile target creature, then return it\" remembers it, because the card it returns is no longer the object that was targeted.");
+        sb.AppendLine("- \"Any target\" is one selector: {\"kind\":\"AnyTarget\"}. \"Deals 3 damage to any target\" is {\"kind\":\"DealDamage\",\"n\":{\"kind\":\"Fixed\",\"n\":3},\"to\":{\"kind\":\"AnyTarget\"}} — no \"toPlayer\". Never a Target whose filter names Creature, Planeswalker and Battle, and never an open filter, beside a \"toPlayer\". Use \"to\" and \"toPlayer\" together only when the card names two different things to damage.");
+        sb.AppendLine("- \"Can't lose the game\", \"can't win the game\" and \"can't gain life\" have records of their own — CantLoseGame, CantWinGame, CantGainLife — each naming the player. Use PlayerCant only for the restrictions those three do not cover: LifeTotalChanges (\"your life total can't change\", which is more than not gaining), BeTargeted, BeDealtDamage.");
         sb.AppendLine();
     }
 

@@ -4454,6 +4454,9 @@
     "Selector": {
       "anyOf": [
         {
+          "$ref": "#/$defs/AnyTarget"
+        },
+        {
           "$ref": "#/$defs/Attached"
         },
         {
@@ -5605,7 +5608,7 @@
         "kind",
         "n"
       ],
-      "description": "\u0022deals 3 damage to any target\u0022: to objects, players, or both."
+      "description": "\u0022Deals 3 damage\u0022: to objects through , to players through , or to both when the card names both (\u0022deals 2 damage to target creature and 2 damage to that creature\u0027s controller\u0022). The three words \u0022any target\u0022 are not both halves written out: they are the AnyTarget selector in , with left out (CR 115.4). Use the two halves together only when the card really names two things to damage."
     },
     "DealDividedDamage": {
       "type": "object",
@@ -11798,6 +11801,42 @@
         "counter"
       ],
       "description": "CR 122.1a"
+    },
+    "AnyTarget": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AnyTarget"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "upTo": {
+          "type": "boolean"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022Any target\u0022, CR 115.4: exactly one target chosen from among every creature, player, planeswalker and battle. This is the whole phrase in one selector, and it is the only spelling of it. Do not write it as a Target whose filter names Creature, Planeswalker and Battle beside a toPlayer, and do not write it as an open filter beside a toPlayer: the first cannot say the player half and the second lets the damage hit a land. On DealDamage it goes in To, and ToPlayer is then left out \u2014 To of AnyTarget already means \u0022whichever of the four was chosen\u0022. The chosen target is announced as the spell or ability is put on the stack (CR 601.2c): an object target rides in the command\u0027s Targets and a player target in its TargetPlayers, so the two halves are one choice at cast time and the resolving effect deals its damage to whichever half the stack entry holds. Count, UpTo and Key are here for the same reason Target carries them: \u0022any number of target creatures\u0022 has its counterpart in \u0022up to one target\u0022, divided damage names several targets (CR 601.2d), and a later step refers back by Key. Count absent means one."
     },
     "Attached": {
       "type": "object",

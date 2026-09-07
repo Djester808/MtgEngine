@@ -1,6 +1,14 @@
 namespace MtgEngine.Cards;
 
-/// <summary>"deals 3 damage to any target": to objects, players, or both.</summary>
+/// <summary>
+/// "Deals 3 damage": to objects through <paramref name="To"/>, to players through
+/// <paramref name="ToPlayer"/>, or to both when the card names both ("deals 2 damage to target
+/// creature and 2 damage to that creature's controller").
+///
+/// The three words "any target" are not both halves written out: they are the AnyTarget selector
+/// in <paramref name="To"/>, with <paramref name="ToPlayer"/> left out (CR 115.4). Use the two
+/// halves together only when the card really names two things to damage.
+/// </summary>
 [RuleRef("120")]
 public sealed record DealDamage(Amount N, Selector? To = null, PlayerRef? ToPlayer = null, Selector? Source = null, bool CantBePrevented = false) : Effect;
 
