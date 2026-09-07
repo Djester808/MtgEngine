@@ -46,6 +46,8 @@ report_lock $STATUS
 NAME="$(basename "$PROJECT")"
 NAME="${NAME%.csproj}"
 TESTS="tests/${NAME}.Tests/${NAME}.Tests.csproj"
+# The pipeline's test project drops the "Cards." from its name.
+[ "$NAME" = "MtgEngine.Cards.Pipeline" ] && TESTS="tests/MtgEngine.Pipeline.Tests/MtgEngine.Pipeline.Tests.csproj"
 
 if [ ! -f "$TESTS" ]; then
   echo "no test project at $TESTS — nothing to filter for anchor '$ANCHOR'" >&2
