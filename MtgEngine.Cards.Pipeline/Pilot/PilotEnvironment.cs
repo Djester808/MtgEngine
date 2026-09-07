@@ -91,6 +91,22 @@ public sealed record PilotEnvironment(
             repair);
     }
 
+    /// <summary>
+    /// The offline one: answers come from files under <c>{outDir}/local</c> written by whoever
+    /// translates (an agent on the subscription, a person), never from the API. Same store, same
+    /// writer, same models as labels, no repair (a translator rewrites the answer file instead).
+    /// </summary>
+    public static PilotEnvironment Local(string repoRoot, string outDir) =>
+        new(
+            new FileTranslationClient(Path.Combine(outDir, "local")),
+            new TranslationStore(TranslationStore.DefaultRoot(repoRoot)),
+            new CardFileWriter(Path.Combine(repoRoot, "cards")),
+            ids => FromCorpus(repoRoot, ids),
+            Pilot.Models,
+            TranslationPrompt.VersionOf("pilot"),
+            Console.Out,
+            Repair: false);
+
     /// <summary>The deck faces the pilot may choose from, most-played first, as the plan orders them.</summary>
     public static IEnumerable<CorpusCard> DeckCandidates(string repoRoot)
     {

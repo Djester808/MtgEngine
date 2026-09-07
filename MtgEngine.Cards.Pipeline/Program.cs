@@ -64,7 +64,8 @@ try
             {
                 var outDir = args.Length > 1 ? args[1] : Path.Combine(root, ".agents", "pilot");
                 var repair = !args.Contains("--no-repair", StringComparer.Ordinal);
-                return await Pilot.CollectAsync(PilotEnvironment.ForRepo(root, repair), outDir, cts.Token);
+                var collectEnv = args.Contains("--local", StringComparer.Ordinal) ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair);
+                return await Pilot.CollectAsync(collectEnv, outDir, cts.Token);
             }
 
         // The re-translation round (seam-requests/P14.md): the cards that disagreed or carry an
@@ -85,7 +86,10 @@ try
                     return 0;
 
                 var batch = RetranslateSelection.Cards(PilotEnvironment.DeckCandidates(root), selection);
-                return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), batch.Cards, outDir, cts.Token);
+                // --local: no API. The requests are written as files for a translator on the
+                // subscription to answer;  reads the answers back.
+                var submitEnv = args.Contains("--local", StringComparer.Ordinal) ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair: true);
+                return await Pilot.SubmitAsync(submitEnv, batch.Cards, outDir, cts.Token);
             }
 
         case "status":
@@ -119,7 +123,8 @@ try
             Console.Error.WriteLine(
                 "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
                 + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
-                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] | status [cardsDir]");
+                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] | status [cardsDir]"
+            + " (--local on retranslate-submit and pilot-collect: answers from files under <outDir>/local, never the API)");
             return 64;
     }
 }
