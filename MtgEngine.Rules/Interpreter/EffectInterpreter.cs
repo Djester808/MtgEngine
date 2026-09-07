@@ -38,7 +38,7 @@ public sealed partial class EffectInterpreter(
         var entry = obj.Stack
             ?? throw new InvalidOperationException($"{stackObject} has no stack entry and cannot resolve (CR 608.2)");
         var controller = characteristics.ControllerOf(state, stackObject);
-        var effect = EffectOf(obj, entry);
+        var effect = EffectOf(state, obj, entry);
         var context = ContextFor(state, obj, entry, controller);
 
         // CR 608.2b: an illegal target is skipped, and a spell all of whose targets are illegal
@@ -77,12 +77,30 @@ public sealed partial class EffectInterpreter(
         return new Outcome(run.State, run.Events);
     }
 
-    /// <summary>What the resolving object does: a spell's spell abilities, or the one ability that was put on the stack.</summary>
-    private static Effect? EffectOf(GameObject obj, StackEntry entry)
+    /// <summary>
+    /// What the resolving object does: a spell's spell abilities, or the one ability that was put
+    /// on the stack. A delayed triggered ability is on the stack with no ability of its source to
+    /// point at — CR 603.7 keeps its instruction in the game state, not on a card — so a negative
+    /// index means "look there", the same reading <c>Tree</c> uses to resume a question
+    /// asked inside one. A delayed ability that fires only once is removed from the state as it
+    /// fires (CR 603.7b), so this finds a repeating one and nothing else; see
+    /// <c>seam-requests/E9j.md</c> for the once-only half, which needs the firing to carry its
+    /// instruction onto the stack object.
+    /// </summary>
+    [RuleRef("603.7")]
+    private static Effect? EffectOf(GameState state, GameObject obj, StackEntry entry)
     {
         var abilities = obj.Face.AbilityList;
         if (entry.AbilityIndex is { } index)
-            return index >= 0 && index < abilities.Count ? Body(abilities[index]) : null;
+        {
+            if (index >= 0)
+                return index < abilities.Count ? Body(abilities[index]) : null;
+
+            var delayed = entry.Source is { } source
+                ? state.DelayedTriggers.Where(t => t.Source == source).ToList()
+                : [];
+            return delayed.Count == 1 ? delayed[0].Do : null;
+        }
 
         // CR 608.2c: a spell does what its spell abilities say, in printed order.
         var spells = abilities.OfType<SpellAbility>().Select(a => a.Do).ToList();
