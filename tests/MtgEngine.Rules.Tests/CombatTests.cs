@@ -16,7 +16,7 @@ public sealed class CombatTests
     [Fact]
     public void Two_creatures_of_equal_size_trade_damage()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         var blocker = t.Creature(t.B, 2, 2);
 
@@ -33,7 +33,7 @@ public sealed class CombatTests
     [Fact]
     public void A_flyer_cannot_be_blocked_by_a_creature_without_flying_or_reach()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var flyer = t.Creature(t.A, 2, 2, [KeywordKind.Flying]);
         var ground = t.Creature(t.B, 2, 2);
         t.Attack(t.A, flyer, t.B);
@@ -47,7 +47,7 @@ public sealed class CombatTests
     [Fact]
     public void Reach_blocks_a_flyer()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var flyer = t.Creature(t.A, 2, 2, [KeywordKind.Flying]);
         var reach = t.Creature(t.B, 1, 4, [KeywordKind.Reach]);
 
@@ -62,7 +62,7 @@ public sealed class CombatTests
     [Fact]
     public void Trample_assigns_lethal_to_the_blocker_and_sends_the_excess_to_the_player()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 3, 3, [KeywordKind.Trample]);
         var blocker = t.Creature(t.B, 1, 1);
 
@@ -78,7 +78,7 @@ public sealed class CombatTests
     [Fact]
     public void Without_trample_all_the_damage_stays_on_the_blockers()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 3, 3);
         var blocker = t.Creature(t.B, 1, 1);
 
@@ -94,7 +94,7 @@ public sealed class CombatTests
     [Fact]
     public void First_strike_deals_its_damage_before_the_blocker_can_deal_any()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2, [KeywordKind.FirstStrike]);
         var blocker = t.Creature(t.B, 2, 2);
 
@@ -116,7 +116,7 @@ public sealed class CombatTests
     [Fact]
     public void Double_strike_assigns_in_both_combat_damage_steps()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2, [KeywordKind.DoubleStrike]);
         var blocker = t.Creature(t.B, 3, 6);
 
@@ -137,7 +137,7 @@ public sealed class CombatTests
     [Fact]
     public void Lifelink_gains_its_controller_the_damage_it_dealt()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2, [KeywordKind.Lifelink]);
         var blocker = t.Creature(t.B, 2, 2);
 
@@ -154,7 +154,7 @@ public sealed class CombatTests
     [Fact]
     public void Lifelink_on_an_unblocked_attacker_gains_what_the_player_lost()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 4, 4, [KeywordKind.Lifelink]);
 
         t.Attack(t.A, attacker, t.B);
@@ -167,7 +167,7 @@ public sealed class CombatTests
     [Fact]
     public void Vigilance_leaves_the_attacker_untapped()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var vigilant = t.Creature(t.A, 2, 2, [KeywordKind.Vigilance]);
         var plain = t.Creature(t.A, 2, 2);
 
@@ -184,7 +184,7 @@ public sealed class CombatTests
     [Fact]
     public void A_summoning_sick_creature_cannot_attack()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var sick = t.Creature(t.A, 2, 2, summoningSick: true);
 
         var refused = Assert.Throws<RefusedException>(() => t.Attack(t.A, sick, t.B));
@@ -196,7 +196,7 @@ public sealed class CombatTests
     [Fact]
     public void Haste_lets_a_summoning_sick_creature_attack()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var hasty = t.Creature(t.A, 2, 2, [KeywordKind.Haste], summoningSick: true);
 
         t.Attack(t.A, hasty, t.B);
@@ -208,7 +208,7 @@ public sealed class CombatTests
     [Fact]
     public void A_tapped_creature_cannot_attack_or_block()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var tappedAttacker = t.Creature(t.A, 2, 2, tapped: true);
         var attacker = t.Creature(t.A, 2, 2);
         var tappedBlocker = t.Creature(t.B, 2, 2, tapped: true);
@@ -223,7 +223,7 @@ public sealed class CombatTests
     [Fact]
     public void A_creature_with_defender_cannot_attack()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var wall = t.Creature(t.A, 0, 4, [KeywordKind.Defender]);
 
         // CR 702.3b.
@@ -233,7 +233,7 @@ public sealed class CombatTests
     [Fact]
     public void Menace_cannot_be_blocked_by_one_creature_but_can_by_two()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 3, 3, [KeywordKind.Menace]);
         var one = t.Creature(t.B, 1, 1);
         var two = t.Creature(t.B, 1, 1);
@@ -250,7 +250,7 @@ public sealed class CombatTests
     [Fact]
     public void Deathtouch_makes_one_damage_lethal_when_assigning()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2, [KeywordKind.Deathtouch]);
         var one = t.Creature(t.B, 1, 3);
         var two = t.Creature(t.B, 1, 3);
@@ -267,7 +267,7 @@ public sealed class CombatTests
     [Fact]
     public void Skulk_cannot_be_blocked_by_a_creature_with_greater_power()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var sneak = t.Creature(t.A, 2, 2, [KeywordKind.Skulk]);
         var big = t.Creature(t.B, 3, 3);
         var small = t.Creature(t.B, 2, 2);
@@ -283,7 +283,7 @@ public sealed class CombatTests
     [Fact]
     public void Fear_cannot_be_blocked_except_by_black_or_artifact_creatures()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var feared = t.Creature(t.A, 2, 2, [KeywordKind.Fear]);
         var white = t.Creature(t.B, 2, 2, colors: Color.White);
         var black = t.Creature(t.B, 2, 2, colors: Color.Black);
@@ -299,7 +299,7 @@ public sealed class CombatTests
     [Fact]
     public void Landwalk_cannot_be_blocked_while_the_defender_controls_that_land()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var walker = t.Creature(t.A, 2, 2, statics: [new KeywordAbility(KeywordKind.Landwalk, Of: new ObjectFilter(Subtypes: ["Island"]))]);
         var blocker = t.Creature(t.B, 2, 2);
         var land = t.Creature(t.B, 0, 0, types: CardType.Land);
@@ -318,7 +318,7 @@ public sealed class CombatTests
     [Fact]
     public void A_continuous_effect_saying_it_cannot_be_blocked_is_honoured()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var unblockable = t.Creature(t.A, 2, 2, statics: [new StaticAbility(new CantBeBlocked())]);
         var blocker = t.Creature(t.B, 2, 2);
         t.Attack(t.A, unblockable, t.B);
@@ -329,7 +329,7 @@ public sealed class CombatTests
     [Fact]
     public void A_continuous_effect_saying_a_creature_cannot_block_is_honoured()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         var pacified = t.Creature(t.B, 2, 2, statics: [new StaticAbility(new CantBlock())]);
         t.Attack(t.A, attacker, t.B);
@@ -340,7 +340,7 @@ public sealed class CombatTests
     [Fact]
     public void A_creature_may_not_block_an_attacker_attacking_someone_else()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         var bystander = t.Creature(t.A, 2, 2);
         t.Attack(t.A, attacker, t.B);
@@ -352,7 +352,7 @@ public sealed class CombatTests
     [Fact]
     public void An_unblocked_attacker_damages_the_player_and_a_commander_is_tracked()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var general = t.Creature(t.A, 3, 3, commander: true);
 
         t.Attack(t.A, general, t.B);
@@ -367,7 +367,7 @@ public sealed class CombatTests
     [Fact]
     public void A_blocked_attacker_whose_blocker_has_gone_assigns_no_damage()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 3, 3);
         var blocker = t.Creature(t.B, 1, 1);
 
@@ -383,7 +383,7 @@ public sealed class CombatTests
     [Fact]
     public void An_attacker_may_attack_a_planeswalker_an_opponent_controls()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         var walker = t.Creature(t.B, 0, 0, types: CardType.Planeswalker);
 
@@ -398,7 +398,7 @@ public sealed class CombatTests
     [Fact]
     public void An_attacker_may_not_attack_its_own_controller_or_their_permanents()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         var own = t.Creature(t.A, 0, 0, types: CardType.Planeswalker);
 
@@ -409,7 +409,7 @@ public sealed class CombatTests
     [Fact]
     public void A_creature_that_must_attack_if_able_has_to_be_declared()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var free = t.Creature(t.A, 2, 2);
         var goaded = t.Creature(t.A, 2, 2, statics: [new StaticAbility(new MustAttack())]);
 
@@ -427,7 +427,7 @@ public sealed class CombatTests
     [Fact]
     public void Only_the_active_player_declares_attackers()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.B, 2, 2);
 
         Assert.Equal("508.1a", Assert.Throws<RefusedException>(() => t.Attack(t.B, attacker, t.A)).Rule);
@@ -436,7 +436,7 @@ public sealed class CombatTests
     [Fact]
     public void End_of_combat_clears_the_combat_state_and_nothing_else()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var attacker = t.Creature(t.A, 2, 2);
         t.Attack(t.A, attacker, t.B);
         var before = t.State;
@@ -454,7 +454,7 @@ public sealed class CombatTests
     [Fact]
     public void Declaring_blockers_before_attackers_is_refused()
     {
-        var t = new Table();
+        var t = new CombatTable();
         var blocker = t.Creature(t.B, 2, 2);
 
         Assert.Equal("509.1", Assert.Throws<RefusedException>(() => t.Block(t.B, new BlockDeclaration(blocker, new ObjectId(99)))).Rule);

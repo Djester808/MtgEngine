@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 /// characteristics are the printed ones (no layers yet), and the interpreter records what it
 /// was asked to resolve.
 /// </summary>
-internal sealed class FakeZones : IZoneSystem
+internal sealed class CastingFakeZones : IZoneSystem
 {
     public string Name => "fake zones";
 
@@ -104,9 +104,9 @@ internal sealed class FixedAmounts : IQuery
 }
 
 /// <summary>A two-player game built event by event, so every test starts from a state a real log could produce.</summary>
-internal sealed class Table
+internal sealed class CastingTable
 {
-    public Table()
+    public CastingTable()
     {
         State = GameReducer.Replay([new GameStarted([new PlayerStart("One", [], []), new PlayerStart("Two", [], [])], 7, 20, "test")]);
         Turn(A, Step.PrecombatMain);

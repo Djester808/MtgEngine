@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 /// set for an object, which is what makes a combat test independent of the layer system: a
 /// creature "with flying" here is one whose computed characteristics say so, however it got it.
 /// </summary>
-internal sealed class FakeCharacteristics : ICharacteristics
+internal sealed class CombatFakeCharacteristics : ICharacteristics
 {
     private readonly Dictionary<ObjectId, Characteristics> _of = [];
 
@@ -31,7 +31,7 @@ internal sealed class FakeCharacteristics : ICharacteristics
 /// does it match this filter. Everything else throws, so a combat change that starts leaning on
 /// the query layer for something new says so instead of silently answering false.
 /// </summary>
-internal sealed class FakeQuery : IQuery
+internal sealed class CombatFakeQuery : IQuery
 {
     public string Name => "fake query";
 
@@ -61,7 +61,7 @@ internal sealed class FakeQuery : IQuery
 /// definition store, no turn system. Object ids are their own timestamps, so declaration and
 /// damage order is the order the test created them in.
 /// </summary>
-internal sealed class Table
+internal sealed class CombatTable
 {
     private static readonly CardDefinition Blank = new(
         "00000000-0000-0000-0000-000000000001",
@@ -71,15 +71,15 @@ internal sealed class Table
 
     private int _next = 1;
 
-    public Table()
+    public CombatTable()
     {
         State = GameReducer.Replay([new GameStarted([new PlayerStart("one", [], []), new PlayerStart("two", [], [])], 7, 20, "commander")]);
         Subject = new CombatSystem(Layers, Query);
     }
 
-    public FakeCharacteristics Layers { get; } = new();
+    public CombatFakeCharacteristics Layers { get; } = new();
 
-    public FakeQuery Query { get; } = new();
+    public CombatFakeQuery Query { get; } = new();
 
     public CombatSystem Subject { get; }
 
