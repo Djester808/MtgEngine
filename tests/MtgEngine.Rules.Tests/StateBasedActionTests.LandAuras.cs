@@ -84,16 +84,15 @@ public sealed partial class StateBasedActionTests
     /// The Aura is then announced at a card that is not on the battlefield and CR 608.2b counters
     /// it as it resolves, which is the graveyard the card file's verify reported.
     /// <para>
-    /// Two things are wrong and neither is in this folder, so both are asserted as they are today
-    /// and named in <c>seam-requests/E5g.md</c>: the runner's naming (the target ought to be the
-    /// battlefield copy) and CR 601.2c (an Aura announced at an object its enchant ability does
-    /// not admit ought to be refused at announcement, as the player half already is in
-    /// <c>CastingSystem.RequireLegalAuraTarget</c>). Flip this test when either lands.
+    /// The runner's naming (the target ought to be the battlefield copy) is the smoke board's to
+    /// fix (<c>seam-requests/E5g.md</c>); CR 601.2c now holds at announcement: an Aura cast at a
+    /// card in hand is refused, as <c>CastingSystem.RequireLegalAuraTarget</c> refuses a player it
+    /// cannot enchant.
     /// </para>
     /// </summary>
     [Fact]
     [RuleRef("608.2b")]
-    public void An_aura_cast_at_a_name_the_hand_also_holds_is_countered_rather_than_attached()
+    public void An_aura_cast_at_a_name_the_hand_also_holds_is_refused_at_announcement()
     {
         var result = LandAuraRun(new Scenario(
             "sba-land-aura-smoke-shape",
@@ -110,12 +109,12 @@ public sealed partial class StateBasedActionTests
                 ],
                 "A"),
             [new CastStep("A", LandAura, [ScenarioFiller.Land]), new ResolveAllStep()],
-            [new InZone(LandAura, Zone.Graveyard), new StackEmpty()]));
+            [new InZone(LandAura, Zone.Hand)]));
 
-        // The gap: the cast is allowed at a card in hand and the Aura never enters the
-        // battlefield. Asserted as it is today so the seam request has a witness.
-        Assert.Null(result.Error);
-        Assert.True(result.Passed, Failures(result));
+        // CR 601.2c: the announcement names a card in hand, which no Aura may enchant, so the cast
+        // is refused and nothing moves; the runner reports the refusal as the run's error.
+        Assert.NotNull(result.Error);
+        Assert.Contains("601.2c", result.Error, StringComparison.Ordinal);
     }
 
     /// <summary>An Aura already attached to a land on the battlefield, and one round of priority to settle it.</summary>

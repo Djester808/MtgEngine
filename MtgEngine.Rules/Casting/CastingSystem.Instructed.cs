@@ -5,6 +5,7 @@ using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.Stack;
 using MtgEngine.Rules.State;
+using CardZone = MtgEngine.Cards.Zone;
 using SpellCast = MtgEngine.Rules.Events.SpellCast;
 
 namespace MtgEngine.Rules.Casting;
@@ -99,11 +100,27 @@ public sealed partial class CastingSystem
     [RuleRef("601.2c")]
     private void RequireLegalAuraTarget(GameState state, Characteristics chars, CastSpell command)
     {
-        var players = command.TargetPlayers ?? [];
-        if (players.Count == 0 || !IsAura(chars))
+        if (!IsAura(chars))
             return;
-
         var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
+
+        // The object half (CR 601.2c with 702.5b): the object an Aura is cast at must be on the
+        // battlefield and be what its enchant ability admits, read the way the resolution reads it
+        // (AuraAttachment), so a spell with no legal target is refused here rather than cast and
+        // countered on resolution by CR 608.2b.
+        var targets = command.Targets ?? [];
+        if (targets.Count > 0)
+        {
+            var host = targets[0];
+            if (!state.Objects.TryGetValue(host, out var target) || target.Zone.Zone != CardZone.Battlefield)
+                throw new RefusedException("An Aura is cast at a permanent on the battlefield.", "601.2c");
+            if (enchant?.Of is { } filter && !query.Matches(state, filter, host, CostPayment.Context(command.Card, command.Player, command.X)))
+                throw new RefusedException("That Aura cannot enchant that permanent.", "601.2c");
+        }
+
+        var players = command.TargetPlayers ?? [];
+        if (players.Count == 0)
+            return;
         if (enchant is { Of: not null, OfPlayer: null })
             throw new RefusedException("That Aura cannot enchant a player.", "601.2c");
 
