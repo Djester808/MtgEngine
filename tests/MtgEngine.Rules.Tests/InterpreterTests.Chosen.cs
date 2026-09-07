@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -142,6 +143,38 @@ public sealed partial class InterpreterTests
         Assert.Null(block.Key);
     }
 
+    [Fact]
+    public void A_may_cast_of_a_copy_announces_the_copy_the_zone_system_made()
+    {
+        var table = new InterpreterTable(zones: new InterpreterTestsCopyingZones());
+        var casting = new InterpreterTestsCasting();
+        table.Subject.Casting = casting;
+        var card = table.Card(table.A, Zone.Graveyard);
+
+        table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it"), AsCopy: true), Remembering(card)));
+        table.Answer("yes");
+
+        // CR 707.12: the copy is created in the zone the object is in and it is the copy that is
+        // cast, so the announcement never names the card the effect pointed at.
+        var command = Assert.Single(casting.Instructed);
+        Assert.NotEqual(card, command.Card);
+        Assert.Equal(ZoneKey.Of(Zone.Graveyard, table.A), table.Object(command.Card).Zone);
+    }
+
+    [Fact]
+    public void A_may_cast_of_a_copy_is_refused_by_name_when_no_zone_system_can_make_one()
+    {
+        var table = new InterpreterTable();
+        table.Subject.Casting = new InterpreterTestsCasting();
+        var card = table.Card(table.A, Zone.Graveyard);
+        table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it"), AsCopy: true), Remembering(card)));
+
+        // CR 707.12: casting the original in the copy's place is a different game action, so the
+        // refusal stands and names the rule rather than guessing.
+        var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
+        Assert.Equal("707.12", refused.Rule);
+    }
+
     /// <summary>"As this enters, choose a color", CR 608.2d.</summary>
     private static readonly ChooseValue Choose =
         new(ChooseWhat.Color, "color", Options: ["White", "Blue", "Black", "Red", "Green"]);
@@ -152,4 +185,37 @@ public sealed partial class InterpreterTests
 
     /// <summary>An ability of that permanent on the stack, CR 603.3: the source is what chose.</summary>
     private static StackEntry Of(ObjectId source) => new(source, 0, [], [], [], null, false);
+}
+
+/// <summary>
+/// The zone system with CR 707.12's copy built. Everything else is the real one, so the only thing
+/// this fake decides is that a copy can be made at all — which is what the interpreter's arm turns
+/// on. The copy arrives in the zone the original is in, as the last <c>ObjectCreated</c>.
+/// </summary>
+internal sealed class InterpreterTestsCopyingZones : IZoneSystem
+{
+    private readonly Zones.ZoneSystem _zones = new();
+
+    public string Name => "fake copying zones";
+
+    public Outcome Create(GameSetup setup, IDefinitionStore store) => _zones.Create(setup, store);
+
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null) =>
+        _zones.Move(state, what, to, where, tapped, controller);
+
+    public Outcome Draw(GameState state, PlayerId player, int count) => _zones.Draw(state, player, count);
+
+    public Outcome Shuffle(GameState state, PlayerId player) => _zones.Shuffle(state, player);
+
+    public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) =>
+        _zones.CreateToken(state, token, controller, tapped, attacking);
+
+    [RuleRef("707.12")]
+    public Outcome CopyInPlace(GameState state, ObjectId original, PlayerId owner)
+    {
+        var from = state.Objects[original];
+        var id = new ObjectId(state.Objects.Keys.Max(o => o.Value) + 1);
+        var created = new ObjectCreated(new GameObject(id, from.Definition, from.FaceIndex, owner, owner, from.Zone, id.Value), -1);
+        return new Outcome(created.Apply(state), [created]);
+    }
 }
