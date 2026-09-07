@@ -1,204 +1,209 @@
-using System.Globalization;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using MtgEngine.Cards.Pipeline.Agree;
+using MtgEngine.Cards.Pipeline.Translate;
 
 namespace MtgEngine.Cards.Pipeline;
 
+/// <summary>What the pilot learned about one card: every reading, what agreement decided, and what was written.</summary>
+public sealed record PilotCardResult(
+    CorpusCard Card,
+    IReadOnlyList<TranslationReading> Readings,
+    AgreeResult Agreement,
+    CardWrite? Written);
+
 /// <summary>
-/// The wave-0 decision point: a slice of deck cards through both translators, then the
-/// agreement rate, the lint pass rate and the cost per face. Writes what it learned as card
-/// files and a report; the decision is the coordinator's.
+/// The decision point of CARD_ENGINE_PLAN.md § "Decision points": a slice of deck faces through
+/// both translators, then the agreement rate, the parse and lint failure rates and the cost per
+/// face. It owns none of that work — <see cref="TranslateStage"/> translates, repairs and lints,
+/// <see cref="AgreeStage"/> decides the status and <see cref="CardFileWriter"/> writes
+/// <c>cards/</c> — so what the pilot measures is what the pipeline does, not a second
+/// implementation of it that can drift.
+///
+/// It is two commands, because a batch takes hours and a process that waits for one holds the
+/// pipeline dll and blocks every other build in the repository. <see cref="SubmitAsync"/> sends
+/// the batches and exits; <see cref="CollectAsync"/> checks their status once and either exits
+/// <see cref="NotEnded"/> or does the whole of the rest.
 /// </summary>
 public static class Pilot
 {
     public static readonly IReadOnlyList<string> Models = ["claude-opus-5", "claude-sonnet-5"];
 
-    /// <summary>List prices per million tokens, from the API's cached rate table; batch requests are billed at half.</summary>
-    private static readonly IReadOnlyDictionary<string, (decimal Input, decimal Output)> Prices = new Dictionary<string, (decimal, decimal)>
-    {
-        ["claude-opus-5"] = (5m, 25m),
-        ["claude-sonnet-5"] = (2m, 10m),
-    };
+    /// <summary>Collect's exit code when a batch has not ended. Nothing is written; run it again later.</summary>
+    public const int NotEnded = 3;
 
-    public static async Task<int> RunAsync(string repoRoot, int count, string outDir, bool repair, CancellationToken ct)
+    /// <summary>Nothing to do: no faces to submit, or no submission to collect.</summary>
+    public const int NothingToDo = 64;
+
+    /// <summary>
+    /// The faces the pilot measures: deck cards with printed text, skipping the free slice, which
+    /// P2's templates describe from the JSON alone and no model needs to read.
+    /// </summary>
+    public static IReadOnlyList<CorpusCard> Select(IEnumerable<CorpusCard> candidates, int count)
     {
-        var raw = Corpus.LoadRaw(Corpus.DefaultPath(repoRoot));
-        var deckIds = Corpus.DeckOracleIds(Path.Combine(repoRoot, "MtgEngine.Api", "mtgengine.db"));
-        var cards = new List<CorpusCard>();
-        foreach (var id in deckIds)
+        ArgumentNullException.ThrowIfNull(candidates);
+        var chosen = new List<CorpusCard>();
+        foreach (var card in candidates)
         {
-            var card = Corpus.Card(raw, id);
-            if (card is null || card.IsFreeSlice || card.Faces.All(f => f.OracleText.Length == 0))
+            if (card.IsFreeSlice || card.Faces.All(f => f.OracleText.Length == 0))
                 continue;
-            cards.Add(card);
-            if (cards.Count == count)
+            chosen.Add(card);
+            if (chosen.Count >= count)
                 break;
         }
 
-        Directory.CreateDirectory(outDir);
-        Console.WriteLine($"pilot: {cards.Count} faces selected from {deckIds.Count} deck cards (free slice skipped)");
-        File.WriteAllText(Path.Combine(outDir, "selection.json"), JsonSerializer.Serialize(cards.Select(c => new { c.OracleId, c.Name }), new JsonSerializerOptions { WriteIndented = true }));
+        return chosen;
+    }
 
-        var client = new Anthropic.AnthropicClient { ApiKey = Secrets.AnthropicApiKey() };
-        var translator = new Translator(client, "pilot-v1-" + Translator.Hash(Translator.SystemWithVocabulary()));
-        File.WriteAllText(Path.Combine(outDir, "system-prompt.txt"), Translator.SystemWithVocabulary());
-
-        var batches = await translator.SubmitAsync(cards, Models, ct);
-        File.WriteAllText(Path.Combine(outDir, "batches.json"), JsonSerializer.Serialize(batches));
-        var readings = (await translator.CollectAsync(batches, TimeSpan.FromSeconds(30), ct)).ToList();
-
-        var byCard = cards.ToDictionary(c => c.OracleId, StringComparer.Ordinal);
-        var results = new List<CardResult>();
-        foreach (var card in cards)
+    /// <summary>
+    /// Submit one batch per model and exit. The batch ids are recorded in the translation store
+    /// before anything waits on them — that is what makes the collect command able to resume —
+    /// and in the out directory, which is what a person reads.
+    /// </summary>
+    public static async Task<int> SubmitAsync(PilotEnvironment env, IReadOnlyList<CorpusCard> cards, string outDir, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(env);
+        ArgumentNullException.ThrowIfNull(cards);
+        if (cards.Count == 0)
         {
-            var perModel = new Dictionary<string, Reading>(StringComparer.Ordinal);
-            foreach (var model in Models)
-            {
-                var reading = readings.FirstOrDefault(r => r.OracleId == card.OracleId && r.Model == model)
-                    ?? new Reading(card.OracleId, model, string.Empty, null, "missing from batch", 0, 0, 0, 0);
-                var lint = reading.Definition is null ? null : Linter.Check(FileFor(card, reading.Definition, [model], agreed: false, translator.PromptVersion));
-                if (repair && (reading.Definition is null || lint!.HasErrors))
-                {
-                    var problem = reading.ParseError ?? string.Join("; ", lint!.Findings.Where(f => f.Severity == LintSeverity.Error).Select(f => f.Message));
-                    reading = await translator.RepairAsync(card, reading, problem, ct);
-                }
-
-                perModel[model] = reading;
-            }
-
-            results.Add(Evaluate(card, perModel, translator.PromptVersion));
+            env.Log.WriteLine("pilot-submit: no faces selected; nothing submitted.");
+            return NothingToDo;
         }
 
-        WriteCardFiles(repoRoot, results);
-        var report = Report(results, cards.Count);
-        File.WriteAllText(Path.Combine(outDir, "report.md"), report);
-        File.WriteAllText(Path.Combine(outDir, "readings.json"), JsonSerializer.Serialize(results.Select(r => new { r.OracleId, r.Name, r.Agreed, readings = r.Readings.Select(x => new { x.Model, x.ParseError, lint = r.Lint[x.Model], x.Raw }) }), new JsonSerializerOptions { WriteIndented = true }));
-        Console.WriteLine(report);
+        if (cards.Count > TranslateStage.MaxBatchSize)
+        {
+            throw new ArgumentException(
+                FormattableString.Invariant($"The pilot submits one batch per model and a batch takes at most {TranslateStage.MaxBatchSize} requests; {cards.Count} were selected."),
+                nameof(cards));
+        }
+
+        var system = TranslationPrompt.SystemWithVocabulary();
+        var oracleIds = cards.Select(c => c.OracleId).ToList();
+        var batches = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var model in env.Models)
+        {
+            ct.ThrowIfCancellationRequested();
+            var requests = cards
+                .Select(c => (customId: c.OracleId, system, user: TranslationPrompt.UserMessage(c)))
+                .ToList();
+            var batchId = await env.Client.SubmitBatch(model, requests, ct);
+            env.Store.WriteBatch(new StoredBatch(batchId, model, env.PromptVersion, oracleIds, Collected: false));
+            batches[model] = batchId;
+            env.Log.WriteLine(FormattableString.Invariant($"submitted {cards.Count} requests to {model}: batch {batchId}"));
+        }
+
+        new PilotSubmission(env.PromptVersion, batches, [.. cards.Select(c => new PilotCard(c.OracleId, c.Name))]).Write(outDir);
+        env.Log.WriteLine(FormattableString.Invariant($"pilot-submit: {cards.Count} faces, {batches.Count} batches, recorded in {outDir}. Collect with `pipeline pilot-collect {outDir}`."));
         return 0;
     }
 
-    private static CardFile FileFor(CorpusCard card, CardDefinition definition, IReadOnlyList<string> models, bool agreed, string promptVersion) => new(
-        card.OracleId,
-        card.Name,
-        card.OracleHash,
-        IrVersion.Current,
-        definition,
-        agreed ? ImplementationStatus.Translated : ImplementationStatus.Disputed,
-        new TranslatedProvenance(models, promptVersion, agreed),
-        card.Keywords);
-
-    private sealed record CardResult(string OracleId, string Name, IReadOnlyList<Reading> Readings, IReadOnlyDictionary<string, LintReport?> Lint, bool Agreed, CardFile? File);
-
-    private static CardResult Evaluate(CorpusCard card, IReadOnlyDictionary<string, Reading> perModel, string promptVersion)
+    /// <summary>
+    /// Check each batch once. If any has not ended, print its status and exit <see cref="NotEnded"/>
+    /// having written nothing — the caller decides when to look again, so no process sleeps on a
+    /// batch. When all of them have ended: collect, repair once where a reading needs it, agree,
+    /// write the card files and the report.
+    /// </summary>
+    public static async Task<int> CollectAsync(PilotEnvironment env, string outDir, CancellationToken ct)
     {
-        var lint = perModel.ToDictionary(p => p.Key, p => p.Value.Definition is null ? null : Linter.Check(FileFor(card, p.Value.Definition, [p.Key], false, promptVersion)), StringComparer.Ordinal);
-        var good = perModel.Where(p => p.Value.Definition is not null && lint[p.Key]!.HasErrors == false).Select(p => p.Value).ToList();
-
-        var agreed = good.Count == Models.Count && good.Select(r => Canonical(r.Definition!)).Distinct(StringComparer.Ordinal).Count() == 1;
-        CardFile? file = null;
-        if (agreed)
-            file = FileFor(card, good[0].Definition!, Models, true, promptVersion);
-        else if (good.Count > 0)
+        ArgumentNullException.ThrowIfNull(env);
+        var submission = PilotSubmission.Read(outDir);
+        if (submission is null || submission.Batches.Count == 0 || submission.Cards.Count == 0)
         {
-            file = FileFor(card, good[0].Definition!, [good[0].Model], false, promptVersion) with
-            {
-                Candidates = [.. perModel.Values.Where(r => r.Definition is not null).Select(r => new TranslationCandidate(r.Model, r.Definition!))],
-            };
+            env.Log.WriteLine(FormattableString.Invariant($"pilot-collect: no submission in {outDir}; run `pipeline pilot-submit` first."));
+            return NothingToDo;
         }
 
-        return new CardResult(card.OracleId, card.Name, [.. perModel.Values], lint, agreed, file);
-    }
+        var promptVersion = submission.PromptVersion ?? env.PromptVersion;
+        Record(env, submission, promptVersion);
+        if (!await Ended(env, submission, ct))
+            return NotEnded;
 
-    /// <summary>Two readings agree when they are the same after the printed text fields are dropped.</summary>
-    public static string Canonical(CardDefinition definition)
-    {
-        var node = JsonNode.Parse(CardFileSerializer.WriteDefinition(definition))!;
-        Strip(node);
-        return node.ToJsonString();
-    }
-
-    private static void Strip(JsonNode? node)
-    {
-        switch (node)
+        var cards = env.Cards(submission.OracleIds);
+        if (cards.Count == 0)
         {
-            case JsonObject obj:
-                obj.Remove("text");
-                obj.Remove("oracleText");
-                foreach (var child in obj.Select(p => p.Value).ToList())
-                    Strip(child);
-                break;
-            case JsonArray arr:
-                foreach (var child in arr)
-                    Strip(child);
-                break;
+            env.Log.WriteLine("pilot-collect: none of the submitted oracle ids resolved to a card.");
+            return NothingToDo;
+        }
+
+        var stage = new TranslateStage(
+            env.Client,
+            env.Store,
+            new TranslateStageOptions(TimeSpan.Zero, Repair: env.Repair, MaxPolls: 1));
+        var readings = await stage.Run(cards, env.Models, promptVersion, ct);
+
+        var results = Decide(env, cards, readings, promptVersion);
+        var report = PilotReport.Build(results, env, promptVersion);
+        Directory.CreateDirectory(outDir);
+        await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), report, ct);
+        env.Log.Write(report);
+        return 0;
+    }
+
+    /// <summary>
+    /// A batch the store has never heard of was submitted by the wave-0 pilot, whose record was
+    /// the out directory rather than the store. Recording it is what lets the stage collect it.
+    /// </summary>
+    private static void Record(PilotEnvironment env, PilotSubmission submission, string promptVersion)
+    {
+        foreach (var (model, batchId) in submission.Batches)
+        {
+            if (env.Store.Batch(batchId) is null)
+                env.Store.WriteBatch(new StoredBatch(batchId, model, promptVersion, submission.OracleIds, Collected: false));
         }
     }
 
-    private static void WriteCardFiles(string repoRoot, IReadOnlyList<CardResult> results)
+    /// <summary>One status call per uncollected batch — the batch's own status check, and no loop around it.</summary>
+    private static async Task<bool> Ended(PilotEnvironment env, PilotSubmission submission, CancellationToken ct)
     {
-        var dir = Path.Combine(repoRoot, "cards");
-        Directory.CreateDirectory(dir);
-        foreach (var r in results.Where(r => r.File is not null))
-            File.WriteAllText(Path.Combine(dir, r.OracleId + ".json"), CardFileSerializer.Write(r.File!) + "\n");
-    }
-
-    private static string Report(IReadOnlyList<CardResult> results, int count)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("# Pilot report");
-        sb.AppendLine();
-        sb.AppendLine(CultureInfo.InvariantCulture, $"faces: {count}");
-        foreach (var model in Models)
+        var ended = true;
+        foreach (var (model, batchId) in submission.Batches)
         {
-            var readings = results.Select(r => r.Readings.First(x => x.Model == model)).ToList();
-            var parsed = readings.Count(r => r.Definition is not null);
-            var clean = results.Count(r => r.Lint[model] is { HasErrors: false });
-            var unsupported = results.Count(r => r.Lint[model]?.Findings.Any(f => f.Code == "L001") == true);
-            var input = readings.Sum(r => r.InputTokens);
-            var output = readings.Sum(r => r.OutputTokens);
-            var cacheRead = readings.Sum(r => r.CacheReadTokens);
-            var cacheWrite = readings.Sum(r => r.CacheWriteTokens);
-            var price = Prices[model];
-            var cost = ((input * price.Input) + (cacheRead * price.Input * 0.1m) + (cacheWrite * price.Input * 1.25m) + (output * price.Output)) / 1_000_000m * 0.5m;
-            sb.AppendLine(CultureInfo.InvariantCulture, $"## {model}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"- parsed: {parsed}/{count}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"- lint clean: {clean}/{count}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"- with Unsupported markers: {unsupported}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"- tokens: input {input:N0}, cache read {cacheRead:N0}, cache write {cacheWrite:N0}, output {output:N0}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"- estimated batch cost: ${cost:F2} (${cost / Math.Max(1, count):F3} per face)");
-            var codes = results.SelectMany(r => r.Lint[model]?.Findings ?? []).GroupBy(f => f.Code).OrderByDescending(g => g.Count());
-            sb.AppendLine("- lint findings by code: " + string.Join(", ", codes.Select(g => $"{g.Key}×{g.Count()}")));
-            var reasons = results.SelectMany(r => r.Lint[model]?.Findings.Where(f => f.Code == "L001") ?? []).GroupBy(f => f.Message).OrderByDescending(g => g.Count()).Take(15);
-            foreach (var g in reasons)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  - {g.Count()}× {g.Key}");
-            sb.AppendLine();
+            ct.ThrowIfCancellationRequested();
+            if (env.Store.Batch(batchId) is { Collected: true })
+                continue;
+
+            var status = await env.Client.Poll(batchId, ct);
+            env.Log.WriteLine(FormattableString.Invariant(
+                $"{model} {batchId}: {(status.Ended ? "ended" : "in_progress")} succeeded={status.Succeeded} errored={status.Errored} processing={status.Processing}"));
+            ended &= status.Ended;
         }
 
-        var agreed = results.Count(r => r.Agreed);
-        var bothClean = results.Count(r => Models.All(m => r.Lint[m] is { HasErrors: false }));
-        sb.AppendLine("## Agreement");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- both models lint clean: {bothClean}/{count}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed (identical after stripping printed text): {agreed}/{count} ({100.0 * agreed / Math.Max(1, count):F1}%)");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed among both-clean: {agreed}/{Math.Max(1, bothClean)} ({100.0 * agreed / Math.Max(1, bothClean):F1}%)");
-        sb.AppendLine();
-        sb.AppendLine("## Disagreements (first 40)");
-        foreach (var r in results.Where(r => !r.Agreed).Take(40))
-        {
-            var verdicts = string.Join(" | ", Models.Select(m => m + ": " + Verdict(r, m)));
-            sb.Append("- ").Append(r.Name).Append(": ").AppendLine(verdicts);
-        }
-
-        return sb.ToString();
+        return ended;
     }
 
-    private static string Verdict(CardResult r, string model)
+    /// <summary>
+    /// One agreement decision per card, from the readings the stage produced. The lint report the
+    /// stage already computed is passed on rather than recomputed, and it linted each reading on
+    /// its own as <see cref="ImplementationStatus.Translated"/>: a lone reading linted as Disputed
+    /// raises L013 on every reading and no card could ever agree (seam-requests/DECISIONS.md, P3).
+    /// </summary>
+    private static IReadOnlyList<PilotCardResult> Decide(
+        PilotEnvironment env,
+        IReadOnlyList<CorpusCard> cards,
+        IReadOnlyList<TranslationReading> readings,
+        string promptVersion)
     {
-        if (r.Readings.First(x => x.Model == model).Definition is null)
-            return "parse fail";
-        var lint = r.Lint[model]!;
-        return lint.HasErrors
-            ? "lint " + string.Join(",", lint.Findings.Where(f => f.Severity == LintSeverity.Error).Select(f => f.Code).Distinct())
-            : "clean";
+        var results = new List<PilotCardResult>();
+        foreach (var card in cards)
+        {
+            var mine = readings.Where(r => string.Equals(r.OracleId, card.OracleId, StringComparison.Ordinal)).ToList();
+            var request = new AgreeRequest(
+                card.OracleId,
+                card.Name,
+                card.OracleHash,
+                promptVersion,
+                [.. env.Models.Select(m => Reading(mine, m))],
+                card.Keywords);
+            var agreement = AgreeStage.Agree(request);
+            results.Add(new PilotCardResult(card, mine, agreement, env.Writer.Write(agreement)));
+        }
+
+        return results;
+    }
+
+    private static ModelReading Reading(IReadOnlyList<TranslationReading> readings, string model)
+    {
+        var reading = readings.FirstOrDefault(r => string.Equals(r.Model, model, StringComparison.Ordinal));
+        return reading is null
+            ? new ModelReading(model, null, "no reading came back for this model")
+            : new ModelReading(model, reading.Definition, reading.ParseError, reading.Lint);
     }
 }
