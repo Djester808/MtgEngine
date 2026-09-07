@@ -188,7 +188,7 @@ public sealed partial class StateBasedActions
         // CR 303.4f with CR 800.4: a player who has left the game is not a player any more, so
         // the Aura on them is attached to nothing and 704.5m buries it on the next check.
         if (aura.AttachedToPlayer is { } player)
-            return EnchantsAPlayer(enchant) && InGame(state, player);
+            return InGame(state, player) && EnchantsAPlayer(state, enchant, player, chars);
 
         if (aura.AttachedTo is not { } host)
             return false;
@@ -199,15 +199,49 @@ public sealed partial class StateBasedActions
     }
 
     /// <summary>
-    /// Whether this Aura's enchant ability admits a player, CR 702.5b. The vocabulary spells the
-    /// enchant restriction as an object filter, so an enchant ability that names one is a
-    /// restriction to objects and refuses a player; "enchant player" is the ability that names no
-    /// filter, as is an Aura with no enchant ability at all. A record that says "player" outright
-    /// is asked for in <c>seam-requests/E5c.md</c>; until it lands this is the reading, and it is
-    /// the conservative one — it never calls an object-restricted Aura legal on a player.
+    /// Whether this Aura's enchant ability admits <paramref name="player"/>, CR 702.5b. E5c's
+    /// request landed, so there are now three cases rather than one:
+    /// <list type="bullet">
+    /// <item><c>OfPlayer</c> named — "enchant player", "enchant opponent" — is asked of the
+    /// player, from the Aura's controller's point of view; a player who fails it is an illegal
+    /// attachment and 704.5m buries the Aura.</item>
+    /// <item>Neither half named is "enchant anything", so a player is admitted. That is E5c's
+    /// reading, kept because a bare <c>Enchant</c> is still what a translation writes when it
+    /// drops a filter, and the linter's pair rule is what will catch that, not this.</item>
+    /// <item><c>Of</c> only is a restriction to objects and refuses every player.</item>
+    /// </list>
+    /// An Aura with no enchant ability at all has nothing to be illegal about, so it stays.
     /// </summary>
     [RuleRef("702.5b")]
-    private static bool EnchantsAPlayer(KeywordAbility? enchant) => enchant?.Of is null;
+    private bool EnchantsAPlayer(GameState state, KeywordAbility? enchant, PlayerId player, Characteristics chars)
+    {
+        if (enchant is null)
+            return true;
+
+        return enchant.OfPlayer is { } who
+            ? PlayerMatches(state, who, player, chars)
+            : enchant.Of is null;
+    }
+
+    /// <summary>
+    /// Whether a player answers a <see cref="PlayerFilter"/>, CR 702.5b with 601.2c: "opponent"
+    /// and "you" are read from the Aura's controller, and <c>Also</c> is asked <em>as the
+    /// candidate</em> — the only <c>PlayerRef</c> a condition can use to mean the player being
+    /// filtered is <c>You</c>, so the context is rebound to them. <c>TriggerMatching</c> has a
+    /// private twin of this that asks <c>Also</c> of the ambient controller instead; one of the
+    /// two readings is wrong and the seam that would settle it is asked for in
+    /// <c>seam-requests/E5d.md</c>.
+    /// </summary>
+    [RuleRef("702.5b")]
+    private bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId player, Characteristics chars)
+    {
+        if (filter.IsYou is { } you && you != (player == chars.Controller))
+            return false;
+        if (filter.Opponent is { } opponent && opponent != (player != chars.Controller))
+            return false;
+        return filter.Also is null
+            || query.Holds(state, filter.Also, ContextOf(chars) with { Controller = player });
+    }
 
     /// <summary>CR 800.4a: a player who has left the game is no longer a player.</summary>
     [RuleRef("800.4a")]
