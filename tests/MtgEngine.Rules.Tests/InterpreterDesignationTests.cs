@@ -307,11 +307,64 @@ public sealed class InterpreterDesignationTests
     }
 
     [Fact]
-    public void Casting_without_paying_the_mana_cost_refuses_rather_than_casting_for_a_price()
+    public void Casting_without_paying_the_mana_cost_casts_for_free()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterDesignationCasting();
+        table.Subject.Casting = casting;
+        var card = table.Card(table.A, Zone.Graveyard);
+        table.Resolve(table.OnStack(
+            table.A,
+            new MayCast(new Remembered("it"), WithoutPayingManaCost: true),
+            Remembering(card)));
+
+        table.Answer("yes");
+
+        // CR 601.2h and 118.9: the mana cost is not paid, and the same flag is the permission to
+        // cast the card from the graveyard it is in (CR 601.3a). CastPlan.For turns it into the
+        // "free" entry on the stack, so "if it was cast that way" can be asked when it resolves.
+        var command = Assert.Single(casting.Cast);
+        Assert.True(command.WithoutPayingManaCost);
+        Assert.Equal(card, command.Card);
+    }
+
+    [Fact]
+    public void A_may_cast_that_pays_the_printed_cost_says_so()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterDesignationCasting();
+        table.Subject.Casting = casting;
+        table.Resolve(table.OnStack(
+            table.A,
+            new MayCast(new Remembered("it")),
+            Remembering(table.Card(table.A, Zone.Graveyard))));
+
+        table.Answer("yes");
+
+        // CR 601.2h: the flag is not the default. A card the effect did not make free is announced
+        // for its printed mana cost, whatever the zone permission turns out to be.
+        Assert.False(Assert.Single(casting.Cast).WithoutPayingManaCost);
+    }
+
+    [Fact]
+    public void A_may_cast_of_a_card_with_an_additional_cost_refuses_naming_the_rule()
     {
         var table = new InterpreterTable();
         table.Subject.Casting = new InterpreterDesignationCasting();
-        var card = table.Card(table.A, Zone.Graveyard);
+        var card = table.Put(
+            table.A,
+            ZoneKey.Of(Zone.Graveyard, table.A),
+            new CardDefinition(
+                "00000000-0000-0000-0000-0000000009f1",
+                "engine test object",
+                Layout.Normal,
+                [
+                    new Face(
+                        "engine test object",
+                        FaceRole.Main,
+                        new TypeLine(CardType.Sorcery),
+                        AdditionalCosts: [new SacrificeCost(ObjectFilter.Creature)]),
+                ]));
         table.Resolve(table.OnStack(
             table.A,
             new MayCast(new Remembered("it"), WithoutPayingManaCost: true),
@@ -319,9 +372,53 @@ public sealed class InterpreterDesignationTests
 
         var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
 
-        // CR 601.2h: a spell is cast for the cost that was announced or it is not cast at all.
-        Assert.Equal("601.2h", refused.Rule);
-        Assert.Contains("seam-requests/E9e.md", refused.Message, StringComparison.Ordinal);
+        // CR 601.2b: the additional cost is paid whatever the mana cost does, and CR 601.2c has
+        // its objects chosen as the spell is announced — a yes/no question cannot name them.
+        Assert.Equal("601.2b", refused.Rule);
+        Assert.Contains("seam-requests/E9f.md", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_may_cast_that_lasts_creates_the_permission_instead_of_casting()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterDesignationCasting();
+        table.Subject.Casting = casting;
+        var card = table.Card(table.A, Zone.Exile);
+
+        table.Resolve(table.OnStack(
+            table.A,
+            new MayCast(new Remembered("it"), Until: new UntilEndOfTurn()),
+            Remembering(card)));
+
+        // CR 601.3a and 611.1: "you may cast it this turn" is a permission that outlives the
+        // resolution, so nothing is offered now and nothing is cast now; it is a continuous
+        // effect over the card, in the zone it is in.
+        Assert.Null(table.State.Pending);
+        Assert.Empty(casting.Cast);
+        var active = Assert.Single(table.State.ActiveEffects);
+        var permission = Assert.IsType<MayPlayFromZone>(active.Effect);
+        Assert.Equal(Zone.Exile, permission.From);
+        Assert.Equal([card], active.AppliesTo);
+        Assert.IsType<UntilEndOfTurn>(active.Until);
+    }
+
+    [Fact]
+    public void A_lasting_permission_that_changes_the_cost_refuses_naming_the_rule()
+    {
+        var table = new InterpreterTable();
+        table.Subject.Casting = new InterpreterDesignationCasting();
+        var card = table.Card(table.A, Zone.Exile);
+
+        // CR 118.9: MayPlayFromZone says where a card may be cast from and nothing about what it
+        // costs, so "you may cast it this turn without paying its mana cost" has no spelling.
+        var refused = Assert.Throws<RefusedException>(() => table.Resolve(table.OnStack(
+            table.A,
+            new MayCast(new Remembered("it"), WithoutPayingManaCost: true, Until: new UntilEndOfTurn()),
+            Remembering(card))));
+
+        Assert.Equal("118.9", refused.Rule);
+        Assert.Contains("seam-requests/E9f.md", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
