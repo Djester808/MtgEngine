@@ -38,8 +38,7 @@
                         "anyColor": [
                           "Blue",
                           "Black"
-                        ],
-                        "spell": true
+                        ]
                       }
                     },
                     "op": "Ge",
@@ -110,8 +109,7 @@
                     "filter": {
                       "controlledBy": {
                         "kind": "You"
-                      },
-                      "permanent": true
+                      }
                     }
                   },
                   "until": {
@@ -143,8 +141,7 @@
                         "anyColor": [
                           "Blue",
                           "Black"
-                        ],
-                        "spell": true
+                        ]
                       }
                     },
                     "op": "Ge",
@@ -215,8 +212,7 @@
                     "filter": {
                       "controlledBy": {
                         "kind": "You"
-                      },
-                      "permanent": true
+                      }
                     }
                   },
                   "until": {
@@ -279,8 +275,7 @@
                             "anyColor": [
                               "Blue",
                               "Black"
-                            ],
-                            "spell": true
+                            ]
                           }
                         },
                         "op": "Ge",
@@ -351,8 +346,7 @@
                         "filter": {
                           "controlledBy": {
                             "kind": "You"
-                          },
-                          "permanent": true
+                          }
                         }
                       },
                       "until": {
@@ -384,8 +378,7 @@
                             "anyColor": [
                               "Blue",
                               "Black"
-                            ],
-                            "spell": true
+                            ]
                           }
                         },
                         "op": "Ge",
@@ -456,8 +449,7 @@
                         "filter": {
                           "controlledBy": {
                             "kind": "You"
-                          },
-                          "permanent": true
+                          }
                         }
                       },
                       "until": {

@@ -336,6 +336,11 @@
           "count": 1
         },
         {
+          "kind": "Life",
+          "player": "A",
+          "value": 18
+        },
+        {
           "kind": "StackEmpty"
         }
       ]
@@ -343,10 +348,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260907T225955-3cbc27",
+    "runId": "verify-20260907T231044-e5d286",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T22:59:55.1762752+00:00"
+    "at": "2026-09-07T23:10:44.8364848+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -585,6 +590,11 @@
           "player": "A",
           "zone": "Graveyard",
           "count": 1
+        },
+        {
+          "kind": "Life",
+          "player": "A",
+          "value": 18
         },
         {
           "kind": "StackEmpty"
