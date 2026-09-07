@@ -137,6 +137,14 @@ const READ_ONLY_GIT = new Set(['status', 'branch', 'log', 'rev-parse', 'worktree
 const CLAIM_RE = /^node\s+["']?(?:\.[\\/])?tools[\\/]ledger\.js["']?\s+claim\s+\S+$/;
 
 /**
+ * The harness cuts an agent worktree from the commit the session started on, which can be
+ * behind the integration branch — behind wave 0 itself, so `tools/ledger.js` is not even
+ * there to claim with. A fast-forward to the integration branch is the one write an
+ * unclaimed worktree may make, and it cannot lose anything because the branch is brand new.
+ */
+const SYNC_RE = /^git\s+merge\s+--ff-only\s+card-engine$/;
+
+/**
  * Is `cwd` a *linked* worktree rather than the main checkout? In the main checkout
  * `--git-dir` and `--git-common-dir` resolve to the same directory; in a linked worktree the
  * first is `<main>/.git/worktrees/<name>` and the second is `<main>/.git`.
@@ -171,7 +179,7 @@ function isLinkedWorktree(cwd) {
 function readOnlyOrClaim(seg) {
   const s = seg.trim();
   if (!s) return true;
-  if (CLAIM_RE.test(s)) return true;
+  if (CLAIM_RE.test(s) || SYNC_RE.test(s)) return true;
 
   // A redirection turns any of these into a write — `echo x > Program.cs` reads as `echo`.
   // Descriptor duplication and /dev/null do not, so they do not count.
@@ -205,12 +213,15 @@ function checkUnclaimed(cwd, payload) {
   }
 
   deny([
-    'This is an agent worktree with no manifest. Claim yours first: node tools/ledger.js claim <your id>',
+    'This is an agent worktree with no manifest. Two commands first, in this order:',
+    '  git merge --ff-only card-engine',
+    '  node tools/ledger.js claim <your id>',
     '',
     'Your id is in your brief; the coordinator registered the manifest before launching you.',
     'Until you claim it nothing here knows what you own, so everything is denied except',
-    'reading (cat, ls, head, tail, grep, rg, find, wc, echo, git status/log/diff/rev-parse)',
-    'and the claim itself. If the claim says you are not registered, report that and stop.',
+    'reading (cat, ls, head, tail, grep, rg, find, wc, echo, git status/log/diff/rev-parse),',
+    'that one fast-forward, and the claim. If the claim says you are not registered, report',
+    'that and stop.',
   ]);
 }
 
