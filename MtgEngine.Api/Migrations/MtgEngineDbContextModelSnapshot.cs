@@ -415,6 +415,44 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("ForumPosts");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.GameReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OracleId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId");
+
+                    b.HasIndex("OracleId", "CreatedAt");
+
+                    b.ToTable("GameReports");
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -483,6 +521,47 @@ namespace MtgEngine.Api.Migrations
                         .HasFilter("\"UserId\" IS NOT NULL");
 
                     b.ToTable("LifeMatchSeats");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGame", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AllowHonourSystem")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Finished")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LogJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeatsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Finished", "UpdatedAt");
+
+                    b.ToTable("PersistedGames");
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.User", b =>

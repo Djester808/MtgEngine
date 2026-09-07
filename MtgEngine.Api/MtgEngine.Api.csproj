@@ -8,6 +8,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Domain\MtgEngine.Domain.csproj" />
+    <!-- The card vocabulary and the engine. The API is the only place the two meet: it holds
+         the definition store, the deck gate, the session and the hub. -->
+    <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
+    <ProjectReference Include="..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
   </ItemGroup>
 
   <ItemGroup>
