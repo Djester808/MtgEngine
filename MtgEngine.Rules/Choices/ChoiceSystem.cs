@@ -78,11 +78,17 @@ public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IR
         ChoiceKinds.Mulligan or ChoiceKinds.MulliganBottom => "103.5",
         ChoiceKinds.TriggerOrder => "603.3b",
         ChoiceKinds.ReplacementOrder => "616.1",
-        ChoiceKinds.May => "608.2",
+        ChoiceKinds.May or ChoiceKinds.Unless or ChoiceKinds.MayPay or ChoiceKinds.MayCast => "608.2",
+        ChoiceKinds.CastCost => "601.2c",
         ChoiceKinds.Value => "601.2b",
+        ChoiceKinds.Mode => "700.2",
+        ChoiceKinds.Sacrifice => "701.21",
         ChoiceKinds.Search => "701.23",
         ChoiceKinds.Scry => "701.22",
+        ChoiceKinds.Surveil => "701.25",
         ChoiceKinds.Targets => "601.2c",
+        ChoiceKinds.NewTargets => "115.7",
+        ChoiceKinds.RingBearer => "701.54a",
         _ => "101.4",
     };
 }
