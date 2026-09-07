@@ -8934,6 +8934,9 @@
               "type": "null"
             }
           ]
+        },
+        "withoutPayingManaCost": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -8941,7 +8944,7 @@
         "kind",
         "what"
       ],
-      "description": "\u0022You may play that card this turn\u0022 (lands included)."
+      "description": "\u0022You may play that card this turn\u0022 (lands included). With WithoutPayingManaCost, \u0022you may play the exiled card without paying its mana cost\u0022 \u2014 hideaway\u0027s play, CR 702.75a. A card played this way is played as its type says (CR 305.1 for a land, CR 601 for a spell): a spell is cast without paying its mana cost (CR 118.9), and a land played this way is still the turn\u0027s land play and needs a land play left (CR 305.2), because the permission is to play, not an extra play. This is the one spelling of a play permission that waives the cost: MayCast carries the same waiver and cannot play a land, so hideaway\u0027s play is never MayCast."
     },
     "Meld": {
       "type": "object",
@@ -10873,7 +10876,7 @@
         "among",
         "of"
       ],
-      "description": "\u0022the greatest power among creatures you control\u0022."
+      "description": "\u0022the greatest power among creatures you control\u0022. Of is read once per object Among admits, with that object bound as Self while it is read: \u0022the greatest power among creatures you control\u0022 is Of: PowerOf(Self). It is not Triggering, which stays the trigger\u0027s own object throughout, and it is not the card the ability is printed on, which is out of reach inside the amount. The same binding rules TotalAmong."
     },
     "Half": {
       "type": "object",
@@ -11149,7 +11152,7 @@
         "among",
         "of"
       ],
-      "description": "\u0022the total power of creatures you control\u0022."
+      "description": "\u0022the total power of creatures you control\u0022. Of is read once per object Among admits, with that object bound as Self while it is read, and the readings are summed: Of: PowerOf(Self). Self here is the candidate, never the source of the ability, and never Triggering \u2014 the same binding as GreatestAmong."
     },
     "ToughnessOf": {
       "type": "object",
@@ -11244,6 +11247,9 @@
         },
         {
           "$ref": "#/$defs/IsHarnessed"
+        },
+        {
+          "$ref": "#/$defs/IsOneOf"
         },
         {
           "$ref": "#/$defs/IsPrepared"
@@ -13274,6 +13280,9 @@
         },
         "withoutPayingManaCost": {
           "type": "boolean"
+        },
+        "payLifeEqualToManaValueInstead": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -13282,7 +13291,7 @@
         "who",
         "from"
       ],
-      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022. With WithoutPayingManaCost, \u0022you may cast it this turn without paying its mana cost\u0022 (CR 118.9): the permission also waives the mana cost of the cast it allows."
+      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022. With WithoutPayingManaCost, \u0022you may cast it this turn without paying its mana cost\u0022 (CR 118.9): the permission also waives the mana cost of the cast it allows. With PayLifeEqualToManaValueInstead, \u0022if you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\u0022: an alternative cost (CR 118.9) that the permission itself carries, paid at CR 601.2f in place of the mana cost, and only by a cast this permission allowed \u2014 a spell the player casts from hand pays as printed. The two sentences are one record, and this flag is their one spelling: never a second StaticAbility for the second sentence, and never SpellsCostLifeInsteadOfMana, which is every spell of a colour from any zone. A land played this way pays nothing either way. The two flags are two different alternative costs and a card prints one, so both set is a contradiction the linter refuses (L021)."
     },
     "ModifyPt": {
       "type": "object",
@@ -13980,6 +13989,16 @@
               "type": "null"
             }
           ]
+        },
+        "among": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Selector"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -13988,7 +14007,7 @@
         "filter",
         "chooser"
       ],
-      "description": "A non-targeted choice: \u0022choose a creature you control\u0022. The chooser picks when the effect resolves."
+      "description": "A non-targeted choice: \u0022choose a creature you control\u0022. The chooser picks when the effect resolves. Among is \u0022from among them\u0022: the candidates are the objects that selector names \u2014 a Remembered key from an earlier reveal, look or exile \u2014 wherever they are, and Filter only narrows them (\u0022permanent cards with mana value X or less from among them\u0022). With Among set the filter\u0027s In is not read, because the candidates\u0027 zone is their own; writing one beside it is L022. This is the one spelling of a choice among remembered objects: never an IsRemembered predicate in the filter, whose zone would default to the battlefield and match none of the revealed cards. \u0022Any number\u0022 is UpTo with no Count."
     },
     "Commander": {
       "type": "object",
@@ -16470,6 +16489,23 @@
         "kind"
       ],
       "description": "CR 701.64"
+    },
+    "IsOneOf": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IsOneOf"
+        },
+        "of": {
+          "$ref": "#/$defs/Selector"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "of"
+      ],
+      "description": "The candidate is one of the objects Of names: a selector said inside a filter. \u0022Whenever equipped creature dies\u0022 is Dies with a filter of Also: IsOneOf(Attached) (CR 301.5c names the equipped creature from the Equipment\u0027s side), and \u0022whenever that creature attacks\u0022 inside a delayed trigger is IsOneOf(Triggering). It is the general form of IsRemembered, which is IsOneOf(Remembered(key)) and stays the spelling for a remembered key; use this for the selectors that have no predicate of their own \u2014 Attached, Triggering, Commander, Top. It is not AttachedTo(Self), which runs the other way: that predicate admits the Auras and Equipment hanging on this permanent, never the creature this permanent hangs on, so a trigger written with it fires for the wrong objects."
     },
     "IsPrepared": {
       "type": "object",

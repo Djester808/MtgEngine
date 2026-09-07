@@ -21,7 +21,7 @@ public sealed record LintReport(IReadOnlyList<LintFinding> Findings)
 /// semantic: the runner decides whether a card plays right; this decides whether it can be
 /// asked to. Each check has a code so a report can be counted by cause.
 /// </summary>
-public static class Linter
+public static partial class Linter
 {
     /// <summary>Keywords whose printed form always carries a parameter, and which one.</summary>
     private static readonly IReadOnlyDictionary<KeywordKind, string> RequiredParameter = new Dictionary<KeywordKind, string>
@@ -334,6 +334,7 @@ public static class Linter
             findings.Add(new(LintSeverity.Error, "L008", "A target with a count of zero targets nothing.", path));
 
         CheckPayments(ability, nodes, path, findings);
+        CheckPermissions(nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
