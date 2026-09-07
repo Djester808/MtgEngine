@@ -60,12 +60,13 @@ public sealed class AuraResolutionTests
     }
 
     [Fact]
-    public void An_Aura_cast_at_a_player_still_enters_attached_to_nothing()
+    public void An_Aura_cast_at_a_player_enters_attached_to_that_player()
     {
-        // KNOWN GAP, CR 303.4f. An Aura cast at a player enters attached to that player, but
-        // GameObject has nowhere to keep a player attachment (seam-requests/E3e.md, and the
-        // wave-1 decision that deferred AttachedToPlayer). Its target is legal, so it is not
-        // countered here; it enters unattached and CR 704.5m buries it, as it did before.
+        // CR 303.4f: "the Aura enters the battlefield attached to the object or player it was
+        // cast at" — the player half, which GameObject.AttachedToPlayer now keeps. The assertion
+        // is on the event and the field the instant the spell resolves, not on the permanent
+        // surviving a round of state-based actions: CR 704.5m's arm that lets an Aura attached to
+        // a player stay is StateBasedActions', landing in this same wave (E5c).
         var table = new CastingTable();
         var aura = table.Add(AuraResolutionCards.EnchantPlayer(), CastingTable.A, CardZone.Hand);
         table.AddMana(CastingTable.A, new ManaPool(0, 0, 0, 0, 0, 2));
@@ -75,7 +76,10 @@ public sealed class AuraResolutionTests
 
         var permanent = resolved.State.Objects[Moved(resolved)];
         Assert.Equal(CardZone.Battlefield, permanent.Zone.Zone);
+        Assert.Equal(CastingTable.B, permanent.AttachedToPlayer);
         Assert.Null(permanent.AttachedTo);
+        var attached = Assert.Single(resolved.Events.OfType<ObjectChanged>(), e => e.AttachedToPlayer is not null);
+        Assert.Equal(CastingTable.B, attached.AttachedToPlayer);
     }
 
     [Fact]

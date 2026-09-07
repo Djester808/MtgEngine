@@ -67,7 +67,7 @@ internal sealed record CastPlan(
         // CR 601.2b: an additional cost printed on the spell is announced with it and paid along
         // with the mana cost, whether or not the caster wants to — it is not optional.
         extra.AddRange(printed.AdditionalCosts ?? []);
-        var mana = Alternative(card, printed, command, paid, extra) ?? ManaSymbols.Parse(printed.ManaCost);
+        var mana = Alternative(state, card, printed, command, query, paid, extra) ?? ManaSymbols.Parse(printed.ManaCost);
         mana = Additional(printed, command, paid, extra, mana);
         mana = Shaped(state, printed, query, command.Player, mana);
         return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command));
@@ -94,6 +94,48 @@ internal sealed record CastPlan(
             : promised;
     }
 
+    /// <summary>
+    /// CR 601.3a: a player may cast a card from a zone other than their hand when an effect says
+    /// they may. <see cref="MayPlayFromZone"/> is that effect, and this is the only reader of it:
+    /// the zone it names is the one the card is in, the objects it applies to hold this card (or
+    /// its <see cref="MayPlayFromZone.What"/> filter matches the card), and the players it applies
+    /// to hold the caster (or its <see cref="MayPlayFromZone.Who"/> resolves to them). The effect
+    /// itself comes back rather than a bool, because CR 118.9's half of the same permission —
+    /// "without paying its mana cost" — is read off it.
+    /// <para>
+    /// A permission limited to the top card of a library (<see cref="MayPlayFromZone.TopOfLibraryOnly"/>)
+    /// grants nothing here: nothing in this system can say which card is on top, and a permission
+    /// whose bound cannot be checked would be widened to the whole library rather than honoured.
+    /// </para>
+    /// </summary>
+    [RuleRef("601.3a")]
+    internal static MayPlayFromZone? Permission(GameState state, GameObject card, PlayerId player, IQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(card);
+        ArgumentNullException.ThrowIfNull(query);
+        var context = CostPayment.Context(null, player, null);
+        foreach (var active in state.ActiveEffects)
+        {
+            if (active.Effect is not MayPlayFromZone permission)
+                continue;
+            if (permission.From != card.Zone.Zone || permission.TopOfLibraryOnly)
+                continue;
+
+            // The cards the resolution named, or the filter a static permission carries; an effect
+            // that names neither is a permission for everything in that zone, which is what the
+            // record says when both are empty.
+            var names = active.AppliesTo.Contains(card.Id)
+                || (active.AppliesTo.IsEmpty && (permission.What is not { } what || query.Matches(state, what, card.Id, context)));
+            var whose = active.AppliesToPlayers.Contains(player)
+                || (active.AppliesToPlayers.IsEmpty && query.Players(state, permission.Who, context).Contains(player));
+            if (names && whose)
+                return permission;
+        }
+
+        return null;
+    }
+
     /// <summary>CR 715.3d: the card exiled on an adventure is the one card its owner may cast from exile.</summary>
     [RuleRef("715.3d")]
     private static bool OnAdventure(GameObject card) =>
@@ -105,14 +147,17 @@ internal sealed record CastPlan(
     /// no alternative cost was announced, so the printed mana cost stands.
     /// </summary>
     [RuleRef("118.9")]
-    private static ImmutableList<ManaSymbol>? Alternative(GameObject card, Face printed, CastSpell command, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra)
+    private static ImmutableList<ManaSymbol>? Alternative(GameState state, GameObject card, Face printed, CastSpell command, IQuery query, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra)
     {
         var zone = card.Zone.Zone;
+        var permission = Permission(state, card, command.Player, query);
 
         // CR 118.9 and 601.3a: an effect that lets the card be cast without paying its mana cost is
         // both the permission to cast it from where it is and the announcement that no mana cost is
-        // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs.
-        if (command.WithoutPayingManaCost)
+        // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs. A
+        // lasting permission that says so carries the same announcement, and a command that says it
+        // too agrees with the permission rather than contradicting it.
+        if (command.WithoutPayingManaCost || permission is { WithoutPayingManaCost: true })
         {
             paid.Add("free");
             return [];
@@ -121,8 +166,9 @@ internal sealed record CastPlan(
         if (command.AlternativeCost is not { } kind)
         {
             // CR 601.3: a card is cast from its owner's hand unless an effect says otherwise. The
-            // exiled adventurer is the one permission this slice has, CR 715.3d.
-            if (zone != CardZone.Hand && !OnAdventure(card))
+            // exiled adventurer is one such permission (CR 715.3d); a MayPlayFromZone effect on the
+            // state is the other, CR 601.3a.
+            if (zone != CardZone.Hand && !OnAdventure(card) && permission is null)
                 throw new RefusedException("A card in that zone cannot be cast without permission.", "601.3");
             return null;
         }

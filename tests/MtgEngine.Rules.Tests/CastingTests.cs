@@ -17,7 +17,7 @@ namespace MtgEngine.Rules.Tests;
 /// 602, 605 and 608. Each test names the rule it holds, and each refusal is checked by its rule
 /// number rather than its wording, because the wording is a message and the rule is the contract.
 /// </summary>
-public sealed class CastingTests
+public sealed partial class CastingTests
 {
     private readonly RecordingInterpreter interpreter = new();
     private readonly CastingSystem casting;
