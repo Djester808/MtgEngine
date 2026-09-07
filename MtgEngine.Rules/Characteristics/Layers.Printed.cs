@@ -21,4 +21,14 @@ public sealed partial class LayerSystem
     /// </summary>
     [RuleRef("603.10")]
     public static Chars PrintedCharacteristics(GameObject obj) => Snapshot(Printed(obj));
+
+    /// <summary>
+    /// CR 613.1a through the seam: the same printed reading, reachable from a caller that holds
+    /// <c>ICharacteristics</c> rather than this class. The query's look-back had been reaching
+    /// past the interface for the static (seam-requests/E0d.md); this is the one method that
+    /// closes that, and it takes the object rather than an id because a look-back's object is
+    /// one the state no longer holds and so has no id to hand the layers.
+    /// </summary>
+    [RuleRef("613.1a")]
+    public Chars PrintedOf(GameObject obj) => PrintedCharacteristics(obj);
 }

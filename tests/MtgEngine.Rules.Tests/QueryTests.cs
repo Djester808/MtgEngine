@@ -435,5 +435,13 @@ public sealed partial class QueryTests
             _of.TryGetValue(id, out var c) ? c : throw new InvalidOperationException($"no characteristics set for {id}");
 
         public PlayerId ControllerOf(GameState state, ObjectId id) => Of(state, id).Controller;
+
+        /// <summary>
+        /// CR 613.1a: the printed reading is not the test's to invent — a look-back asks what an
+        /// object <em>was</em>, and no <c>Set</c> can answer that for an object the state no
+        /// longer holds. The real layer system's printed snapshot is the answer here too.
+        /// </summary>
+        public Characteristics PrintedOf(GameObject obj) =>
+            MtgEngine.Rules.Layers.LayerSystem.PrintedCharacteristics(obj);
     }
 }

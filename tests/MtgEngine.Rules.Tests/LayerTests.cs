@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Layers;
 using MtgEngine.Rules.State;
 
@@ -326,6 +327,103 @@ public sealed class LayerTests
 
         Assert.Equal(2, _layers.Of(Board(lord, bear), bear.Id).Power);
     }
+
+    [Fact]
+    [RuleRef("613.1a")]
+    public void The_printed_reading_answers_for_an_object_the_state_no_longer_holds()
+    {
+        // CR 613.1a through the seam: a look-back (CR 603.10, CR 111.7) asks what an object was,
+        // and Of(state, id) cannot answer, because the layers are computed from what exists now
+        // and a departed object has no id to hand them. PrintedOf takes the object instead.
+        ICharacteristics seam = _layers;
+        var departed = Obj(9, CreatureFace("Test Wurm", 5, 5), Mine);
+        var board = Board(Obj(1, CreatureFace("Test Bear", 2, 2), Mine));
+
+        Assert.False(board.Objects.ContainsKey(departed.Id));
+
+        var printed = seam.PrintedOf(departed);
+        Assert.Equal("Test Wurm", printed.Name);
+        Assert.Equal(CardType.Creature, printed.Types);
+        Assert.Equal(5, printed.Power);
+        Assert.Equal(5, printed.Toughness);
+        Assert.Contains("Beast", printed.Subtypes, StringComparer.Ordinal);
+        // CR 202.2: the colour is the mana cost's, not a continuous effect's.
+        Assert.Equal(Color.Green, printed.Colors);
+
+        // The class's own static is the same reading, so the seam adds a caller and not a rule.
+        // The two list fields are compared by their contents: a record's synthesized equality
+        // compares an ImmutableList by reference, and each call snapshots its own.
+        var direct = LayerSystem.PrintedCharacteristics(departed);
+        Assert.Equal(direct.Subtypes, printed.Subtypes, StringComparer.Ordinal);
+        Assert.Equal(direct.Abilities.Count, printed.Abilities.Count);
+        Assert.Equal(direct with { Subtypes = printed.Subtypes, Abilities = printed.Abilities }, printed);
+
+        // CR 613.2b with 708.2a: face down it was a nameless colourless 2/2 creature.
+        var hidden = seam.PrintedOf(departed with { FaceDown = true });
+        Assert.Equal(string.Empty, hidden.Name);
+        Assert.Equal(CardType.Creature, hidden.Types);
+        Assert.Equal(2, hidden.Power);
+        Assert.Equal(2, hidden.Toughness);
+        Assert.Equal(Color.Colorless, hidden.Colors);
+    }
+
+    [Fact]
+    [RuleRef("613.10")]
+    public void A_player_cant_carries_every_restriction_it_names()
+    {
+        // CR 613.10: a player-scoped effect is read off the state, not applied in the layers.
+        // Every flag PlayerRestriction has is one prohibition PlayerCant can name, and naming
+        // several at once sets all of them — a card that says two things says both.
+        var every = PlayerRestriction.LifeTotalChanges | PlayerRestriction.Lose
+            | PlayerRestriction.BeTargeted | PlayerRestriction.BeDealtDamage;
+        var state = Restricted(new PlayerCant(every));
+        var limits = _layers.PlayerRestrictions(state, Mine);
+
+        Assert.True(limits.LifeTotalCantChange);   // CR 119.3
+        Assert.True(limits.CantLose);              // CR 104.3
+        Assert.True(limits.CantBeTargeted);        // CR 115.6
+        Assert.True(limits.CantBeDealtDamage);     // CR 120.3
+        Assert.True(limits.CantGainLifeNow);       // a total that can't change can't go up
+        foreach (var one in new[] { PlayerRestriction.LifeTotalChanges, PlayerRestriction.Lose, PlayerRestriction.BeTargeted, PlayerRestriction.BeDealtDamage })
+            Assert.True(limits.Has(one));
+        Assert.False(limits.Has(PlayerRestriction.None));
+
+        // Nothing here is protection, and the effect names one player: the other is unrestricted.
+        Assert.False(limits.CantBeEnchanted);
+        Assert.False(limits.CantWin);
+        Assert.Equal(PlayerLimits.None, _layers.PlayerRestrictions(state, Theirs));
+    }
+
+    [Fact]
+    [RuleRef("702.16j")]
+    public void Protection_from_everything_gives_a_player_the_three_limits_it_implies()
+    {
+        // CR 702.16j names exactly three for a player: can't be targeted, all damage that would
+        // be dealt to them is prevented, and they can't be enchanted. It is not a "can't lose"
+        // and it is not a life-total lock, so those two stay off.
+        var state = Restricted(new PlayerProtectionFromEverything());
+        var limits = _layers.PlayerRestrictions(state, Mine);
+
+        Assert.True(limits.CantBeTargeted);
+        Assert.True(limits.CantBeDealtDamage);
+        Assert.True(limits.CantBeEnchanted);
+        Assert.False(limits.CantLose);
+        Assert.False(limits.LifeTotalCantChange);
+        Assert.False(limits.CantGainLifeNow);
+        Assert.Equal(PlayerLimits.None, _layers.PlayerRestrictions(state, Theirs));
+
+        // A restriction flag is the card-text form and never implies the keyword's other two.
+        var targeted = _layers.PlayerRestrictions(Restricted(new PlayerCant(PlayerRestriction.BeTargeted)), Mine);
+        Assert.True(targeted.CantBeTargeted);
+        Assert.False(targeted.CantBeEnchanted);
+        Assert.False(targeted.CantBeDealtDamage);
+    }
+
+    /// <summary>An empty board carrying one player-scoped continuous effect on <see cref="Mine"/>, CR 611.2c.</summary>
+    private static GameState Restricted(ContinuousEffect effect) => Board() with
+    {
+        ActiveEffects = [new ActiveEffect(1, effect, null, Mine, [], [Mine], new UntilEndOfTurn(), 1, false)],
+    };
 
     private static GameState Board(params GameObject[] objects) => new()
     {

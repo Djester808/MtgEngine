@@ -53,5 +53,15 @@ public sealed record PlayerLimits(
     /// <summary>A life total that can't change can't go up either, so the two readings are joined here.</summary>
     [RuleRef("119.3")]
     public bool CantGainLifeNow => CantGainLife || LifeTotalCantChange;
+
+    /// <summary>
+    /// CR 702.16j: the third of the three things protection from everything does for a player —
+    /// they can't be enchanted, so an Aura already attached to them is put into its owner's
+    /// graveyard by CR 704.5m and one being cast at them has no legal target (CR 601.2c). No
+    /// <see cref="PlayerRestriction"/> flag spells this on its own: a card that says only "can't
+    /// be enchanted" has no vocabulary record, so the protection is the only source of it.
+    /// </summary>
+    [RuleRef("702.16j")]
+    public bool CantBeEnchanted => ProtectionFromEverything;
 }
 

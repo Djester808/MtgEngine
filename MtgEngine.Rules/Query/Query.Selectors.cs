@@ -118,6 +118,38 @@ public sealed partial class Query
         };
     }
 
+    /// <summary>
+    /// Whether a player answers a <see cref="PlayerFilter"/>, CR 702.5b with 601.2c. The one
+    /// reading, for every caller: <c>IsYou</c> and <c>Opponent</c> are read from the context's
+    /// controller (CR 109.5 — "you" is whoever controls the ability doing the asking), and
+    /// <c>Also</c> is asked <em>as the candidate</em>.
+    /// <para>
+    /// The rebinding is what makes <c>Also</c> a filter at all. A <see cref="Condition"/> has no
+    /// record meaning "the player being filtered"; the only <see cref="PlayerRef"/> that can name
+    /// them is <see cref="You"/>, which reads <see cref="EffectContext.Controller"/>. Evaluated in
+    /// the ambient context the condition would be a board question unrelated to the candidate, so
+    /// "each opponent who controls a creature" would admit an opponent who controls none whenever
+    /// the ability's own controller did. <see cref="Extreme"/> already reads a per-player amount
+    /// this way, and seam-requests/E5d.md records the two private copies this replaces.
+    /// </para>
+    /// </summary>
+    [RuleRef("702.5b")]
+    public bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId candidate, EffectContext context)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(filter);
+
+        // CR 109.5: "you" is the controller of the ability, so the candidate is compared to them.
+        if (filter.IsYou is { } you && you != (candidate == context.Controller))
+            return false;
+
+        // CR 102.1: an opponent is any other player in the game.
+        if (filter.Opponent is { } opponent && opponent != (candidate != context.Controller))
+            return false;
+
+        return filter.Also is null || Holds(state, filter.Also, context with { Controller = candidate });
+    }
+
     private const string NoPlayerMemory =
         "EffectContext remembers objects by key but not players; see seam-requests/E0.md";
 
