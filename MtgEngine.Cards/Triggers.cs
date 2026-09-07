@@ -244,6 +244,14 @@ public sealed record CommanderCast(PlayerRef By) : Trigger;
 /// color" — is an AddMana whose ManaProduction carries the same ChosenColorKey, so the two halves
 /// name the same choice.
 /// </para>
+/// <para>
+/// Every firing of this trigger stores the colour the permanent was actually tapped for under the
+/// key <c>"tapped-for-mana-color"</c>, whatever <paramref name="OfColor"/> or
+/// <paramref name="OfChosenColorKey"/> say. That is how "add one mana of any type that land
+/// produced" is written: the ability's AddMana carries a ManaProduction whose ChosenColorKey is the
+/// literal string "tapped-for-mana-color", and there is no other spelling of it — the key names a
+/// colour the game observed, so no step on the card produces it and none has to.
+/// </para>
 /// </summary>
 [RuleRef("106.12a")]
 public sealed record TappedForMana(ObjectFilter What, Color? OfColor = null, string? OfChosenColorKey = null) : Trigger;

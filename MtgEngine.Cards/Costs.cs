@@ -61,9 +61,25 @@ public sealed record TapOther(ObjectFilter What, Amount? Count = null) : Cost;
 
 public sealed record SacrificeSelf : Cost;
 
-public sealed record SacrificeCost(ObjectFilter What, Amount? Count = null) : Cost;
+/// <summary>
+/// "Sacrifice a creature": the player chooses which permanent they control is sacrificed
+/// (CR 701.17a). Set <paramref name="RememberAs"/> when the effect refers back to what paid —
+/// "sacrifice a creature: add mana equal to its power", "if you do, draw cards equal to its
+/// toughness". The cost payment stores the objects it sacrificed under the key as they last existed
+/// on the battlefield (CR 608.2g reads a sacrificed permanent's last known information), and the
+/// effect names them with a Remembered selector. Leave it null when nothing looks back: a key
+/// nothing reads is noise in the file.
+/// </summary>
+[RuleRef("701.17")]
+public sealed record SacrificeCost(ObjectFilter What, Amount? Count = null, string? RememberAs = null) : Cost;
 
-public sealed record DiscardCost(Amount? Count = null, ObjectFilter? What = null, bool Random = false) : Cost;
+/// <summary>
+/// "Discard a card" as a cost, CR 701.8a. <paramref name="RememberAs"/> is the same idea as
+/// SacrificeCost's: the discarded cards are stored under the key so "if you do, [it]" can name
+/// them, and it stays null when nothing refers back.
+/// </summary>
+[RuleRef("701.8")]
+public sealed record DiscardCost(Amount? Count = null, ObjectFilter? What = null, bool Random = false, string? RememberAs = null) : Cost;
 
 /// <summary>
 /// "Discard this card": the card the ability is on is the one discarded, and no other card can pay
@@ -90,8 +106,14 @@ public sealed record PutCountersCost(string Counter, Amount? Count = null, Selec
 [RuleRef("606.5")]
 public sealed record LoyaltyCost(int Delta) : Cost;
 
-/// <summary>"Exile a creature card from your graveyard", "exile N cards from your hand".</summary>
-public sealed record ExileFromZoneCost(Zone From, ObjectFilter? What = null, Amount? Count = null) : Cost;
+/// <summary>
+/// "Exile a creature card from your graveyard", "exile N cards from your hand".
+/// <paramref name="RememberAs"/> stores the exiled cards under a key (CR 701.10a) so an effect can
+/// say "if you do, [it]" — "exile a creature card from your graveyard: put a +1/+1 counter on this
+/// for each of its colours". Null when nothing refers back.
+/// </summary>
+[RuleRef("701.10")]
+public sealed record ExileFromZoneCost(Zone From, ObjectFilter? What = null, Amount? Count = null, string? RememberAs = null) : Cost;
 
 public sealed record ExileSelfCost : Cost;
 
