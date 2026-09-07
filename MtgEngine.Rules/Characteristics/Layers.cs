@@ -37,7 +37,7 @@ public sealed partial class LayerSystem : ICharacteristics
 
     private Chars Layers(GameState state, GameObject obj, ImmutableList<Layered> effects)
     {
-        var draft = Printed(state, obj);
+        var draft = Printed(obj);
 
         Layer1Copy(state, obj, draft, effects);
         draft.Controller = ControllerFrom(obj, effects);
@@ -92,7 +92,7 @@ public sealed partial class LayerSystem : ICharacteristics
 
     /// <summary>The printed face, CR 613.1, and the face-down exception of layer 1b.</summary>
     [RuleRef("613.1")]
-    private static Draft Printed(GameState state, GameObject obj)
+    private static Draft Printed(GameObject obj)
     {
         // CR 712.8: which face is read depends on the zone and the layout, and CR 708.2a gives a
         // face-down permanent a face of its own; both are the face rules' answer.
@@ -173,7 +173,7 @@ public sealed partial class LayerSystem : ICharacteristics
             if (of.IsEmpty)
                 continue;
 
-            var source = Printed(state, Find(state, of[0]));
+            var source = Printed(Find(state, of[0]));
             draft.Name = source.Name;
             draft.Types = source.Types;
             draft.Supertypes = copy.IsLegendary ? source.Supertypes | Supertype.Legendary : source.Supertypes;

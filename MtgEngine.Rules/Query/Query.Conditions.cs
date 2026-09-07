@@ -70,6 +70,7 @@ public sealed partial class Query
             Revolt revolt => Left(state, revolt.Who, context),
             Raid raid => AttackersOf(state, raid.Who, context) >= 1, // CR 506.2
             AttackedThisTurn attacked => AttackersOf(state, attacked.Who, context) >= Evaluate(state, attacked.Min, context),
+            CreatedTokenThisTurn token => CreatedToken(state, token, context), // CR 111.1
             Paradox paradox => state.History.SpellsCast.Any(cast =>
                 cast.From != Cards.Zone.Hand && Players(state, paradox.Who, context).Contains(cast.By)), // CR 601.2a
 

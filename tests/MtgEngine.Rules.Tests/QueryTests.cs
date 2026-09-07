@@ -10,7 +10,7 @@ namespace MtgEngine.Rules.Tests;
 /// invented: no card name reaches the engine or its tests, and the characteristics come from a
 /// fake layer system so a test says exactly what an object is.
 /// </summary>
-public sealed class QueryTests
+public sealed partial class QueryTests
 {
     private static readonly PlayerId Alice = new(0);
     private static readonly PlayerId Bob = new(1);
@@ -332,6 +332,38 @@ public sealed class QueryTests
                 new Characteristics($"Object {id}", CardType.Creature, Supertype.None, ["Beast"], Color.Green, 3, 3, null, null, null, [], owner),
                 commander: true);
 
+        /// <summary>A land whose subtypes the test names, so CR 205.3i can be asked of them.</summary>
+        public World LandOf(int id, PlayerId owner, IReadOnlyList<string> subtypes) =>
+            Put(id, owner, Cards.Zone.Battlefield, new Characteristics(
+                $"Object {id}", CardType.Land, Supertype.None, [.. subtypes], Color.Colorless,
+                null, null, null, null, null, [], owner));
+
+        /// <summary>
+        /// A token created onto the battlefield, CR 111.1. Its printed face carries the types the
+        /// test names, because the turn's record of a token is read against that face once the
+        /// token itself has stopped existing (CR 111.7) and the layers can no longer be asked.
+        /// </summary>
+        public World Token(int id, PlayerId controller, CardType types, IReadOnlyList<string> subtypes)
+        {
+            var line = new TypeLine(types, Supertype.None, [.. subtypes]);
+            var definition = new CardDefinition(
+                $"oracle-token-{id}",
+                $"Token {id}",
+                Layout.Normal,
+                [new Face($"Token {id}", FaceRole.Main, line)]);
+            var obj = new GameObject(
+                new ObjectId(id), definition, 0, controller, controller, new ZoneKey(Cards.Zone.Battlefield, null), id)
+            { IsToken = true };
+            Layers.Set(new ObjectId(id), new Characteristics(
+                $"Token {id}", types, Supertype.None, [.. subtypes], Color.Colorless,
+                null, null, null, null, null, [], controller));
+            return this with { State = new ObjectCreated(obj, -1).Apply(State) };
+        }
+
+        /// <summary>CR 111.7: a token that has left the battlefield stops existing.</summary>
+        public World CeaseToExist(int id) =>
+            this with { State = new ObjectCeasedToExist(new ObjectId(id)).Apply(State) };
+
         public World Library(int id, PlayerId owner) =>
             Put(id, owner, Cards.Zone.Library, new Characteristics(
                 $"Object {id}", CardType.Creature, Supertype.None, ["Beast"], Color.Green,
@@ -373,6 +405,10 @@ public sealed class QueryTests
 
         public World Remember(string key, params ObjectId[] objects) =>
             this with { Context = Context with { Remembered = Context.Remembered.SetItem(key, [.. objects]) } };
+
+        /// <summary>A value an earlier step of the same effect chose and stored under a key.</summary>
+        public World Choose(string key, string value) =>
+            this with { Context = Context with { Chosen = Context.Chosen.SetItem(key, value) } };
 
         public World Store(string key, int value) =>
             this with { Context = Context with { Stored = Context.Stored.SetItem(key, value) } };
