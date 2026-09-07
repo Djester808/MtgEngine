@@ -33,9 +33,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Add {B}{B}{B}{B}."
@@ -66,9 +63,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Add {B}{B}{B}{B}."
@@ -77,166 +71,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "6385fd0d-256d-4400-9319-afa8170024db",
-        "name": "Culling the Weak",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Culling the Weak",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "text": "Add {B}{B}{B}{B}."
-              }
-            ],
-            "additionalCosts": [
-              {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Creature"
-                  ]
-                }
-              }
-            ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "text": "Add {B}{B}{B}{B}."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "6385fd0d-256d-4400-9319-afa8170024db",
-        "name": "Culling the Weak",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Culling the Weak",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "text": "Add {B}{B}{B}{B}."
-              }
-            ],
-            "additionalCosts": [
-              {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Creature"
-                  ]
-                }
-              }
-            ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "text": "Add {B}{B}{B}{B}."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

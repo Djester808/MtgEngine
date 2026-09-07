@@ -35,9 +35,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -85,9 +82,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               },
               "tapped": false,
               "attacking": false
@@ -115,9 +109,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -165,9 +156,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               },
               "tapped": false,
               "attacking": false
@@ -226,9 +214,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 1
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -276,9 +261,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "tapped": false,
                   "attacking": false
@@ -306,9 +288,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 1
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -356,9 +335,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "tapped": false,
                   "attacking": false

@@ -35,7 +35,7 @@
                     "kind": "TargetPlayer",
                     "filter": {},
                     "upTo": false,
-                    "key": "player"
+                    "key": "k1"
                   }
                 },
                 {
@@ -46,7 +46,7 @@
                   },
                   "who": {
                     "kind": "RememberedPlayer",
-                    "key": "player"
+                    "key": "k1"
                   }
                 }
               ]
@@ -71,7 +71,7 @@
                     "kind": "TargetPlayer",
                     "filter": {},
                     "upTo": false,
-                    "key": "player"
+                    "key": "k1"
                   }
                 },
                 {
@@ -82,7 +82,7 @@
                   },
                   "who": {
                     "kind": "RememberedPlayer",
-                    "key": "player"
+                    "key": "k1"
                   }
                 }
               ]
@@ -138,7 +138,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "player"
+                        "key": "k1"
                       }
                     },
                     {
@@ -149,7 +149,7 @@
                       },
                       "who": {
                         "kind": "RememberedPlayer",
-                        "key": "player"
+                        "key": "k1"
                       }
                     }
                   ]
@@ -174,7 +174,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "player"
+                        "key": "k1"
                       }
                     },
                     {
@@ -185,7 +185,7 @@
                       },
                       "who": {
                         "kind": "RememberedPlayer",
-                        "key": "player"
+                        "key": "k1"
                       }
                     }
                   ]
@@ -231,7 +231,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "target"
+                        "key": "k1"
                       }
                     },
                     {
@@ -242,7 +242,7 @@
                       },
                       "who": {
                         "kind": "ChosenPlayer",
-                        "key": "target"
+                        "key": "k1"
                       }
                     }
                   ]
@@ -267,7 +267,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "target"
+                        "key": "k1"
                       }
                     },
                     {
@@ -278,7 +278,7 @@
                       },
                       "who": {
                         "kind": "ChosenPlayer",
-                        "key": "target"
+                        "key": "k1"
                       }
                     }
                   ]

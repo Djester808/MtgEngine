@@ -64,7 +64,6 @@
               "to": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Battlefield",
                   "notTypes": [
                     "Land"
                   ],
@@ -129,7 +128,6 @@
               "to": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Battlefield",
                   "notTypes": [
                     "Land"
                   ],
@@ -225,7 +223,6 @@
                   "to": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "notTypes": [
                         "Land"
                       ],
@@ -290,7 +287,6 @@
                   "to": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "notTypes": [
                         "Land"
                       ],
@@ -382,7 +378,7 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "target",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {
@@ -447,7 +443,7 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "target",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {

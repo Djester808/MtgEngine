@@ -40,9 +40,6 @@
                     "kind": "Fixed",
                     "n": 1
                   },
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": true,
@@ -63,9 +60,6 @@
                   "upTo": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "from": "Library",
                   "where": "Default",
@@ -100,9 +94,6 @@
                     "kind": "Fixed",
                     "n": 1
                   },
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": true,
@@ -123,9 +114,6 @@
                   "upTo": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "from": "Library",
                   "where": "Default",
@@ -191,9 +179,6 @@
                         "kind": "Fixed",
                         "n": 1
                       },
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": true,
@@ -214,9 +199,6 @@
                       "upTo": {
                         "kind": "Fixed",
                         "n": 1
-                      },
-                      "who": {
-                        "kind": "You"
                       },
                       "from": "Library",
                       "where": "Default",
@@ -251,9 +233,6 @@
                         "kind": "Fixed",
                         "n": 1
                       },
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": true,
@@ -274,9 +253,6 @@
                       "upTo": {
                         "kind": "Fixed",
                         "n": 1
-                      },
-                      "who": {
-                        "kind": "You"
                       },
                       "from": "Library",
                       "where": "Default",
@@ -337,7 +313,7 @@
                       "reveal": true,
                       "tapped": true,
                       "shuffleAfter": false,
-                      "rememberAs": "battlefieldLand"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Search",
@@ -359,13 +335,10 @@
                       "reveal": true,
                       "tapped": false,
                       "shuffleAfter": false,
-                      "rememberAs": "handLand"
+                      "rememberAs": "k2"
                     },
                     {
-                      "kind": "Shuffle",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "kind": "Shuffle"
                     }
                   ]
                 },
@@ -399,7 +372,7 @@
                       "reveal": true,
                       "tapped": true,
                       "shuffleAfter": false,
-                      "rememberAs": "battlefieldLand"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Search",
@@ -421,13 +394,10 @@
                       "reveal": true,
                       "tapped": false,
                       "shuffleAfter": false,
-                      "rememberAs": "handLand"
+                      "rememberAs": "k2"
                     },
                     {
-                      "kind": "Shuffle",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "kind": "Shuffle"
                     }
                   ]
                 },

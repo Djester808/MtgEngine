@@ -37,9 +37,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -47,9 +44,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -79,9 +73,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -89,9 +80,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]

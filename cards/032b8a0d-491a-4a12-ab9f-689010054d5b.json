@@ -39,7 +39,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ],
@@ -48,9 +47,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -85,7 +81,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ],
@@ -94,9 +89,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -112,234 +104,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "032b8a0d-491a-4a12-ab9f-689010054d5b",
-        "name": "Prismatic Vista",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Prismatic Vista",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 1
-                    }
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 1
-                    }
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "032b8a0d-491a-4a12-ab9f-689010054d5b",
-        "name": "Prismatic Vista",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Prismatic Vista",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 1
-                    }
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 1
-                    }
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

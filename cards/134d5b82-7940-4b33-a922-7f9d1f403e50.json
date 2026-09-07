@@ -62,9 +62,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -89,9 +86,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               },
               "n": {
                 "kind": "Fixed",
@@ -149,9 +143,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -176,9 +167,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               },
               "n": {
                 "kind": "Fixed",
@@ -268,9 +256,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -295,9 +280,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "n": {
                     "kind": "Fixed",
@@ -355,9 +337,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -382,9 +361,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "n": {
                     "kind": "Fixed",
@@ -462,9 +438,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -546,9 +519,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,

@@ -41,9 +41,6 @@
                     "role": "Subject"
                   }
                 }
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw cards equal to the greatest power among creatures you control."
@@ -74,9 +71,6 @@
                 "upTo": false
               },
               "withoutPayingManaCost": true,
-              "who": {
-                "kind": "You"
-              },
               "asCopy": false
             },
             "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
@@ -105,9 +99,6 @@
                     "role": "Subject"
                   }
                 }
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw cards equal to the greatest power among creatures you control."
@@ -138,9 +129,6 @@
                 "upTo": false
               },
               "withoutPayingManaCost": true,
-              "who": {
-                "kind": "You"
-              },
               "asCopy": false
             },
             "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
@@ -200,9 +188,6 @@
                         "role": "Subject"
                       }
                     }
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw cards equal to the greatest power among creatures you control."
@@ -233,9 +218,6 @@
                     "upTo": false
                   },
                   "withoutPayingManaCost": true,
-                  "who": {
-                    "kind": "You"
-                  },
                   "asCopy": false
                 },
                 "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
@@ -264,9 +246,6 @@
                         "role": "Subject"
                       }
                     }
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw cards equal to the greatest power among creatures you control."
@@ -297,9 +276,6 @@
                     "upTo": false
                   },
                   "withoutPayingManaCost": true,
-                  "who": {
-                    "kind": "You"
-                  },
                   "asCopy": false
                 },
                 "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
@@ -359,9 +335,6 @@
                             }
                           }
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -391,9 +364,6 @@
                         "upTo": false
                       },
                       "withoutPayingManaCost": true,
-                      "who": {
-                        "kind": "You"
-                      },
                       "asCopy": false
                     }
                   ]
@@ -434,9 +404,6 @@
                             }
                           }
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -466,9 +433,6 @@
                         "upTo": false
                       },
                       "withoutPayingManaCost": true,
-                      "who": {
-                        "kind": "You"
-                      },
                       "asCopy": false
                     }
                   ]

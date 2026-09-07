@@ -36,7 +36,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "card",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Battlefield",
@@ -48,7 +48,7 @@
                   "faceDown": false,
                   "attacking": false,
                   "transformed": false,
-                  "rememberAs": "card",
+                  "rememberAs": "k1",
                   "ownersChoiceOfOrder": true
                 },
                 {
@@ -57,11 +57,8 @@
                     "kind": "ManaValueOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "card"
+                      "key": "k1"
                     }
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -87,7 +84,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "card",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Battlefield",
@@ -99,7 +96,7 @@
                   "faceDown": false,
                   "attacking": false,
                   "transformed": false,
-                  "rememberAs": "card",
+                  "rememberAs": "k1",
                   "ownersChoiceOfOrder": true
                 },
                 {
@@ -108,11 +105,8 @@
                     "kind": "ManaValueOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "card"
+                      "key": "k1"
                     }
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -169,7 +163,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "card",
+                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -181,7 +175,7 @@
                       "faceDown": false,
                       "attacking": false,
                       "transformed": false,
-                      "rememberAs": "card",
+                      "rememberAs": "k1",
                       "ownersChoiceOfOrder": true
                     },
                     {
@@ -190,11 +184,8 @@
                         "kind": "ManaValueOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "card"
+                          "key": "k1"
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]
@@ -220,7 +211,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "card",
+                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -232,7 +223,7 @@
                       "faceDown": false,
                       "attacking": false,
                       "transformed": false,
-                      "rememberAs": "card",
+                      "rememberAs": "k1",
                       "ownersChoiceOfOrder": true
                     },
                     {
@@ -241,11 +232,8 @@
                         "kind": "ManaValueOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "card"
+                          "key": "k1"
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]
@@ -292,7 +280,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "card",
+                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -312,11 +300,8 @@
                         "kind": "ManaValueOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "card"
+                          "key": "k1"
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]
@@ -342,7 +327,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "card",
+                        "key": "k1",
                         "distinct": true
                       },
                       "to": "Battlefield",
@@ -362,11 +347,8 @@
                         "kind": "ManaValueOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "card"
+                          "key": "k1"
                         }
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]

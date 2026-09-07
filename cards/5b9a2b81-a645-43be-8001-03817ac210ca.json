@@ -35,10 +35,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -58,15 +55,12 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": true,
-                "chosenColorKey": "color",
+                "chosenColorKey": "k1",
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": true,
                 "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-              },
-              "who": {
-                "kind": "You"
               },
               "n": {
                 "kind": "Fixed",
@@ -97,9 +91,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -130,10 +121,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -153,15 +141,12 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": true,
-                "chosenColorKey": "color",
+                "chosenColorKey": "k1",
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": true,
                 "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-              },
-              "who": {
-                "kind": "You"
               },
               "n": {
                 "kind": "Fixed",
@@ -192,9 +177,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -258,10 +240,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -281,15 +260,12 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": true,
                     "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "n": {
                     "kind": "Fixed",
@@ -320,9 +296,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -353,10 +326,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -376,15 +346,12 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": true,
                     "restrictedTo": "Spend this mana only to cast monocolored spells of that color."
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "n": {
                     "kind": "Fixed",
@@ -415,9 +382,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -471,7 +435,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "chosenColor"
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -491,7 +455,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "chosenColor",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -557,7 +521,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "chosenColor"
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -577,7 +541,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "chosenColor",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,

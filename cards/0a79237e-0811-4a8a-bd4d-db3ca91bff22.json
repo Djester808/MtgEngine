@@ -66,9 +66,6 @@
                 "anyType": false,
                 "restriction": false
               },
-              "who": {
-                "kind": "You"
-              },
               "n": {
                 "kind": "CountersOn",
                 "on": {
@@ -130,9 +127,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               },
               "n": {
                 "kind": "CountersOn",
@@ -229,9 +223,6 @@
                     "anyType": false,
                     "restriction": false
                   },
-                  "who": {
-                    "kind": "You"
-                  },
                   "n": {
                     "kind": "CountersOn",
                     "on": {
@@ -293,9 +284,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "n": {
                     "kind": "CountersOn",

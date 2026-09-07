@@ -432,9 +432,6 @@
                     "attacking": false,
                     "transformed": false,
                     "ownersChoiceOfOrder": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": true,
@@ -504,9 +501,6 @@
                     "attacking": false,
                     "transformed": false,
                     "ownersChoiceOfOrder": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": true,

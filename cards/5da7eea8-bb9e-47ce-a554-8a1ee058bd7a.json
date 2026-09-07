@@ -54,9 +54,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -86,9 +83,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -164,9 +158,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -196,9 +187,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,

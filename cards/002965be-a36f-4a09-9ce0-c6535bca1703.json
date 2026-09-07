@@ -53,9 +53,6 @@
                     "n": {
                       "kind": "Fixed",
                       "n": 1
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 },
@@ -128,7 +125,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -153,7 +149,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -204,9 +199,6 @@
                     "n": {
                       "kind": "Fixed",
                       "n": 1
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 },
@@ -279,7 +271,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -304,7 +295,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "controlledBy": {
                         "kind": "You"
                       },
@@ -386,9 +376,6 @@
                         "n": {
                           "kind": "Fixed",
                           "n": 1
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     },
@@ -461,7 +448,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Battlefield",
                           "controlledBy": {
                             "kind": "You"
                           },
@@ -486,7 +472,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Battlefield",
                           "controlledBy": {
                             "kind": "You"
                           },
@@ -537,9 +522,6 @@
                         "n": {
                           "kind": "Fixed",
                           "n": 1
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     },
@@ -612,7 +594,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Battlefield",
                           "controlledBy": {
                             "kind": "You"
                           },
@@ -637,7 +618,6 @@
                       "to": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Battlefield",
                           "controlledBy": {
                             "kind": "You"
                           },

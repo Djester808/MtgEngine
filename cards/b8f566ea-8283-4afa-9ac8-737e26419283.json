@@ -50,9 +50,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw a card."
@@ -90,9 +87,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw a card."

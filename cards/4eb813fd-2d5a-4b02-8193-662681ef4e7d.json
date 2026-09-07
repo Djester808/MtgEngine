@@ -32,7 +32,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Artifact"
                         ]
@@ -48,7 +47,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Creature"
                         ]
@@ -64,7 +62,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Enchantment"
                         ]
@@ -108,7 +105,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Artifact"
                         ]
@@ -124,7 +120,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Creature"
                         ]
@@ -140,7 +135,6 @@
                     "what": {
                       "kind": "Each",
                       "filter": {
-                        "in": "Battlefield",
                         "types": [
                           "Enchantment"
                         ]
@@ -173,358 +167,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "4eb813fd-2d5a-4b02-8193-662681ef4e7d",
-        "name": "Farewell",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Farewell",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{4}{W}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Exile all artifacts.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Artifact"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all creatures.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Creature"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all enchantments.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Enchantment"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all graveyards.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Graveyard"
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 4,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards."
-              }
-            ],
-            "oracleText": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Exile all artifacts.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Artifact"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all creatures.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Creature"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all enchantments.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Battlefield",
-                            "types": [
-                              "Enchantment"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all graveyards.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Graveyard"
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 4,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "4eb813fd-2d5a-4b02-8193-662681ef4e7d",
-        "name": "Farewell",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Farewell",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{4}{W}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Exile all artifacts.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Artifact"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all creatures.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all enchantments.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Enchantment"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all graveyards.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Graveyard"
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 4,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards."
-              }
-            ],
-            "oracleText": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "ChooseMode",
-                  "modes": [
-                    {
-                      "text": "Exile all artifacts.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Artifact"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all creatures.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all enchantments.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Enchantment"
-                            ]
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    },
-                    {
-                      "text": "Exile all graveyards.",
-                      "do": {
-                        "kind": "Exile",
-                        "what": {
-                          "kind": "Each",
-                          "filter": {
-                            "in": "Graveyard"
-                          }
-                        },
-                        "faceDown": false
-                      }
-                    }
-                  ],
-                  "min": 1,
-                  "max": 4,
-                  "sameModeTwice": false
-                },
-                "text": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

@@ -89,7 +89,6 @@
                 "left": {
                   "kind": "TotalAmong",
                   "among": {
-                    "in": "Battlefield",
                     "types": [
                       "Creature"
                     ],
@@ -114,7 +113,7 @@
                 "kind": "MayCast",
                 "what": {
                   "kind": "Remembered",
-                  "key": "hideaway"
+                  "key": "k1"
                 },
                 "withoutPayingManaCost": true,
                 "asCopy": false
@@ -198,7 +197,6 @@
                 "left": {
                   "kind": "TotalAmong",
                   "among": {
-                    "in": "Battlefield",
                     "types": [
                       "Creature"
                     ],
@@ -223,7 +221,7 @@
                 "kind": "MayCast",
                 "what": {
                   "kind": "Remembered",
-                  "key": "hideaway"
+                  "key": "k1"
                 },
                 "withoutPayingManaCost": true,
                 "asCopy": false
@@ -339,7 +337,6 @@
                     "left": {
                       "kind": "TotalAmong",
                       "among": {
-                        "in": "Battlefield",
                         "types": [
                           "Creature"
                         ],
@@ -364,7 +361,7 @@
                     "kind": "MayCast",
                     "what": {
                       "kind": "Remembered",
-                      "key": "hideaway"
+                      "key": "k1"
                     },
                     "withoutPayingManaCost": true,
                     "asCopy": false
@@ -448,7 +445,6 @@
                     "left": {
                       "kind": "TotalAmong",
                       "among": {
-                        "in": "Battlefield",
                         "types": [
                           "Creature"
                         ],
@@ -473,7 +469,7 @@
                     "kind": "MayCast",
                     "what": {
                       "kind": "Remembered",
-                      "key": "hideaway"
+                      "key": "k1"
                     },
                     "withoutPayingManaCost": true,
                     "asCopy": false
@@ -601,12 +597,9 @@
                     "kind": "MayCast",
                     "what": {
                       "kind": "Remembered",
-                      "key": "hideaway"
+                      "key": "k1"
                     },
                     "withoutPayingManaCost": true,
-                    "who": {
-                      "kind": "You"
-                    },
                     "asCopy": false
                   }
                 },
@@ -712,12 +705,9 @@
                     "kind": "MayCast",
                     "what": {
                       "kind": "Remembered",
-                      "key": "hideaway"
+                      "key": "k1"
                     },
                     "withoutPayingManaCost": true,
-                    "who": {
-                      "kind": "You"
-                    },
                     "asCopy": false
                   }
                 },

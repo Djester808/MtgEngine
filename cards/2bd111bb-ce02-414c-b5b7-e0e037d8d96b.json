@@ -83,9 +83,6 @@
                   "notTypes": [
                     "Land"
                   ],
-                  "controlledBy": {
-                    "kind": "You"
-                  },
                   "permanent": true
                 },
                 "count": {
@@ -173,9 +170,6 @@
                   "notTypes": [
                     "Land"
                   ],
-                  "controlledBy": {
-                    "kind": "You"
-                  },
                   "permanent": true
                 },
                 "count": {
@@ -296,9 +290,6 @@
                       "notTypes": [
                         "Land"
                       ],
-                      "controlledBy": {
-                        "kind": "You"
-                      },
                       "permanent": true
                     },
                     "count": {
@@ -386,9 +377,6 @@
                       "notTypes": [
                         "Land"
                       ],
-                      "controlledBy": {
-                        "kind": "You"
-                      },
                       "permanent": true
                     },
                     "count": {
@@ -490,9 +478,6 @@
                       "notTypes": [
                         "Land"
                       ],
-                      "controlledBy": {
-                        "kind": "You"
-                      },
                       "permanent": true
                     },
                     "count": {
@@ -571,9 +556,6 @@
                       "notTypes": [
                         "Land"
                       ],
-                      "controlledBy": {
-                        "kind": "You"
-                      },
                       "permanent": true
                     },
                     "count": {

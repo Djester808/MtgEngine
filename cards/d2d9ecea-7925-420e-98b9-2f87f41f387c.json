@@ -46,17 +46,11 @@
                   "kind": "Fixed",
                   "n": 3
                 },
-                "who": {
-                  "kind": "You"
-                },
                 "from": "Library",
                 "where": "Default",
                 "reveal": true,
                 "tapped": false,
                 "shuffleAfter": true
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "if": {
@@ -64,7 +58,6 @@
               "left": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -77,7 +70,6 @@
               "right": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -121,17 +113,11 @@
                   "kind": "Fixed",
                   "n": 3
                 },
-                "who": {
-                  "kind": "You"
-                },
                 "from": "Library",
                 "where": "Default",
                 "reveal": true,
                 "tapped": false,
                 "shuffleAfter": true
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "if": {
@@ -139,7 +125,6 @@
               "left": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -152,7 +137,6 @@
               "right": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -227,17 +211,11 @@
                       "kind": "Fixed",
                       "n": 3
                     },
-                    "who": {
-                      "kind": "You"
-                    },
                     "from": "Library",
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "if": {
@@ -245,7 +223,6 @@
                   "left": {
                     "kind": "CountOf",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],
@@ -258,7 +235,6 @@
                   "right": {
                     "kind": "CountOf",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],
@@ -302,17 +278,11 @@
                       "kind": "Fixed",
                       "n": 3
                     },
-                    "who": {
-                      "kind": "You"
-                    },
                     "from": "Library",
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "if": {
@@ -320,7 +290,6 @@
                   "left": {
                     "kind": "CountOf",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],
@@ -333,7 +302,6 @@
                   "right": {
                     "kind": "CountOf",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],
@@ -398,17 +366,11 @@
                       "kind": "Fixed",
                       "n": 3
                     },
-                    "who": {
-                      "kind": "You"
-                    },
                     "from": "Library",
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "if": {
@@ -470,17 +432,11 @@
                       "kind": "Fixed",
                       "n": 3
                     },
-                    "who": {
-                      "kind": "You"
-                    },
                     "from": "Library",
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "if": {

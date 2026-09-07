@@ -74,9 +74,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -212,9 +209,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -380,9 +374,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -518,9 +509,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",

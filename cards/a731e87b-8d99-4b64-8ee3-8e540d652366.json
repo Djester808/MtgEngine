@@ -27,7 +27,7 @@
               "steps": [
                 {
                   "kind": "Remember",
-                  "key": "creature",
+                  "key": "k1",
                   "what": {
                     "kind": "Target",
                     "filter": {
@@ -36,7 +36,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "creature",
+                    "key": "k1",
                     "distinct": true
                   }
                 },
@@ -45,9 +45,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -91,7 +88,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "creature"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -111,7 +108,7 @@
               "steps": [
                 {
                   "kind": "Remember",
-                  "key": "creature",
+                  "key": "k1",
                   "what": {
                     "kind": "Target",
                     "filter": {
@@ -120,7 +117,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "creature",
+                    "key": "k1",
                     "distinct": true
                   }
                 },
@@ -129,9 +126,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -175,7 +169,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "creature"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -234,9 +228,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -283,9 +274,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -334,7 +322,7 @@
                   "steps": [
                     {
                       "kind": "Remember",
-                      "key": "creature",
+                      "key": "k1",
                       "what": {
                         "kind": "Target",
                         "filter": {
@@ -343,7 +331,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       }
                     },
@@ -352,9 +340,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -398,7 +383,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "creature"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -418,7 +403,7 @@
                   "steps": [
                     {
                       "kind": "Remember",
-                      "key": "creature",
+                      "key": "k1",
                       "what": {
                         "kind": "Target",
                         "filter": {
@@ -427,7 +412,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       }
                     },
@@ -436,9 +421,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -482,7 +464,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "creature"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -541,9 +523,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -590,9 +569,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -634,9 +610,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -686,7 +659,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -710,9 +683,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -762,7 +732,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {

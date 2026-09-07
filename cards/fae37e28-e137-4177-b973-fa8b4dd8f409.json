@@ -30,11 +30,10 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -61,7 +60,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   },
                   "tapped": false,
@@ -84,11 +83,10 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -115,7 +113,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   },
                   "tapped": false,
@@ -129,274 +127,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "fae37e28-e137-4177-b973-fa8b4dd8f409",
-        "name": "Generous Gift",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Generous Gift",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "in": "Battlefield",
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "perm",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Elephant",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elephant"
-                        ],
-                        "supertypes": [],
-                        "power": 3,
-                        "toughness": 3,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "perm"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token."
-              }
-            ],
-            "oracleText": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "in": "Battlefield",
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "perm",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Elephant",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elephant"
-                        ],
-                        "supertypes": [],
-                        "power": 3,
-                        "toughness": 3,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "perm"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "fae37e28-e137-4177-b973-fa8b4dd8f409",
-        "name": "Generous Gift",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Generous Gift",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "permanent",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Elephant",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elephant"
-                        ],
-                        "supertypes": [],
-                        "power": 3,
-                        "toughness": 3,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "permanent"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token."
-              }
-            ],
-            "oracleText": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "permanent",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Elephant",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elephant"
-                        ],
-                        "supertypes": [],
-                        "power": 3,
-                        "toughness": 3,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "permanent"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target permanent. Its controller creates a 3/3 green Elephant creature token."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

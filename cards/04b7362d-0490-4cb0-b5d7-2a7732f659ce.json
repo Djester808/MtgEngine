@@ -411,7 +411,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "targetplayer"
+                        "key": "k1"
                       }
                     }
                   },
@@ -488,7 +488,7 @@
                         "kind": "TargetPlayer",
                         "filter": {},
                         "upTo": false,
-                        "key": "targetplayer"
+                        "key": "k1"
                       }
                     }
                   },

@@ -43,7 +43,7 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "artifact",
+                      "key": "k1",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -61,7 +61,7 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "enchantment",
+                      "key": "k2",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -86,7 +86,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k3",
                           "distinct": true
                         },
                         "until": {
@@ -107,7 +107,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k3",
                           "distinct": true
                         },
                         "until": {
@@ -150,7 +150,7 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "artifact",
+                      "key": "k1",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -168,7 +168,7 @@
                         ]
                       },
                       "upTo": false,
-                      "key": "enchantment",
+                      "key": "k2",
                       "distinct": true
                     },
                     "cantBeRegenerated": false
@@ -193,7 +193,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k3",
                           "distinct": true
                         },
                         "until": {
@@ -214,7 +214,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k3",
                           "distinct": true
                         },
                         "until": {
@@ -290,7 +290,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "artifact",
+                          "key": "k1",
                           "distinct": true
                         },
                         "cantBeRegenerated": false
@@ -308,7 +308,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "enchantment",
+                          "key": "k2",
                           "distinct": true
                         },
                         "cantBeRegenerated": false
@@ -333,7 +333,7 @@
                                 ]
                               },
                               "upTo": false,
-                              "key": "creature",
+                              "key": "k3",
                               "distinct": true
                             },
                             "until": {
@@ -354,7 +354,7 @@
                                 ]
                               },
                               "upTo": false,
-                              "key": "creature",
+                              "key": "k3",
                               "distinct": true
                             },
                             "until": {
@@ -397,7 +397,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "artifact",
+                          "key": "k1",
                           "distinct": true
                         },
                         "cantBeRegenerated": false
@@ -415,7 +415,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "enchantment",
+                          "key": "k2",
                           "distinct": true
                         },
                         "cantBeRegenerated": false
@@ -440,7 +440,7 @@
                                 ]
                               },
                               "upTo": false,
-                              "key": "creature",
+                              "key": "k3",
                               "distinct": true
                             },
                             "until": {
@@ -461,7 +461,7 @@
                                 ]
                               },
                               "upTo": false,
-                              "key": "creature",
+                              "key": "k3",
                               "distinct": true
                             },
                             "until": {

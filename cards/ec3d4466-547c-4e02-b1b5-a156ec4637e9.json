@@ -48,10 +48,10 @@
                   "kind": "You"
                 },
                 "upTo": true,
-                "key": "exiled"
+                "key": "k1"
               },
               "faceDown": false,
-              "rememberAs": "exiled"
+              "rememberAs": "k1"
             },
             "optional": true,
             "where": "Battlefield",
@@ -113,10 +113,10 @@
                   "kind": "You"
                 },
                 "upTo": true,
-                "key": "exiled"
+                "key": "k1"
               },
               "faceDown": false,
-              "rememberAs": "exiled"
+              "rememberAs": "k1"
             },
             "optional": true,
             "where": "Battlefield",
@@ -215,10 +215,7 @@
                       "upTo": false
                     },
                     "faceDown": false,
-                    "rememberAs": "imprinted"
-                  },
-                  "who": {
-                    "kind": "You"
+                    "rememberAs": "k1"
                   }
                 },
                 "optional": false,
@@ -278,10 +275,7 @@
                       "upTo": false
                     },
                     "faceDown": false,
-                    "rememberAs": "imprinted"
-                  },
-                  "who": {
-                    "kind": "You"
+                    "rememberAs": "k1"
                   }
                 },
                 "optional": false,
@@ -358,10 +352,10 @@
                       "kind": "You"
                     },
                     "upTo": true,
-                    "key": "exiled"
+                    "key": "k1"
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k1"
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -423,10 +417,10 @@
                       "kind": "You"
                     },
                     "upTo": true,
-                    "key": "exiled"
+                    "key": "k1"
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k1"
                 },
                 "optional": true,
                 "where": "Battlefield",

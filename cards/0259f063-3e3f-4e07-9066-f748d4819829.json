@@ -25,7 +25,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -37,9 +36,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -62,7 +58,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -74,9 +69,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -132,7 +124,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -144,9 +135,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -169,7 +157,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -181,9 +168,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

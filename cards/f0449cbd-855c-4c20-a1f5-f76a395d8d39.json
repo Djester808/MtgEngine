@@ -50,9 +50,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw a card."
@@ -90,9 +87,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 1
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw a card."
@@ -161,9 +155,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw a card."
@@ -201,9 +192,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw a card."
@@ -242,7 +230,7 @@
                       "spell": true
                     },
                     "upTo": false,
-                    "key": "target",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Hand",
@@ -279,7 +267,7 @@
                       "spell": true
                     },
                     "upTo": false,
-                    "key": "target",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Hand",

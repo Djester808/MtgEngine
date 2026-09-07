@@ -53,10 +53,7 @@
                 {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 {
                   "kind": "Unsupported",
@@ -104,10 +101,7 @@
                 {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 {
                   "kind": "Unsupported",
@@ -188,10 +182,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "key": "k1"
                     },
                     {
                       "kind": "Unsupported",
@@ -239,10 +230,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "key": "k1"
                     },
                     {
                       "kind": "Unsupported",
@@ -313,7 +301,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color"
+                      "key": "k1"
                     },
                     {
                       "kind": "Unsupported",
@@ -361,7 +349,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color"
+                      "key": "k1"
                     },
                     {
                       "kind": "Unsupported",

@@ -37,16 +37,13 @@
                     },
                     "zone": "Library"
                   },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "rememberAs": "revealed"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "ForEach",
                   "over": {
                     "kind": "Remembered",
-                    "key": "revealed"
+                    "key": "k1"
                   },
                   "do": {
                     "kind": "If",
@@ -88,9 +85,6 @@
                         "attacking": false,
                         "transformed": false,
                         "ownersChoiceOfOrder": true
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   }
@@ -99,7 +93,7 @@
                   "kind": "Move",
                   "what": {
                     "kind": "Remembered",
-                    "key": "revealed"
+                    "key": "k1"
                   },
                   "to": "Graveyard",
                   "where": "Default",
@@ -133,16 +127,13 @@
                     },
                     "zone": "Library"
                   },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "rememberAs": "revealed"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "ForEach",
                   "over": {
                     "kind": "Remembered",
-                    "key": "revealed"
+                    "key": "k1"
                   },
                   "do": {
                     "kind": "If",
@@ -184,9 +175,6 @@
                         "attacking": false,
                         "transformed": false,
                         "ownersChoiceOfOrder": true
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   }
@@ -195,7 +183,7 @@
                   "kind": "Move",
                   "what": {
                     "kind": "Remembered",
-                    "key": "revealed"
+                    "key": "k1"
                   },
                   "to": "Graveyard",
                   "where": "Default",
@@ -260,10 +248,7 @@
                         },
                         "zone": "Library"
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "rememberAs": "revealed"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Unsupported",
@@ -294,10 +279,7 @@
                         },
                         "zone": "Library"
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "rememberAs": "revealed"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "Unsupported",
@@ -349,16 +331,13 @@
                         },
                         "zone": "Library"
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "rememberAs": "revealed"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "ForEach",
                       "over": {
                         "kind": "Remembered",
-                        "key": "revealed"
+                        "key": "k1"
                       },
                       "do": {
                         "kind": "If",
@@ -400,9 +379,6 @@
                             "attacking": false,
                             "transformed": false,
                             "ownersChoiceOfOrder": true
-                          },
-                          "who": {
-                            "kind": "You"
                           }
                         }
                       }
@@ -411,7 +387,7 @@
                       "kind": "Move",
                       "what": {
                         "kind": "Remembered",
-                        "key": "revealed"
+                        "key": "k1"
                       },
                       "to": "Graveyard",
                       "where": "Default",
@@ -445,16 +421,13 @@
                         },
                         "zone": "Library"
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "rememberAs": "revealed"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "ForEach",
                       "over": {
                         "kind": "Remembered",
-                        "key": "revealed"
+                        "key": "k1"
                       },
                       "do": {
                         "kind": "If",
@@ -496,9 +469,6 @@
                             "attacking": false,
                             "transformed": false,
                             "ownersChoiceOfOrder": true
-                          },
-                          "who": {
-                            "kind": "You"
                           }
                         }
                       }
@@ -507,7 +477,7 @@
                       "kind": "Move",
                       "what": {
                         "kind": "Remembered",
-                        "key": "revealed"
+                        "key": "k1"
                       },
                       "to": "Graveyard",
                       "where": "Default",

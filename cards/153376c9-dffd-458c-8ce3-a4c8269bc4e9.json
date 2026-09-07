@@ -74,9 +74,6 @@
                   ],
                   "isPredefined": false
                 },
-                "who": {
-                  "kind": "You"
-                },
                 "tapped": false,
                 "attacking": false
               },
@@ -149,9 +146,6 @@
                     }
                   ],
                   "isPredefined": false
-                },
-                "who": {
-                  "kind": "You"
                 },
                 "tapped": false,
                 "attacking": false

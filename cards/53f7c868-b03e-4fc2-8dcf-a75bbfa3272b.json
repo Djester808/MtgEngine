@@ -33,9 +33,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Add {B}{B}{B}."
@@ -56,9 +53,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Add {B}{B}{B}."
@@ -67,146 +61,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
-        "name": "Dark Ritual",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Dark Ritual",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "text": "Add {B}{B}{B}."
-              }
-            ],
-            "oracleText": "Add {B}{B}{B}.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "text": "Add {B}{B}{B}."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
-        "name": "Dark Ritual",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Dark Ritual",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "text": "Add {B}{B}{B}."
-              }
-            ],
-            "oracleText": "Add {B}{B}{B}.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}{B}{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "text": "Add {B}{B}{B}."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

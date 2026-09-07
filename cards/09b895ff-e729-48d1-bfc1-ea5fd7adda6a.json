@@ -33,10 +33,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -67,7 +64,7 @@
                 },
                 "also": {
                   "kind": "IsChosenColor",
-                  "key": "color"
+                  "key": "k1"
                 }
               }
             },
@@ -114,10 +111,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -148,7 +142,7 @@
                 },
                 "also": {
                   "kind": "IsChosenColor",
-                  "key": "color"
+                  "key": "k1"
                 }
               }
             },
@@ -226,10 +220,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -260,7 +251,7 @@
                     },
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "color"
+                      "key": "k1"
                     }
                   }
                 },
@@ -307,10 +298,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -341,7 +329,7 @@
                     },
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "color"
+                      "key": "k1"
                     }
                   }
                 },
@@ -409,7 +397,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "chosenColor"
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -440,7 +428,7 @@
                     },
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "chosenColor"
+                      "key": "k1"
                     }
                   }
                 },
@@ -471,7 +459,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "chosenColor",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -491,7 +479,7 @@
                   "filter": {
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "chosenColor"
+                      "key": "k1"
                     }
                   }
                 },
@@ -516,7 +504,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "chosenColor"
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -547,7 +535,7 @@
                     },
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "chosenColor"
+                      "key": "k1"
                     }
                   }
                 },
@@ -578,7 +566,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "chosenColor",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -598,7 +586,7 @@
                   "filter": {
                     "also": {
                       "kind": "IsChosenColor",
-                      "key": "chosenColor"
+                      "key": "k1"
                     }
                   }
                 },

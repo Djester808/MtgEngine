@@ -35,11 +35,11 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "creature",
+                    "key": "k1",
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "creature"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "GainLife",
@@ -47,14 +47,14 @@
                     "kind": "PowerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   },
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   }
                 }
@@ -80,11 +80,11 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "creature",
+                    "key": "k1",
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "creature"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "GainLife",
@@ -92,14 +92,14 @@
                     "kind": "PowerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   },
                   "who": {
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   }
                 }
@@ -156,11 +156,11 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "creature"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "GainLife",
@@ -168,14 +168,14 @@
                         "kind": "PowerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }
@@ -201,11 +201,11 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "creature"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "GainLife",
@@ -213,14 +213,14 @@
                         "kind": "PowerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }
@@ -267,7 +267,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false
@@ -278,14 +278,14 @@
                         "kind": "PowerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }
@@ -311,7 +311,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false
@@ -322,14 +322,14 @@
                         "kind": "PowerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       },
                       "who": {
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }

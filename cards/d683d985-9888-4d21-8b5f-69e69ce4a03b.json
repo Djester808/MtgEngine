@@ -30,7 +30,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Creature"
                       ]
@@ -39,7 +38,7 @@
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "creature"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "May",
@@ -58,7 +57,7 @@
                       "kind": "ControllerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "creature"
+                        "key": "k1"
                       }
                     },
                     "from": "Library",
@@ -71,7 +70,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   }
                 }
@@ -92,7 +91,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "types": [
                         "Creature"
                       ]
@@ -101,7 +99,7 @@
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "creature"
+                  "rememberAs": "k1"
                 },
                 {
                   "kind": "May",
@@ -120,7 +118,7 @@
                       "kind": "ControllerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "creature"
+                        "key": "k1"
                       }
                     },
                     "from": "Library",
@@ -133,7 +131,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "creature"
+                      "key": "k1"
                     }
                   }
                 }
@@ -185,7 +183,6 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Battlefield",
                           "types": [
                             "Creature"
                           ]
@@ -194,7 +191,7 @@
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "creature"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "May",
@@ -213,7 +210,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "creature"
+                            "key": "k1"
                           }
                         },
                         "from": "Library",
@@ -226,7 +223,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }
@@ -247,7 +244,6 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Battlefield",
                           "types": [
                             "Creature"
                           ]
@@ -256,7 +252,7 @@
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "creature"
+                      "rememberAs": "k1"
                     },
                     {
                       "kind": "May",
@@ -275,7 +271,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "creature"
+                            "key": "k1"
                           }
                         },
                         "from": "Library",
@@ -288,7 +284,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "creature"
+                          "key": "k1"
                         }
                       }
                     }
@@ -335,11 +331,11 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "exiled"
+                      "rememberAs": "k2"
                     },
                     {
                       "kind": "May",
@@ -362,7 +358,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "exiled"
+                            "key": "k2"
                           }
                         },
                         "from": "Library",
@@ -375,7 +371,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "exiled"
+                          "key": "k2"
                         }
                       }
                     }
@@ -401,11 +397,11 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "faceDown": false,
-                      "rememberAs": "exiled"
+                      "rememberAs": "k2"
                     },
                     {
                       "kind": "May",
@@ -428,7 +424,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "exiled"
+                            "key": "k2"
                           }
                         },
                         "from": "Library",
@@ -441,7 +437,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "exiled"
+                          "key": "k2"
                         }
                       }
                     }

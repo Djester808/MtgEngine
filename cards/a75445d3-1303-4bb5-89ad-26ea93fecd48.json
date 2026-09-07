@@ -32,7 +32,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ],
@@ -41,9 +40,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -71,7 +67,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ],
@@ -80,9 +75,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -140,7 +132,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Land"
                     ],
@@ -149,9 +140,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -179,7 +167,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Land"
                     ],
@@ -188,9 +175,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

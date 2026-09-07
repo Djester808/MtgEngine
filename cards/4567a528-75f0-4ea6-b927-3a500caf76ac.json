@@ -47,7 +47,6 @@
               "what": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Forest"
                   ]
@@ -76,7 +75,6 @@
               "what": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Forest"
                   ]
@@ -151,7 +149,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "subtypes": [
                         "Forest"
                       ]
@@ -180,7 +177,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "subtypes": [
                         "Forest"
                       ]
@@ -250,7 +246,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "forest",
+                    "key": "k1",
                     "distinct": true
                   }
                 },
@@ -279,7 +275,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "forest",
+                    "key": "k1",
                     "distinct": true
                   }
                 },

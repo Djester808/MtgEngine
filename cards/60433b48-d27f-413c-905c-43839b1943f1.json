@@ -48,10 +48,7 @@
                 {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 {
                   "kind": "Apply",
@@ -61,7 +58,7 @@
                     "of": {
                       "also": {
                         "kind": "IsChosenColor",
-                        "key": "color"
+                        "key": "k1"
                       }
                     }
                   },
@@ -105,10 +102,7 @@
                 {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 {
                   "kind": "Apply",
@@ -118,7 +112,7 @@
                     "of": {
                       "also": {
                         "kind": "IsChosenColor",
-                        "key": "color"
+                        "key": "k1"
                       }
                     }
                   },
@@ -208,10 +202,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "key": "k1"
                     },
                     {
                       "kind": "Apply",
@@ -221,7 +212,7 @@
                         "of": {
                           "also": {
                             "kind": "IsChosenColor",
-                            "key": "color"
+                            "key": "k1"
                           }
                         }
                       },
@@ -265,10 +256,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color",
-                      "who": {
-                        "kind": "You"
-                      }
+                      "key": "k1"
                     },
                     {
                       "kind": "Apply",
@@ -278,7 +266,7 @@
                         "of": {
                           "also": {
                             "kind": "IsChosenColor",
-                            "key": "color"
+                            "key": "k1"
                           }
                         }
                       },
@@ -358,7 +346,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color"
+                      "key": "k1"
                     },
                     {
                       "kind": "Apply",
@@ -368,7 +356,7 @@
                         "of": {
                           "also": {
                             "kind": "IsChosenColor",
-                            "key": "color"
+                            "key": "k1"
                           }
                         }
                       },
@@ -383,7 +371,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k2",
                         "distinct": true
                       },
                       "until": {
@@ -413,7 +401,7 @@
                     {
                       "kind": "ChooseValue",
                       "what": "Color",
-                      "key": "color"
+                      "key": "k1"
                     },
                     {
                       "kind": "Apply",
@@ -423,7 +411,7 @@
                         "of": {
                           "also": {
                             "kind": "IsChosenColor",
-                            "key": "color"
+                            "key": "k1"
                           }
                         }
                       },
@@ -438,7 +426,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k2",
                         "distinct": true
                       },
                       "until": {

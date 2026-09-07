@@ -25,15 +25,11 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "ownedBy": {
                   "kind": "You"
                 }
               },
               "to": "Hand",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -50,15 +46,11 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "ownedBy": {
                   "kind": "You"
                 }
               },
               "to": "Hand",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -106,15 +98,11 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "ownedBy": {
                       "kind": "You"
                     }
                   },
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -131,15 +119,11 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "ownedBy": {
                       "kind": "You"
                     }
                   },
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -178,9 +162,6 @@
                   "kind": "Search",
                   "for": {},
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -198,9 +179,6 @@
                   "kind": "Search",
                   "for": {},
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

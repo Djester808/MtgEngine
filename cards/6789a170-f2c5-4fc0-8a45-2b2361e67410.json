@@ -30,7 +30,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -42,9 +41,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -66,7 +62,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -78,9 +73,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -93,203 +85,18 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Convoke"
-  ],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "6789a170-f2c5-4fc0-8a45-2b2361e67410",
-        "name": "Chord of Calling",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Chord of Calling",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{G}{G}{G}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Convoke",
-                "text": "Convoke"
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Creature"
-                    ],
-                    "manaValue": {
-                      "op": "Le",
-                      "value": {
-                        "kind": "X"
-                      }
-                    }
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature\u0027s color.)\nSearch your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Convoke",
-                "text": "Convoke"
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Creature"
-                    ],
-                    "manaValue": {
-                      "op": "Le",
-                      "value": {
-                        "kind": "X"
-                      }
-                    }
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "6789a170-f2c5-4fc0-8a45-2b2361e67410",
-        "name": "Chord of Calling",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Chord of Calling",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{G}{G}{G}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Convoke",
-                "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature\u0027s color.)"
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "manaValue": {
-                      "op": "Le",
-                      "value": {
-                        "kind": "X"
-                      }
-                    }
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature\u0027s color.)\nSearch your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Convoke",
-                "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature\u0027s color.)"
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "manaValue": {
-                      "op": "Le",
-                      "value": {
-                        "kind": "X"
-                      }
-                    }
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
   ],
   "keywordList": [
     "Convoke"

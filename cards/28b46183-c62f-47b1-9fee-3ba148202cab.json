@@ -25,15 +25,11 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -47,13 +43,9 @@
           {
             "kind": "SacrificeCost",
             "what": {
-              "in": "Battlefield",
               "types": [
                 "Land"
-              ],
-              "controlledBy": {
-                "kind": "You"
-              }
+              ]
             },
             "count": {
               "kind": "Fixed",
@@ -68,15 +60,11 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Land"
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -124,15 +112,11 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Land"
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -146,13 +130,9 @@
               {
                 "kind": "SacrificeCost",
                 "what": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+                  ]
                 },
                 "count": {
                   "kind": "Fixed",
@@ -167,15 +147,11 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Land"
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

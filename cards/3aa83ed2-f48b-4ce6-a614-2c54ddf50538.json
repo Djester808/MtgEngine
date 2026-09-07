@@ -41,8 +41,7 @@
               "kind": "ApplyToPlayer",
               "what": {
                 "kind": "GrantKeyword",
-                "keyword": "Protection",
-                "of": {}
+                "keyword": "Protection"
               },
               "who": {
                 "kind": "You"
@@ -84,9 +83,6 @@
                   "kind": "Self"
                 },
                 "counter": "burden"
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -123,9 +119,6 @@
                       "kind": "Self"
                     },
                     "counter": "burden"
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -157,8 +150,7 @@
               "kind": "ApplyToPlayer",
               "what": {
                 "kind": "GrantKeyword",
-                "keyword": "Protection",
-                "of": {}
+                "keyword": "Protection"
               },
               "who": {
                 "kind": "You"
@@ -200,9 +192,6 @@
                   "kind": "Self"
                 },
                 "counter": "burden"
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -239,9 +228,6 @@
                       "kind": "Self"
                     },
                     "counter": "burden"
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]

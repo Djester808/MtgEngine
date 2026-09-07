@@ -42,13 +42,9 @@
                 "anyType": false,
                 "restriction": false
               },
-              "who": {
-                "kind": "You"
-              },
               "n": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Swamp"
                   ],
@@ -89,13 +85,9 @@
                 "anyType": false,
                 "restriction": false
               },
-              "who": {
-                "kind": "You"
-              },
               "n": {
                 "kind": "CountOf",
                 "filter": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Swamp"
                   ],
@@ -114,238 +106,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "7358e164-5704-4e78-9b21-6a9bf2a968ce",
-        "name": "Cabal Coffers",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Cabal Coffers",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "n": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "in": "Battlefield",
-                      "subtypes": [
-                        "Swamp"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Add {B} for each Swamp you control."
-              }
-            ],
-            "oracleText": "{2}, {T}: Add {B} for each Swamp you control.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "n": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "in": "Battlefield",
-                      "subtypes": [
-                        "Swamp"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Add {B} for each Swamp you control."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "7358e164-5704-4e78-9b21-6a9bf2a968ce",
-        "name": "Cabal Coffers",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Cabal Coffers",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "subtypes": [
-                        "Swamp"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Add {B} for each Swamp you control."
-              }
-            ],
-            "oracleText": "{2}, {T}: Add {B} for each Swamp you control.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{B}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "subtypes": [
-                        "Swamp"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Add {B} for each Swamp you control."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

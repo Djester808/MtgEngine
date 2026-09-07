@@ -60,7 +60,6 @@
                         "to": {
                           "kind": "Each",
                           "filter": {
-                            "in": "Battlefield",
                             "types": [
                               "Creature"
                             ],
@@ -82,7 +81,6 @@
                         "to": {
                           "kind": "Each",
                           "filter": {
-                            "in": "Battlefield",
                             "types": [
                               "Creature"
                             ],
@@ -145,7 +143,6 @@
                         "to": {
                           "kind": "Each",
                           "filter": {
-                            "in": "Battlefield",
                             "types": [
                               "Creature"
                             ],
@@ -167,7 +164,6 @@
                         "to": {
                           "kind": "Each",
                           "filter": {
-                            "in": "Battlefield",
                             "types": [
                               "Creature"
                             ],
@@ -261,7 +257,6 @@
                             "to": {
                               "kind": "Each",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Creature"
                                 ],
@@ -283,7 +278,6 @@
                             "to": {
                               "kind": "Each",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Creature"
                                 ],
@@ -346,7 +340,6 @@
                             "to": {
                               "kind": "Each",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Creature"
                                 ],
@@ -368,7 +361,6 @@
                             "to": {
                               "kind": "Each",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Creature"
                                 ],

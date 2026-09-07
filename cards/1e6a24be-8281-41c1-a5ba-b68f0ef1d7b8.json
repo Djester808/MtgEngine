@@ -38,7 +38,7 @@
                       }
                     },
                     "upTo": false,
-                    "key": "it",
+                    "key": "k1",
                     "distinct": true
                   },
                   "counter": "\u002B1/\u002B1",
@@ -55,7 +55,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "it"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -86,7 +86,7 @@
                       }
                     },
                     "upTo": false,
-                    "key": "it",
+                    "key": "k1",
                     "distinct": true
                   },
                   "counter": "\u002B1/\u002B1",
@@ -103,7 +103,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "it"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -165,7 +165,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "it",
+                        "key": "k1",
                         "distinct": true
                       },
                       "counter": "\u002B1/\u002B1",
@@ -182,7 +182,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "it"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -213,7 +213,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "it",
+                        "key": "k1",
                         "distinct": true
                       },
                       "counter": "\u002B1/\u002B1",
@@ -230,7 +230,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "it"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -282,7 +282,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "counter": "\u002B1/\u002B1",
@@ -308,7 +308,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -340,7 +340,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "counter": "\u002B1/\u002B1",
@@ -366,7 +366,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {

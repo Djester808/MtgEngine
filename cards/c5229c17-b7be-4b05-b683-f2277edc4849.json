@@ -25,16 +25,12 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "anyTypes": [
                   "Artifact",
                   "Enchantment"
                 ]
               },
               "to": "Library",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Top",
               "reveal": true,
@@ -51,16 +47,12 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "anyTypes": [
                   "Artifact",
                   "Enchantment"
                 ]
               },
               "to": "Library",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Top",
               "reveal": true,
@@ -108,16 +100,12 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "anyTypes": [
                       "Artifact",
                       "Enchantment"
                     ]
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,
@@ -134,16 +122,12 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "anyTypes": [
                       "Artifact",
                       "Enchantment"
                     ]
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,

@@ -435,7 +435,7 @@
                   "steps": [
                     {
                       "kind": "Store",
-                      "key": "x",
+                      "key": "k1",
                       "value": {
                         "kind": "GreatestAmong",
                         "among": {
@@ -489,11 +489,11 @@
                         "kind": "ModifyPt",
                         "power": {
                           "kind": "Stored",
-                          "key": "x"
+                          "key": "k1"
                         },
                         "toughness": {
                           "kind": "Stored",
-                          "key": "x"
+                          "key": "k1"
                         }
                       },
                       "to": {
@@ -525,7 +525,7 @@
                   "steps": [
                     {
                       "kind": "Store",
-                      "key": "x",
+                      "key": "k1",
                       "value": {
                         "kind": "GreatestAmong",
                         "among": {
@@ -579,11 +579,11 @@
                         "kind": "ModifyPt",
                         "power": {
                           "kind": "Stored",
-                          "key": "x"
+                          "key": "k1"
                         },
                         "toughness": {
                           "kind": "Stored",
-                          "key": "x"
+                          "key": "k1"
                         }
                       },
                       "to": {

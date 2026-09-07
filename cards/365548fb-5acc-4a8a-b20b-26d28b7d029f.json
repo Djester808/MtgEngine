@@ -27,9 +27,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw two cards."
@@ -41,10 +38,7 @@
             "what": {
               "types": [
                 "Creature"
-              ],
-              "controlledBy": {
-                "kind": "You"
-              }
+              ]
             },
             "count": {
               "kind": "Fixed",
@@ -61,9 +55,6 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "text": "Draw two cards."
@@ -109,9 +100,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw two cards."
@@ -123,10 +111,7 @@
                 "what": {
                   "types": [
                     "Creature"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+                  ]
                 },
                 "count": {
                   "kind": "Fixed",
@@ -143,9 +128,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "text": "Draw two cards."

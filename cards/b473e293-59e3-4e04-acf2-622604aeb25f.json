@@ -57,9 +57,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -115,9 +112,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -205,9 +199,6 @@
                         "landCouldProduce": false,
                         "anyType": false,
                         "restriction": false
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {
@@ -263,9 +254,6 @@
                         "landCouldProduce": false,
                         "anyType": false,
                         "restriction": false
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     },
                     {

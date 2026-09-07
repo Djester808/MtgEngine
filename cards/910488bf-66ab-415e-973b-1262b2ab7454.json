@@ -260,9 +260,7 @@
                 "kind": "ReplacementAbility",
                 "instead": {
                   "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "in": "Battlefield"
-                  }
+                  "what": {}
                 },
                 "with": {
                   "kind": "EntersTapped"
@@ -304,9 +302,7 @@
                 "kind": "ReplacementAbility",
                 "instead": {
                   "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "in": "Battlefield"
-                  }
+                  "what": {}
                 },
                 "with": {
                   "kind": "EntersTapped"

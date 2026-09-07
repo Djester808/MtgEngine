@@ -36,7 +36,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "it",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -58,7 +58,7 @@
                       "kind": "ControllerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "it"
+                        "key": "k1"
                       }
                     },
                     "from": "Library",
@@ -71,7 +71,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "it"
+                      "key": "k1"
                     }
                   }
                 }
@@ -98,7 +98,7 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "it",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -120,7 +120,7 @@
                       "kind": "ControllerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "it"
+                        "key": "k1"
                       }
                     },
                     "from": "Library",
@@ -133,7 +133,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "it"
+                      "key": "k1"
                     }
                   }
                 }
@@ -191,7 +191,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "it",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -213,7 +213,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "it"
+                            "key": "k1"
                           }
                         },
                         "from": "Library",
@@ -226,7 +226,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "it"
+                          "key": "k1"
                         }
                       }
                     }
@@ -253,7 +253,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "it",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -275,7 +275,7 @@
                           "kind": "ControllerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "it"
+                            "key": "k1"
                           }
                         },
                         "from": "Library",
@@ -288,7 +288,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "it"
+                          "key": "k1"
                         }
                       }
                     }
@@ -336,7 +336,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -365,7 +365,7 @@
                               ]
                             },
                             "upTo": false,
-                            "key": "creature",
+                            "key": "k1",
                             "distinct": true
                           }
                         },
@@ -386,7 +386,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k1",
                           "distinct": true
                         }
                       }
@@ -414,7 +414,7 @@
                           ]
                         },
                         "upTo": false,
-                        "key": "creature",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -443,7 +443,7 @@
                               ]
                             },
                             "upTo": false,
-                            "key": "creature",
+                            "key": "k1",
                             "distinct": true
                           }
                         },
@@ -464,7 +464,7 @@
                             ]
                           },
                           "upTo": false,
-                          "key": "creature",
+                          "key": "k1",
                           "distinct": true
                         }
                       }

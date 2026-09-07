@@ -32,7 +32,6 @@
               "to": {
                 "kind": "Each",
                 "filter": {
-                  "in": "Battlefield",
                   "permanent": true
                 }
               },
@@ -57,7 +56,6 @@
               "to": {
                 "kind": "Each",
                 "filter": {
-                  "in": "Battlefield",
                   "permanent": true
                 }
               },
@@ -113,7 +111,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     }
                   },
@@ -138,7 +135,6 @@
                   "to": {
                     "kind": "Each",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     }
                   },

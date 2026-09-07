@@ -61,10 +61,7 @@
                       },
                       "other": true
                     },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "rememberAs": "sacrificed"
+                    "rememberAs": "k1"
                   },
                   {
                     "kind": "GainLife",
@@ -72,11 +69,8 @@
                       "kind": "PowerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "sacrificed"
+                        "key": "k1"
                       }
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   },
                   {
@@ -85,17 +79,11 @@
                       "kind": "PowerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "sacrificed"
+                        "key": "k1"
                       }
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 ]
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -132,10 +120,7 @@
                       },
                       "other": true
                     },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "rememberAs": "sacrificed"
+                    "rememberAs": "k1"
                   },
                   {
                     "kind": "GainLife",
@@ -143,11 +128,8 @@
                       "kind": "PowerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "sacrificed"
+                        "key": "k1"
                       }
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   },
                   {
@@ -156,17 +138,11 @@
                       "kind": "PowerOf",
                       "of": {
                         "kind": "Remembered",
-                        "key": "sacrificed"
+                        "key": "k1"
                       }
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 ]
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -236,9 +212,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -298,9 +271,6 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "timing": "Any",
@@ -383,10 +353,7 @@
                           },
                           "other": true
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "GainLife",
@@ -394,11 +361,8 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       },
                       {
@@ -407,17 +371,11 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -454,10 +412,7 @@
                           },
                           "other": true
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "GainLife",
@@ -465,11 +420,8 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       },
                       {
@@ -478,17 +430,11 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -558,9 +504,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -620,9 +563,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -674,7 +614,6 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -693,7 +632,7 @@
                           ],
                           "other": true
                         },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "GainLife",
@@ -701,7 +640,7 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
                         }
                       },
@@ -711,14 +650,11 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -734,7 +670,6 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -753,7 +688,7 @@
                           ],
                           "other": true
                         },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "GainLife",
@@ -761,7 +696,7 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
                         }
                       },
@@ -771,14 +706,11 @@
                           "kind": "PowerOf",
                           "of": {
                             "kind": "Remembered",
-                            "key": "sacrificed"
+                            "key": "k1"
                           }
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -804,7 +736,6 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -822,10 +753,7 @@
                           "n": 3
                         }
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "storeChoiceAs": "paidLife"
+                      "storeChoiceAs": "k1"
                     },
                     {
                       "kind": "If",
@@ -833,7 +761,7 @@
                         "kind": "NotCondition",
                         "of": {
                           "kind": "ChoiceIs",
-                          "key": "paidLife",
+                          "key": "k1",
                           "value": "yes"
                         }
                       },
@@ -881,7 +809,6 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -899,10 +826,7 @@
                           "n": 3
                         }
                       },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "storeChoiceAs": "paidLife"
+                      "storeChoiceAs": "k1"
                     },
                     {
                       "kind": "If",
@@ -910,7 +834,7 @@
                         "kind": "NotCondition",
                         "of": {
                           "kind": "ChoiceIs",
-                          "key": "paidLife",
+                          "key": "k1",
                           "value": "yes"
                         }
                       },

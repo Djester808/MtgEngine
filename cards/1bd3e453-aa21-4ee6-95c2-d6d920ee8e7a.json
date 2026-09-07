@@ -40,9 +40,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -78,9 +75,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -146,9 +140,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -184,9 +175,6 @@
                     ]
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

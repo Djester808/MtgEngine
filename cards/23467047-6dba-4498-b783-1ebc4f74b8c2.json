@@ -40,9 +40,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -90,9 +87,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 {
@@ -120,252 +114,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "23467047-6dba-4498-b783-1ebc4f74b8c2",
-        "name": "Ancient Tomb",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Ancient Tomb",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "fixed": "{C}{C}",
-                        "anyColor": false,
-                        "commanderIdentity": false,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    },
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "toPlayer": {
-                        "kind": "You"
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}. This land deals 2 damage to you."
-              }
-            ],
-            "oracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "fixed": "{C}{C}",
-                        "anyColor": false,
-                        "commanderIdentity": false,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    },
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "toPlayer": {
-                        "kind": "You"
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}. This land deals 2 damage to you."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "23467047-6dba-4498-b783-1ebc4f74b8c2",
-        "name": "Ancient Tomb",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Ancient Tomb",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "fixed": "{C}{C}",
-                        "anyColor": false,
-                        "commanderIdentity": false,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "toPlayer": {
-                        "kind": "You"
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}. This land deals 2 damage to you."
-              }
-            ],
-            "oracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "AddMana",
-                      "mana": {
-                        "fixed": "{C}{C}",
-                        "anyColor": false,
-                        "commanderIdentity": false,
-                        "chosenColor": false,
-                        "colorOfAttachedOrTarget": false,
-                        "landCouldProduce": false,
-                        "anyType": false,
-                        "restriction": false
-                      }
-                    },
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "toPlayer": {
-                        "kind": "You"
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}{C}. This land deals 2 damage to you."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

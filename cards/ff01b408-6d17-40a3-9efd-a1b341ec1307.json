@@ -31,7 +31,6 @@
             "to": {
               "kind": "Each",
               "filter": {
-                "in": "Battlefield",
                 "types": [
                   "Creature"
                 ]
@@ -53,7 +52,6 @@
             "to": {
               "kind": "Each",
               "filter": {
-                "in": "Battlefield",
                 "types": [
                   "Creature"
                 ]
@@ -67,152 +65,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "ff01b408-6d17-40a3-9efd-a1b341ec1307",
-        "name": "Concordant Crossroads",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Concordant Crossroads",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [
-                "World"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Haste"
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "in": "Battlefield",
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "All creatures have haste."
-              }
-            ],
-            "oracleText": "All creatures have haste.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Haste"
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "in": "Battlefield",
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "All creatures have haste."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "ff01b408-6d17-40a3-9efd-a1b341ec1307",
-        "name": "Concordant Crossroads",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Concordant Crossroads",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [
-                "World"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Haste",
-                  "of": {}
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "All creatures have haste."
-              }
-            ],
-            "oracleText": "All creatures have haste.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Haste",
-                  "of": {}
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "All creatures have haste."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

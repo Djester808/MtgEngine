@@ -605,7 +605,7 @@
                         "n": 1
                       },
                       "upTo": false,
-                      "key": "copytarget",
+                      "key": "k1",
                       "distinct": true
                     },
                     "isLegendary": false
@@ -721,7 +721,7 @@
                         "n": 1
                       },
                       "upTo": false,
-                      "key": "copytarget",
+                      "key": "k1",
                       "distinct": true
                     },
                     "isLegendary": false

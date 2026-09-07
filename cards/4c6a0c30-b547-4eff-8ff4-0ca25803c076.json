@@ -53,9 +53,6 @@
                       "landCouldProduce": false,
                       "anyType": false,
                       "restriction": false
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   },
                   "timing": "Any",
@@ -120,7 +117,6 @@
                             "power": {
                               "kind": "CountOf",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Artifact"
                                 ],
@@ -132,7 +128,6 @@
                             "toughness": {
                               "kind": "CountOf",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Artifact"
                                 ],
@@ -151,9 +146,6 @@
                         }
                       ],
                       "isPredefined": false
-                    },
-                    "who": {
-                      "kind": "You"
                     },
                     "tapped": false,
                     "attacking": false
@@ -198,9 +190,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -243,9 +232,6 @@
                       "landCouldProduce": false,
                       "anyType": false,
                       "restriction": false
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   },
                   "timing": "Any",
@@ -310,7 +296,6 @@
                             "power": {
                               "kind": "CountOf",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Artifact"
                                 ],
@@ -322,7 +307,6 @@
                             "toughness": {
                               "kind": "CountOf",
                               "filter": {
-                                "in": "Battlefield",
                                 "types": [
                                   "Artifact"
                                 ],
@@ -341,9 +325,6 @@
                         }
                       ],
                       "isPredefined": false
-                    },
-                    "who": {
-                      "kind": "You"
                     },
                     "tapped": false,
                     "attacking": false
@@ -388,9 +369,6 @@
                 }
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -469,9 +447,6 @@
                           "landCouldProduce": false,
                           "anyType": false,
                           "restriction": false
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       },
                       "timing": "Any",
@@ -536,7 +511,6 @@
                                 "power": {
                                   "kind": "CountOf",
                                   "filter": {
-                                    "in": "Battlefield",
                                     "types": [
                                       "Artifact"
                                     ],
@@ -548,7 +522,6 @@
                                 "toughness": {
                                   "kind": "CountOf",
                                   "filter": {
-                                    "in": "Battlefield",
                                     "types": [
                                       "Artifact"
                                     ],
@@ -567,9 +540,6 @@
                             }
                           ],
                           "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "You"
                         },
                         "tapped": false,
                         "attacking": false
@@ -614,9 +584,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -659,9 +626,6 @@
                           "landCouldProduce": false,
                           "anyType": false,
                           "restriction": false
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       },
                       "timing": "Any",
@@ -726,7 +690,6 @@
                                 "power": {
                                   "kind": "CountOf",
                                   "filter": {
-                                    "in": "Battlefield",
                                     "types": [
                                       "Artifact"
                                     ],
@@ -738,7 +701,6 @@
                                 "toughness": {
                                   "kind": "CountOf",
                                   "filter": {
-                                    "in": "Battlefield",
                                     "types": [
                                       "Artifact"
                                     ],
@@ -757,9 +719,6 @@
                             }
                           ],
                           "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "You"
                         },
                         "tapped": false,
                         "attacking": false
@@ -804,9 +763,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -1011,9 +967,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -1192,9 +1145,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,

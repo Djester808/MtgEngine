@@ -28,7 +28,6 @@
                 {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -43,9 +42,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -79,7 +75,6 @@
                 {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -94,9 +89,6 @@
                     }
                   },
                   "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -161,7 +153,6 @@
                     {
                       "kind": "Search",
                       "for": {
-                        "in": "Library",
                         "types": [
                           "Creature"
                         ],
@@ -176,9 +167,6 @@
                         }
                       },
                       "to": "Battlefield",
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": false,
@@ -212,7 +200,6 @@
                     {
                       "kind": "Search",
                       "for": {
-                        "in": "Library",
                         "types": [
                           "Creature"
                         ],
@@ -227,9 +214,6 @@
                         }
                       },
                       "to": "Battlefield",
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": false,
@@ -298,9 +282,6 @@
                         }
                       },
                       "to": "Battlefield",
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": false,
@@ -309,9 +290,6 @@
                     },
                     {
                       "kind": "Shuffle",
-                      "who": {
-                        "kind": "You"
-                      },
                       "intoLibrary": {
                         "kind": "Self"
                       }
@@ -345,9 +323,6 @@
                         }
                       },
                       "to": "Battlefield",
-                      "who": {
-                        "kind": "You"
-                      },
                       "from": "Library",
                       "where": "Default",
                       "reveal": false,
@@ -356,9 +331,6 @@
                     },
                     {
                       "kind": "Shuffle",
-                      "who": {
-                        "kind": "You"
-                      },
                       "intoLibrary": {
                         "kind": "Self"
                       }

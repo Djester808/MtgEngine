@@ -45,9 +45,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -87,9 +84,6 @@
                 ]
               },
               "to": "Battlefield",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -105,222 +99,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "31f15274-301b-47c5-ba19-0ced04520878",
-        "name": "Wayfarer\u0027s Bauble",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Wayfarer\u0027s Bauble",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
-              }
-            ],
-            "oracleText": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "31f15274-301b-47c5-ba19-0ced04520878",
-        "name": "Wayfarer\u0027s Bauble",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Wayfarer\u0027s Bauble",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
-              }
-            ],
-            "oracleText": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  },
-                  {
-                    "kind": "SacrificeSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}, Sacrifice this artifact: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

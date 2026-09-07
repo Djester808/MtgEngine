@@ -30,14 +30,13 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "anyTypes": [
                         "Artifact",
                         "Enchantment"
                       ]
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -52,7 +51,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   }
                 }
@@ -73,14 +72,13 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "anyTypes": [
                         "Artifact",
                         "Enchantment"
                       ]
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -95,7 +93,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   }
                 }
@@ -107,230 +105,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "6d4e558e-9109-4918-a082-fdcbaffd516b",
-        "name": "Nature\u0027s Claim",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nature\u0027s Claim",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "in": "Battlefield",
-                          "anyTypes": [
-                            "Artifact",
-                            "Enchantment"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "perm",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 4
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "perm"
-                        }
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy target artifact or enchantment. Its controller gains 4 life."
-              }
-            ],
-            "oracleText": "Destroy target artifact or enchantment. Its controller gains 4 life.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "in": "Battlefield",
-                          "anyTypes": [
-                            "Artifact",
-                            "Enchantment"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "perm",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 4
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "perm"
-                        }
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy target artifact or enchantment. Its controller gains 4 life."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "6d4e558e-9109-4918-a082-fdcbaffd516b",
-        "name": "Nature\u0027s Claim",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nature\u0027s Claim",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Enchantment"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "destroyed",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 4
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "destroyed"
-                        }
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy target artifact or enchantment. Its controller gains 4 life."
-              }
-            ],
-            "oracleText": "Destroy target artifact or enchantment. Its controller gains 4 life.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Enchantment"
-                          ]
-                        },
-                        "upTo": false,
-                        "key": "destroyed",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 4
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "destroyed"
-                        }
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy target artifact or enchantment. Its controller gains 4 life."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

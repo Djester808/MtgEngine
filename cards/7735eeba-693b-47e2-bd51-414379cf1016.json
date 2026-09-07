@@ -30,11 +30,10 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -61,7 +60,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   },
                   "tapped": false,
@@ -84,11 +83,10 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Battlefield",
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "cantBeRegenerated": false
@@ -115,7 +113,7 @@
                     "kind": "ControllerOf",
                     "of": {
                       "kind": "Remembered",
-                      "key": "perm"
+                      "key": "k1"
                     }
                   },
                   "tapped": false,
@@ -169,11 +167,10 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Battlefield",
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "perm",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -200,7 +197,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "perm"
+                          "key": "k1"
                         }
                       },
                       "tapped": false,
@@ -223,11 +220,10 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Battlefield",
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "perm",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -254,7 +250,7 @@
                         "kind": "ControllerOf",
                         "of": {
                           "kind": "Remembered",
-                          "key": "perm"
+                          "key": "k1"
                         }
                       },
                       "tapped": false,
@@ -301,7 +297,7 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "permanent",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -332,7 +328,7 @@
                             "permanent": true
                           },
                           "upTo": false,
-                          "key": "permanent",
+                          "key": "k1",
                           "distinct": true
                         }
                       },
@@ -359,7 +355,7 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "permanent",
+                        "key": "k1",
                         "distinct": true
                       },
                       "cantBeRegenerated": false
@@ -390,7 +386,7 @@
                             "permanent": true
                           },
                           "upTo": false,
-                          "key": "permanent",
+                          "key": "k1",
                           "distinct": true
                         }
                       },

@@ -29,7 +29,6 @@
             "kind": "KeywordAbility",
             "keyword": "Enchant",
             "of": {
-              "in": "Battlefield",
               "subtypes": [
                 "Forest"
               ]
@@ -49,10 +48,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -81,7 +77,7 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": true,
-                "chosenColorKey": "color",
+                "chosenColorKey": "k1",
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
@@ -110,7 +106,6 @@
             "kind": "KeywordAbility",
             "keyword": "Enchant",
             "of": {
-              "in": "Battlefield",
               "subtypes": [
                 "Forest"
               ]
@@ -130,10 +125,7 @@
             "with": {
               "kind": "ChooseValue",
               "what": "Color",
-              "key": "color",
-              "who": {
-                "kind": "You"
-              }
+              "key": "k1"
             },
             "optional": false,
             "where": "Battlefield",
@@ -162,7 +154,7 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": true,
-                "chosenColorKey": "color",
+                "chosenColorKey": "k1",
                 "colorOfAttachedOrTarget": false,
                 "landCouldProduce": false,
                 "anyType": false,
@@ -229,7 +221,6 @@
                 "kind": "KeywordAbility",
                 "keyword": "Enchant",
                 "of": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Forest"
                   ]
@@ -249,10 +240,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -281,7 +269,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -310,7 +298,6 @@
                 "kind": "KeywordAbility",
                 "keyword": "Enchant",
                 "of": {
-                  "in": "Battlefield",
                   "subtypes": [
                     "Forest"
                   ]
@@ -330,10 +317,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -362,7 +346,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -436,10 +420,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -469,7 +450,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,
@@ -514,10 +495,7 @@
                 "with": {
                   "kind": "ChooseValue",
                   "what": "Color",
-                  "key": "color",
-                  "who": {
-                    "kind": "You"
-                  }
+                  "key": "k1"
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -547,7 +525,7 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": true,
-                    "chosenColorKey": "color",
+                    "chosenColorKey": "k1",
                     "colorOfAttachedOrTarget": false,
                     "landCouldProduce": false,
                     "anyType": false,

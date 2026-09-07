@@ -52,7 +52,6 @@
                   {
                     "kind": "Sacrifice",
                     "choice": {
-                      "in": "Battlefield",
                       "anyTypes": [
                         "Artifact",
                         "Creature",
@@ -64,10 +63,7 @@
                         "kind": "You"
                       }
                     },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "rememberAs": "sacrificed"
+                    "rememberAs": "k1"
                   },
                   {
                     "kind": "ForEachPlayer",
@@ -84,7 +80,6 @@
                         "do": {
                           "kind": "Sacrifice",
                           "choice": {
-                            "in": "Battlefield",
                             "controlledBy": {
                               "kind": "TriggeringPlayer"
                             },
@@ -93,7 +88,7 @@
                               "kind": "SharesTypeWith",
                               "with": {
                                 "kind": "Remembered",
-                                "key": "sacrificed"
+                                "key": "k1"
                               },
                               "creatureTypeOnly": false
                             }
@@ -123,9 +118,6 @@
                               "n": {
                                 "kind": "Fixed",
                                 "n": 1
-                              },
-                              "who": {
-                                "kind": "You"
                               }
                             }
                           ]
@@ -134,9 +126,6 @@
                     }
                   }
                 ]
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -164,7 +153,6 @@
                   {
                     "kind": "Sacrifice",
                     "choice": {
-                      "in": "Battlefield",
                       "anyTypes": [
                         "Artifact",
                         "Creature",
@@ -176,10 +164,7 @@
                         "kind": "You"
                       }
                     },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "rememberAs": "sacrificed"
+                    "rememberAs": "k1"
                   },
                   {
                     "kind": "ForEachPlayer",
@@ -196,7 +181,6 @@
                         "do": {
                           "kind": "Sacrifice",
                           "choice": {
-                            "in": "Battlefield",
                             "controlledBy": {
                               "kind": "TriggeringPlayer"
                             },
@@ -205,7 +189,7 @@
                               "kind": "SharesTypeWith",
                               "with": {
                                 "kind": "Remembered",
-                                "key": "sacrificed"
+                                "key": "k1"
                               },
                               "creatureTypeOnly": false
                             }
@@ -235,9 +219,6 @@
                               "n": {
                                 "kind": "Fixed",
                                 "n": 1
-                              },
-                              "who": {
-                                "kind": "You"
                               }
                             }
                           ]
@@ -246,9 +227,6 @@
                     }
                   }
                 ]
-              },
-              "who": {
-                "kind": "You"
               }
             },
             "optional": false,
@@ -322,7 +300,6 @@
                       {
                         "kind": "Sacrifice",
                         "choice": {
-                          "in": "Battlefield",
                           "anyTypes": [
                             "Artifact",
                             "Creature",
@@ -334,10 +311,7 @@
                             "kind": "You"
                           }
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "ForEachPlayer",
@@ -354,7 +328,6 @@
                             "do": {
                               "kind": "Sacrifice",
                               "choice": {
-                                "in": "Battlefield",
                                 "controlledBy": {
                                   "kind": "TriggeringPlayer"
                                 },
@@ -363,7 +336,7 @@
                                   "kind": "SharesTypeWith",
                                   "with": {
                                     "kind": "Remembered",
-                                    "key": "sacrificed"
+                                    "key": "k1"
                                   },
                                   "creatureTypeOnly": false
                                 }
@@ -393,9 +366,6 @@
                                   "n": {
                                     "kind": "Fixed",
                                     "n": 1
-                                  },
-                                  "who": {
-                                    "kind": "You"
                                   }
                                 }
                               ]
@@ -404,9 +374,6 @@
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -434,7 +401,6 @@
                       {
                         "kind": "Sacrifice",
                         "choice": {
-                          "in": "Battlefield",
                           "anyTypes": [
                             "Artifact",
                             "Creature",
@@ -446,10 +412,7 @@
                             "kind": "You"
                           }
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "ForEachPlayer",
@@ -466,7 +429,6 @@
                             "do": {
                               "kind": "Sacrifice",
                               "choice": {
-                                "in": "Battlefield",
                                 "controlledBy": {
                                   "kind": "TriggeringPlayer"
                                 },
@@ -475,7 +437,7 @@
                                   "kind": "SharesTypeWith",
                                   "with": {
                                     "kind": "Remembered",
-                                    "key": "sacrificed"
+                                    "key": "k1"
                                   },
                                   "creatureTypeOnly": false
                                 }
@@ -505,9 +467,6 @@
                                   "n": {
                                     "kind": "Fixed",
                                     "n": 1
-                                  },
-                                  "who": {
-                                    "kind": "You"
                                   }
                                 }
                               ]
@@ -516,9 +475,6 @@
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -593,10 +549,7 @@
                             "kind": "You"
                           }
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "ForEachPlayer",
@@ -619,7 +572,7 @@
                                     "kind": "SharesTypeWith",
                                     "with": {
                                       "kind": "Remembered",
-                                      "key": "sacrificed"
+                                      "key": "k1"
                                     },
                                     "creatureTypeOnly": false
                                   }
@@ -631,7 +584,7 @@
                               "who": {
                                 "kind": "TriggeringPlayer"
                               },
-                              "storeChoiceAs": "opp_sac_choice"
+                              "storeChoiceAs": "k2"
                             },
                             {
                               "kind": "If",
@@ -639,7 +592,7 @@
                                 "kind": "NotCondition",
                                 "of": {
                                   "kind": "ChoiceIs",
-                                  "key": "opp_sac_choice",
+                                  "key": "k2",
                                   "value": "yes"
                                 }
                               },
@@ -661,9 +614,6 @@
                                     "n": {
                                       "kind": "Fixed",
                                       "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "You"
                                     }
                                   }
                                 ]
@@ -673,9 +623,6 @@
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,
@@ -714,10 +661,7 @@
                             "kind": "You"
                           }
                         },
-                        "who": {
-                          "kind": "You"
-                        },
-                        "rememberAs": "sacrificed"
+                        "rememberAs": "k1"
                       },
                       {
                         "kind": "ForEachPlayer",
@@ -740,7 +684,7 @@
                                     "kind": "SharesTypeWith",
                                     "with": {
                                       "kind": "Remembered",
-                                      "key": "sacrificed"
+                                      "key": "k1"
                                     },
                                     "creatureTypeOnly": false
                                   }
@@ -752,7 +696,7 @@
                               "who": {
                                 "kind": "TriggeringPlayer"
                               },
-                              "storeChoiceAs": "opp_sac_choice"
+                              "storeChoiceAs": "k2"
                             },
                             {
                               "kind": "If",
@@ -760,7 +704,7 @@
                                 "kind": "NotCondition",
                                 "of": {
                                   "kind": "ChoiceIs",
-                                  "key": "opp_sac_choice",
+                                  "key": "k2",
                                   "value": "yes"
                                 }
                               },
@@ -782,9 +726,6 @@
                                     "n": {
                                       "kind": "Fixed",
                                       "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "You"
                                     }
                                   }
                                 ]
@@ -794,9 +735,6 @@
                         }
                       }
                     ]
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 },
                 "optional": false,

@@ -37,9 +37,6 @@
                 "kind": "Fixed",
                 "n": 2
               },
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Default",
               "reveal": false,
@@ -55,10 +52,7 @@
             "what": {
               "types": [
                 "Land"
-              ],
-              "controlledBy": {
-                "kind": "You"
-              }
+              ]
             },
             "count": {
               "kind": "Fixed",
@@ -84,9 +78,6 @@
               "upTo": {
                 "kind": "Fixed",
                 "n": 2
-              },
-              "who": {
-                "kind": "You"
               },
               "from": "Library",
               "where": "Default",
@@ -147,9 +138,6 @@
                     "kind": "Fixed",
                     "n": 2
                   },
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -165,10 +153,7 @@
                 "what": {
                   "types": [
                     "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+                  ]
                 },
                 "count": {
                   "kind": "Fixed",
@@ -194,9 +179,6 @@
                   "upTo": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   },
                   "from": "Library",
                   "where": "Default",

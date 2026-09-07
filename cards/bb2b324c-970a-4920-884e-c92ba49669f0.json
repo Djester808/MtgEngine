@@ -40,7 +40,7 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {
@@ -55,7 +55,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "perm"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -66,9 +66,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -98,7 +95,7 @@
                       "permanent": true
                     },
                     "upTo": false,
-                    "key": "perm",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {
@@ -113,7 +110,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "perm"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -124,9 +121,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -187,7 +181,7 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "perm",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -202,7 +196,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "perm"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -213,9 +207,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]
@@ -245,7 +236,7 @@
                           "permanent": true
                         },
                         "upTo": false,
-                        "key": "perm",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -260,7 +251,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "perm"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -271,9 +262,6 @@
                       "n": {
                         "kind": "Fixed",
                         "n": 2
-                      },
-                      "who": {
-                        "kind": "You"
                       }
                     }
                   ]

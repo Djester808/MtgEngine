@@ -92,7 +92,7 @@
                       }
                     },
                     "upTo": false,
-                    "key": "boosted",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {
@@ -107,7 +107,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "boosted"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -193,7 +193,7 @@
                       }
                     },
                     "upTo": false,
-                    "key": "boosted",
+                    "key": "k1",
                     "distinct": true
                   },
                   "until": {
@@ -208,7 +208,7 @@
                   },
                   "to": {
                     "kind": "Remembered",
-                    "key": "boosted"
+                    "key": "k1"
                   },
                   "until": {
                     "kind": "UntilEndOfTurn"
@@ -327,7 +327,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "boosted",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -342,7 +342,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "boosted"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -428,7 +428,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "boosted",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -443,7 +443,7 @@
                       },
                       "to": {
                         "kind": "Remembered",
-                        "key": "boosted"
+                        "key": "k1"
                       },
                       "until": {
                         "kind": "UntilEndOfTurn"
@@ -550,7 +550,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -574,7 +574,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -659,7 +659,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {
@@ -683,7 +683,7 @@
                           }
                         },
                         "upTo": false,
-                        "key": "target",
+                        "key": "k1",
                         "distinct": true
                       },
                       "until": {

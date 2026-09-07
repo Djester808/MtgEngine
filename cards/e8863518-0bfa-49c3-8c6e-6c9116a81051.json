@@ -25,7 +25,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -34,9 +33,6 @@
                 }
               },
               "to": "Library",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Top",
               "reveal": true,
@@ -53,7 +49,6 @@
             "do": {
               "kind": "Search",
               "for": {
-                "in": "Library",
                 "types": [
                   "Creature"
                 ],
@@ -62,9 +57,6 @@
                 }
               },
               "to": "Library",
-              "who": {
-                "kind": "You"
-              },
               "from": "Library",
               "where": "Top",
               "reveal": true,
@@ -112,7 +104,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -121,9 +112,6 @@
                     }
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,
@@ -140,7 +128,6 @@
                 "do": {
                   "kind": "Search",
                   "for": {
-                    "in": "Library",
                     "types": [
                       "Creature"
                     ],
@@ -149,9 +136,6 @@
                     }
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,
@@ -194,9 +178,6 @@
                     ]
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,
@@ -218,9 +199,6 @@
                     ]
                   },
                   "to": "Library",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Top",
                   "reveal": true,

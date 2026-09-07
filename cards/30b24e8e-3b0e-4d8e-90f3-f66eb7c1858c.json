@@ -278,7 +278,6 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -296,7 +295,7 @@
                       "n": 1
                     },
                     "upTo": false,
-                    "key": "returned",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Hand",
@@ -320,7 +319,6 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "in": "Battlefield",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -338,7 +336,7 @@
                       "n": 1
                     },
                     "upTo": false,
-                    "key": "returned",
+                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Hand",

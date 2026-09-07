@@ -27,7 +27,6 @@
               "what": {
                 "kind": "ManaProducesAdditional",
                 "sources": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -56,7 +55,6 @@
               "what": {
                 "kind": "ManaProducesAdditional",
                 "sources": {
-                  "in": "Battlefield",
                   "types": [
                     "Land"
                   ],
@@ -116,7 +114,6 @@
                   "what": {
                     "kind": "ManaProducesAdditional",
                     "sources": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],
@@ -145,7 +142,6 @@
                   "what": {
                     "kind": "ManaProducesAdditional",
                     "sources": {
-                      "in": "Battlefield",
                       "types": [
                         "Land"
                       ],

@@ -46,7 +46,7 @@
                 "distinct": true
               },
               "faceDown": false,
-              "rememberAs": "exiled"
+              "rememberAs": "k1"
             },
             "optional": true,
             "where": "Battlefield",
@@ -65,7 +65,7 @@
                   "kind": "SharesNameWith",
                   "with": {
                     "kind": "Remembered",
-                    "key": "exiled"
+                    "key": "k1"
                   }
                 }
               }
@@ -127,7 +127,7 @@
                 "distinct": true
               },
               "faceDown": false,
-              "rememberAs": "exiled"
+              "rememberAs": "k1"
             },
             "optional": true,
             "where": "Battlefield",
@@ -146,7 +146,7 @@
                   "kind": "SharesNameWith",
                   "with": {
                     "kind": "Remembered",
-                    "key": "exiled"
+                    "key": "k1"
                   }
                 }
               }
@@ -241,7 +241,7 @@
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k1"
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -260,7 +260,7 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "exiled"
+                        "key": "k1"
                       }
                     }
                   }
@@ -322,7 +322,7 @@
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k1"
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -341,7 +341,7 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "exiled"
+                        "key": "k1"
                       }
                     }
                   }
@@ -421,11 +421,11 @@
                       }
                     },
                     "upTo": false,
-                    "key": "exiledland",
+                    "key": "k1",
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k2"
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -444,7 +444,7 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "exiled"
+                        "key": "k2"
                       }
                     }
                   },
@@ -500,11 +500,11 @@
                       }
                     },
                     "upTo": false,
-                    "key": "exiledland",
+                    "key": "k1",
                     "distinct": true
                   },
                   "faceDown": false,
-                  "rememberAs": "exiled"
+                  "rememberAs": "k2"
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -523,7 +523,7 @@
                       "kind": "SharesNameWith",
                       "with": {
                         "kind": "Remembered",
-                        "key": "exiled"
+                        "key": "k2"
                       }
                     }
                   },

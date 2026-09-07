@@ -43,9 +43,6 @@
                     "kind": "GainLife",
                     "n": {
                       "kind": "X"
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 ]
@@ -79,9 +76,6 @@
                     "kind": "GainLife",
                     "n": {
                       "kind": "X"
-                    },
-                    "who": {
-                      "kind": "You"
                     }
                   }
                 ]
@@ -146,9 +140,6 @@
                         "kind": "GainLife",
                         "n": {
                           "kind": "X"
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     ]
@@ -182,9 +173,6 @@
                         "kind": "GainLife",
                         "n": {
                           "kind": "X"
-                        },
-                        "who": {
-                          "kind": "You"
                         }
                       }
                     ]
@@ -223,7 +211,7 @@
                   "steps": [
                     {
                       "kind": "Store",
-                      "key": "lifelost",
+                      "key": "k1",
                       "value": {
                         "kind": "Fixed",
                         "n": 0
@@ -248,12 +236,12 @@
                           },
                           {
                             "kind": "Store",
-                            "key": "lifelost",
+                            "key": "k1",
                             "value": {
                               "kind": "Sum",
                               "left": {
                                 "kind": "Stored",
-                                "key": "lifelost"
+                                "key": "k1"
                               },
                               "right": {
                                 "kind": "X"
@@ -267,10 +255,7 @@
                       "kind": "GainLife",
                       "n": {
                         "kind": "Stored",
-                        "key": "lifelost"
-                      },
-                      "who": {
-                        "kind": "You"
+                        "key": "k1"
                       }
                     }
                   ]
@@ -287,7 +272,7 @@
                   "steps": [
                     {
                       "kind": "Store",
-                      "key": "lifelost",
+                      "key": "k1",
                       "value": {
                         "kind": "Fixed",
                         "n": 0
@@ -312,12 +297,12 @@
                           },
                           {
                             "kind": "Store",
-                            "key": "lifelost",
+                            "key": "k1",
                             "value": {
                               "kind": "Sum",
                               "left": {
                                 "kind": "Stored",
-                                "key": "lifelost"
+                                "key": "k1"
                               },
                               "right": {
                                 "kind": "X"
@@ -331,10 +316,7 @@
                       "kind": "GainLife",
                       "n": {
                         "kind": "Stored",
-                        "key": "lifelost"
-                      },
-                      "who": {
-                        "kind": "You"
+                        "key": "k1"
                       }
                     }
                   ]

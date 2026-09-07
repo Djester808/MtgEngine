@@ -27,13 +27,8 @@
               "steps": [
                 {
                   "kind": "Search",
-                  "for": {
-                    "in": "Library"
-                  },
+                  "for": {},
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -45,9 +40,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 3
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -64,13 +56,8 @@
               "steps": [
                 {
                   "kind": "Search",
-                  "for": {
-                    "in": "Library"
-                  },
+                  "for": {},
                   "to": "Hand",
-                  "who": {
-                    "kind": "You"
-                  },
                   "from": "Library",
                   "where": "Default",
                   "reveal": false,
@@ -82,9 +69,6 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 3
-                  },
-                  "who": {
-                    "kind": "You"
                   }
                 }
               ]
@@ -95,204 +79,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e62f8d69-a559-4f13-a5c9-5fb750b4af2c",
-        "name": "Grim Tutor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Grim Tutor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{B}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Search",
-                      "for": {
-                        "in": "Library"
-                      },
-                      "to": "Hand",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": false,
-                      "shuffleAfter": true
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    }
-                  ]
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life."
-              }
-            ],
-            "oracleText": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Search",
-                      "for": {
-                        "in": "Library"
-                      },
-                      "to": "Hand",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": false,
-                      "shuffleAfter": true
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    }
-                  ]
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e62f8d69-a559-4f13-a5c9-5fb750b4af2c",
-        "name": "Grim Tutor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Grim Tutor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{B}{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Search",
-                      "for": {},
-                      "to": "Hand",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": false,
-                      "shuffleAfter": true
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    }
-                  ]
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life."
-              }
-            ],
-            "oracleText": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Search",
-                      "for": {},
-                      "to": "Hand",
-                      "who": {
-                        "kind": "You"
-                      },
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": false,
-                      "shuffleAfter": true
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      },
-                      "who": {
-                        "kind": "You"
-                      }
-                    }
-                  ]
-                },
-                "text": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

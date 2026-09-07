@@ -492,7 +492,7 @@
                           "n": 3
                         }
                       },
-                      "storeChoiceAs": "paidLife"
+                      "storeChoiceAs": "k1"
                     },
                     {
                       "kind": "If",
@@ -500,7 +500,7 @@
                         "kind": "NotCondition",
                         "of": {
                           "kind": "ChoiceIs",
-                          "key": "paidLife",
+                          "key": "k1",
                           "value": "yes"
                         }
                       },
@@ -565,7 +565,7 @@
                           "n": 3
                         }
                       },
-                      "storeChoiceAs": "paidLife"
+                      "storeChoiceAs": "k1"
                     },
                     {
                       "kind": "If",
@@ -573,7 +573,7 @@
                         "kind": "NotCondition",
                         "of": {
                           "kind": "ChoiceIs",
-                          "key": "paidLife",
+                          "key": "k1",
                           "value": "yes"
                         }
                       },

@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L003",
-      "message": "\u0027exiled\u0027 is referenced but nothing in this ability produces it.",
+      "message": "\u0027k1\u0027 is referenced but nothing in this ability produces it.",
       "path": "faces[0].abilities[1]"
     }
   ],
