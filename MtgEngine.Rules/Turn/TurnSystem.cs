@@ -1,0 +1,362 @@
+using System.Globalization;
+using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
+using MtgEngine.Rules.State;
+
+namespace MtgEngine.Rules.Turn;
+
+/// <summary>
+/// Turn structure and priority, CR 500 and CR 117.
+/// <para>
+/// The turn order is the player order: the player at turn-order index 0 takes turn 1, and each
+/// turn after that goes to the next player in that order who has not lost the game, CR 103.8
+/// and CR 104.3. Every step of CR 500.1 happens every turn, whether or not anything happens in
+/// it, so the combat steps are stepped through even with no combat; what happens inside them is
+/// the combat system's, CR 506–511.
+/// </para>
+/// <para>
+/// The turn-based actions here are the ones of CR 703.4 that need no other subsystem: untap and
+/// summoning sickness, the draw, the cleanup step, and emptying mana pools. Drawing is the zone
+/// system's; resolving the stack is the casting system's.
+/// </para>
+/// </summary>
+[RuleRef("500")]
+public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITurnSystem
+{
+    /// <summary>The steps of a turn in order, CR 500.1. Main phases have no steps and stand for themselves.</summary>
+    [RuleRef("500.1")]
+    private static readonly ImmutableArray<Step> Order =
+    [
+        Step.Untap,
+        Step.Upkeep,
+        Step.Draw,
+        Step.PrecombatMain,
+        Step.BeginningOfCombat,
+        Step.DeclareAttackers,
+        Step.DeclareBlockers,
+        Step.FirstStrikeCombatDamage,
+        Step.CombatDamage,
+        Step.EndOfCombat,
+        Step.PostcombatMain,
+        Step.End,
+        Step.Cleanup,
+    ];
+
+    public string Name => "turn and priority";
+
+    /// <summary>The starting player takes the first turn, CR 103.8.</summary>
+    [RuleRef("103.8")]
+    public Outcome Begin(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var log = new Log(state);
+
+        // CR 103.8: the starting player is the player at turn-order index 0.
+        BeginTurn(log, new PlayerId(0), 1, extra: false);
+        return log.Done();
+    }
+
+    /// <summary>
+    /// A player passes, CR 117.3d. When every player still in the game has passed in
+    /// succession the top of the stack resolves, or, with an empty stack, the step ends,
+    /// CR 117.4.
+    /// </summary>
+    [RuleRef("117.4")]
+    public Outcome Pass(GameState state, PlayerId player)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // CR 117.3: priority is held by one player at a time, and only they may pass it.
+        if (state.Priority.Holder != player)
+            throw new RefusedException($"{player} does not have priority.", "117.3");
+
+        var log = new Log(state);
+        log.Add(new PriorityPassed(player));
+
+        // CR 104.3: a player who has lost the game is no longer in it, so their pass is not
+        // waited for. CR 117.4 needs every remaining player to have passed in succession.
+        var passed = log.State.Priority.PassedInSuccession;
+        if (InGame(log.State).Any(p => !passed.Contains(p)))
+        {
+            log.Add(new PriorityHandedTo(NextInTurnOrder(log.State, player)));
+            return log.Done();
+        }
+
+        if (log.State.In(ZoneKey.Shared(Zone.Stack)).IsEmpty)
+        {
+            // CR 117.4: with an empty stack the phase or step ends.
+            log.Merge(Advance(log.State));
+            return log.Done();
+        }
+
+        // CR 608.2: the top object of the stack resolves. CR 117.3b: the active player then
+        // receives priority.
+        log.Merge(casting.ResolveTop(log.State));
+        if (log.State.Pending is null && log.State.Outcome is null)
+            GrantPriority(log, log.State.Turn.ActivePlayer);
+        return log.Done();
+    }
+
+    /// <summary>The step ends and the next begins, with the turn-based actions of CR 703.4 in between.</summary>
+    [RuleRef("500.1")]
+    public Outcome Advance(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.Outcome is not null)
+            return Outcome.Unchanged(state);
+
+        var log = new Log(state);
+        switch (state.Turn.Step)
+        {
+            case Step.Cleanup:
+                // A cleanup step that stopped to ask for a discard, CR 514.1, finishes here.
+                FinishCleanup(log);
+                BeginNextTurn(log);
+                return log.Done();
+
+            case Step.Untap:
+                // CR 502.4: no player receives priority during the untap step, so it runs its
+                // actions and the upkeep step follows without anyone being asked.
+                UntapStep(log);
+                EmptyManaPools(log);
+                BeginUpkeep(log);
+                return log.Done();
+
+            default:
+                break;
+        }
+
+        // CR 500.5 and CR 703.4q: as a step ends, unspent mana empties.
+        EmptyManaPools(log);
+
+        var next = Order[Order.IndexOf(state.Turn.Step) + 1];
+        log.Add(new StepBegan(next));
+        if (next == Step.Draw)
+            DrawStep(log);
+
+        if (next == Step.Cleanup)
+        {
+            // CR 514.1 first, and it may stop the game to ask.
+            if (RequestDiscard(log))
+                return log.Done();
+            FinishCleanup(log);
+            BeginNextTurn(log);
+            return log.Done();
+        }
+
+        // CR 117.3a: the active player receives priority at the beginning of every step and
+        // phase but the untap step and, normally, the cleanup step.
+        if (log.State.Pending is null)
+            GrantPriority(log, log.State.Turn.ActivePlayer);
+        return log.Done();
+    }
+
+    /// <summary>A turn begins: the beginning phase's untap step runs, then the upkeep step, CR 501.1.</summary>
+    [RuleRef("501.1")]
+    private void BeginTurn(Log log, PlayerId player, int number, bool extra)
+    {
+        log.Add(new TurnBegan(number, player, extra));
+        log.Add(new StepBegan(Step.Untap));
+        UntapStep(log);
+        EmptyManaPools(log);
+        BeginUpkeep(log);
+    }
+
+    /// <summary>CR 503.1: the upkeep step has no turn-based actions; the active player gets priority.</summary>
+    [RuleRef("503.1")]
+    private static void BeginUpkeep(Log log)
+    {
+        log.Add(new StepBegan(Step.Upkeep));
+        GrantPriority(log, log.State.Turn.ActivePlayer);
+    }
+
+    /// <summary>
+    /// CR 502.3: the active player untaps the permanents they control, all at once. CR 302.6:
+    /// a permanent that has been under its controller's control continuously since their turn
+    /// began is no longer summoning sick.
+    /// </summary>
+    [RuleRef("502.3")]
+    private static void UntapStep(Log log)
+    {
+        var active = log.State.Turn.ActivePlayer;
+        foreach (var permanent in Permanents(log.State, active))
+        {
+            bool? untap = permanent.Tapped ? false : null;
+            bool? ready = permanent.SummoningSick ? false : null;
+            if (untap is not null || ready is not null)
+                log.Add(new ObjectChanged(permanent.Id, Tapped: untap, SummoningSick: ready));
+        }
+    }
+
+    /// <summary>CR 504.1 and CR 703.4d: the active player draws a card. CR 103.8a is the one exception.</summary>
+    [RuleRef("504.1")]
+    private void DrawStep(Log log)
+    {
+        var state = log.State;
+
+        // CR 103.8a: in a two-player game the player who plays first skips the draw step of
+        // their first turn. CR 103.8c: in every other multiplayer game, nobody skips it.
+        if (state.Turn.Number == 1 && !state.Turn.IsExtraTurn && state.Players.Count == 2)
+            return;
+
+        log.Merge(zones.Draw(state, state.Turn.ActivePlayer, 1));
+    }
+
+    /// <summary>
+    /// CR 514.1: the active player discards down to their maximum hand size. Answering the
+    /// question is the choice system's, so the game stops here and the next
+    /// <see cref="Advance"/> finishes the step.
+    /// </summary>
+    [RuleRef("514.1")]
+    private static bool RequestDiscard(Log log)
+    {
+        var state = log.State;
+        var active = state.Turn.ActivePlayer;
+        var hand = ObjectsIn(state, Zone.Hand, active);
+        var over = hand.Count - state.Player(active).MaxHandSize;
+        if (over <= 0)
+            return false;
+
+        var options = hand
+            .Select(o => new ChoiceOption(o.Id.Value.ToString(CultureInfo.InvariantCulture), o.Face.Name, o.Id))
+            .ToImmutableList();
+        log.Add(new ChoiceRequested(new PendingChoice(
+            new ChoiceId(state.NextChoiceId),
+            active,
+            "discard",
+            "Discard down to your maximum hand size.",
+            options,
+            over,
+            over,
+            new ChoiceContext(null, null, null, ImmutableDictionary<string, string>.Empty))));
+        return true;
+    }
+
+    /// <summary>
+    /// CR 514.2: damage marked on permanents is removed and every "until end of turn" effect
+    /// ends, simultaneously. Then the step ends and mana pools empty, CR 500.5.
+    /// </summary>
+    [RuleRef("514.2")]
+    private static void FinishCleanup(Log log)
+    {
+        foreach (var damaged in log.State.Objects.Values.Where(o => o.Damage > 0).OrderBy(o => o.Id.Value).ToList())
+            log.Add(new ObjectChanged(damaged.Id, Damage: 0));
+
+        var ending = log.State.ActiveEffects.Where(e => e.Until is UntilEndOfTurn).Select(e => e.Id).ToImmutableList();
+        if (!ending.IsEmpty)
+            log.Add(new EndOfTurnEffectsEnded(ending));
+
+        EmptyManaPools(log);
+    }
+
+    /// <summary>
+    /// CR 500.7: extra turns are taken first, most recently created first; otherwise the next
+    /// player in turn order who has not lost takes the turn.
+    /// </summary>
+    [RuleRef("500.7")]
+    private void BeginNextTurn(Log log)
+    {
+        var state = log.State;
+        if (state.Outcome is not null)
+            return;
+
+        var number = state.Turn.Number + 1;
+        if (!state.Turn.ExtraTurns.IsEmpty)
+        {
+            var who = state.Turn.ExtraTurns[0];
+            log.Add(new ExtraTurnTaken(who));
+            if (!log.State.Player(who).HasLost)
+            {
+                BeginTurn(log, who, number, extra: true);
+                return;
+            }
+        }
+
+        var next = NextInTurnOrder(log.State, state.Turn.ActivePlayer);
+        if (log.State.Player(next).HasLost)
+            return;
+
+        BeginTurn(log, next, number, extra: false);
+    }
+
+    /// <summary>CR 117.3a and CR 117.3b: a fresh round of priority, which is nobody having passed yet.</summary>
+    [RuleRef("117.3a")]
+    private static void GrantPriority(Log log, PlayerId player)
+    {
+        var holder = log.State.Player(player).HasLost ? NextInTurnOrder(log.State, player) : player;
+        log.Add(new PriorityGranted(holder));
+    }
+
+    /// <summary>CR 500.5 and CR 703.4q: as each step and phase ends, unspent mana empties.</summary>
+    [RuleRef("500.5")]
+    private static void EmptyManaPools(Log log)
+    {
+        foreach (var player in InGame(log.State))
+            log.Add(new ManaPoolEmptied(player));
+    }
+
+    private static ImmutableList<PlayerId> InGame(GameState state) =>
+        [.. state.Players.Where(p => !p.HasLost).Select(p => p.Id)];
+
+    /// <summary>The next player in turn order who is still in the game, CR 103.8 and CR 104.3.</summary>
+    [RuleRef("104.3")]
+    private static PlayerId NextInTurnOrder(GameState state, PlayerId from)
+    {
+        var count = state.Players.Count;
+        for (var i = 1; i <= count; i++)
+        {
+            var candidate = new PlayerId((from.Value + i) % count);
+            if (!state.Player(candidate).HasLost)
+                return candidate;
+        }
+
+        return from;
+    }
+
+    /// <summary>
+    /// The permanents a player controls, CR 110.1. Control is a characteristic the layer
+    /// system computes, CR 613, and this seam is given only the zone and casting systems, so
+    /// the stored controller is what is available here; a control-change effect is CR 613's to
+    /// report once that subsystem lands.
+    /// </summary>
+    [RuleRef("110.1")]
+    private static List<GameObject> Permanents(GameState state, PlayerId controller) =>
+        [.. state.Objects.Values
+            .Where(o => o.Zone.Zone == Zone.Battlefield && o.InitialController == controller)
+            .OrderBy(o => o.Id.Value)];
+
+    /// <summary>The objects in one of a player's own zones, whether the zone is keyed by player or shared.</summary>
+    private static List<GameObject> ObjectsIn(GameState state, Zone zone, PlayerId player) =>
+        [.. state.Objects.Values
+            .Where(o => o.Zone.Zone == zone && (o.Zone.Player == player || (o.Zone.Player is null && o.Owner == player)))
+            .OrderBy(o => o.Id.Value)];
+
+    /// <summary>
+    /// Events and the state they produce, kept together so every helper appends rather than
+    /// threading a pair through. Each event is folded as it is added, so a later helper reads
+    /// what the earlier ones did.
+    /// </summary>
+    private sealed class Log(GameState state)
+    {
+        private GameState _state = state;
+        private ImmutableList<GameEvent> _events = [];
+
+        public GameState State => _state;
+
+        public void Add(GameEvent e)
+        {
+            _events = _events.Add(e);
+            _state = e.Apply(_state);
+        }
+
+        /// <summary>Take another subsystem's outcome: its events, and the state it folded them into.</summary>
+        public void Merge(Outcome outcome)
+        {
+            _events = _events.AddRange(outcome.Events);
+            _state = outcome.State;
+        }
+
+        public Outcome Done() => new(_state, _events);
+    }
+}
