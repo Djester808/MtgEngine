@@ -372,6 +372,16 @@ start with. It is a wave-2 client task if wanted, not a dependency of anything.
 - **After the pilot** (day 1, the first 200 deck faces through P1–P3): if the two
   translators agree on fewer than 80% of ordinary deck cards, the vocabulary is redesigned
   before anything else scales. Two hours to find out.
+  - **Measured 2026-09-07** (`.agents/pilot-200/report.md`, readings unrepaired because the API
+    credit balance ran out): opus parsed 191/200 and linted clean 167/200, sonnet 181 and 166;
+    both clean 160/200. Identical readings: 31/200 raw; **87/200 (54% of both-clean) after
+    two canonical passes** that strip contextual defaults, renumber keys and collapse
+    redundant spellings (`seam-requests/DECISIONS.md`, waves 3–4). What remains is translator
+    structure — how a sentence is split into steps, remember-versus-target, which condition
+    construct — not inexpressibility: unsupported markers were 11% and 6%, and every one is
+    now a record (V3). Decision taken: **no vocabulary redesign**; the "one spelling" rules are
+    in the translator's reference, and the 80% bar is re-measured on canonical agreement after
+    a re-translation of the same 200 faces, which waits on credits (~$19 a run).
 - **After wave 1**: if any two builders' work merges cleanly and fails at runtime together,
   the seam was wrong; unify before wave 2, do not patch.
 - **After the first verify round**: if more than a tenth of `Verified` cards are refuted,

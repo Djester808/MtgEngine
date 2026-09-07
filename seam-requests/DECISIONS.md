@@ -100,3 +100,24 @@ Requests from `seam-requests/E9b.md`, `E8b.md`, `E3b.md`, `E2b.md`, `V2.md`, `EI
 | P4 | the pipeline cannot reach `EventLogSerializer.EngineHash()` | **Accepted**: the verify stage takes the hash as an argument; the `pipeline verify` command (wave 4, P7) passes it. |
 | C2 | `ImplementationStatus` serialised as the enum name; coverage's disputed shape; a batch implementations endpoint | **Now for the names** (the API's JSON options already write enum names — verify at the first live render); batch endpoint **wave 4 (P7)**. |
 | E9b | `tools/build.sh` appended `.Tests` to a test project's own name | **Now.** |
+
+# Seam decisions after wave 4
+
+Requests from `seam-requests/E1b.md`, `E9c.md`, `E14b.md`, `V3.md`, `P6.md`, `P6b.md` (P7's when it
+lands). "Now" landed in "Seams after wave 4" (`9dc935d`).
+
+| From | Request | Decision |
+|---|---|---|
+| E1b | `Wave2()` sets `zones.Replacements` | **Now.** Every move, draw and token is offered to the replacement system in a game (614.1c, 616.1). |
+| E1b | `IZoneSystem.Move` with a face index (712.12) | **Now, as a second interface member** with every parameter required and a throwing default, so a three-argument call still binds to the old form and no fake changes; the zone system implements it. |
+| E1b | `IZoneSystem.CreateToken(CopiableValues, …)` | **Now**, the same way. The interpreter's own copy-token arm becomes a call to it — **wave 5 (E9d)**. |
+| E1b | `EffectInterpreter.Propose` never set `Halted` | **Done by E9c** in the same wave. |
+| E9c | `IInterpreter.Run(…, int? abilityIndex)` | **Now, as a second member** defaulting to the three-argument walk; the interpreter keeps the index, the forwarding handle forwards it, and the replacement system passes the index of the `ReplacementAbility` it is running. |
+| E9c | `PutPlayerCounters` and `AddMana` are not proposed | **Accepted.** No `ReplacedEvent` matches the first; mana needs both emitters to change together — **wave 5** with the mana subsystem. |
+| E14b | `LegalActions` takes the combat system | **Now**, in both compositions. |
+| V3 | retire `ManaProduction.Restriction`/`RestrictedTo` now that `AddMana.SpendOnlyOn` exists | **Wave 5.** The reference tells the translator to use `SpendOnlyOn`; the linter warns on the free-text field; the two pilot cards that carry prose there are re-translated when credits allow, not migrated by hand. |
+| V3 | `PlayerCant` overlaps `CantLoseGame`/`CantGainLife`/`CantWinGame` | **Keep the three specific records as the spelling** for those three restrictions; the canonicaliser collapses `PlayerCant` of one of them into the specific record (**wave 5, P6c**); `PlayerCant` stays for the rest. |
+| V3 | evaluator arms owed: query (`TimesKicked`, `InCombat`, `AttackedThisTurn`, `Devotion.ChosenColorKey`, `GiftPromised`, `IsPrepared`), casting (`PayManaCost`, `Repeatable`, `SpendOnlyOn`, `PayOnlyWith`, `KeywordAbility.Costs`, the gift promise), interpreter (`PayCost`, `Search.Zones`, `Prepare`/`Unprepare`, `DistributeCounters`, `ChangeTarget`, `Flip`), layers and SBA (`PlayerCant`, `PlayerProtectionFromEverything`) | **Wave 5** (E0b, E3c, E9d, E7b/E5c), one builder per folder, the pilot's Unsupported reasons as their test list. |
+| P6, P6b | an `AnyTarget` spelling in the vocabulary | **Wave 5 (V4)**, with the canonical collapse P6b wrote down. |
+| P6 | the pilot prints `AgreeReport.Of(results).Text()` | **Wave 5 (P7 or P8)**; the pilot files belong to P7 this wave. |
+| coordinator | the 200-face agreement after two canonical passes is 87/200, 54% among both-clean; the rest is translator structure (step splitting, remember-versus-target, condition construct, unsupported-versus-real) | **The 80% bar is judged on canonical agreement after a re-translation with the "one spelling" rules now in the reference**, which needs API credits; no vocabulary redesign. |
