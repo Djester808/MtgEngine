@@ -135,7 +135,11 @@ public sealed partial class LayerSystem
     /// </summary>
     private bool Matches(GameState state, ObjectFilter filter, GameObject candidate, GameObject source, PlayerId controller)
     {
-        Unsupported(filter);
+        // CR 611.3a with 613.1: the effect applies to whatever the filter admits now, so a field
+        // this matcher does not read is asked of the query rather than refused (Layers.Matcher.cs).
+        if (NeedsQuery(filter))
+            return MatchesThroughQuery(state, filter, candidate, source, controller);
+
         if (candidate.Zone.Zone != (filter.In ?? Zone.Battlefield))
             return false;
         if (filter.Other == true && candidate.Id == source.Id)
@@ -210,29 +214,6 @@ public sealed partial class LayerSystem
         chars.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase)
         || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
 
-    /// <summary>The parts of a filter this matcher cannot answer without the query layer, named rather than ignored.</summary>
-    private static void Unsupported(ObjectFilter filter)
-    {
-        string? missing =
-            filter.Also is not null ? nameof(filter.Also)
-            : filter.ManaValue is not null ? nameof(filter.ManaValue)
-            : filter.Attacking is not null ? nameof(filter.Attacking)
-            : filter.Blocking is not null ? nameof(filter.Blocking)
-            : filter.Blocked is not null ? nameof(filter.Blocked)
-            : filter.Historic is not null ? nameof(filter.Historic)
-            : filter.Outlaw is not null ? nameof(filter.Outlaw)
-            : filter.Spell is not null ? nameof(filter.Spell)
-            : filter.IsCommander is not null ? nameof(filter.IsCommander)
-            : null;
-
-        if (missing is not null)
-        {
-            throw new RefusedException(
-                $"A static ability's filter used {missing}, which the layer system's matcher does not answer.",
-                "611.3a");
-        }
-    }
-
     /// <summary>"You" is the controller of the ability whose effect this is, CR 109.5.</summary>
     [RuleRef("109.5")]
     private static bool IsPlayer(GameState state, PlayerRef who, PlayerId candidate, PlayerId controller) => who switch
@@ -247,9 +228,9 @@ public sealed partial class LayerSystem
     };
 
     /// <summary>
-    /// A filter's comparison against a literal. A comparison against a counted amount inside a
-    /// static ability's filter would be read through the query, whose reading of every object
-    /// leads back here; that dependency (CR 613.8) is not built and is refused with the rule.
+    /// A filter's comparison against a literal. A comparison whose bound has to be counted goes
+    /// to the query instead (<see cref="NeedsQuery"/>), which reads the board as it is now
+    /// (CR 611.3a); this arm never sees one, and refuses rather than guessing if it ever does.
     /// </summary>
     [RuleRef("613.8")]
     private static bool Compare(int? value, Comparison comparison)

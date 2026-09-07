@@ -133,26 +133,8 @@ public sealed partial class LayerSystem
         if (!outermost)
             return null;
 
-        return Query.Evaluate(state, amount, ContextOf(layered, obj));
+        return Query.Evaluate(state, amount, ContextOf(state, layered.Source ?? obj.Id, layered.Controller));
     }
-
-    /// <summary>
-    /// The context a static ability's amount is read in, CR 113.8 with 109.5: the ability's source
-    /// is "this", its controller is "you", and it has no targets, no X and no memory of its own.
-    /// </summary>
-    [RuleRef("109.5")]
-    private static EffectContext ContextOf(Layered layered, GameObject obj) =>
-        new(
-            layered.Source ?? obj.Id,
-            layered.Controller,
-            [],
-            [],
-            null,
-            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty,
-            ImmutableDictionary<string, string>.Empty,
-            ImmutableDictionary<string, int>.Empty,
-            [],
-            null);
 
     /// <summary>"+1/+1", "-1/-1", "+2/+0" and the rest: what one counter of that kind modifies.</summary>
     [RuleRef("613.4c")]
