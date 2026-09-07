@@ -92,6 +92,7 @@ public sealed record CardRef(
 [JsonDerivedType(typeof(AnswerStep), nameof(AnswerStep))]
 [JsonDerivedType(typeof(AdvanceToStep), nameof(AdvanceToStep))]
 [JsonDerivedType(typeof(AddManaStep), nameof(AddManaStep))]
+[JsonDerivedType(typeof(TapForManaStep), nameof(TapForManaStep))]
 [JsonDerivedType(typeof(ExpectRefusedStep), nameof(ExpectRefusedStep))]
 public abstract record ScenarioStep;
 
@@ -154,6 +155,21 @@ public sealed record AnswerStep(string Player, IReadOnlyList<string> Answer) : S
 public sealed record AdvanceToStep(Step Step, int? Turn = null) : ScenarioStep;
 
 public sealed record AddManaStep(string Player, string Mana) : ScenarioStep;
+
+/// <summary>
+/// A permanent is tapped for mana: the runner activates its first mana ability (CR 605.1a), which
+/// resolves as it is activated and never uses the stack (CR 605.3a), so the permanent taps and the
+/// mana it makes lands in a pool (CR 106.4). <see cref="AddManaStep"/> puts mana in a pool without
+/// anything having been tapped for it, so a "whenever ... is tapped for mana" trigger never sees
+/// it; this step is what such a card's scenario says instead.
+/// </summary>
+/// <param name="ManaColors">
+/// As <see cref="ActivateStep.ManaColors"/>: the colour chosen for each "add one mana of any color"
+/// the ability adds, one letter per mana in the order added, CR 608.2d. Null chooses nothing, which
+/// is right for a land that prints its colour and refused for one that does not.
+/// </param>
+[RuleRef("605.3a")]
+public sealed record TapForManaStep(string Player, string Card, string? ManaColors = null) : ScenarioStep;
 
 /// <summary>The next step must be refused by the engine, with a reason containing the text.</summary>
 public sealed record ExpectRefusedStep(ScenarioStep Attempt, string? ReasonContains = null) : ScenarioStep;

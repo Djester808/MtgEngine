@@ -47,4 +47,43 @@ internal sealed partial class ScenarioRun
 
         return new ManaPool(w, u, b, r, g, c);
     }
+
+    /// <summary>
+    /// Which of a permanent's abilities a <see cref="TapForManaStep"/> activates: the first mana
+    /// ability it has right now, by its index in the object's current abilities — the same index an
+    /// <see cref="ActivateStep"/> would have had to count out, read off the layer system so an
+    /// ability granted to the permanent counts as much as one it printed (CR 613.1d). A scenario
+    /// that names a permanent with no mana ability has written a step the game cannot take, and
+    /// saying so with the rule is better than activating some other ability that happens to be first.
+    /// </summary>
+    [RuleRef("605.1a")]
+    private int ManaAbilityIndex(TapForManaStep step)
+    {
+        var abilities = Host.Engine.Characteristics.Of(_state, Object(step.Card)).Abilities;
+        for (var index = 0; index < abilities.Count; index++)
+            if (abilities[index] is ActivatedAbility ability && IsManaAbility(ability))
+                return index;
+
+        throw new ScenarioFailure($"'{step.Card}' has no mana ability to tap for mana. (605.1a)");
+    }
+
+    /// <summary>
+    /// CR 605.1a: an activated ability is a mana ability when it could add mana as it resolves, is
+    /// not a loyalty ability, and needs no target. The step announces no targets, so the third
+    /// condition holds by construction and only the other two are asked here; "could add mana" is
+    /// read off the effect tree the way the casting system reads it, so the ability this picks is
+    /// one the casting system will also resolve without the stack (CR 605.3a).
+    /// </summary>
+    [RuleRef("605.1a")]
+    private static bool IsManaAbility(ActivatedAbility ability) =>
+        CouldAddMana(ability.Do) && !ability.Costs.Any(cost => cost is LoyaltyCost);
+
+    /// <summary>CR 605.1a's "could add mana as it resolves", over the steps of a sequence.</summary>
+    [RuleRef("605.1a")]
+    private static bool CouldAddMana(Effect effect) => effect switch
+    {
+        AddMana => true,
+        Sequence sequence => sequence.Steps.Any(CouldAddMana),
+        _ => false,
+    };
 }

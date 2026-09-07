@@ -257,6 +257,10 @@ internal sealed partial class ScenarioRun(Game game, Scenario scenario, bool aut
         ActivateStep a => new ActivateAbility(
             Player(a.Player), Object(a.Card), a.AbilityIndex, TargetObjects(a.Targets), TargetPlayers(a.Targets),
             null, a.X, a.CostChoices is null ? null : [.. a.CostChoices], CostObjects(a.CostObjects), a.ManaColors),
+        // CR 605.3a: tapping a land for mana is activating its mana ability, so the step becomes
+        // the same command an ActivateStep would have built — with the ability the runner found
+        // rather than an index the scenario had to count out.
+        TapForManaStep t => new ActivateAbility(Player(t.Player), Object(t.Card), ManaAbilityIndex(t), ManaColors: t.ManaColors),
         PlayLandStep p => new PlayLand(Player(p.Player), Object(p.Card)),
         AttackStep a => new DeclareAttackers(Player(a.Player), [.. a.Attacks.Select(at => new AttackDeclaration(Object(at.Attacker), Defender(at.Defender)))]),
         BlockStep b => new DeclareBlockers(Player(b.Player), [.. b.Blocks.Select(bl => new BlockDeclaration(Object(bl.Blocker), Object(bl.Attacker)))]),
