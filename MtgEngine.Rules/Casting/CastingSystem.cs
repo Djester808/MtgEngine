@@ -83,6 +83,10 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         if (ability.Timing == Timing.SorcerySpeed)
             RequireSorcerySpeed(state, command.Player, "602.2a");
 
+        // CR 602.2b with 700.2: the modes are announced before the costs are paid (602.2h), held
+        // to the ceiling the ability prints — a ceiling that depends on the game is read now, once.
+        var announced = ModeAnnouncement.Announce(state, query, [ability.Do], CostPayment.Context(source.Id, command.Player, command.X), command.Modes ?? []);
+
         // CR 106.6b: both printed riders on which mana may be spent travel with the payment.
         var paid = CostPayment.Pay(
             state,
@@ -102,7 +106,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             paid.State,
             source,
             chars.Controller,
-            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false, Chosen: AnnouncedColors(command.ManaColors), ManaProvenanceSpent: ProvenanceSpent(paid.Events)));
+            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false, Chosen: Carried(AnnouncedColors(command.ManaColors), announced), ManaProvenanceSpent: ProvenanceSpent(paid.Events)));
         ImmutableList<GameEvent> events = [.. spent, onStack, activated with { StackObject = onStack.Object.Id }];
         return new Outcome(GameReducer.Apply(state, events), events);
     }
@@ -372,6 +376,15 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             ? obj
             : throw new RefusedException("That card is not in your hand.", rule);
     }
+
+    /// <summary>
+    /// What an activation chose, CR 608.2d, from the two readers that record one — the colours
+    /// announced and the mode ceiling read (CR 700.2). Null when neither did, so an entry with
+    /// nothing chosen is what it always was.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static ImmutableDictionary<string, string>? Carried(ImmutableDictionary<string, string>? first, ImmutableDictionary<string, string>? second) =>
+        first is null ? second : second is null ? first : first.SetItems(second);
 
     /// <summary>A zone change makes a new object, CR 400.7; the move's event carries the new id.</summary>
     private static ObjectId NewIdOf(IEnumerable<GameEvent> events, ObjectId from) =>

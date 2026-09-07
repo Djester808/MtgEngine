@@ -57,6 +57,16 @@ public sealed partial class CastingSystem
         RequireLegalAuraTarget(state, chars, command);
         RequireLegalPlayerTargets(state, command, plan);
 
+        // CR 601.2b with 700.2: the modes are announced before the costs are paid (601.2h), held
+        // to the ceiling the chosen face prints — a ceiling that depends on the game is read now,
+        // once, and travels on the entry so nothing reads it again.
+        var announced = ModeAnnouncement.Announce(
+            state,
+            query,
+            plan.Printed.AbilityList.OfType<SpellAbility>().Select(s => s.Do),
+            CostPayment.Context(card.Id, command.Player, command.X),
+            command.Modes ?? []);
+
         // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
         // The costs that are not mana come first because each one moves objects, and the spell's
         // own new object is numbered from the state they leave behind (CR 400.7).
@@ -80,6 +90,9 @@ public sealed partial class CastingSystem
 
             // CR 702.174b: the promise is part of the spell, so it travels on the stack entry.
             GiftPromisedTo: plan.GiftPromisedTo,
+
+            // CR 700.2 with 601.2b: the mode ceiling this announcement read, when it was conditional.
+            Chosen: announced,
 
             // CR 106.6a: which mana actually paid is a property of the spell, so it travels too.
             ManaProvenanceSpent: ProvenanceSpent(payments));
