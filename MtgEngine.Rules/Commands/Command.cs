@@ -25,6 +25,7 @@ public sealed record CastSpell(
     ImmutableList<ObjectId>? CostObjects = null,
     bool WithoutPayingManaCost = false) : Command(Player);
 
+/// <summary>CR 602.2 and 608.2d: <paramref name="ManaColors"/> is the colour chosen for each "add one mana of any color" the ability adds, one letter per mana in the order the effect adds them ("W", "WU"); null when the ability chooses nothing.</summary>
 [RuleRef("602")]
 public sealed record ActivateAbility(
     PlayerId Player,
@@ -35,7 +36,8 @@ public sealed record ActivateAbility(
     ImmutableList<int>? Modes = null,
     int? X = null,
     ImmutableList<string>? CostChoices = null,
-    ImmutableList<ObjectId>? CostObjects = null) : Command(Player);
+    ImmutableList<ObjectId>? CostObjects = null,
+    string? ManaColors = null) : Command(Player);
 
 [RuleRef("305")]
 /// <summary>CR 305.1; <paramref name="FaceIndex"/> is the land face of a modal double-faced card being played, CR 712.12.</summary>

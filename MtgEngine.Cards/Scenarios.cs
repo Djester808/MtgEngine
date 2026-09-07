@@ -122,6 +122,7 @@ public sealed record CastStep(
 /// The objects the activation cost eats, chosen at CR 602.2b and paid at CR 601.2h — the same
 /// field, and the same reason, as <c>CastStep.CostObjects</c>.
 /// </param>
+/// <remarks>ManaColors: the colour chosen for each "add one mana of any color" the ability adds, one letter per mana in the order added ("W", "WU"), CR 608.2d; null chooses nothing.</remarks>
 public sealed record ActivateStep(
     string Player,
     string Card,
@@ -129,7 +130,8 @@ public sealed record ActivateStep(
     IReadOnlyList<string>? Targets = null,
     int? X = null,
     IReadOnlyList<string>? CostChoices = null,
-    IReadOnlyList<string>? CostObjects = null) : ScenarioStep;
+    IReadOnlyList<string>? CostObjects = null,
+    string? ManaColors = null) : ScenarioStep;
 
 public sealed record PlayLandStep(string Player, string Card) : ScenarioStep;
 

@@ -65,3 +65,18 @@ public sealed record StackTargetsChanged(ObjectId StackObject, ImmutableList<Obj
         return state with { Objects = state.Objects.SetItem(StackObject, obj with { Stack = entry with { Targets = Targets, TargetPlayers = TargetPlayers } }) };
     }
 }
+
+/// <summary>
+/// An object's ability chose a value as it resolved, CR 608.2d: "as this enters, choose a color".
+/// Kept on the object under the card's key so "the chosen color" reads outside that resolution.
+/// </summary>
+[RuleRef("608.2d")]
+public sealed record ValueChosen(ObjectId Object, string Key, string Value) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        if (!state.Objects.TryGetValue(Object, out var obj))
+            return state;
+        return state with { Objects = state.Objects.SetItem(Object, obj with { Chosen = obj.Chosen.SetItem(Key, Value) }) };
+    }
+}

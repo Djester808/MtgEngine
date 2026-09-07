@@ -50,6 +50,15 @@ public sealed record GameObject(
     /// <summary>Designations the rules give an object: suspected (701.60), goaded-by ids, ring-bearer (701.54), harnessed (701.64), monstrous (701.37), and so on.</summary>
     public ImmutableHashSet<string> Designations { get; init; } = [];
 
+    /// <summary>
+    /// The values this object's abilities chose as they resolved, by the key the card gave them
+    /// (a colour, a creature type, a number), CR 608.2d: kept on the object so a later ability of
+    /// the same object reads "the chosen color" outside the resolution that chose it. Folded by
+    /// <c>ValueChosen</c>; cleared with the object when it changes zones (CR 400.7).
+    /// </summary>
+    [RuleRef("608.2d")]
+    public ImmutableDictionary<string, string> Chosen { get; init; } = ImmutableDictionary<string, string>.Empty;
+
     /// <summary>For a spell or ability on the stack: the ability being resolved, its source and the choices made on casting.</summary>
     public StackEntry? Stack { get; init; }
 
@@ -72,4 +81,6 @@ public sealed record StackEntry(
     ImmutableDictionary<string, ImmutableList<ObjectId>>? Remembered = null,
     ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null,
     ImmutableList<ObjectId>? Triggering = null,
-    PlayerId? GiftPromisedTo = null);
+    PlayerId? GiftPromisedTo = null,
+    ImmutableDictionary<string, string>? Chosen = null,
+    ImmutableList<Mana.ManaProvenance>? ManaProvenanceSpent = null);

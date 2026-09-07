@@ -60,6 +60,11 @@ public interface IZoneSystem : ISubsystem
         return outcome;
     }
 
+    /// <summary>CR 707.12: a copy of an object created in the zone the object is in, owned by <paramref name="owner"/>; the copy is the last <c>ObjectCreated</c> in the outcome. CR 704.5e removes it from any zone but the stack or the battlefield.</summary>
+    [RuleRef("707.12")]
+    Outcome CopyInPlace(GameState state, ObjectId original, PlayerId owner) =>
+        throw new NotImplementedException("CopyInPlace is not built in this zone system: wave 10.");
+
     Outcome Draw(GameState state, PlayerId player, int count);
 
     Outcome Shuffle(GameState state, PlayerId player);
@@ -141,6 +146,14 @@ public interface ICastingSystem : ISubsystem
     /// </summary>
     [RuleRef("601.2c")]
     ImmutableList<CostChoice> CostChoices(GameState state, Command command) => [];
+
+    /// <summary>
+    /// CR 608.2g: a spell cast because a resolving effect instructs its player to cast it is cast
+    /// during that resolution and ignores timing (CR 117.1a); the interpreter casts through this,
+    /// a command from a player never does. The default is the ordinary cast.
+    /// </summary>
+    [RuleRef("608.2g")]
+    Outcome CastInstructed(GameState state, CastSpell command) => Cast(state, command);
 }
 
 /// <summary>One cost's ask, CR 601.2c: the cost by the name the casting system refuses it by, the objects that could legally pay it, and how many of them it takes.</summary>
@@ -214,6 +227,11 @@ public interface ICharacteristics : ISubsystem
     /// <summary>Every player-scoped prohibition in force on this player right now, CR 613.10: can't lose, can't be dealt damage, a life total that can't change, protection from everything. The default is none, for a characteristics source that computes no player effects.</summary>
     [RuleRef("613.10")]
     PlayerLimits PlayerRestrictions(GameState state, PlayerId player) => PlayerLimits.None;
+
+    /// <summary>CR 613.1a: the characteristics an object had before any effect, read off the object alone so a look-back at one that has left the game can be matched.</summary>
+    [RuleRef("613.1a")]
+    Characteristics PrintedOf(GameObject obj) =>
+        throw new NotImplementedException("PrintedOf is not built in this layer system: wave 10, agent E0e.");
 }
 
 /// <summary>What an object is right now, after every layer.</summary>
@@ -301,6 +319,16 @@ public interface IQuery : ISubsystem
     ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context);
 
     ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context);
+
+    /// <summary>
+    /// Whether <paramref name="candidate"/> answers a <see cref="PlayerFilter"/>, CR 702.5b and 601.2c:
+    /// opponent or you from the context's controller, and <c>Also</c> asked from the candidate's
+    /// point of view (the condition's "you" is the player being filtered). One reading for the
+    /// trigger system and the state-based actions.
+    /// </summary>
+    [RuleRef("702.5b")]
+    bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId candidate, EffectContext context) =>
+        throw new NotImplementedException("PlayerMatches is not built in this query: wave 10, agent E0e.");
 }
 
 /// <summary>Pending questions and their answers, resumed by kind, never by continuation.</summary>

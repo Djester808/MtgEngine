@@ -506,6 +506,16 @@
             }
           ],
           "description": "The objects the activation cost eats, chosen at CR 602.2b and paid at CR 601.2h \u2014 the same field, and the same reason, as CastStep.CostObjects."
+        },
+        "manaColors": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

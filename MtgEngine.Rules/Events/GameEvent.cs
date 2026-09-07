@@ -335,7 +335,8 @@ public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? 
 
 /// <summary>Mana entered a pool, CR 106.4. Positive amounts add; the mana subsystem spends with negative ones.</summary>
 [RuleRef("106.4")]
-public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason) : GameEvent
+/// <summary>Mana entered or left a pool, CR 106.4. <paramref name="SpentOn"/> is the spell or the ability's source a payment was for (CR 106.6a's "when that mana is spent"), null for production and for emptying.</summary>
+public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason, ObjectId? SpentOn = null) : GameEvent
 {
     public override GameState Apply(GameState state)
     {
