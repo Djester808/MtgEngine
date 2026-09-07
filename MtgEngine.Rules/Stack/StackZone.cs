@@ -30,16 +30,19 @@ public static class StackZone
 
     /// <summary>
     /// CR 601.2a: the card moves from its zone to the stack and becomes a spell, a new object
-    /// carrying the choices made while casting it.
+    /// carrying the choices made while casting it. <paramref name="faceIndex"/> is the face the
+    /// player chose (CR 601.3b): only that face is put on the stack and only its characteristics
+    /// are evaluated there, CR 712.11c, 709.3a and 715.3a.
     /// </summary>
     [Cards.RuleRef("601.2a")]
-    public static ObjectMoved MoveSpellToStack(GameState state, GameObject card, StackEntry entry)
+    public static ObjectMoved MoveSpellToStack(GameState state, GameObject card, StackEntry entry, int? faceIndex = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(card);
         var spell = card with
         {
             Id = new ObjectId(state.NextObjectId),
+            FaceIndex = faceIndex ?? card.FaceIndex,
             Zone = Key,
             Timestamp = state.NextTimestamp,
             Tapped = false,

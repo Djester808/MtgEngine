@@ -2,6 +2,7 @@ using MtgEngine.Cards;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Faces;
 using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.Stack;
 using MtgEngine.Rules.State;
@@ -36,9 +37,14 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     {
         ArgumentNullException.ThrowIfNull(command);
         var card = InHand(state, command.Card, command.Player, "305.1");
-        if (!characteristics.Of(state, card.Id).Types.HasFlag(CardType.Land))
-            throw new RefusedException("That card is not a land.", "305.1");
+        var face = LandFace(state, card);
         RequireSorcerySpeed(state, command.Player, "305.1");
+
+        // CR 712.12: a modal double-faced card's land face is played, not cast — but the zone
+        // system has no way to say which face the permanent enters with, so it is refused by name
+        // rather than played as the wrong face. seam-requests/E3b.md asks for the two fields.
+        if (face != card.FaceIndex)
+            throw new RefusedException("A land face on the back of a card cannot be played yet.", "712.12");
 
         // CR 305.2a: compare lands played with lands playable; 305.2b refuses when they are equal.
         if (state.Player(command.Player).LandsPlayedThisTurn >= LandsPerTurn)
@@ -59,21 +65,17 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     public Outcome Cast(GameState state, CastSpell command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var card = InHand(state, command.Card, command.Player, "601.2a");
-        if (command.FaceIndex != card.FaceIndex)
-            throw new RefusedException("Casting another face of a card is not supported yet.", "712");
+        var card = Castable(state, command.Card, command.Player);
 
-        var chars = characteristics.Of(state, card.Id);
-        if (chars.Types.HasFlag(CardType.Land))
-            throw new RefusedException("A land is played, not cast.", "305.9");
-        if (card.Face.AdditionalCosts is { Count: > 0 })
-            throw new RefusedException("An additional cost on a spell cannot be paid yet.", "601.2f");
-        if (command.AlternativeCost is not null || command.OptionalCosts is { Count: > 0 })
-            throw new RefusedException("Alternative and optional costs cannot be paid yet.", "601.2b");
-        RequireCastingTiming(state, command.Player, chars);
+        // CR 601.3b: the face and every optional cost are chosen before anything moves, so the
+        // plan is what the spell costs and what it will be on the stack.
+        var plan = CastPlan.For(state, card, command, query);
+        if (plan.Printed.AdditionalCosts is { Count: > 0 })
+            throw new RefusedException("An additional cost printed on a spell cannot be paid yet.", "601.2f");
+        RequireCastingTiming(state, command.Player, plan, characteristics.Of(state, card.Id));
 
         // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
-        var paid = CostPayment.PayMana(state, command.Player, chars.ManaCost, command.X, "cast");
+        var paid = CostPayment.PaySymbols(state, command.Player, plan.Mana, command.X, "cast");
         var entry = new StackEntry(
             Source: null,
             AbilityIndex: null,
@@ -81,10 +83,13 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             TargetPlayers: command.TargetPlayers ?? [],
             Modes: command.Modes ?? [],
             X: command.X,
-            IsCopy: false);
-        var move = StackZone.MoveSpellToStack(state, card, entry);
-        var cast = new SpellCast(move.To.Id, command.Player, CardZone.Hand);
-        ImmutableList<GameEvent> events = [move, .. paid.Events, cast];
+            IsCopy: false,
+            ManaSpent: CostPayment.ByColor(paid.Spent),
+            CastFrom: plan.From,
+            OptionalCostsPaid: plan.OptionalCostsPaid);
+        var move = StackZone.MoveSpellToStack(state, card, entry, plan.Chosen.FaceIndex);
+        var cast = new SpellCast(move.To.Id, command.Player, plan.From);
+        ImmutableList<GameEvent> events = [move, .. paid.Outcome.Events, cast];
         return new Outcome(GameReducer.Apply(state, events), events);
     }
 
@@ -166,9 +171,31 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         }
 
         var effect = interpreter.Resolve(state, top);
-        var graveyard = zones.Move(effect.State, top, ZoneKey.Of(CardZone.Graveyard, obj.Owner));
-        ImmutableList<GameEvent> spell = [.. effect.Events, .. graveyard.Events, resolved];
-        return new Outcome(GameReducer.Apply(graveyard.State, [resolved]), spell);
+        var destination = Destination(obj);
+        var away = zones.Move(effect.State, top, ZoneKey.Of(destination, obj.Owner));
+
+        // CR 720.3d: an Omen goes into its owner's library and that library is shuffled.
+        var shuffled = destination == CardZone.Library ? zones.Shuffle(away.State, obj.Owner) : Outcome.Unchanged(away.State);
+        ImmutableList<GameEvent> spell = [.. effect.Events, .. away.Events, .. shuffled.Events, resolved];
+        return new Outcome(GameReducer.Apply(shuffled.State, [resolved]), spell);
+    }
+
+    /// <summary>
+    /// Where a spell goes as it finishes resolving. CR 608.2m puts it into its owner's graveyard;
+    /// what it was cast for comes first — a spell cast for its flashback cost is exiled instead
+    /// (CR 702.34a) and one whose buyback was paid returns to its owner's hand (CR 702.26a) — and
+    /// then the face it was cast as: an Adventure is exiled and may be cast from there later
+    /// (CR 715.3d), an Omen is shuffled into its owner's library (CR 720.3d).
+    /// </summary>
+    [RuleRef("608.2m")]
+    private static CardZone Destination(GameObject spell)
+    {
+        var paid = spell.Stack?.OptionalCostsPaid ?? [];
+        if (paid.Contains(nameof(KeywordKind.Flashback)))
+            return CardZone.Exile;
+        if (paid.Contains(nameof(KeywordKind.Buyback)))
+            return CardZone.Hand;
+        return FaceRules.ResolvesTo(spell.Definition, spell.FaceIndex).Zone;
     }
 
     /// <summary>The refusal a command would be given now, or null if the rules allow it.</summary>
@@ -263,18 +290,24 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     private static bool IsSingleColor(Color color) =>
         color is Color.White or Color.Blue or Color.Black or Color.Red or Color.Green;
 
-    /// <summary>CR 117.1a and 601.1a: casting needs priority; a sorcery-speed action needs the caster's own main phase with an empty stack.</summary>
+    /// <summary>
+    /// CR 117.1a and 601.1a: casting needs priority; a sorcery-speed action needs the caster's own
+    /// main phase with an empty stack. The types read are the chosen face's, CR 712.11c, so casting
+    /// the instant back of a modal card is not held to the front face's timing; a flash granted by
+    /// an effect is on the object's computed characteristics rather than the printed face, so both
+    /// are consulted.
+    /// </summary>
     [RuleRef("117.1a")]
-    private void RequireCastingTiming(GameState state, PlayerId player, Characteristics chars)
+    private static void RequireCastingTiming(GameState state, PlayerId player, CastPlan plan, Characteristics chars)
     {
         if (state.Priority.Holder != player)
             throw new RefusedException("You do not have priority.", "117.1a");
 
         // CR 304.1 and 702.8b: an instant, or anything with flash, is cast whenever its
         // controller holds priority.
-        if (chars.Types.HasFlag(CardType.Instant) || chars.Has(KeywordKind.Flash))
+        if (plan.Types.HasFlag(CardType.Instant) || plan.HasFlash || chars.Has(KeywordKind.Flash))
             return;
-        RequireSorcerySpeed(state, player, SorceryTimingRule(chars.Types));
+        RequireSorcerySpeed(state, player, SorceryTimingRule(plan.Types));
     }
 
     /// <summary>The rule that names the timing for this card type: a creature's is 302.1, a sorcery's 307.1.</summary>
@@ -301,6 +334,40 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
 
     private static GameObject Object(GameState state, ObjectId id) =>
         state.Objects.TryGetValue(id, out var obj) ? obj : throw new RefusedException("There is no such object.", "109.1");
+
+    /// <summary>
+    /// Which face is played as a land, CR 305.1 and 712.12. The card's own face when that is a
+    /// land; otherwise the one land face among the faces this card may be played as, CR 601.3b.
+    /// Two land faces would be a choice, and there is nowhere on the command to make it.
+    /// </summary>
+    [RuleRef("712.12")]
+    private int LandFace(GameState state, GameObject card)
+    {
+        if (characteristics.Of(state, card.Id).Types.HasFlag(CardType.Land))
+            return card.FaceIndex;
+
+        var lands = FaceRules.CastableFaces(card.Definition, card.Zone.Zone).Where(f => f.IsLandFace).ToList();
+        return lands.Count switch
+        {
+            1 => lands[0].FaceIndex,
+            0 => throw new RefusedException("That card is not a land.", "305.1"),
+            _ => throw new RefusedException("Which land face to play cannot be chosen yet.", "712.12"),
+        };
+    }
+
+    /// <summary>
+    /// The card a player is trying to cast. CR 601.2: a player casts a card they own, and which
+    /// zone it may leave is the plan's business (CR 601.3) — a card in someone else's hand is not
+    /// castable whatever permission it carries, because that permission is its owner's.
+    /// </summary>
+    [RuleRef("601.2")]
+    private static GameObject Castable(GameState state, ObjectId id, PlayerId player)
+    {
+        var obj = Object(state, id);
+        if (obj.Zone.Zone == CardZone.Hand && obj.Zone != ZoneKey.Of(CardZone.Hand, player))
+            throw new RefusedException("That card is not in your hand.", "601.2a");
+        return obj.Owner == player ? obj : throw new RefusedException("That card is not yours to cast.", "601.3");
+    }
 
     private static GameObject InHand(GameState state, ObjectId id, PlayerId player, string rule)
     {
