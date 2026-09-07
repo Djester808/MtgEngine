@@ -228,11 +228,9 @@ public sealed partial class LayerSystem : ICharacteristics
                     draft.Types |= add.Types ?? CardType.None;
                     draft.Supertypes |= add.Supertypes ?? Supertype.None;
 
-                    // CR 702.72a and 205.3d: changeling is every creature type. The types
-                    // themselves are not copied into the subtype list — CR 205.3m's list changes
-                    // every set, and a snapshot of it in a characteristics record would be stale
-                    // card data. The flag says "every creature type" and every reader of a
-                    // subtype consults it (Query.HasSubtype, CreatureTypes.Shared).
+                    // CR 702.72a and 205.3d: changeling is every creature type. The names are not
+                    // copied into the list — CR 205.3m changes every set, so a snapshot of it in a
+                    // characteristics record would be stale; readers consult the flag instead.
                     if (add.AllCreatureTypes)
                         draft.EveryCreatureType = true;
 
@@ -251,9 +249,8 @@ public sealed partial class LayerSystem : ICharacteristics
                         draft.Supertypes = set.Supertypes.Value;
                     if (!set.KeepSubtypes)
                     {
-                        // The subtype list is replaced wholesale, so "every creature type" goes
-                        // with it: what the effect names is now the whole of the object's
-                        // subtypes (CR 613.1d).
+                        // The list is replaced wholesale (CR 613.1d), so "every creature type"
+                        // goes with it: the effect now names all of the object's subtypes.
                         draft.Subtypes.Clear();
                         draft.EveryCreatureType = false;
                     }
@@ -270,9 +267,8 @@ public sealed partial class LayerSystem : ICharacteristics
                     draft.Types &= ~(remove.Types ?? CardType.None);
                     draft.Supertypes &= ~(remove.Supertypes ?? Supertype.None);
 
-                    // CR 205.3d: "loses all creature types" removes exactly the creature types.
-                    // An artifact creature that loses all creature types keeps Equipment, so the
-                    // list is filtered through CR 205.3m's table rather than cleared.
+                    // CR 205.3d: "loses all creature types" removes exactly those — an artifact
+                    // creature keeps Equipment — so the list is filtered, not cleared.
                     if (remove.AllCreatureTypes)
                     {
                         draft.EveryCreatureType = false;
