@@ -8,6 +8,41 @@ public sealed record DealDamage(Amount N, Selector? To = null, PlayerRef? ToPlay
 [RuleRef("601.2d")]
 public sealed record DealDividedDamage(Amount Total, Selector Among, Selector? Source = null) : Effect;
 
+/// <summary>
+/// "Distribute three +1/+1 counters among one, two, or three target creatures", CR 601.2d: the
+/// division is announced as the spell is cast, every named target gets at least one counter, and no
+/// more than <paramref name="MaxTargets"/> targets may be chosen. <paramref name="N"/> is the total
+/// distributed, <paramref name="Counter"/> the kind, and <paramref name="Among"/> the target
+/// selector, whose own Count is the number of targets and is normally left null so MaxTargets rules
+/// it. This is the counter twin of DealDividedDamage; do not spell a division as ForEach over
+/// targets, which would give every target the whole amount.
+/// </summary>
+[RuleRef("601.2d")]
+public sealed record DistributeCounters(Amount N, string Counter, Selector Among, int MaxTargets) : Effect;
+
+/// <summary>
+/// "Change the target of target spell with a single target", CR 115.7: the spell or ability keeps
+/// resolving but points somewhere else. <paramref name="What"/> selects the spell or ability on the
+/// stack; <paramref name="To"/> names the new target when the card names it ("change its target to
+/// this creature") and is left null when the card lets a player choose. Set
+/// <paramref name="AllTargets"/> for "you may choose new targets for it" (CR 114.6), which is the
+/// weaker action: it may leave the targets as they are, while a change must alter at least one
+/// (CR 115.7b). Legality is rechecked on resolution, so an illegal change is simply not made.
+/// </summary>
+[RuleRef("115.7")]
+public sealed record ChangeTarget(Selector What, Selector? To = null, bool AllTargets = false, PlayerRef? Who = null) : Effect;
+
+/// <summary>
+/// "You may pay {4}. If you do, ..." — a cost paid inside a resolving effect, CR 118.12. The cost is
+/// paid where it stands rather than as part of casting or activating, so it composes: wrap it in May
+/// with a StoreChoiceAs key for "you may pay", and follow it with If(ChoiceIs(key, "yes"), ...) for
+/// the "if you do" half. Use Unless for "unless that player pays", where the cost belongs to someone
+/// else and the effect is what happens when it goes unpaid. Any Cost record works here, including
+/// PayManaCost for an amount counted from the game.
+/// </summary>
+[RuleRef("118.12")]
+public sealed record PayCost(Cost Cost, PlayerRef? Who = null) : Effect;
+
 [RuleRef("121")]
 public sealed record Draw(Amount N, PlayerRef? Who = null) : Effect;
 
@@ -54,9 +89,17 @@ public sealed record Move(
 
 public sealed record CounterSpec(string Counter, Amount N);
 
-/// <summary>"Add {G}{G}", "add one mana of any color", "add X mana of the chosen color".</summary>
+/// <summary>
+/// "Add {G}{G}", "add one mana of any color", "add X mana of the chosen color". Set
+/// <paramref name="SpendOnlyOn"/> for a restricted mana: "add {C}. Spend this mana only to cast
+/// artifact spells" (CR 106.6a) — the filter describes what the mana may be spent on, and mana with
+/// a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say
+/// "only to cast creature spells" as ObjectFilter(Spell: true, Types: CardType.Creature) and "only
+/// to activate abilities" with an ability filter; a restriction the filter cannot express goes to a
+/// primitive request rather than being dropped, because unrestricted mana is a different card.
+/// </summary>
 [RuleRef("106")]
-public sealed record AddMana(ManaProduction Mana, PlayerRef? Who = null, Amount? N = null) : Effect;
+public sealed record AddMana(ManaProduction Mana, PlayerRef? Who = null, Amount? N = null, ObjectFilter? SpendOnlyOn = null) : Effect;
 
 /// <summary>
 /// What a mana instruction produces. <paramref name="Fixed"/> is printed mana ("{G}{G}");

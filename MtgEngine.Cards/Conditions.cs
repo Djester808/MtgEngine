@@ -21,6 +21,8 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(Formidable), nameof(Formidable))]
 [JsonDerivedType(typeof(Descend), nameof(Descend))]
 [JsonDerivedType(typeof(Raid), nameof(Raid))]
+[JsonDerivedType(typeof(AttackedThisTurn), nameof(AttackedThisTurn))]
+[JsonDerivedType(typeof(GiftPromised), nameof(GiftPromised))]
 [JsonDerivedType(typeof(SpellMastery), nameof(SpellMastery))]
 [JsonDerivedType(typeof(Coven), nameof(Coven))]
 [JsonDerivedType(typeof(Corrupted), nameof(Corrupted))]
@@ -86,6 +88,28 @@ public sealed record Descend(PlayerRef Who, int N) : Condition;
 
 /// <summary>You attacked with a creature this turn.</summary>
 public sealed record Raid(PlayerRef Who) : Condition;
+
+/// <summary>
+/// "if you attacked with two or more creatures this turn": how many creatures a player declared as
+/// attackers this turn, compared against <paramref name="Min"/>, CR 506.2 and 508.1. Counted over
+/// the whole turn and every combat phase in it, not just the current one, and a creature that was
+/// declared an attacker still counts after it has left combat or died. Raid is the same question
+/// with a minimum of one and is kept because the ability word is printed; use this record whenever
+/// the card names a number, and prefer it over Raid when the number is anything but one.
+/// </summary>
+[RuleRef("506.2")]
+public sealed record AttackedThisTurn(PlayerRef Who, Amount Min) : Condition;
+
+/// <summary>
+/// "if the gift was promised", CR 702.174b: the caster of a spell with gift chose, as they cast it,
+/// to promise the gift to an opponent, and the spell's "if the gift was promised" clauses now apply.
+/// Promising is a choice made on casting, so this is answered from the spell's record of that
+/// choice, not from anything on the battlefield. <paramref name="Who"/> names the player the gift
+/// was promised to when the card asks about them; leave it null for the plain "if the gift was
+/// promised" reading.
+/// </summary>
+[RuleRef("702.174")]
+public sealed record GiftPromised(PlayerRef? Who = null) : Condition;
 
 /// <summary>Two or more instant and/or sorcery cards in your graveyard.</summary>
 public sealed record SpellMastery(PlayerRef Who) : Condition;

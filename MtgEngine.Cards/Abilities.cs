@@ -23,9 +23,32 @@ public abstract record Ability
 /// <summary>
 /// A keyword from CR 702 with its parameters: "Ward {2}" is Cost, "Bushido 2" is N,
 /// "Protection from red" and "Affinity for artifacts" are Of, "Partner with Name" is Detail.
+/// <para>
+/// <paramref name="Cost"/> is a printed mana string and takes nothing else. A keyword whose cost has
+/// a non-mana part — escape's "{1}{B}{B}, Exile four other cards from your graveyard" (CR 702.138a),
+/// and the "sacrifice a creature" half of several others — puts the whole cost in
+/// <paramref name="Costs"/> as Cost records instead, mana included as a ManaCost entry, and leaves
+/// <paramref name="Cost"/> null. Set one or the other, never both: two spellings of the same cost is
+/// how a card silently gets paid twice or not at all.
+/// </para>
+/// <para>
+/// Set <paramref name="Repeatable"/> when the printed word says the cost may be paid more than once
+/// as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker
+/// (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes
+/// the TimesKicked amount countable; without the flag, casting refuses a second payment, so a
+/// multikicker card translated without it is castable but never kicked twice.
+/// </para>
 /// </summary>
 [RuleRef("702")]
-public sealed record KeywordAbility(KeywordKind Keyword, string? Cost = null, Amount? N = null, ObjectFilter? Of = null, string? Detail = null, Condition? Condition = null) : Ability;
+public sealed record KeywordAbility(
+    KeywordKind Keyword,
+    string? Cost = null,
+    Amount? N = null,
+    ObjectFilter? Of = null,
+    string? Detail = null,
+    Condition? Condition = null,
+    IReadOnlyList<Cost>? Costs = null,
+    bool Repeatable = false) : Ability;
 
 /// <summary>What an instant or sorcery does when it resolves, CR 113.3a.</summary>
 [RuleRef("113.3a")]
@@ -35,7 +58,16 @@ public sealed record SpellAbility(Effect Do) : Ability;
 [RuleRef("603")]
 public sealed record TriggeredAbility(Trigger When, Effect Do, Condition? If = null, bool Optional = false, Zone Where = Zone.Battlefield, bool OncePerTurn = false) : Ability;
 
-/// <summary>"[Cost]: [Effect]", CR 602. Loyalty abilities carry a <see cref="LoyaltyCost"/>; mana abilities are recognised by the engine, CR 605.</summary>
+/// <summary>
+/// "[Cost]: [Effect]", CR 602. Loyalty abilities carry a <see cref="LoyaltyCost"/>; mana abilities
+/// are recognised by the engine, CR 605.
+/// <paramref name="PayOnlyWith"/> is the printed rider "activate only using mana produced by a
+/// creature" read as a colour restriction: the mana spent on this ability's cost must be of those
+/// colours (CR 106.6b, the spend restriction's other half). Leave it null for the ordinary case,
+/// where any mana pays. A restriction that names a source rather than a colour — "mana produced by
+/// artifacts" — is not this field; it goes to a primitive request, because paying with the wrong
+/// mana is a different game action, not a rounding error.
+/// </summary>
 [RuleRef("602")]
 public sealed record ActivatedAbility(
     IReadOnlyList<Cost> Costs,
@@ -44,7 +76,8 @@ public sealed record ActivatedAbility(
     Zone Where = Zone.Battlefield,
     Condition? OnlyIf = null,
     Amount? MaxPerTurn = null,
-    bool AnyPlayerMayActivate = false) : Ability;
+    bool AnyPlayerMayActivate = false,
+    Color? PayOnlyWith = null) : Ability;
 
 /// <summary>A continuous effect from a static ability, CR 604. Applies to objects via <paramref name="To"/> or to players via <paramref name="Players"/>.</summary>
 [RuleRef("604")]
