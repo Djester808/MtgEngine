@@ -11,6 +11,9 @@ namespace MtgEngine.Cards.Pipeline.Agree;
 /// </summary>
 public sealed record DifferenceGroup(string Property, int Cards, string Example, string ExampleCard, string Left, string Right);
 
+/// <summary>How many cards two models agreed on — the per-pair count a three-reading run is read by.</summary>
+public sealed record PairAgreement(string Left, string Right, int Agreed);
+
 /// <summary>
 /// What a batch of agreement decisions came to, and — the point of it — the remaining first
 /// differences grouped by the property that differed, largest first. A list of 37 sentences is
@@ -23,12 +26,30 @@ public sealed record AgreeReport(
     int Agreed,
     int Disputed,
     int Untranslated,
-    IReadOnlyList<DifferenceGroup> Differences)
+    IReadOnlyList<DifferenceGroup> Differences,
+    IReadOnlyList<PairAgreement>? Pairs = null)
 {
+    /// <summary>How many cards each pair of models agreed on, largest first. One pair for a two-model run; three for a three-model one.</summary>
+    public IReadOnlyList<PairAgreement> AgreedByPair => Pairs ?? [];
+
     public static AgreeReport Of(IEnumerable<AgreeResult> results)
     {
         ArgumentNullException.ThrowIfNull(results);
         var all = results.ToList();
+        var pairs = new Dictionary<(string Left, string Right), int>();
+        foreach (var result in all.Where(r => r.Agreed))
+        {
+            var models = result.AgreedBy;
+            for (var i = 0; i < models.Count; i++)
+            {
+                for (var j = i + 1; j < models.Count; j++)
+                {
+                    var key = (models[i], models[j]);
+                    pairs[key] = pairs.TryGetValue(key, out var seen) ? seen + 1 : 1;
+                }
+            }
+        }
+
         var groups = new Dictionary<string, (int Cards, string Example, string Card)>(StringComparer.Ordinal);
         foreach (var result in all.Where(r => r.Difference is not null))
         {
@@ -53,7 +74,12 @@ public sealed record AgreeReport(
                     g.Value.Example,
                     g.Value.Card,
                     Side(g.Value.Example, left: true),
-                    Side(g.Value.Example, left: false)))]);
+                    Side(g.Value.Example, left: false)))],
+            [.. pairs
+                .OrderByDescending(p => p.Value)
+                .ThenBy(p => p.Key.Left, StringComparer.Ordinal)
+                .ThenBy(p => p.Key.Right, StringComparer.Ordinal)
+                .Select(p => new PairAgreement(p.Key.Left, p.Key.Right, p.Value))]);
     }
 
     /// <summary>
@@ -94,6 +120,12 @@ public sealed record AgreeReport(
         sb.AppendLine(string.Create(
             CultureInfo.InvariantCulture,
             $"{Cards} cards: {Agreed} agreed, {Disputed} disputed, {Untranslated} untranslated"));
+        if (AgreedByPair.Count > 0)
+        {
+            sb.AppendLine("  agreed by pair: " + string.Join(", ", AgreedByPair.Select(p =>
+                string.Create(CultureInfo.InvariantCulture, $"{p.Left}+{p.Right}: {p.Agreed}"))));
+        }
+
         foreach (var group in Differences)
         {
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"  {group.Property}: {group.Cards}  e.g. {group.Example}"));

@@ -6,7 +6,7 @@ namespace MtgEngine.Cards.Pipeline.Tests;
 /// The agreement stage, the dispute diff and the card-file writer. Every definition here is
 /// made up: no real card is named, and nothing in this file touches the network or the corpus.
 /// </summary>
-public sealed class AgreeStageTests
+public sealed partial class AgreeStageTests
 {
     private const string OracleId = "00000000-0000-0000-0000-0000000000a1";
     private const string OracleHash = "sha256:aaaa";

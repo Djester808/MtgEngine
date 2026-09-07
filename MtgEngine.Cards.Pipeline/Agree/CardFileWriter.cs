@@ -51,6 +51,12 @@ public sealed class CardFileWriter(string directory)
         return File.Exists(path) ? CardFileSerializer.Read(File.ReadAllText(path)) : null;
     }
 
+    /// <summary>Every oracle id that has a card file on disk: what a corpus slice must not ask for again.</summary>
+    public IReadOnlyList<string> OracleIds() =>
+        Directory.Exists(Root)
+            ? [.. Directory.EnumerateFiles(Root, "*.json").Select(Path.GetFileNameWithoutExtension).OfType<string>().Order(StringComparer.Ordinal)]
+            : [];
+
     /// <summary>The lint report on disk, or null when this card has never been written.</summary>
     public LintReport? LoadLint(string oracleId)
     {

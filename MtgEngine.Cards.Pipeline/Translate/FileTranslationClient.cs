@@ -13,8 +13,12 @@ namespace MtgEngine.Cards.Pipeline.Translate;
 /// <c>Results</c> streams the answers as the stage expects them. Repair is not available
 /// offline: the stage keeps the unrepaired reading, which is what a translator then fixes by
 /// rewriting the answer file and collecting again.
+///
+/// A batch id is <c>local-{model}-{n}</c>, numbered within <paramref name="root"/>; the store
+/// that records batches is shared across every out directory, so a second root — a corpus
+/// slice — names its batches <c>local-{scope}-{model}-{n}</c> and cannot collide with the first.
 /// </summary>
-public sealed class FileTranslationClient(string root) : ITranslationClient
+public sealed class FileTranslationClient(string root, string? scope = null) : ITranslationClient
 {
     public const string SystemFile = "system.md";
     public const string RequestsDirectory = "requests";
@@ -36,7 +40,9 @@ public sealed class FileTranslationClient(string root) : ITranslationClient
         ArgumentNullException.ThrowIfNull(requests);
         System.IO.Directory.CreateDirectory(root);
         var number = System.IO.Directory.GetDirectories(root).Length + 1;
-        var batchId = FormattableString.Invariant($"local-{model}-{number:000}");
+        var batchId = scope is null
+            ? FormattableString.Invariant($"local-{model}-{number:000}")
+            : FormattableString.Invariant($"local-{scope}-{model}-{number:000}");
         var directory = Directory(batchId);
         System.IO.Directory.CreateDirectory(Path.Combine(directory, RequestsDirectory));
         System.IO.Directory.CreateDirectory(Path.Combine(directory, AnswersDirectory));
@@ -82,6 +88,14 @@ public sealed class FileTranslationClient(string root) : ITranslationClient
     /// <summary>The answers still owed for a batch, by custom id, so a collect can say what is missing.</summary>
     public IReadOnlyList<string> Missing(string batchId) =>
         [.. Read(batchId).CustomIds.Where(id => !File.Exists(AnswerPath(batchId, id)))];
+
+    /// <summary>
+    /// What a local batch on disk says about itself, or null when there is no such batch: the
+    /// road by which a batch written by hand — a third translator's, naming only some of a
+    /// submission's cards — is recorded in the store with the cards it actually names.
+    /// </summary>
+    public LocalBatch? Batch(string batchId) =>
+        File.Exists(Path.Combine(Directory(batchId), BatchFile)) ? Read(batchId) : null;
 
     private string AnswerPath(string batchId, string customId) => Path.Combine(Directory(batchId), AnswersDirectory, customId + ".json");
 
