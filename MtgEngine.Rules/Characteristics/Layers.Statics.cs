@@ -1,6 +1,7 @@
 using System.Numerics;
 using MtgEngine.Cards;
 using MtgEngine.Rules.State;
+using Chars = MtgEngine.Rules.Engine.Characteristics;
 
 namespace MtgEngine.Rules.Layers;
 
@@ -130,9 +131,9 @@ public sealed partial class LayerSystem
             return false;
         if (filter.NotSupertypes is { } notSupertypes && (chars.Supertypes & notSupertypes) != Supertype.None)
             return false;
-        if (filter.Subtypes is { } subtypes && !subtypes.All(s => chars.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
+        if (filter.Subtypes is { } subtypes && !subtypes.All(s => HasSubtype(chars, s)))
             return false;
-        if (filter.NotSubtypes is { } notSubtypes && notSubtypes.Any(s => chars.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
+        if (filter.NotSubtypes is { } notSubtypes && notSubtypes.Any(s => HasSubtype(chars, s)))
             return false;
         if (filter.Colors is { } colors && (chars.Colors & colors) != colors)
             return false;
@@ -159,6 +160,16 @@ public sealed partial class LayerSystem
 
         return true;
     }
+
+    /// <summary>
+    /// CR 205.3: does this object have that subtype? An object that is every creature type
+    /// (CR 205.3d) has every one of them without carrying them in its list, so the flag answers
+    /// for any creature type of CR 205.3m and for no other subtype.
+    /// </summary>
+    [RuleRef("205.3d")]
+    private static bool HasSubtype(Chars chars, string subtype) =>
+        chars.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase)
+        || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
 
     /// <summary>The parts of a filter this matcher cannot answer without the query layer, named rather than ignored.</summary>
     private static void Unsupported(ObjectFilter filter)

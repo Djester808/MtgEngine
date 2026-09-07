@@ -64,7 +64,8 @@ public sealed partial class LayerSystem : ICharacteristics
             draft.Defense,
             draft.ManaCost,
             [.. draft.Abilities],
-            draft.Controller);
+            draft.Controller,
+            draft.EveryCreatureType);
 
     private static GameObject Find(GameState state, ObjectId id) =>
         state.Objects.TryGetValue(id, out var obj)
@@ -226,6 +227,13 @@ public sealed partial class LayerSystem : ICharacteristics
                 case AddTypes add:
                     draft.Types |= add.Types ?? CardType.None;
                     draft.Supertypes |= add.Supertypes ?? Supertype.None;
+
+                    // CR 702.72a and 205.3d: changeling is every creature type. The names are not
+                    // copied into the list — CR 205.3m changes every set, so a snapshot of it in a
+                    // characteristics record would be stale; readers consult the flag instead.
+                    if (add.AllCreatureTypes)
+                        draft.EveryCreatureType = true;
+
                     foreach (var subtype in add.Subtypes ?? [])
                     {
                         if (!draft.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
@@ -240,7 +248,13 @@ public sealed partial class LayerSystem : ICharacteristics
                     if (set.Supertypes is not null)
                         draft.Supertypes = set.Supertypes.Value;
                     if (!set.KeepSubtypes)
+                    {
+                        // The list is replaced wholesale (CR 613.1d), so "every creature type"
+                        // goes with it: the effect now names all of the object's subtypes.
                         draft.Subtypes.Clear();
+                        draft.EveryCreatureType = false;
+                    }
+
                     foreach (var subtype in set.Subtypes ?? [])
                     {
                         if (!draft.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
@@ -252,11 +266,15 @@ public sealed partial class LayerSystem : ICharacteristics
                 case RemoveTypes remove:
                     draft.Types &= ~(remove.Types ?? CardType.None);
                     draft.Supertypes &= ~(remove.Supertypes ?? Supertype.None);
-                    // Which subtypes are creature types is the vocabulary's to say, not the
-                    // engine's; until there is a subtype table, "loses all creature types"
-                    // clears the subtype list of a creature.
+
+                    // CR 205.3d: "loses all creature types" removes exactly those — an artifact
+                    // creature keeps Equipment — so the list is filtered, not cleared.
                     if (remove.AllCreatureTypes)
-                        draft.Subtypes.Clear();
+                    {
+                        draft.EveryCreatureType = false;
+                        draft.Subtypes.RemoveAll(CreatureTypes.IsCreatureType);
+                    }
+
                     foreach (var subtype in remove.Subtypes ?? [])
                         draft.Subtypes.RemoveAll(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase));
 
@@ -457,6 +475,9 @@ public sealed partial class LayerSystem : ICharacteristics
         public required Supertype Supertypes { get; set; }
 
         public required List<string> Subtypes { get; set; }
+
+        /// <summary>CR 205.3d: the object is every creature type, as changeling grants (CR 702.72a).</summary>
+        public bool EveryCreatureType { get; set; }
 
         public required Color Colors { get; set; }
 

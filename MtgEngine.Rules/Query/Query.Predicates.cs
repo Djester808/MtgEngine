@@ -83,8 +83,26 @@ public sealed partial class Query
         var a = _layers.Of(state, left);
         var b = _layers.Of(state, right);
         if (creatureTypeOnly)
-            return a.Subtypes.Any(s => HasSubtype(b, s)); // CR 205.3m
-        return (a.Types & b.Types) != 0 || a.Subtypes.Any(s => HasSubtype(b, s));
+            return SharesCreatureType(a, b);
+        return (a.Types & b.Types) != 0 || a.Subtypes.Any(s => HasSubtype(b, s)) || SharesCreatureType(a, b);
+    }
+
+    /// <summary>
+    /// CR 205.3m: a shared creature type, which is the only kind "shares a creature type with"
+    /// counts — a shared Equipment or Aura subtype is not one. An object that is every creature
+    /// type (CR 205.3d) shares one with anything that has a creature type at all, and with
+    /// nothing that has none, which is why the flag is asked before the two lists are compared.
+    /// </summary>
+    [RuleRef("205.3m")]
+    private static bool SharesCreatureType(Characteristics a, Characteristics b)
+    {
+        if (a.EveryCreatureType && b.EveryCreatureType)
+            return true;
+        if (a.EveryCreatureType)
+            return CreatureTypes.AnyIn(b.Subtypes);
+        if (b.EveryCreatureType)
+            return CreatureTypes.AnyIn(a.Subtypes);
+        return CreatureTypes.Shared(a.Subtypes, b.Subtypes);
     }
 
     private static bool HasCardType(Characteristics c, string type) =>
