@@ -11,7 +11,7 @@ namespace MtgEngine.Rules.Tests;
 /// Triggered abilities, CR 603: what triggers, what does not, what order they go on the stack in,
 /// and what a trigger that looks back is allowed to see.
 /// </summary>
-public sealed class TriggeredAbilityTests
+public sealed partial class TriggeredAbilityTests
 {
     private static readonly Effect Gain = new GainLife(new Fixed(1));
 

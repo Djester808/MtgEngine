@@ -77,7 +77,7 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
             Cards.LandPlayed land => Played(state, land, happened, ctx),
             TokenCreated token => Token(state, token, happened, ctx),
             TappedForMana forMana => TappedFor(state, forMana, happened, ctx),
-            ManaSpent spent => SpentMana(spent, happened),
+            ManaSpent spent => SpentMana(state, spent, happened, ctx),
             Sacrifices sacrifices => LeftBy(state, "sacrificed", sacrifices.Who, sacrifices.What, happened, ctx),
             Discards discards => LeftBy(state, "discarded", discards.Who, discards.What, happened, ctx),
             _ => [],
@@ -241,7 +241,7 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
             return [];
         if (toObject is { } to && (damage.ToObject is not { } hit || !_query.Matches(state, to, hit, ctx)))
             return [];
-        if (toPlayer is { } who && (damage.ToPlayer is not { } player || !PlayerMatches(state, who, player, ctx)))
+        if (toPlayer is { } who && (damage.ToPlayer is not { } player || !_query.PlayerMatches(state, who, player, ctx)))
             return [];
         if (subject == DamageSubject.Object && damage.ToObject is null)
             return [];
@@ -371,7 +371,15 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
                 continue;
             if (!seen.Add(block.Source) || !_query.Matches(state, trigger.What, block.Source, ctx))
                 continue;
-            subjects.Add(TriggerSubject.Of(block.Source, Controller(state, block.Source)));
+
+            // The colour rides with the firing so the resolution can add "that color" (CR 608.2d);
+            // an ability that made two colours fires once, and the first block's colour is the one
+            // the filter admitted, which is the colour the ability was tapped for.
+            subjects.Add(TriggerSubject.Of(block.Source, Controller(state, block.Source)) with
+            {
+                Chosen = ImmutableDictionary<string, string>.Empty
+                    .SetItem(TriggerSystem.TappedForManaColor, block.Color.ToString()),
+            });
         }
 
         return subjects.ToImmutable();
@@ -420,14 +428,20 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
     /// permanent that produced the mana, because mana is not an object and there is nothing else to
     /// point at.
     ///
-    /// <c>OnSpell</c> is not answered: <see cref="Ev.ManaChanged"/> names no spell, only a free-text
-    /// reason, so an ability that restricts the spend to a kind of spell is not fired rather than
-    /// fired wrongly. seam-requests/E6c.md asks for the spell on the spend event.
+    /// <c>OnSpell</c> is the spend event's <see cref="Ev.ManaChanged.SpentOn"/>, the object the
+    /// payment was for: the filter is asked about that object and the trigger fires only when it
+    /// admits it. A spend that names nothing — a pool emptying at end of step (CR 106.4), a payment
+    /// the casting system did not attribute — is not a spend on a spell the filter admits, so an
+    /// ability so restricted does not fire, rather than firing on every spend. The filter is read in
+    /// the ability's own context, so "a creature spell you control" means what it says; a spell is on
+    /// the stack, so the card writes <c>In: Zone.Stack</c> the way every other spell filter does.
     /// </summary>
     [RuleRef("106.6")]
-    private static ImmutableList<TriggerSubject> SpentMana(ManaSpent trigger, Ev.GameEvent happened)
+    private ImmutableList<TriggerSubject> SpentMana(GameState state, ManaSpent trigger, Ev.GameEvent happened, EffectContext ctx)
     {
-        if (happened is not Ev.ManaChanged changed || trigger.OnSpell is not null)
+        if (happened is not Ev.ManaChanged changed)
+            return [];
+        if (trigger.OnSpell is { } spell && (changed.SpentOn is not { } paidFor || !_query.Matches(state, spell, paidFor, ctx)))
             return [];
         var subjects = ImmutableList.CreateBuilder<TriggerSubject>();
         var seen = new HashSet<ObjectId>();
@@ -455,15 +469,6 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         if (what is { } filter && !_query.Matches(state, filter, left.Object, ctx))
             return [];
         return [TriggerSubject.Of(left.Object, player)];
-    }
-
-    private bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId player, EffectContext ctx)
-    {
-        if (filter.IsYou is { } you && you != (player == ctx.Controller))
-            return false;
-        if (filter.Opponent is { } opponent && opponent != (player != ctx.Controller))
-            return false;
-        return filter.Also is null || _query.Holds(state, filter.Also, ctx);
     }
 
     /// <summary>Control is a computed characteristic, CR 613.1b; an object no longer in the state has none, so its owner stands in.</summary>
