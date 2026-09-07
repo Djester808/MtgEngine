@@ -126,14 +126,19 @@ public sealed partial class EffectInterpreter
     [RuleRef("601")]
     private EffectRun MayCastCard(EffectRun run, MayCast may)
     {
+        var cards = Objects(run, may.What);
+        if (cards.Count == 0)
+            return run;
+
+        // CR 601.3a: a permission that lasts is not a cast, so nothing is offered and no question
+        // is asked — it is a continuous effect, and it needs no casting system.
+        if (may.Until is { } until)
+            return Permission(run, may, cards, until);
+
         if (Casting is null)
             throw new RefusedException(
                 $"{nameof(MayCast)} needs ICastingSystem on the interpreter's seam; asked for in seam-requests/E9e.md",
                 "601");
-
-        var cards = Objects(run, may.What);
-        if (cards.Count == 0)
-            return run;
 
         var who = FirstPlayer(run, may.Who);
         if (Answered(run) is { } answered)
@@ -145,32 +150,67 @@ public sealed partial class EffectInterpreter
     }
 
     /// <summary>
-    /// Announce the spell, CR 601.2. The alternative cost is recorded on the stack entry as
-    /// <c>OptionalCostsPaid</c> so "if its cost was paid that way" can be asked when it resolves —
-    /// which is exactly what the casting system does with the channel it is given. It has no
-    /// channel for "without paying its mana cost" yet (seam-requests/E9e.md), and CR 601.2h means
-    /// a spell is either cast for the cost that was announced or not cast at all, so that reading
-    /// is refused by name rather than cast for a price nobody offered.
+    /// Announce the spell, CR 601.2. "Without paying its mana cost" is CR 601.2h and CR 118.9: the
+    /// mana cost is not paid, and the same permission is also the permission to cast the card from
+    /// the zone it is in (CR 601.3a). Both halves ride on one flag, which the casting system
+    /// records on the stack entry as <c>"free"</c>, so "if it was cast that way" can be asked when
+    /// it resolves. Every additional cost is still paid (CR 601.2b) and the objects one needs are
+    /// chosen as the spell is announced (CR 601.2c), which a yes/no question cannot carry — a card
+    /// that prints an additional cost is refused by name rather than cast for a cost nobody chose.
     /// </summary>
-    [RuleRef("601.2")]
+    [RuleRef("601.2h")]
     private EffectRun Cast(EffectRun run, PlayerId who, ObjectId card, MayCast may)
     {
-        if (may.WithoutPayingManaCost || may.AlternativeCost is not null)
+        // CR 706.2: a copy of a card in a zone is a new object, not this card being cast.
+        if (may.AsCopy)
             throw new RefusedException(
-                "Casting a card without paying its mana cost needs a free cost on CastSpell; asked for in seam-requests/E9e.md",
-                "601.2h");
+                "A copy of that card is not this card being cast; asked for in seam-requests/E9f.md",
+                "706.2");
 
-        // CR 706: a copy of a card is not this card being cast, and nothing copies a card in the
-        // zone it is in yet; CR 601.2 casts it now, not later, so a duration is a permission the
-        // continuous-effect layer would have to hold.
-        if (may.AsCopy || may.Until is not null)
+        // CR 118.9: the command names an alternative cost by the printed keyword whose cost the
+        // plan parses; a cost the effect states in its own words has no channel.
+        if (may.AlternativeCost is not null)
             throw new RefusedException(
-                "A copy, or a permission to cast later, is not a cast now; asked for in seam-requests/E9e.md",
-                "601.2");
+                "An alternative cost stated by the effect has no channel on CastSpell; asked for in seam-requests/E9f.md",
+                "118.9");
 
-        var command = new CastSpell(who, card);
+        if (PrintedFace(run.State, card) is { AdditionalCosts.Count: > 0 })
+            throw new RefusedException(
+                "That card's additional cost cannot be chosen from a may-cast question; asked for in seam-requests/E9f.md",
+                "601.2b");
+
+        var command = new CastSpell(who, card, WithoutPayingManaCost: may.WithoutPayingManaCost);
         if (Casting!.Check(run.State, command) is { } refusal)
             throw new RefusedException(refusal.Reason, refusal.Rule);
         return Merge(run, Casting.Cast(run.State, command));
     }
+
+    /// <summary>
+    /// "You may cast it this turn", CR 601.3a: a permission that outlives the resolution is not a
+    /// cast but a continuous effect (CR 611.1), so it is created rather than offered — the player
+    /// takes it later, at a time they could cast the card, or not at all. <see cref="MayPlayFromZone"/>
+    /// is the vocabulary's spelling; the effect applies to the cards the resolution named and to
+    /// the zone they are in now, and it carries no cost half, so a permission that also changes
+    /// what the card costs is refused by name (seam-requests/E9f.md, which also asks the casting
+    /// system to read this effect for CR 601.3's permission).
+    /// </summary>
+    [RuleRef("601.3a")]
+    private EffectRun Permission(EffectRun run, MayCast may, ImmutableList<ObjectId> cards, Duration until)
+    {
+        if (may.WithoutPayingManaCost || may.AsCopy || may.AlternativeCost is not null)
+            throw new RefusedException(
+                "A lasting permission has no cost half to say that with; asked for in seam-requests/E9f.md",
+                "118.9");
+
+        var who = FirstPlayer(run, may.Who);
+        var from = run.State.Objects.TryGetValue(cards[0], out var card) ? card.Zone.Zone : Cards.Zone.Hand;
+        return Create(run, new MayPlayFromZone(may.Who ?? new You(), from), cards, [who], until);
+    }
+
+    /// <summary>The printed face a card would be cast as, CR 601.3b: the front one until a face is chosen.</summary>
+    [RuleRef("601.3b")]
+    private static Face? PrintedFace(GameState state, ObjectId card) =>
+        state.Objects.TryGetValue(card, out var obj) && obj.Definition.Faces.Count > 0
+            ? obj.Definition.Faces[0]
+            : null;
 }
