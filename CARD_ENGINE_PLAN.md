@@ -153,8 +153,10 @@ gate is green on the integration branch.
 ## The brief every agent gets
 
 ```
-You are <agent id>. Read CARD_ENGINE_PLAN.md and CLAUDE.md first; the docs hook enforces
-the knowledge docs for anything else you touch.
+You are <agent id>. First run `node tools/ledger.js claim <agent id>` in your worktree:
+until you do, every edit and every non-read command is refused. Then read
+CARD_ENGINE_PLAN.md and CLAUDE.md with the Read tool; the docs hook checks your own
+transcript, not the coordinator's.
 
 You own exactly these files: <list>. Do not create or edit files outside them. If you need a
 seam changed, write the change you need to seam-requests/<agent id>.md and stop that thread.
