@@ -63,7 +63,7 @@ public sealed class ScenarioRunner(Game game) : IScenarioRunner
 internal sealed class ScenarioFailure(string message) : Exception(message);
 
 /// <summary>One run of one scenario: the state, the log, and the names the scenario used for things.</summary>
-internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer = false)
+internal sealed partial class ScenarioRun(Game game, Scenario scenario, bool autoAnswer = false)
 {
     private readonly Dictionary<string, PlayerId> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ObjectId> _objects = new(StringComparer.OrdinalIgnoreCase);
@@ -251,9 +251,12 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
             Player(c.Player), Object(c.Card), 0, TargetObjects(c.Targets), TargetPlayers(c.Targets),
             c.Modes is null ? null : [.. c.Modes], c.X, c.CostChoices is null ? null : [.. c.CostChoices], Keyword(c.AlternativeCost),
             CostObjects: CostObjects(c.CostObjects)),
+        // CR 608.2d: the colour of "add one mana of any color" is announced with the activation,
+        // so a scenario that activates such an ability carries the colour on its step and the
+        // runner hands it to the command rather than leaving the choice unmade.
         ActivateStep a => new ActivateAbility(
             Player(a.Player), Object(a.Card), a.AbilityIndex, TargetObjects(a.Targets), TargetPlayers(a.Targets),
-            null, a.X, a.CostChoices is null ? null : [.. a.CostChoices], CostObjects(a.CostObjects)),
+            null, a.X, a.CostChoices is null ? null : [.. a.CostChoices], CostObjects(a.CostObjects), a.ManaColors),
         PlayLandStep p => new PlayLand(Player(p.Player), Object(p.Card)),
         AttackStep a => new DeclareAttackers(Player(a.Player), [.. a.Attacks.Select(at => new AttackDeclaration(Object(at.Attacker), Defender(at.Defender)))]),
         BlockStep b => new DeclareBlockers(Player(b.Player), [.. b.Blocks.Select(bl => new BlockDeclaration(Object(bl.Blocker), Object(bl.Attacker)))]),
@@ -430,44 +433,6 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
     {
         _log.AddRange(events);
         Track(events);
-    }
-
-    /// <summary>The mana a scenario writes as a string: one letter per mana, a number for that much colourless.</summary>
-    [RuleRef("106.1a")]
-    internal static ManaPool ParseMana(string mana)
-    {
-        int w = 0, u = 0, b = 0, r = 0, g = 0, c = 0;
-        foreach (var symbol in mana ?? string.Empty)
-        {
-            switch (char.ToUpperInvariant(symbol))
-            {
-                case 'W':
-                    w++;
-                    break;
-                case 'U':
-                    u++;
-                    break;
-                case 'B':
-                    b++;
-                    break;
-                case 'R':
-                    r++;
-                    break;
-                case 'G':
-                    g++;
-                    break;
-                case 'C':
-                    c++;
-                    break;
-                case >= '0' and <= '9':
-                    c += symbol - '0';
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        return new ManaPool(w, u, b, r, g, c);
     }
 
     /// <summary>

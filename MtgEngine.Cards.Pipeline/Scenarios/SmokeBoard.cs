@@ -140,6 +140,28 @@ internal sealed class SmokeBoard(string card)
     }
 
     /// <summary>
+    /// CR 602.2a: an activation is paid out of the pool the setup stocks, and the cost is the
+    /// ability's rather than the card's — an ability that costs no mana is paid from an empty pool.
+    /// Stocking exactly what the activation pays leaves the pool holding precisely what the ability
+    /// produced, which is what <see cref="PaysExactly"/> does for a cast.
+    /// </summary>
+    /// <returns>False when a symbol of the cost is a choice rather than a symbol, so nothing is stocked.</returns>
+    [RuleRef("602.2a")]
+    internal bool PaysActivationExactly(string cost)
+    {
+        if (cost is not { Length: > 0 })
+        {
+            _pool = string.Empty;
+            return true;
+        }
+
+        if (Plain(cost) is not { } exact)
+            return false;
+        _pool = exact;
+        return true;
+    }
+
+    /// <summary>
     /// CR 601.2c: a permanent the printed cost sacrifices, placed on the caster's battlefield under
     /// an alias of its own — the step has to name one particular body, and a filler creature the
     /// board placed for some other generator may belong to the opponent.
