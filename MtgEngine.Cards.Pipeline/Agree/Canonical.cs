@@ -25,9 +25,10 @@ namespace MtgEngine.Cards.Pipeline.Agree;
 ///
 /// Nothing semantic is touched. <c>upTo</c> present against absent, <c>anyColor</c> true against
 /// false, <c>selfOnly</c> true against false and Compare against Controls are all real
-/// disagreements and stay differences. "Any target" has no spelling of its own in this
-/// vocabulary — DealDamage carries To and ToPlayer separately — so a filter naming
-/// Creature/Planeswalker/Battle is left exactly as written, and the two readings still differ.
+/// disagreements and stay differences. "Any target" now has a spelling of its own,
+/// <see cref="AnyTarget"/> (CR 115.4), so the two ways of writing the phrase across DealDamage's
+/// To and ToPlayer collapse to it — but only those two: an open filter beside a player target
+/// means something else and is left exactly as written.
 /// </summary>
 public static partial class Canonical
 {

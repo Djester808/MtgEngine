@@ -107,16 +107,21 @@ public sealed partial class CanonicalTests
     /// the card stays disputed — the honest outcome until the vocabulary gains the record.
     /// </summary>
     [Fact]
-    public void Any_target_is_left_as_written_because_the_vocabulary_has_no_spelling_for_it()
+    public void Any_target_collapses_to_the_selector_that_says_it()
     {
+        // The two-field spelling of CR 115.4 and the selector are one reading (seam-requests/P6b.md).
         var anyTarget = new ObjectFilter(AnyTypes: CardType.Creature | CardType.Planeswalker | CardType.Battle);
         var spelled = Spell(new DealDamage(new Fixed(3), new Target(anyTarget), new TargetPlayer(PlayerFilter.Any)));
-        var implied = Spell(new DealDamage(new Fixed(3), new Target(ObjectFilter.Any), new TargetPlayer(PlayerFilter.Any)));
+        var said = Spell(new DealDamage(new Fixed(3), new AnyTarget()));
 
-        Differs(spelled, implied);
+        Same(spelled, said);
 
-        var kept = (Target)((DealDamage)Do(Canonical.Of(spelled))).To!;
-        Assert.Equal(CardType.Creature | CardType.Planeswalker | CardType.Battle, kept.Filter.AnyTypes);
+        var collapsed = (DealDamage)Do(Canonical.Of(spelled));
+        Assert.IsType<AnyTarget>(collapsed.To);
+        Assert.Null(collapsed.ToPlayer);
+
+        // An open filter beside a player target is a different instruction: it reaches a land.
+        Differs(Spell(new DealDamage(new Fixed(3), new Target(ObjectFilter.Any), new TargetPlayer(PlayerFilter.Any))), said);
     }
 
     [Fact]

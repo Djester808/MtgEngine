@@ -278,10 +278,11 @@ public sealed partial class CanonicalTests
             Spell(new AddMana(new ManaProduction(AnyColor: true))),
             Spell(new AddMana(new ManaProduction(AnyColor: false))));
 
-        // "Any target" still has no spelling of its own; both readings stay as written.
+        // "Any target" has a spelling of its own now, but only the phrase collapses into it: an
+        // open filter beside a player target reaches a land as well, and stays as written.
         Differs(
-            Spell(new DealDamage(new Fixed(3), new Target(new ObjectFilter(AnyTypes: CardType.Creature | CardType.Planeswalker | CardType.Battle)), new TargetPlayer(PlayerFilter.Any))),
-            Spell(new DealDamage(new Fixed(3), new Target(ObjectFilter.Any), new TargetPlayer(PlayerFilter.Any))));
+            Spell(new DealDamage(new Fixed(3), new Target(ObjectFilter.Any), new TargetPlayer(PlayerFilter.Any))),
+            Spell(new DealDamage(new Fixed(3), new AnyTarget())));
 
         // Remembering a target and targeting again are different instructions: the remembered
         // object is the one that was targeted even after it moves.
