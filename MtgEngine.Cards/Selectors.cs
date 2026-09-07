@@ -144,6 +144,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(IsHarnessed), nameof(IsHarnessed))]
 [JsonDerivedType(typeof(IsTransformed), nameof(IsTransformed))]
 [JsonDerivedType(typeof(IsCopy), nameof(IsCopy))]
+[JsonDerivedType(typeof(IsThisObject), nameof(IsThisObject))]
 [JsonDerivedType(typeof(HasAbilityOfKind), nameof(HasAbilityOfKind))]
 [JsonDerivedType(typeof(ProducesMana), nameof(ProducesMana))]
 [JsonDerivedType(typeof(NotPredicate), nameof(NotPredicate))]
@@ -209,6 +210,19 @@ public sealed record IsHarnessed : Predicate;
 public sealed record IsTransformed : Predicate;
 
 public sealed record IsCopy : Predicate;
+
+/// <summary>
+/// The object this ability is printed on, and nothing else. "This" in a card's text always means
+/// the object the ability is on (CR 109.5), so a trigger that is about its own source says it with
+/// this predicate: "whenever this creature attacks" is Attacks with ObjectFilter(Also: IsThisObject),
+/// and "whenever this creature dies" is Dies with the same filter (CR 603.2 — a trigger's event is
+/// matched against its own source like any other object). Do not confuse it with Other, which means
+/// "another" and excludes this object, or with an unmarked filter, which matches every object it
+/// describes including this one. The selector Self is the same idea on the effect side: use Self to
+/// act on this object, IsThisObject to describe it inside a filter.
+/// </summary>
+[RuleRef("109.5")]
+public sealed record IsThisObject : Predicate;
 
 /// <summary>Has an ability of the given kind: "a creature with a mana ability", "with an activated ability".</summary>
 public sealed record HasAbilityOfKind(AbilityKind Ability) : Predicate;

@@ -338,6 +338,9 @@
           "$ref": "#/$defs/DiscardHand"
         },
         {
+          "$ref": "#/$defs/DiscardSelfCost"
+        },
+        {
           "$ref": "#/$defs/ExileFromZoneCost"
         },
         {
@@ -1281,6 +1284,19 @@
         "kind"
       ],
       "description": "CR 118"
+    },
+    "DiscardSelfCost": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DiscardSelfCost"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022Discard this card\u0022: the card the ability is on is the one discarded, and no other card can pay it. This is the cost cycling asks for \u2014 \u0022[Cost], Discard this card: Draw a card\u0022 (CR 702.29a) \u2014 and the same shape jump-start and other discard-this-card abilities use. Use DiscardCost only when the text says \u0022discard a card\u0022, where the player chooses which; a player must not be able to pay a discard-this-card cost with a different card."
     },
     "ExileFromZoneCost": {
       "type": "object",
@@ -8835,6 +8851,9 @@
           "$ref": "#/$defs/IsSuspected"
         },
         {
+          "$ref": "#/$defs/IsThisObject"
+        },
+        {
           "$ref": "#/$defs/IsTransformed"
         },
         {
@@ -9637,13 +9656,16 @@
               "type": "null"
             }
           ]
+        },
+        "allCreatureTypes": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
         "kind"
       ],
-      "description": "CR 613.1d"
+      "description": "Adds card types, subtypes or supertypes in layer 4 (CR 613.1d) while keeping the ones already there: \u0022is a creature in addition to its other types\u0022, \u0022is also a Goblin\u0022. Set AllCreatureTypes when the object is every creature type at once \u2014 changeling (CR 702.72a) and any text reading \u0022is every creature type\u0022 (CR 205.3d). Say it with that flag, never by listing creature types: the list changes with every set, and the engine derives it rather than carrying card data."
     },
     "AdditionalCombatPhase": {
       "type": "object",
@@ -13852,6 +13874,19 @@
         "kind"
       ],
       "description": "CR 701.60"
+    },
+    "IsThisObject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IsThisObject"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "The object this ability is printed on, and nothing else. \u0022This\u0022 in a card\u0027s text always means the object the ability is on (CR 109.5), so a trigger that is about its own source says it with this predicate: \u0022whenever this creature attacks\u0022 is Attacks with ObjectFilter(Also: IsThisObject), and \u0022whenever this creature dies\u0022 is Dies with the same filter (CR 603.2 \u2014 a trigger\u0027s event is matched against its own source like any other object). Do not confuse it with Other, which means \u0022another\u0022 and excludes this object, or with an unmarked filter, which matches every object it describes including this one. The selector Self is the same idea on the effect side: use Self to act on this object, IsThisObject to describe it inside a filter."
     },
     "IsTransformed": {
       "type": "object",

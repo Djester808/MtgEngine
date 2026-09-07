@@ -16,6 +16,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(SacrificeSelf), nameof(SacrificeSelf))]
 [JsonDerivedType(typeof(SacrificeCost), nameof(SacrificeCost))]
 [JsonDerivedType(typeof(DiscardCost), nameof(DiscardCost))]
+[JsonDerivedType(typeof(DiscardSelfCost), nameof(DiscardSelfCost))]
 [JsonDerivedType(typeof(DiscardHand), nameof(DiscardHand))]
 [JsonDerivedType(typeof(PayLife), nameof(PayLife))]
 [JsonDerivedType(typeof(PayEnergy), nameof(PayEnergy))]
@@ -51,6 +52,16 @@ public sealed record SacrificeSelf : Cost;
 public sealed record SacrificeCost(ObjectFilter What, Amount? Count = null) : Cost;
 
 public sealed record DiscardCost(Amount? Count = null, ObjectFilter? What = null, bool Random = false) : Cost;
+
+/// <summary>
+/// "Discard this card": the card the ability is on is the one discarded, and no other card can pay
+/// it. This is the cost cycling asks for — "[Cost], Discard this card: Draw a card" (CR 702.29a) —
+/// and the same shape jump-start and other discard-this-card abilities use. Use DiscardCost only
+/// when the text says "discard a card", where the player chooses which; a player must not be able
+/// to pay a discard-this-card cost with a different card.
+/// </summary>
+[RuleRef("702.29a")]
+public sealed record DiscardSelfCost : Cost;
 
 public sealed record DiscardHand : Cost;
 
