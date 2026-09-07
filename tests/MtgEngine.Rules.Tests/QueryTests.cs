@@ -228,15 +228,14 @@ public sealed class QueryTests
     {
         var world = World.New().Creature(1, Alice, 1, 1);
 
-        var morbid = Assert.Throws<NotImplementedException>(() => world.Holds(new Morbid()));
-        Assert.Contains(nameof(Morbid), morbid.Message, StringComparison.Ordinal);
+        // It is a RefusedException, so Game.Apply turns it into a Refused and the table is told
+        // which primitive is missing rather than the game dying mid-command.
+        var first = Assert.Throws<RefusedException>(() => world.Holds(new FirstTimeThisTurn()));
+        Assert.Contains(nameof(FirstTimeThisTurn), first.Reason, StringComparison.Ordinal);
 
-        var commander = Assert.Throws<NotImplementedException>(
+        var commander = Assert.Throws<RefusedException>(
             () => world.Query.Resolve(world.State, new Cards.Commander(new You()), world.Context));
-        Assert.Contains("Commander", commander.Message, StringComparison.Ordinal);
-
-        var monarch = Assert.Throws<NotImplementedException>(() => world.Players(new Cards.Monarch()));
-        Assert.Contains("Monarch", monarch.Message, StringComparison.Ordinal);
+        Assert.Contains("Commander", commander.Reason, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -91,7 +91,8 @@ public sealed partial class Query
             DefendingPlayer => Defending(state), // CR 506.2
             PlayerWithMostOf most => Extreme(state, most, context),
 
-            Cards.Monarch => throw Unanswerable(nameof(Cards.Monarch), NoDesignation),
+            // CR 724.2: there is at most one monarch, and the state keeps who it is.
+            Cards.Monarch => state.Monarch is { } monarch ? [monarch] : [],
             ChoosePlayer => throw Unanswerable(nameof(ChoosePlayer), NoPlayerMemory),
             ChosenPlayer => throw Unanswerable(nameof(ChosenPlayer), NoPlayerMemory),
             RememberedPlayer => throw Unanswerable(nameof(RememberedPlayer), NoPlayerMemory),

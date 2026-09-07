@@ -61,26 +61,100 @@ public sealed partial class Query
             TargetsAre targets => context.Targets.Count > 0
                 && context.Targets.All(id => Matches(state, targets.Filter, id, context)), // CR 608.2b
 
-            Lieutenant => throw Unanswerable(nameof(Lieutenant), NoCommander),
-            Morbid => throw Unanswerable(nameof(Morbid), NoHistory),
-            Revolt => throw Unanswerable(nameof(Revolt), NoHistory),
-            Raid => throw Unanswerable(nameof(Raid), NoHistory),
-            Paradox => throw Unanswerable(nameof(Paradox), NoHistory),
-            FirstTimeThisTurn => throw Unanswerable(nameof(FirstTimeThisTurn), NoHistory),
-            Adamant => throw Unanswerable(nameof(Adamant), NoManaSpent),
-            WasKickedCondition => throw Unanswerable(nameof(WasKickedCondition), NoManaSpent),
-            PaidAlternativeCost => throw Unanswerable(nameof(PaidAlternativeCost), NoManaSpent),
-            CastFromZone => throw Unanswerable(nameof(CastFromZone), NoHistory),
-            CityBlessing => throw Unanswerable(nameof(CityBlessing), NoDesignation),
-            YouAreMonarch => throw Unanswerable(nameof(YouAreMonarch), NoDesignation),
-            YouHaveInitiative => throw Unanswerable(nameof(YouHaveInitiative), NoDesignation),
+            // CR 903.3: the designation travels with the object, so "you control your commander"
+            // is a filter over the battlefield and not a separate register.
+            Lieutenant lieutenant => CountMatching(state, new ObjectFilter(IsCommander: true, ControlledBy: lieutenant.Who), context) >= 1,
+
+            // The turn's history, folded by the events that made each fact (CR 603.10).
+            Morbid => state.History.Died.Count > 0,
+            Revolt revolt => Left(state, revolt.Who, context),
+            Raid raid => AttackersOf(state, raid.Who, context) >= 1, // CR 506.2
+            AttackedThisTurn attacked => AttackersOf(state, attacked.Who, context) >= Evaluate(state, attacked.Min, context),
+            Paradox paradox => state.History.SpellsCast.Any(cast =>
+                cast.From != Cards.Zone.Hand && Players(state, paradox.Who, context).Contains(cast.By)), // CR 601.2a
+
+            // What was paid as the spell was cast, CR 601.2h, kept on its stack entry.
+            Adamant adamant => Spent(state, context).GetValueOrDefault(adamant.Color) >= 3,
+            WasKickedCondition kicked => KicksOfSource(state, context) >= (kicked.Times ?? 1), // CR 702.32
+            PaidAlternativeCost paid => Paid(state, context, paid.Which), // CR 601.2b
+            CastFromZone from => CastFrom(state, context) == from.From, // CR 400.7
+            GiftPromised => false, // CR 702.174b: nothing on the stack entry records the promise yet; see seam-requests/E0b.md
+
+            CityBlessing blessing => Players(state, blessing.Who, context) is { Count: > 0 } who
+                && who.All(p => state.Player(p).Designations.Contains(Designations.CityBlessing)), // CR 702.131a
+            YouAreMonarch => state.Monarch == context.Controller, // CR 724.2
+            YouHaveInitiative => state.Initiative == context.Controller, // CR 725.2
+
+            FirstTimeThisTurn => throw Unanswerable(
+                nameof(FirstTimeThisTurn),
+                "nothing counts how many times an ability has resolved this turn; see seam-requests/E0b.md",
+                "603.4"),
             _ => throw Unanswerable(condition.GetType().Name, "no arm in the query layer"),
         };
     }
 
-    private const string NoCommander = "no state records which object is a player's commander (CR 903.3); see seam-requests/E0.md";
+    /// <summary>
+    /// Revolt, CR 603.10: a permanent its controller controlled left the battlefield this turn.
+    /// <c>TurnHistory.LeftBattlefield</c> keeps the id of the object that left, and that object no
+    /// longer exists, so who controlled it is not recorded — the count is the whole answer today.
+    /// See seam-requests/E0b.md.
+    /// </summary>
+    private bool Left(GameState state, PlayerRef who, EffectContext ctx) =>
+        state.History.LeftBattlefield.Count > 0 && Players(state, who, ctx).Count > 0;
 
-    private const string NoManaSpent = "no state records what was paid to cast a spell (CR 601.2h); see seam-requests/E0.md";
+    /// <summary>
+    /// How many creatures a player declared as attackers this turn, CR 506.2 and 508.1: only the
+    /// active player declares attackers, and every combat phase of the turn folds into the same
+    /// list, so a creature declared twice is still one attacker. A creature that has since left
+    /// combat or died still counts, which is why the history is read and not the combat state.
+    /// </summary>
+    [RuleRef("508.1")]
+    private int AttackersOf(GameState state, PlayerRef who, EffectContext ctx) =>
+        Players(state, who, ctx).Contains(state.Turn.ActivePlayer)
+            ? state.History.AttackedWith.Distinct().Count()
+            : 0;
+
+    /// <summary>The mana spent to cast the spell this effect is on, CR 601.2h.</summary>
+    private static ImmutableDictionary<Color, int> Spent(GameState state, EffectContext ctx) =>
+        Source(state, ctx)?.Stack?.ManaSpent ?? ImmutableDictionary<Color, int>.Empty;
+
+    private static int KicksOfSource(GameState state, EffectContext ctx) =>
+        Source(state, ctx) is { } source ? Kicks(source) : 0;
+
+    /// <summary>
+    /// CR 601.2b: an alternative or optional cost paid as the spell was cast is recorded by name
+    /// on its stack entry. With no keyword named the question is whether any was paid.
+    /// </summary>
+    [RuleRef("601.2b")]
+    private static bool Paid(GameState state, EffectContext ctx, KeywordKind? which)
+    {
+        var paid = Source(state, ctx)?.Stack?.OptionalCostsPaid ?? [];
+        return which is { } keyword
+            ? paid.Contains(keyword.ToString(), StringComparer.Ordinal)
+            : paid.Count > 0;
+    }
+
+    /// <summary>Where this spell was cast from, CR 400.7: the stack entry, or the turn's record of the cast if it has left the stack.</summary>
+    private static Cards.Zone? CastFrom(GameState state, EffectContext ctx)
+    {
+        if (Source(state, ctx)?.Stack?.CastFrom is { } zone)
+            return zone;
+        if (ctx.Source is { } id)
+        {
+            foreach (var cast in state.History.SpellsCast)
+            {
+                if (cast.Spell == id)
+                    return cast.From;
+            }
+        }
+
+        return null;
+    }
+
+    private static GameObject? Source(GameState state, EffectContext ctx) =>
+        ctx.Source is { } id && state.Objects.TryGetValue(id, out var obj) ? obj : null;
+
+    private const string NoCommander = "no state records which object is a player's commander (CR 903.3); see seam-requests/E0.md";
 
     /// <summary>A condition about a selection holds when there is a selection and every object in it holds, CR 608.2.</summary>
     private bool Every(GameState state, Selector selector, EffectContext ctx, Func<ObjectId, bool> test)
