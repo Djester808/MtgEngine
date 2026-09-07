@@ -536,6 +536,190 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "00d8efa6-a2d9-4249-8da7-b45173675329",
+        "name": "Utopia Sprawl",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Utopia Sprawl",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "TappedForMana",
+                  "what": {
+                    "subtypes": [
+                      "Forest"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The trigger\u0027s subject is the Forest this Aura is attached to, but TappedForMana\u0027s What is an ObjectFilter and no filter field or predicate says \u0027the object this is attached to\u0027: Attached is a selector only and cannot stand in a filter position, and AttachedTo runs the other way (the candidate is the attachment hanging on To, never the enchanted permanent). The What above admits every Forest, which is wider than the card.",
+                      "text": "Whenever enchanted Forest is tapped for mana"
+                    },
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "chosenColorKey": "k1",
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ],
+            "oracleText": "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "TappedForMana",
+                  "what": {
+                    "subtypes": [
+                      "Forest"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The trigger\u0027s subject is the Forest this Aura is attached to, but TappedForMana\u0027s What is an ObjectFilter and no filter field or predicate says \u0027the object this is attached to\u0027: Attached is a selector only and cannot stand in a filter position, and AttachedTo runs the other way (the candidate is the attachment hanging on To, never the enchanted permanent). The What above admits every Forest, which is wider than the card.",
+                      "text": "Whenever enchanted Forest is tapped for mana"
+                    },
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "chosenColorKey": "k1",
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [
