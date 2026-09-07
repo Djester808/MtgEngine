@@ -1,3 +1,4 @@
+using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -135,9 +136,18 @@ public sealed partial class EffectInterpreter
                 {
                     var pool = PoolFor(run, mana);
                     var times = Math.Max(1, Number(run, mana.N));
+                    var produced = 0;
                     foreach (var player in PlayersOrYou(run, mana.Who))
+                    {
                         for (var i = 0; i < times; i++)
-                            run = Emit(run, new ManaChanged(player, pool, "addMana"));
+                        {
+                            var delta = mana.Key is { } key && run.Context.Source is { } source
+                                ? pool with { Provenance = Provenance(pool, key, source, ref produced) }
+                                : pool;
+                            run = Emit(run, new ManaChanged(player, delta, "addMana"));
+                        }
+                    }
+
                     return run;
                 }
 
@@ -251,6 +261,42 @@ public sealed partial class EffectInterpreter
     /// colour chosen earlier comes out of the context. Anything else needs the mana subsystem's
     /// choice and is wave 3's.
     /// </summary>
+    /// <summary>
+    /// Where each mana came from, CR 106.6a. Mana is not an object, so an instruction that wants to
+    /// watch the mana it made says so with a key, and the key rides on the pool beside the
+    /// restriction. One block per single mana, each with its own key: CR 106.6a creates a separate
+    /// delayed ability for each mana produced, so two mana where the card printed one must be told
+    /// apart when one of them is spent.
+    /// </summary>
+    [RuleRef("106.6a")]
+    private static ImmutableList<Mana.ManaProvenance> Provenance(ManaPool pool, string key, ObjectId source, ref int produced)
+    {
+        var blocks = ImmutableList.CreateBuilder<Mana.ManaProvenance>();
+        foreach (var (colour, amount) in Colours(pool))
+        {
+            for (var i = 0; i < amount; i++)
+                blocks.Add(new Mana.ManaProvenance(colour, 1, source, ManaKey(key, produced++)));
+        }
+
+        return blocks.ToImmutable();
+    }
+
+    /// <summary>The key one mana of a keyed instruction carries, CR 106.6a: the card's key and which mana it is.</summary>
+    [RuleRef("106.6a")]
+    internal static string ManaKey(string key, int index) =>
+        key + "#" + index.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>The pool read one colour at a time, so a block can be written per mana.</summary>
+    private static IEnumerable<(Color Colour, int Amount)> Colours(ManaPool pool) =>
+    [
+        (Color.White, pool.White),
+        (Color.Blue, pool.Blue),
+        (Color.Black, pool.Black),
+        (Color.Red, pool.Red),
+        (Color.Green, pool.Green),
+        (Color.Colorless, pool.Colorless),
+    ];
+
     private ManaPool PoolFor(EffectRun run, AddMana mana)
     {
         var production = mana.Mana;

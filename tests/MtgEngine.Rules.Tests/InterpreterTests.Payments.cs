@@ -154,6 +154,58 @@ public sealed partial class InterpreterTests
         Assert.Equal([sacrificed, discarded], Assert.Single(casting.Cast).CostObjects);
     }
 
+    /* ---------------------------------------------------------------------------------------- *
+     * CR 106.6a — a delayed ability for each mana produced.
+     * ---------------------------------------------------------------------------------------- */
+
+    [Fact]
+    public void A_keyed_add_mana_creates_one_delayed_trigger_for_each_mana_it_produced()
+    {
+        var table = new InterpreterTable();
+        var spell = table.OnStack(table.A, new Sequence(
+        [
+            new AddMana(new ManaProduction("{G}{G}"), Key: "spent"),
+            new DelayedTrigger(new ManaSpent("spent"), new GainLife(new Fixed(1))),
+        ]));
+
+        table.Resolve(spell);
+
+        // CR 106.6a: "if a replacement effect increases the amount of mana produced, a separate
+        // delayed ability is created for each mana produced" — so the two mana of this instruction
+        // are two abilities, each watching its own mana and not both firing on one spend.
+        Assert.Equal(2, table.State.DelayedTriggers.Count);
+        var watched = table.State.DelayedTriggers
+            .Select(t => Assert.IsType<ManaSpent>(t.When).ManaKey)
+            .Order()
+            .ToList();
+        Assert.Equal(2, watched.Distinct().Count());
+
+        // Mana is not an object, so what links the two halves is the key each mana carries in the
+        // pool: one block per single mana, written by the AddMana that made it.
+        var pool = table.State.Player(table.A).Mana;
+        Assert.Equal(2, pool.Green);
+        Assert.Equal(watched, pool.Provenance.Select(p => p.Key ?? string.Empty).Order().ToList());
+        Assert.All(pool.Provenance, block => Assert.Equal(1, block.Amount));
+    }
+
+    [Fact]
+    public void An_unkeyed_delayed_trigger_is_created_once_however_much_mana_is_in_the_pool()
+    {
+        var table = new InterpreterTable();
+        var spell = table.OnStack(table.A, new Sequence(
+        [
+            new AddMana(new ManaProduction("{G}{G}")),
+            new DelayedTrigger(new ManaSpent("spent"), new GainLife(new Fixed(1))),
+        ]));
+
+        table.Resolve(spell);
+
+        // CR 106.6: a key this resolution did not produce is left as the card wrote it — the mana
+        // it watches can come from a linked ability on another permanent, so the trigger is one.
+        var delayed = Assert.Single(table.State.DelayedTriggers);
+        Assert.Equal("spent", Assert.IsType<ManaSpent>(delayed.When).ManaKey);
+    }
+
     /// <summary>"You may pay [cost]. If you do, gain 5 life; if you don't, lose 1", CR 118.12.</summary>
     private static MayPay Offer(Cost cost) =>
         new(cost, new GainLife(new Fixed(5)), new LoseLife(new Fixed(1)));
