@@ -355,15 +355,17 @@ public sealed partial class CombatReplacementTests
 
     /// <summary>
     /// Answer the open question the way a game does: through the choice system, which records the
-    /// answer, hands the halted event to the replacement system and then asks the combat system for
-    /// the rest of the batch (CR 616.1, 510.2).
+    /// answer, hands the halted event to the replacement system, asks the combat system for the
+    /// rest of the batch (CR 616.1, 510.2) and then asks the turn system to open the step
+    /// (CR 510.3 with 117.3b). The turn system is the real one because that last grant is its
+    /// rule and no longer spelled a second time in the choice system.
     /// </summary>
     private static ImmutableList<GameEvent> Answer(CombatTable table, IReplacementSystem replacements)
     {
         var pending = table.State.Pending ?? throw new InvalidOperationException("nothing is waiting on an answer.");
         var choices = new ChoiceSystem(
             new ChoiceResumptionFakeZones(),
-            new ChoiceResumptionFakeTurn(),
+            new MtgEngine.Rules.Turn.TurnSystem(new ChoiceResumptionFakeZones(), new TurnFixture.FakeCasting()),
             new CombatReplacementResumable(replacements),
             null,
             table.Subject);

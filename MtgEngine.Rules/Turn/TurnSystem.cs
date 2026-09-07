@@ -173,6 +173,32 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
         return log.Done();
     }
 
+    /// <summary>
+    /// CR 117.3b: something that finished out of band — a resolution a question stopped (CR 608.2)
+    /// or a combat damage batch a CR 616.1 question halted (CR 510.3) — opens the step again, and
+    /// the active player receives priority. It is the same grant <see cref="Pass"/> makes after an
+    /// ordinary resolution, said once so the choice system does not spell it a second time
+    /// (<c>seam-requests/E4e.md</c>).
+    /// <para>
+    /// Nothing is opened while another question stands (CR 101.4: the game is still waiting), once
+    /// the game has ended (CR 104.1), or while a player already holds priority — a question asked
+    /// during a cast or an activation is answered by the player who has it, and the answer does not
+    /// take it off them. So this may be asked after every answer, and only the answers that
+    /// finished something open anything.
+    /// </para>
+    /// </summary>
+    [RuleRef("117.3b")]
+    public Outcome OpenStep(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.Pending is not null || state.Outcome is not null || state.Priority.Holder is not null)
+            return Outcome.Unchanged(state);
+
+        var log = new Log(state);
+        GrantPriority(log, state.Turn.ActivePlayer);
+        return log.Done();
+    }
+
     /// <summary>A turn begins: the beginning phase's untap step runs, then the upkeep step, CR 501.1.</summary>
     [RuleRef("501.1")]
     private void BeginTurn(Log log, PlayerId player, int number, bool extra)

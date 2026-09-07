@@ -23,7 +23,15 @@ public sealed partial class ChoiceSystem
         ChoiceKinds.LegendRule => LegendRule(state, choice, chosen),
         ChoiceKinds.Mulligan => Mulligan(state, choice, chosen).Then(s => Next(s, choice.Player)),
         ChoiceKinds.MulliganBottom => Bottom(state, chosen).Then(s => Next(s, choice.Player)),
-        _ => AndTheRest(Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))), choice),
+
+        // CR 117.3b with 608.2: every other kind is a card's question, asked in the middle of
+        // something the game was already doing — a resolution, a combat damage batch, a cast.
+        // Whatever the answer finished, the turn system is asked to open the step; it opens
+        // nothing while another question stands or while a player still holds priority, so an
+        // answer that finished nothing changes nothing here. A mulligan keep is not among them:
+        // it opens the game rather than a step, through Next and CR 103.5.
+        _ => AndTheRest(Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))), choice)
+            .Then(turn.OpenStep),
     };
 
     /// <summary>
@@ -59,7 +67,7 @@ public sealed partial class ChoiceSystem
         // question because they are the only record that this halt is a combat damage batch's.
         return state.Pending is { } again
             ? StillTheBatch(state, again, firstStrike, from)
-            : combat.ResumeCombatDamage(state, firstStrike, from, dealt).Then(OpenTheDamageStep);
+            : combat.ResumeCombatDamage(state, firstStrike, from, dealt);
     }
 
     /// <summary>
@@ -88,30 +96,6 @@ public sealed partial class ChoiceSystem
 
         var requested = new ChoiceRequested(marked);
         return new Outcome(requested.Apply(state), [requested]);
-    }
-
-    /// <summary>
-    /// CR 510.3 with 117.3b: combat damage has been dealt, so the active player receives priority
-    /// and the step can be walked on. An unhalted batch is dealt inside the turn system's advance,
-    /// which grants priority itself once its turn-based action is done (CR 117.3a); a batch a
-    /// CR 616.1 question halted comes back here through the answer instead, and until this nobody
-    /// had opened the step — the damage was right and the game could not go on. A second question
-    /// means the batch is waiting again and the step stays shut until that answer too (CR 101.4).
-    /// <para>
-    /// The grant is written out rather than asked of <see cref="ITurnSystem"/> because that
-    /// interface has no member for "a turn-based action is finished, open the step":
-    /// <c>seam-requests/E4e.md</c> asks for one, and this <b>duplicates</b>
-    /// <c>TurnSystem.GrantPriority</c> until it lands.
-    /// </para>
-    /// </summary>
-    [RuleRef("510.3")]
-    private static Outcome OpenTheDamageStep(GameState state)
-    {
-        if (state.Pending is not null || state.Priority.Holder is not null)
-            return Outcome.Unchanged(state);
-
-        var granted = new PriorityGranted(state.Turn.ActivePlayer);
-        return new Outcome(granted.Apply(state), [granted]);
     }
 
     /// <summary>
