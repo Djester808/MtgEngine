@@ -27,6 +27,26 @@ public static class ScenarioFiller
     [RuleRef("205.4a")]
     public const string BasicLand = "Scenario Filler Basic Land";
 
+    /// <summary>
+    /// One basic land per basic land type, CR 305.6, so a search that names a land type ("a Forest
+    /// card", CR 205.3i) finds one. Each carries only the type line: the intrinsic mana ability is
+    /// CR 305.6 data the engine already reads off the subtype, and a smoke scenario asserts the zone.
+    /// </summary>
+    [RuleRef("305.6")]
+    public const string Plains = "Scenario Filler Plains";
+
+    /// <inheritdoc cref="Plains"/>
+    public const string Island = "Scenario Filler Island";
+
+    /// <inheritdoc cref="Plains"/>
+    public const string Swamp = "Scenario Filler Swamp";
+
+    /// <inheritdoc cref="Plains"/>
+    public const string Mountain = "Scenario Filler Mountain";
+
+    /// <inheritdoc cref="Plains"/>
+    public const string Forest = "Scenario Filler Forest";
+
     /// <summary>A vanilla 2/2: something a removal spell or a counter can be aimed at.</summary>
     public const string Creature = "Scenario Filler Creature";
 
@@ -63,6 +83,11 @@ public static class ScenarioFiller
     {
         Land => LandDefinition,
         BasicLand => BasicLandDefinition,
+        Plains => PlainsDefinition,
+        Island => IslandDefinition,
+        Swamp => SwampDefinition,
+        Mountain => MountainDefinition,
+        Forest => ForestDefinition,
         Creature => CreatureDefinition,
         Artifact => ArtifactDefinition,
         Enchantment => EnchantmentDefinition,
@@ -75,7 +100,7 @@ public static class ScenarioFiller
 
     /// <summary>Every filler, so a generator can ask which of them a filter describes.</summary>
     public static IReadOnlyList<string> Names =>
-        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature];
+        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest];
 
     /// <summary>The printed type line of one filler, so a generator need not repeat what is written here.</summary>
     public static TypeLine? TypesOf(string? name) => For(name)?.Faces[0].Types;
@@ -117,6 +142,24 @@ public static class ScenarioFiller
         BasicLand,
         Layout.Normal,
         [new Face(BasicLand, FaceRole.Main, new TypeLine(CardType.Land, Supertype.Basic))]);
+
+    private static CardDefinition PlainsDefinition { get; } = BasicOfType(Plains, "scenario-filler-plains", "Plains");
+
+    private static CardDefinition IslandDefinition { get; } = BasicOfType(Island, "scenario-filler-island", "Island");
+
+    private static CardDefinition SwampDefinition { get; } = BasicOfType(Swamp, "scenario-filler-swamp", "Swamp");
+
+    private static CardDefinition MountainDefinition { get; } = BasicOfType(Mountain, "scenario-filler-mountain", "Mountain");
+
+    private static CardDefinition ForestDefinition { get; } = BasicOfType(Forest, "scenario-filler-forest", "Forest");
+
+    /// <summary>A basic land of one basic land type, CR 305.6: the supertype and the subtype, nothing printed besides.</summary>
+    [RuleRef("305.6")]
+    private static CardDefinition BasicOfType(string name, string oracleId, string landType) => new(
+        oracleId,
+        name,
+        Layout.Normal,
+        [new Face(name, FaceRole.Main, new TypeLine(CardType.Land, Supertype.Basic, [landType]))]);
 
     private static CardDefinition CreatureDefinition { get; } = new(
         "scenario-filler-creature",

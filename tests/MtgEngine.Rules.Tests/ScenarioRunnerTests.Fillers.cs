@@ -40,6 +40,24 @@ public sealed class ScenarioRunnerTestsFillers
         Assert.All(ScenarioFiller.Names, name => Assert.NotNull(ScenarioFiller.For(name)));
     }
 
+    [Theory]
+    [RuleRef("305.6")]
+    [InlineData(ScenarioFiller.Plains, "Plains")]
+    [InlineData(ScenarioFiller.Island, "Island")]
+    [InlineData(ScenarioFiller.Swamp, "Swamp")]
+    [InlineData(ScenarioFiller.Mountain, "Mountain")]
+    [InlineData(ScenarioFiller.Forest, "Forest")]
+    public void A_basic_land_filler_carries_its_one_basic_land_type(string card, string landType)
+    {
+        // CR 305.6: a basic land is a Basic land with one of the five basic land types, and a search
+        // that names a type (CR 205.3i) has to find a filler that carries it and nothing else printed.
+        var types = ScenarioFiller.TypesOf(card)!;
+        Assert.Equal(CardType.Land, types.Types);
+        Assert.Equal(Supertype.Basic, types.Supertypes);
+        Assert.Equal([landType], types.Subtypes);
+        Assert.Contains(card, ScenarioFiller.Names);
+    }
+
     [Fact]
     [RuleRef("701.7")]
     public void An_artifact_filler_on_the_board_can_be_destroyed_and_lands_in_its_owners_graveyard()
