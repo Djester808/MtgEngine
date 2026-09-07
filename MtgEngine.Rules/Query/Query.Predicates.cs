@@ -56,10 +56,14 @@ public sealed partial class Query
             IsTransformed => obj.FaceIndex > 0, // CR 701.28a: transformed means its back face is up
             IsThisObject => ctx.Source is { } self && self == candidate, // CR 109.5: "this" is the object the ability is on
 
-            // CR 707.10: only a spell on the stack records that it is a copy; a permanent has no
-            // such flag in state yet, and guessing would be a lie. See seam-requests/E0.md.
-            IsCopy when obj.Zone.Zone == Cards.Zone.Stack => obj.Stack?.IsCopy == true,
-            IsCopy => throw Unanswerable(nameof(IsCopy), "no state records that a permanent is a copy (CR 707.10)"),
+            // CR 707.10 with CR 707.12: the state carries two marks for a copy and this asks both.
+            // A copied *spell* is marked on its stack entry; a copy of a *card* made in place is
+            // marked with a designation, because such a copy has no stack entry to be found by and
+            // is not a token (CR 111.1). CR 704.5e keeps a copy of a card on the battlefield, so
+            // the question is reachable off the stack and is answered rather than refused.
+            IsCopy when obj.Zone.Zone == Cards.Zone.Stack =>
+                obj.Stack?.IsCopy == true || obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard),
+            IsCopy => obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard),
 
             HasAbilityOfKind kind => HasAbility(_layers.Of(state, candidate), kind.Ability), // CR 602.1
             ProducesMana produces => _layers.Of(state, candidate).Abilities

@@ -352,18 +352,21 @@ public sealed class QueryBacklogTests
 
     /// <summary>
     /// The three questions this class was written around are all answered from the turn's history
-    /// now. A question the state genuinely cannot answer still refuses by name rather than
-    /// guessing: nothing records that a permanent is a copy, CR 707.10.
+    /// now, and so is the last one it recorded as unanswerable. CR 707.12's copy of a card carries
+    /// the designation the zone system sets, which is the same mark CR 704.5e reads, so CR 707.10's
+    /// question is answered off the stack instead of refused by name.
     /// </summary>
     [Fact]
     [RuleRef("707.10")]
-    public void A_question_the_state_still_cannot_answer_refuses_by_name()
+    public void A_copy_of_a_card_is_answered_from_the_designation_the_zone_system_set()
     {
         var board = new Board();
         var permanent = board.Put(Board.Creature(1, 1));
+        var copy = board.Put(Board.Creature(1, 1));
+        var marked = Designate(board.State, copy, Zones.ZoneSystem.CopyOfCard);
 
-        var refused = Assert.Throws<RefusedException>(() => Holds(board, new IsCopy(), permanent));
-        Assert.Contains(nameof(IsCopy), refused.Reason, StringComparison.Ordinal);
+        Assert.False(Holds(marked, new IsCopy(), permanent));
+        Assert.True(Holds(marked, new IsCopy(), copy));
 
         // And the questions that used to refuse are answered: no source has dealt damage to anyone.
         Assert.Equal(0, Value(board, new DamageDealtThisTurn(new Each(ObjectFilter.Creature), new You())));
