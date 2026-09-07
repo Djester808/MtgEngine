@@ -65,7 +65,12 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             player.Counters,
             player.Mana,
             ViewsOf(state, graveyard),
-            ViewsOf(state, InZone(state, CardZone.Command, player.Id)));
+            ViewsOf(state, InZone(state, CardZone.Command, player.Id)),
+
+            // CR 702.16j: computed, not stored, so it is asked of the characteristics seam here
+            // rather than read off the seat. It is public information (CR 400.2) — every viewer
+            // gets it, not only the protected player.
+            _characteristics.PlayerRestrictions(state, player.Id).ProtectionFromEverything);
     }
 
     /// <summary>

@@ -18,10 +18,15 @@ public sealed partial class StateBasedActionTests
 {
     private readonly StateBasedActions sba;
 
+    /// <summary>The same instance the rule holds, so a test can read what it was asked (CR 702.5b).</summary>
+    private readonly FakeQuery query;
+
+    private readonly FakeCharacteristics characteristics = new();
+
     public StateBasedActionTests()
     {
-        var characteristics = new FakeCharacteristics();
-        sba = new StateBasedActions(new FakeZones(), characteristics, new FakeQuery(characteristics));
+        query = new FakeQuery(characteristics);
+        sba = new StateBasedActions(new FakeZones(), characteristics, query);
     }
 
     [Fact]

@@ -22,7 +22,16 @@ public sealed record GameView(
     PendingChoice? Pending,
     GameOutcome? Outcome);
 
-public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCount, int LibraryCount, int GraveyardCount, ImmutableDictionary<string, int> Counters, ManaPool Mana, ImmutableList<ObjectView> Graveyard, ImmutableList<ObjectView> Command);
+/// <summary>
+/// What is known about one player, CR 400.2. Every field but the last is state read straight off
+/// the seat; <c>ProtectionFromEverything</c> is CR 702.16j computed through the layers, and it is
+/// here because it is public and because nothing else in the view explains why damage to that
+/// player never lands — a client draws it beside the life total, the way a designation is drawn.
+/// The other player limits of CR 613.10 are not here: this is the one a table can see the effect
+/// of on every damage event, and a field the view does not need is a field it does not carry.
+/// </summary>
+[RuleRef("702.16j")]
+public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCount, int LibraryCount, int GraveyardCount, ImmutableDictionary<string, int> Counters, ManaPool Mana, ImmutableList<ObjectView> Graveyard, ImmutableList<ObjectView> Command, bool ProtectionFromEverything = false);
 
 public sealed record ObjectView(
     ObjectId Id,
