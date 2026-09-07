@@ -18,6 +18,7 @@ internal sealed class SmokeBoard(string card)
     private readonly List<ScenarioStep> _before = [];
     private readonly List<string> _targets = [];
     private readonly List<Expectation> _expect = [];
+    private readonly List<CardRef> _library = [];
 
     private readonly List<int> _modes = [];
     private readonly List<string> _costObjects = [];
@@ -65,6 +66,38 @@ internal sealed class SmokeBoard(string card)
         _targets.Add(card);
         return card;
     }
+
+    /// <summary>
+    /// CR 601.2c with CR 109.2: every body the target's filter admits is placed, and the first is
+    /// the one named as the target. "Destroy target artifact or enchantment" puts one of each on
+    /// the board, so the scenario shows the effect reaching the kind it was pointed at while the
+    /// other kind stands there as the control.
+    /// </summary>
+    [RuleRef("109.2")]
+    internal string AimedAmong(bool mine, IReadOnlyList<string> cards)
+    {
+        ArgumentNullException.ThrowIfNull(cards);
+        foreach (var extra in cards.Skip(1))
+            Place(mine, extra, 1);
+        return Aimed(mine, cards[0]);
+    }
+
+    /// <summary>
+    /// CR 701.19: a card the library must be holding for a search to find it, put on top under an
+    /// alias of its own. On top because the runner answers a question with its first legal option
+    /// (<c>ScenarioAnswers</c>), so the card the scenario stocked is the card the search finds, and
+    /// the expectation can name it rather than settle for a count that a wrong card also satisfies.
+    /// </summary>
+    [RuleRef("701.19")]
+    internal string Stocks(string card)
+    {
+        var alias = FormattableString.Invariant($"find-{_library.Count + 1}");
+        _library.Add(new CardRef(card, Alias: alias));
+        return alias;
+    }
+
+    /// <summary>Whether the library still has room for another stocked card, so its size stays the size a count assumes.</summary>
+    internal bool CanStock => _library.Count < LibrarySize;
 
     /// <summary>What an Aura was cast at, so the scenario asserts the attachment and not the zone (CR 303.4f).</summary>
     internal string? Enchanted { get; private set; }
@@ -199,9 +232,9 @@ internal sealed class SmokeBoard(string card)
                 [
                     new PlayerSetup(
                         SmokeScenario.Caster,
-                        Battlefield: _casterBattlefield,
-                        Hand: [new CardRef(card), .. CasterHand()],
-                        Library: Filler(LibrarySize),
+                        Battlefield: PlaysFromBattlefield ? [new CardRef(card), .. _casterBattlefield] : _casterBattlefield,
+                        Hand: PlaysFromBattlefield ? CasterHand() : [new CardRef(card), .. CasterHand()],
+                        Library: CasterLibrary(),
                         ManaPool: _pool ?? SmokeScenario.DeepPool),
                     new PlayerSetup(
                         SmokeScenario.Opponent,
@@ -222,6 +255,19 @@ internal sealed class SmokeBoard(string card)
     /// </summary>
     private List<CardRef> CasterHand() =>
         _discards ? [new CardRef(ScenarioFiller.Land, Alias: HandCost), .. Filler(HandSize - 1)] : Filler(HandSize);
+
+    /// <summary>
+    /// CR 601.2c: the card the play uses starts on the battlefield rather than in hand — an
+    /// activated ability is activated from where the permanent already is (CR 602.2), not cast.
+    /// </summary>
+    [RuleRef("602.2")]
+    internal bool PlaysFromBattlefield { get; set; }
+
+    /// <summary>
+    /// The library: what a search was told to find, on top, and filler under it. The size is
+    /// <see cref="LibrarySize"/> either way, so every count written against it still reads.
+    /// </summary>
+    private List<CardRef> CasterLibrary() => [.. _library, .. Filler(LibrarySize - _library.Count)];
 
     /// <summary>
     /// A mana cost written as the runner's pool string, or null when a symbol is a choice rather
@@ -254,8 +300,10 @@ internal sealed class SmokeBoard(string card)
 
     private void Counts()
     {
+        // The card itself is on the caster's battlefield when the play was an activation, so it
+        // counts towards what is there afterwards (CR 602.2 leaves the source where it was).
         if (_casterArrivals != 0)
-            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Battlefield, _casterBattlefield.Count + _casterArrivals));
+            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Battlefield, _casterBattlefield.Count + (PlaysFromBattlefield ? 1 : 0) + _casterArrivals));
 
         // The card under test left the caster's hand when it was played, and the filler stayed.
         if (_casterHand != 0)

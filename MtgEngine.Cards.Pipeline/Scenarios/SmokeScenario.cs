@@ -104,6 +104,23 @@ public static class SmokeScenario
         return true;
     }
 
+    /// <summary>
+    /// CR 608.2: what one ability does when it resolves, asserted onto the board. Shared with
+    /// <see cref="SmokeActivation"/>, so an activated ability's effect is read by the same code
+    /// that reads a spell's and the two cannot drift apart.
+    /// </summary>
+    [RuleRef("608.2")]
+    internal static bool Reads(SmokeBoard board, Effect effect)
+    {
+        foreach (var inner in Flatten(effect))
+        {
+            if (!Assert(board, inner))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>One effect's direct consequence, or nothing when the record says something a play cannot show.</summary>
     private static bool Assert(SmokeBoard board, Effect effect)
     {
@@ -127,19 +144,29 @@ public static class SmokeScenario
                 board.Expect(new Life(Opponent, 20 - n.N));
                 break;
 
-            // CR 701.7: destroying a permanent puts it into its owner's graveyard.
-            case Destroy { What: Target target } when Creature(target):
-                board.Expect(new InZone(board.Body(Mine(target)), Zone.Graveyard, Owner(target)));
+            // CR 701.7: destroying a permanent puts it into its owner's graveyard. "Artifact or
+            // enchantment" puts one of each on the board and aims at the first, so the scenario
+            // shows the spell reaching the kind it was pointed at.
+            case Destroy { What: Target target } when Aimable(target) is { Count: > 0 } bodies:
+                board.Expect(new InZone(board.AimedAmong(Mine(target), bodies), Zone.Graveyard, Owner(target)));
                 break;
 
             // CR 701.10: sacrificing does the same, at its controller's hand rather than the spell's.
-            case Sacrifice { What: Target sacrificed } when Creature(sacrificed):
-                board.Expect(new InZone(board.Body(Mine(sacrificed)), Zone.Graveyard, Owner(sacrificed)));
+            case Sacrifice { What: Target sacrificed } when Aimable(sacrificed) is { Count: > 0 } given:
+                board.Expect(new InZone(board.AimedAmong(Mine(sacrificed), given), Zone.Graveyard, Owner(sacrificed)));
+                break;
+
+            // CR 701.16: "sacrifice a land" is chosen on resolution, so the board gives the caster
+            // one of whatever kind to lose and counts it into their graveyard.
+            case Sacrifice { What: null, Choice: { } offered, Who: null or You, N: null or Fixed { N: 1 } }
+                when SmokeFillers.Bodies(offered) is [var lost, ..]:
+                board.Place(true, lost, 1);
+                board.Caster(graveyard: 1);
                 break;
 
             // CR 406.2: an exiled permanent is in the exile zone, face up, and stays there.
-            case Exile { What: Target exiled, Until: null } when Creature(exiled):
-                board.Expect(new InZone(board.Body(Mine(exiled)), Zone.Exile, Owner(exiled)));
+            case Exile { What: Target exiled, Until: null } when Aimable(exiled) is { Count: > 0 } taken:
+                board.Expect(new InZone(board.AimedAmong(Mine(exiled), taken), Zone.Exile, Owner(exiled)));
                 break;
 
             // CR 111.1: a token is a permanent on the battlefield, and there is one more of them.
@@ -148,13 +175,14 @@ public static class SmokeScenario
                 break;
 
             // CR 121.2: counters go on the object they were put on and stay there.
-            case PutCounters { On: Target on, N: Fixed count } counters when Creature(on) && count.N > 0:
-                board.Expect(new CountersAre(board.Body(Mine(on)), counters.Counter, count.N));
+            case PutCounters { On: Target on, N: Fixed count } counters when count.N > 0 && Aimable(on) is { Count: > 0 } bearers:
+                board.Expect(new CountersAre(board.AimedAmong(Mine(on), bearers), counters.Counter, count.N));
                 break;
 
-            // CR 701.19: searching a library for a card and putting it in hand takes it out of the library.
-            case Search { To: Zone.Hand, From: Zone.Library, Who: null or You } search when Findable(search.For):
-                board.Caster(hand: 1, library: -1);
+            // CR 701.19 and CR 701.20: a search takes the card it found out of the library and puts
+            // it where the effect said, and then the library is shuffled.
+            case Search { From: Zone.Library, Who: null or You } search when Stock(board, search) is { } found:
+                Found(board, search, found);
                 break;
 
             // CR 701.5: a countered spell is put into its owner's graveyard.
@@ -173,39 +201,42 @@ public static class SmokeScenario
                 break;
 
             // CR 701.21: tapping a permanent leaves it tapped.
-            case Tap { What: Target tapped } when Creature(tapped):
-                board.Expect(new TappedIs(board.Body(Mine(tapped)), true));
+            case Tap { What: Target tapped } when Aimable(tapped) is { Count: > 0 } bodies:
+                board.Expect(new TappedIs(board.AimedAmong(Mine(tapped), bodies), true));
                 break;
 
             // CR 701.7 over CR 109.2: a wipe destroys everything the filter describes, whoever
             // controls it, so both battlefields empty and both graveyards fill.
-            case Destroy { What: Each all } when Wipeable(all.Filter):
-                Sweep(board, Bodies);
+            case Destroy { What: Each all } when SmokeFillers.Wiped(all.Filter) is { } destroyed:
+                Sweep(board, destroyed, Bodies, toGraveyard: true);
+                break;
+
+            // CR 406.2: an "exile all" empties the same two battlefields, into exile instead.
+            case Exile { What: Each all, Until: null } when SmokeFillers.Wiped(all.Filter) is { } banished:
+                Sweep(board, banished, Bodies, toGraveyard: false);
                 break;
 
             // CR 701.16: each player sacrifices, so each player loses the one permanent they had.
             // The engine asks which one; a generated scenario answers with the first legal option.
-            case Sacrifice { What: null, Choice: { } offered, Who: EachPlayer, N: null or Fixed { N: 1 } } when Wipeable(offered):
-                Sweep(board, 1);
+            case Sacrifice { What: null, Choice: { } offered, Who: EachPlayer, N: null or Fixed { N: 1 } }
+                when SmokeFillers.Wiped(offered) is { } each:
+                Sweep(board, each, 1, toGraveyard: true);
                 break;
 
-            // CR 700.2: the modes are chosen as the spell is cast. A smoke scenario takes the
-            // first, and asserts whatever that mode does.
-            case ChooseMode { Min: 1, Max: 1, Modes: { Count: > 0 } modes }:
-                board.Mode(0);
-                foreach (var inner in Flatten(modes[0].Do))
+            // CR 700.2: the modes are chosen as the spell is cast. A smoke scenario takes as few as
+            // the card allows, in the order they are printed, and asserts whatever they do — so a
+            // "choose one or more" is a choice of one and a "choose two" is the first two.
+            case ChooseMode { Min: > 0 } choose when choose.Modes.Count >= choose.Min:
+                for (var index = 0; index < choose.Min; index++)
                 {
-                    if (!Assert(board, inner))
-                        return false;
+                    board.Mode(index);
+                    foreach (var inner in Flatten(choose.Modes[index].Do))
+                    {
+                        if (!Assert(board, inner))
+                            return false;
+                    }
                 }
 
-                break;
-
-            // CR 701.23 with CR 400.1: a search that puts a land onto the battlefield leaves the
-            // library one smaller and the battlefield one larger.
-            case Search { To: Zone.Battlefield, From: Zone.Library, Who: null or You } onto when Findable(onto.For):
-                board.Caster(library: -1);
-                board.Arrives(1);
                 break;
 
             // CR 106.4: mana goes into a pool, and the pool is what the play leaves behind. With the
@@ -349,42 +380,78 @@ public static class SmokeScenario
 
     /// <summary>Bodies on both battlefields and nothing left of them: what a wipe or an each-player sacrifice does.</summary>
     [RuleRef("701.7")]
-    private static void Sweep(SmokeBoard board, int each)
+    private static void Sweep(SmokeBoard board, string body, int each, bool toGraveyard)
     {
-        board.Place(true, ScenarioFiller.Creature, each);
-        board.Place(false, ScenarioFiller.Creature, each);
+        board.Place(true, body, each);
+        board.Place(false, body, each);
         board.Expect(new ZoneCount(Caster, Zone.Battlefield, 0));
         board.Expect(new ZoneCount(Opponent, Zone.Battlefield, 0));
+        if (!toGraveyard)
+            return;
         board.Caster(graveyard: each);
         board.Opponent(graveyard: each);
     }
 
     /// <summary>
-    /// A filter a wipe can be asserted against with creatures alone: creatures, permanents, or
-    /// nonland permanents. Anything narrower would need the board to place a card it has not got.
+    /// CR 601.2c: the bodies a target's filter admits, or nothing when it describes a permanent the
+    /// board has no card for. More than one target is a smoke scenario's limit, so a target that
+    /// wants several is refused here rather than half-answered.
     /// </summary>
-    private static bool Wipeable(ObjectFilter filter) =>
-        filter.ControlledBy is null
-        && filter == new ObjectFilter(In: filter.In, Types: filter.Types, NotTypes: filter.NotTypes)
-        && filter.In is null or Zone.Battlefield
-        && filter.Types is null or CardType.Creature
-        && filter.NotTypes is null or CardType.Land;
+    [RuleRef("601.2c")]
+    private static IReadOnlyList<string> Aimable(Target target) =>
+        target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Bodies(target.Filter) : [];
+
+    /// <summary>
+    /// CR 701.19: the library is stocked with the card this search is going to find, on top, and
+    /// the alias it was stocked under is returned so the expectation can name it. Null when the
+    /// search wants a card the runner has not got, or the library has no room left for another.
+    /// </summary>
+    [RuleRef("701.19")]
+    private static string? Stock(SmokeBoard board, Search search) =>
+        board.CanStock
+        && search.To is Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library
+        && SmokeFillers.Findable(search.For) is { } card
+            ? board.Stocks(card)
+            : null;
+
+    /// <summary>
+    /// Where the found card ended up, and CR 701.20's shuffle. A search that puts the card back on
+    /// top of the library moves nothing, so the shuffle is all there is to see — and it is worth
+    /// seeing, because a search that never shuffled would leave the library stacked.
+    /// </summary>
+    [RuleRef("701.20")]
+    private static void Found(SmokeBoard board, Search search, string found)
+    {
+        switch (search.To)
+        {
+            case Zone.Hand:
+                board.Caster(hand: 1, library: -1);
+                break;
+            case Zone.Graveyard:
+                board.Caster(graveyard: 1, library: -1);
+                break;
+            case Zone.Battlefield:
+                board.Caster(library: -1);
+                board.Arrives(1);
+                break;
+            default:
+                break;
+        }
+
+        if (search.To is not Zone.Library)
+            board.Expect(new InZone(found, search.To));
+        if (search.ShuffleAfter)
+            board.Expect(new EventLogged(nameof(ZoneReordered)));
+    }
 
     /// <summary>A count the board can supply: the caster's own creatures, and nothing else about them.</summary>
     private static bool Countable(ObjectFilter filter) =>
         Simple(filter) && filter.Types == CardType.Creature && filter.ControlledBy is You && filter.In is null or Zone.Battlefield;
 
-    /// <summary>A target the board can place: a creature described by nothing but its type and its controller.</summary>
-    private static bool Creature(Target target) =>
-        target is { Count: null or Fixed { N: 1 }, UpTo: false } && Simple(target.Filter) && target.Filter.Types == CardType.Creature;
-
     /// <summary>A target the board can put on the stack: a spell described by nothing but being one.</summary>
     private static bool Spell(Target target) =>
         target is { Count: null or Fixed { N: 1 }, UpTo: false } && Simple(target.Filter)
         && target.Filter.Types is null or CardType.Instant or (CardType.Instant | CardType.Sorcery);
-
-    /// <summary>The filler library is a land, so a search finds something only when a land will do.</summary>
-    private static bool Findable(ObjectFilter filter) => Simple(filter) && filter.Types is null or CardType.Land;
 
     /// <summary>
     /// Every field the board cannot honour is null: a filter with a colour, a power or a predicate
