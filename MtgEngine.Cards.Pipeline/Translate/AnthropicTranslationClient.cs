@@ -73,10 +73,21 @@ public sealed class AnthropicTranslationClient(AnthropicClient client) : ITransl
                 new() { Role = Role.User, Content = TranslationPrompt.RepairInstruction(problem) },
             ],
         };
-        var response = await client.Messages.Create(parameters, cancellationToken: ct);
-        var text = string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
-        var usage = response.Usage;
-        return new BatchItem("repair", text, usage.InputTokens, usage.OutputTokens, usage.CacheReadInputTokens ?? 0, usage.CacheCreationInputTokens ?? 0);
+        try
+        {
+            var response = await client.Messages.Create(parameters, cancellationToken: ct);
+            var text = string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
+            var usage = response.Usage;
+            return new BatchItem("repair", text, usage.InputTokens, usage.OutputTokens, usage.CacheReadInputTokens ?? 0, usage.CacheCreationInputTokens ?? 0);
+        }
+        catch (Anthropic.Exceptions.AnthropicException e)
+        {
+            // A repair the API refuses (an exhausted credit balance, a rate limit, a bad request)
+            // is an item with an error, not a crash: the batch's results are already in hand and
+            // the stage judges the unrepaired reading. The message is a fixed phrase, not the
+            // response body, so nothing from upstream lands in a card file or a report.
+            return new BatchItem("repair", string.Empty, 0, 0, 0, 0, "repair unavailable: " + e.GetType().Name);
+        }
     }
 
     /// <summary>The system prefix is one cached block, so every request in the batch reads it rather than paying for it.</summary>

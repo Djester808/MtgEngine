@@ -193,6 +193,29 @@ public sealed class TranslateStageTests
     }
 
     [Fact]
+    public async Task A_repair_the_transport_cannot_make_leaves_the_reading_unrepaired_and_is_retried_later()
+    {
+        // An exhausted credit balance turned a collection of 200 finished batches into a crash;
+        // now the batch's results are judged as they stand and the repair waits for a run that can.
+        var (stage, client, store) = Stage(nameof(A_repair_the_transport_cannot_make_leaves_the_reading_unrepaired_and_is_retried_later));
+        client.RepairsFail = true;
+
+        var readings = await stage.Run([RepairCard()], Models, PromptVersion, CancellationToken.None);
+
+        var reading = Assert.Single(readings);
+        Assert.False(reading.Repaired);
+        Assert.False(reading.Ok);
+        Assert.Single(client.Repairs);
+        Assert.Null(store.RepairReading(RepairId, Model, PromptVersion));
+
+        client.RepairsFail = false;
+        var again = await stage.Run([RepairCard()], Models, PromptVersion, CancellationToken.None);
+
+        Assert.True(Assert.Single(again).Repaired);
+        Assert.Equal(2, client.Repairs.Count);
+    }
+
+    [Fact]
     public async Task A_missing_answer_is_a_reading_with_the_error_and_no_definition()
     {
         var (stage, client, _) = Stage(nameof(A_missing_answer_is_a_reading_with_the_error_and_no_definition), repair: false);

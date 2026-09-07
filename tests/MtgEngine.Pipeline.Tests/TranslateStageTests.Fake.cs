@@ -28,6 +28,9 @@ internal sealed class FakeTranslationClient : ITranslationClient
     /// <summary>How many polls a batch reports as still processing before it ends.</summary>
     public int PollsBeforeEnd { get; set; }
 
+    /// <summary>When set, every repair call comes back as an item with an error, the way a refused request does.</summary>
+    public bool RepairsFail { get; set; }
+
     /// <summary>The first answer this model run gives for a card.</summary>
     public void Answer(string oracleId, string text) => answers[oracleId] = text;
 
@@ -72,6 +75,8 @@ internal sealed class FakeTranslationClient : ITranslationClient
     public Task<BatchItem> Repair(string model, string system, string user, string previousAnswer, string problem, CancellationToken ct)
     {
         Repairs.Add(new(model, user, previousAnswer, problem));
+        if (RepairsFail)
+            return Task.FromResult(new BatchItem("repair", string.Empty, 0, 0, 0, 0, "repair unavailable: test"));
         var match = repairs.FirstOrDefault(kv => user.Contains(kv.Key, StringComparison.Ordinal));
         return Task.FromResult(match.Value is null
             ? new BatchItem("repair", string.Empty, 0, 0, 0, 0, "no repair fixture")

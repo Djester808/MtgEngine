@@ -151,6 +151,12 @@ public sealed class TranslateStage(ITranslationClient client, TranslationStore s
         {
             ct.ThrowIfCancellationRequested();
             var item = await client.Repair(model, system, TranslationPrompt.UserMessage(card), stored.Text, ProblemOf(reading), ct);
+
+            // A repair the transport could not make is not stored: the unrepaired reading is
+            // judged as it stands, and the next run with a working transport repairs it.
+            if (item.Error is not null)
+                return reading;
+
             repair = new StoredReading(
                 card.OracleId, model, promptVersion, item.Text,
                 item.InputTokens, item.OutputTokens, item.CacheReadTokens, item.CacheWriteTokens,
