@@ -67,6 +67,16 @@ public interface ITurnSystem : ISubsystem
     /// <summary>Start the first turn after creation: mulligans are the choice system's; this begins turn 1.</summary>
     Outcome Begin(GameState state);
 
+    /// <summary>
+    /// CR 103.4–103.5: before the first turn, each player in turn order declares whether they
+    /// will take a mulligan. Raises the first declaration; the choice system answers it, takes
+    /// the mulligans, asks the next player and begins turn 1 after the last keep. The default
+    /// offers none, which is what a scenario with a fixed opening hand wants; the turn system
+    /// overrides it (wave 3) and <see cref="GameSetup.OfferMulligans"/> turns it on.
+    /// </summary>
+    [RuleRef("103.5")]
+    Outcome OpenHands(GameState state) => Outcome.Unchanged(state);
+
     /// <summary>A player passes priority. When all pass in succession, the stack resolves or the step advances.</summary>
     Outcome Pass(GameState state, PlayerId player);
 
@@ -195,6 +205,28 @@ public interface IQuery : ISubsystem
 }
 
 /// <summary>Pending questions and their answers, resumed by kind, never by continuation.</summary>
+/// <summary>
+/// An answered question handed back to whoever asked it: the kind it asked under, who answered,
+/// the options they chose (the object or player behind each one travels with it) and the
+/// <see cref="ChoiceContext"/> that located the asking. Resumption is by kind and locator, never
+/// a captured continuation, so it survives a reload of the log (CR 101.4).
+/// </summary>
+public sealed record Resumption(
+    string Kind,
+    PlayerId Player,
+    ImmutableList<ChoiceOption> Chosen,
+    ChoiceContext Context);
+
+/// <summary>
+/// The seam a choice resumes through when the question came from a card rather than from a rule
+/// the choice system performs itself. The interpreter implements it: it is the only subsystem
+/// that knows what an effect was in the middle of doing.
+/// </summary>
+public interface IResumable : ISubsystem
+{
+    Outcome Resume(GameState state, Resumption resumption);
+}
+
 public interface IChoiceSystem : ISubsystem
 {
     Outcome Answer(GameState state, AnswerChoice command);
@@ -212,4 +244,4 @@ public interface ILegalActions : ISubsystem
 }
 
 /// <summary>How a game is created.</summary>
-public sealed record GameSetup(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife = 20, string Format = "commander", int OpeningHandSize = 7, int StartingPlayer = 0);
+public sealed record GameSetup(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife = 20, string Format = "commander", int OpeningHandSize = 7, int StartingPlayer = 0, bool OfferMulligans = false);

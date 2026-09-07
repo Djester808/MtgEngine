@@ -39,10 +39,39 @@ public sealed record Subsystems(
         var zones = new Zones.ZoneSystem();
         var interpreter = new Stubs.Interpreter();
         var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
-        var turn = new Turn.TurnSystem(zones, casting);
+        // CR 510.1 and 703.4m: combat damage is the turn system's action, so it needs the combat system.
         var combat = new Combat.CombatSystem(layers, query);
+        var turn = new Turn.TurnSystem(zones, casting, combat);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         return new Subsystems(query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
+    }
+
+    /// <summary>
+    /// What wave 2 built on top of wave 1: triggers, replacement, the interpreter and the choice
+    /// system are real; views and legal actions are still stubs until E14 lands. Cards with
+    /// abilities play through this one.
+    /// </summary>
+    public static Subsystems Wave2()
+    {
+        var layers = new Layers.LayerSystem();
+        var query = new Query.Query(layers);
+        var zones = new Zones.ZoneSystem();
+
+        // The replacement system runs an "instead" effect through the interpreter, and the
+        // interpreter offers its damage through the replacement system: a cycle, broken by a
+        // handle the interpreter is set into once both exist.
+        var handle = new ForwardingInterpreter();
+        var replacement = new MtgEngine.Rules.Replacement.ReplacementSystem(query, layers, handle);
+        var interpreter = new MtgEngine.Rules.Interpreter.EffectInterpreter(query, zones, replacement, layers);
+        handle.Target = interpreter;
+
+        var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
+        var combat = new Combat.CombatSystem(layers, query);
+        var turn = new Turn.TurnSystem(zones, casting, combat);
+        var sba = new Sba.StateBasedActions(zones, layers, query);
+        var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);
+        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter as IResumable);
+        return new Subsystems(query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices, new Stubs.Views(), new Stubs.Legal());
     }
 }
 
@@ -73,9 +102,20 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
 
     public IDefinitionStore Store { get; } = store;
 
+    /// <summary>
+    /// CR 103: the zones are set up, mulligans are offered when the setup asks for them (the turn
+    /// system that implements <see cref="ITurnSystem.OpenHands"/> begins turn 1 after the last
+    /// keep), otherwise turn 1 begins here.
+    /// </summary>
     [RuleRef("103")]
-    public Outcome Create(GameSetup setup) =>
-        Engine.Zones.Create(setup, Store).Then(Engine.Turn.Begin).Then(Settle);
+    public Outcome Create(GameSetup setup)
+    {
+        ArgumentNullException.ThrowIfNull(setup);
+        return Engine.Zones.Create(setup, Store)
+            .Then(s => setup.OfferMulligans ? Engine.Turn.OpenHands(s) : Outcome.Unchanged(s))
+            .Then(s => s.Pending is null ? Engine.Turn.Begin(s) : Outcome.Unchanged(s))
+            .Then(s => Settle(s));
+    }
 
     public GameResult Apply(GameState state, Command command)
     {
@@ -105,7 +145,7 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
                 ManualLife m => Manual(state, m),
                 _ => throw new RefusedException($"Unknown command {command.GetType().Name}."),
             };
-            var settled = Settle(outcome.State);
+            var settled = Settle(outcome.State, outcome.Events);
             return new Applied(settled.State, outcome.Events.AddRange(settled.Events));
         }
         catch (RefusedException refused)
@@ -114,11 +154,22 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
         }
     }
 
-    /// <summary>State-based actions, then triggers, until a pass changes nothing. Stops at a pending choice.</summary>
+    /// <summary>
+    /// What happens before anyone gets priority, CR 117.5 and 704.3: the triggers of what the
+    /// command itself did (<paramref name="since"/>, CR 603.3), then state-based actions and the
+    /// triggers of those, until a pass changes nothing. Stops at a pending choice.
+    /// </summary>
     [RuleRef("704.3")]
-    public Outcome Settle(GameState state)
+    public Outcome Settle(GameState state, IReadOnlyList<GameEvent>? since = null)
     {
         var all = ImmutableList<GameEvent>.Empty;
+        if (since is { Count: > 0 } && state.Pending is null && state.Outcome is null)
+        {
+            var fired = Engine.Triggers.Collect(state, since);
+            state = fired.State;
+            all = all.AddRange(fired.Events);
+        }
+
         for (var round = 0; round < 1000; round++)
         {
             if (state.Pending is not null || state.Outcome is not null)

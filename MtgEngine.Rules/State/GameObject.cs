@@ -64,4 +64,7 @@ public sealed record StackEntry(
     bool IsCopy,
     ImmutableDictionary<Color, int>? ManaSpent = null,
     Zone? CastFrom = null,
-    ImmutableList<string>? OptionalCostsPaid = null);
+    ImmutableList<string>? OptionalCostsPaid = null,
+    ImmutableDictionary<string, ImmutableList<ObjectId>>? Remembered = null,
+    ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null,
+    ImmutableList<ObjectId>? Triggering = null);

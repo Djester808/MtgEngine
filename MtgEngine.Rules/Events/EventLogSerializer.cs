@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Events;
 
@@ -47,9 +49,42 @@ public static class EventLogSerializer
             AllowOutOfOrderMetadataProperties = true,
         };
         options.Converters.Add(new JsonStringEnumConverter());
+        options.Converters.Add(new ObjectIdConverter());
+        options.Converters.Add(new PlayerIdConverter());
         foreach (var converter in Cards.CardFileSerializer.Options.Converters)
             options.Converters.Add(converter);
         return options;
+    }
+
+    /// <summary>
+    /// An id is a bare number in the log, as a value and as a dictionary key: the declarations of
+    /// combat (CR 508, 509) are keyed by object id, and System.Text.Json refuses a struct key
+    /// without a converter that names it as a property.
+    /// </summary>
+    private sealed class ObjectIdConverter : JsonConverter<ObjectId>
+    {
+        public override ObjectId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => new(reader.GetInt32());
+
+        public override void Write(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options) => writer.WriteNumberValue(value.Value);
+
+        public override ObjectId ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            new(int.Parse(reader.GetString() ?? throw new JsonException("An object id key must be a number."), CultureInfo.InvariantCulture));
+
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options) =>
+            writer.WritePropertyName(value.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private sealed class PlayerIdConverter : JsonConverter<PlayerId>
+    {
+        public override PlayerId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => new(reader.GetInt32());
+
+        public override void Write(Utf8JsonWriter writer, PlayerId value, JsonSerializerOptions options) => writer.WriteNumberValue(value.Value);
+
+        public override PlayerId ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            new(int.Parse(reader.GetString() ?? throw new JsonException("A player id key must be a number."), CultureInfo.InvariantCulture));
+
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, PlayerId value, JsonSerializerOptions options) =>
+            writer.WritePropertyName(value.Value.ToString(CultureInfo.InvariantCulture));
     }
 
     public static string Write(IEnumerable<GameEvent> log) => JsonSerializer.Serialize(log.ToArray(), Options);

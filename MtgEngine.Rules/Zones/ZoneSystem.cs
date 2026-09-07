@@ -99,7 +99,8 @@ public sealed class ZoneSystem : IZoneSystem
         var destination = KeyFor(to.Zone, moving.Owner);
 
         var tape = new Tape(state);
-        tape.Add(new ObjectMoved(what, Reborn(state, moving, destination, tapped, controller), PositionIn(state, destination, where)));
+        // CR 603.10: the object as it last existed travels with the move, for the abilities that look back.
+        tape.Add(new ObjectMoved(what, Reborn(state, moving, destination, tapped, controller), PositionIn(state, destination, where), Departed: moving));
         return tape.Done();
     }
 
@@ -131,7 +132,7 @@ public sealed class ZoneSystem : IZoneSystem
             var top = cards[0];
             var drawn = tape.State.Objects[top];
             var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null);
-            tape.Add(new ObjectMoved(top, reborn, -1));
+            tape.Add(new ObjectMoved(top, reborn, -1, Departed: drawn));
             // CR 121.1: the draw is its own event, distinct from a card put into a hand, CR 121.2.
             tape.Add(new ObjectDrawn(player, reborn.Id));
         }
@@ -158,7 +159,7 @@ public sealed class ZoneSystem : IZoneSystem
         if (next != state.Rng)
             tape.Add(new RngAdvanced(next));
 
-        tape.Add(new ZoneReordered(library, order));
+        tape.Add(new ZoneReordered(library, order, Shuffle: true));
         return tape.Done();
     }
 

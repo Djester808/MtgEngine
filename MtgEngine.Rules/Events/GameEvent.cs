@@ -124,7 +124,13 @@ public sealed record ObjectCeasedToExist(ObjectId Id) : GameEvent
 /// destination, or -1 for the end.
 /// </summary>
 [RuleRef("400.7")]
-public sealed record ObjectMoved(ObjectId From, GameObject To, int Position) : GameEvent
+/// <summary>
+/// An object changed zones, CR 400.7: the old object ceases and <paramref name="To"/> is the new one.
+/// <paramref name="Departed"/> is the old object as it last existed, for the abilities that look back
+/// at it (CR 603.10) and for a trigger on "from" a zone that is not the battlefield.
+/// </summary>
+[RuleRef("400.7")]
+public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, GameObject? Departed = null) : GameEvent
 {
     public override GameState Apply(GameState state)
     {
@@ -254,9 +260,59 @@ public sealed record ChoiceAnswered(ChoiceId Id, PlayerId Player, ImmutableList<
 
 /// <summary>A zone's order changed without any object changing zones: a shuffle, or cards put back in a chosen order.</summary>
 [RuleRef("701.24")]
-public sealed record ZoneReordered(ZoneKey Zone, ImmutableList<ObjectId> Order) : GameEvent
+/// <summary>A zone's order changed. <paramref name="Shuffle"/> says it was a shuffle (CR 701.20) rather than cards put back in a chosen order, which "would shuffle" replacements tell apart.</summary>
+public sealed record ZoneReordered(ZoneKey Zone, ImmutableList<ObjectId> Order, bool Shuffle = false) : GameEvent
 {
     public override GameState Apply(GameState state) => state with { Zones = state.Zones.SetItem(Zone, Order) };
+}
+
+/// <summary>
+/// A permanent changed which face is up: transformed or converted (CR 701.27, 701.28), flipped
+/// (CR 710), turned face up or face down (CR 708). The object keeps its identity, CR 712.8b.
+/// </summary>
+[RuleRef("701.27")]
+public sealed record ObjectTurnedOver(ObjectId Object, int FaceIndex, TurnKind Kind) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        if (!state.Objects.TryGetValue(Object, out var obj))
+            return state;
+        var faceDown = Kind switch
+        {
+            TurnKind.TurnedFaceDown => true,
+            TurnKind.TurnedFaceUp => false,
+            _ => obj.FaceDown,
+        };
+        return state with { Objects = state.Objects.SetItem(Object, obj with { FaceIndex = FaceIndex, FaceDown = faceDown }) };
+    }
+}
+
+public enum TurnKind
+{
+    Transform,
+    Convert,
+    Flip,
+    TurnedFaceUp,
+    TurnedFaceDown,
+}
+
+/// <summary>
+/// One continuous effect in force was edited, or with a null effect ended: a prevention shield
+/// that spent part of itself, CR 615.9, or a "prevent the next N" that reached zero.
+/// </summary>
+[RuleRef("615.9")]
+public sealed record ActiveEffectChanged(int Id, ContinuousEffect? Effect) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var index = state.ActiveEffects.FindIndex(e => e.Id == Id);
+        if (index < 0)
+            return state;
+        var effects = Effect is null
+            ? state.ActiveEffects.RemoveAt(index)
+            : state.ActiveEffects.SetItem(index, state.ActiveEffects[index] with { Effect = Effect });
+        return state with { ActiveEffects = effects };
+    }
 }
 
 /// <summary>A player drew when the library was empty, CR 121.4. The state-based action in 704.5b does the rest.</summary>

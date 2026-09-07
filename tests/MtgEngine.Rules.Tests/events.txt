@@ -2,6 +2,7 @@
 # EventLogTests compares this to the assembly: adding or renaming an event is a change here too,
 # so a stored game that can no longer be read is a red build rather than a lost game.
 AbilityActivated
+ActiveEffectChanged
 AttackersDeclared
 BlockersDeclared
 ChoiceAnswered
@@ -28,6 +29,7 @@ ObjectCreated
 ObjectDrawn
 ObjectLeftBy
 ObjectMoved
+ObjectTurnedOver
 PlayerCountersChanged
 PlayerFlagCleared
 PlayerLost

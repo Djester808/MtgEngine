@@ -113,7 +113,12 @@ public sealed record PendingChoice(
 public sealed record ChoiceOption(string Id, string Label, ObjectId? Object = null, PlayerId? Player = null);
 
 /// <summary>A locator for where the answer goes, so resumption is a branch per kind and never a captured continuation.</summary>
-public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? EffectPath, ImmutableDictionary<string, string> Extra);
+/// <summary>
+/// Where a question came from, so the answer finds its way back: the source and ability, the
+/// path inside the effect tree, free-form keys, and for a replacement-order question (CR 616.1)
+/// the event the choice is about, which must survive the halt for the loop to resume.
+/// </summary>
+public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? EffectPath, ImmutableDictionary<string, string> Extra, Events.GameEvent? Event = null);
 
 /// <summary>
 /// The facts about this turn that conditions ask for: morbid, revolt, raid, "entered this

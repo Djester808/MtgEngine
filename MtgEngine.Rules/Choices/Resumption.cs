@@ -49,31 +49,9 @@ public static class ChoiceKinds
 }
 
 /// <summary>
-/// An answered question handed back to whoever asked it. Everything the asker needs is here:
-/// the kind it asked under, who answered, the options they chose (not just their ids, so the
-/// object or player behind each one travels with it) and the <see cref="ChoiceContext"/> that
-/// located the asking — the source, the ability index and the path inside the effect tree.
-/// </summary>
-public sealed record Resumption(
-    string Kind,
-    PlayerId Player,
-    ImmutableList<ChoiceOption> Chosen,
-    ChoiceContext Context);
-
-/// <summary>
-/// The seam a choice resumes through when the question came from a card rather than from a
-/// rule the choice system performs itself. The interpreter implements it: it is the only
-/// subsystem that knows what an effect was in the middle of doing, and the
-/// <see cref="ChoiceContext"/> is how it finds that place again after the answer.
-/// </summary>
-public interface IResumable : ISubsystem
-{
-    Outcome Resume(GameState state, Resumption resumption);
-}
-
-/// <summary>
-/// The resumption seam before the interpreter lands, so a game that reaches a card's question
-/// says which agent owns it rather than failing somewhere unrelated.
+/// The resumption seam before the interpreter implements it (<see cref="IResumable"/> lives in
+/// <c>Engine/Seams.cs</c>), so a game that reaches a card's question says which agent owns it
+/// rather than failing somewhere unrelated.
 /// </summary>
 public sealed class UnbuiltResumable : IResumable
 {
