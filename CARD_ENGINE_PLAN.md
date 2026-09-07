@@ -11,9 +11,12 @@ asks), it is because the decision was right, not because the code was.
 
 ## Status — where the programme stands (2026-09-07, 21:40 UTC)
 
-The sections below are the design as it was written before anything ran. This is what has
-happened since, so the plan reads as a record and not only as an intention; the per-wave
-decisions, every builder's seam request and its answer, are in `seam-requests/DECISIONS.md`.
+The sections below are the design as it was written before anything ran; **every task listed
+under "Wave 0", "Wave 1" and "Wave 2" is done**, and the rolling "Wave 3" ran as numbered
+builder rounds 3 to 11 (a wave is one round of up to eight parallel builders, merged and gated
+together). This section is what has happened, so the plan reads as a record and not only as an
+intention; the per-wave decisions, every builder's seam request and its answer, are in
+`seam-requests/DECISIONS.md`.
 
 | Wave | What it was | Outcome |
 |---|---|---|
@@ -159,7 +162,7 @@ Exit: the free slice and every deck card whose scenarios pass are `Verified`; a 
 verified cards plays end to end on the hub with enforcement; the status endpoint reports the
 counts the ledger holds.
 
-### Wave 3 — verify, triage, grow (rolling) — running as numbered waves 3–7
+### Wave 3 — verify, triage, grow (rolling) — ran as numbered waves 3–11, all merged and gated
 
 What ran: builder rounds, each answering the previous round's seam requests and the verify
 log's failures, with a coordinator seam commit and a full gate per round. What has not run
@@ -339,7 +342,7 @@ with this plan's cap of eight builders inside it. A token ceiling set on the run
 throws rather than exceeds. Wall-clock per agent is not native, which is why the turn cap and
 the sweep exist.
 
-### Wave 0 therefore also delivers
+### Wave 0 therefore also delivered (done 2026-09-06)
 
 `agent-guard.js`, the `require-docs.js` rule, `tools/check-file-size.js`,
 `tools/card-names.txt`, the ledger and sweep scripts, and the architecture tests above. No
