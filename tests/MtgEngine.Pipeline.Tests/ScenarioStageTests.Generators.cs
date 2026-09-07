@@ -133,9 +133,14 @@ public sealed class ScenarioStageTestsGenerators
     [RuleRef("601.2c")]
     public void A_sacrifice_cost_the_board_cannot_place_a_body_for_gets_no_scenario()
     {
-        // The board has no card to sacrifice a land, and the engine would refuse the cast for want
-        // of one (CR 601.2h) — a failure that would read as the card's rather than the board's.
-        var file = File("land rites", new SpellAbility(new Draw(new Fixed(1))), CardType.Instant, costs: [new SacrificeCost(new ObjectFilter(Types: CardType.Land))]);
+        // The board has no Goblin to sacrifice, and the engine would refuse the cast for want of
+        // one (CR 601.2h) — a failure that would read as the card's rather than the board's. A land
+        // it can place, so the kind the cost names has to be one no filler answers.
+        var file = File(
+            "goblin rites",
+            new SpellAbility(new Draw(new Fixed(1))),
+            CardType.Instant,
+            costs: [new SacrificeCost(new ObjectFilter(Types: CardType.Creature, Subtypes: ["Goblin"]))]);
 
         Assert.Null(SmokeScenario.Of(file));
     }

@@ -150,8 +150,8 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
     /// <summary>
     /// CR 101.4: the game stopped and is waiting. A generated scenario answers with the first
     /// legal option, through a real <see cref="AnswerChoice"/> command, so the log carries the
-    /// answer and the run still replays. A question with nothing legal to say is left standing,
-    /// and the expectations then fail on the position the game is actually in.
+    /// answer and the run still replays. A question with nothing legal to say is left standing —
+    /// except a search that found nothing, which is answered with none (CR 701.23b).
     /// </summary>
     [RuleRef("101.4")]
     private bool Answer()
@@ -162,7 +162,7 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
             if (_state.Pending is not { } pending || _state.Outcome is not null)
                 return answered;
             var choice = ScenarioAnswers.FirstLegal(pending);
-            if (choice.Count == 0)
+            if (choice.Count == 0 && !ScenarioAnswers.FailsToFind(pending))
                 return answered;
             Command(new AnswerChoice(pending.Player, pending.Id, [.. choice]));
             if (_state.Pending == pending)
