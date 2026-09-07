@@ -1,3 +1,4 @@
+using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
@@ -35,10 +36,100 @@ public sealed partial class EffectInterpreter : IResumable
         if (Is(resumption, ChoiceKinds.TriggerOrder))
             return Reordered(state, resumption);
 
-        var asking = Asking(state, resumption.Context)
-            ?? throw new InvalidOperationException(
-                $"no object on the stack is waiting on a \"{resumption.Kind}\" answer, so the resolution it stopped cannot be found (CR 101.4)");
-        return Continue(state, asking, resumption);
+        // CR 608.2: a question raised by a resolution is finished by resolving again. One raised
+        // outside a resolution — a replacement's With, a delayed trigger — has no stack object, and
+        // is found again in the abilities of the source the question carried.
+        return Asking(state, resumption.Context) is { } asking
+            ? Continue(state, asking, resumption)
+            : Elsewhere(state, resumption);
+    }
+
+    /// <summary>
+    /// The effect tree a question outside a resolution came from: ability
+    /// <see cref="ChoiceContext.AbilityIndex"/> of its source — a <see cref="ReplacementAbility"/>'s
+    /// <c>With</c> (CR 614.1a) or a triggered ability's body — or, when no index was given, the one
+    /// delayed trigger that source created (CR 603.7). A question whose tree cannot be found is
+    /// refused rather than thrown, so the game stays on the question instead of the engine's front
+    /// door raising (CR 101.4).
+    /// </summary>
+    [RuleRef("101.4")]
+    private Outcome Elsewhere(GameState state, Resumption resumption)
+    {
+        var context = resumption.Context;
+        var effect = Tree(state, context)
+            ?? throw new RefusedException(
+                $"nothing is waiting on a \"{resumption.Kind}\" answer: the effect that asked cannot be found again",
+                "101.4");
+
+        var path = context.EffectPath;
+        var run = Execute(
+            new EffectRun(
+                state,
+                Bind(Outside(state, context), resumption),
+                [],
+                false,
+                "0",
+                context.AbilityIndex,
+                path,
+                resumption,
+                path,
+                OffStack: true),
+            effect);
+        return new Outcome(run.State, run.Events);
+    }
+
+    /// <summary>Which effect of the source asked, CR 614.1a and 603.7.</summary>
+    private static Effect? Tree(GameState state, ChoiceContext context)
+    {
+        if (context.EffectPath is null || context.Source is not { } source)
+            return null;
+
+        if (state.Objects.TryGetValue(source, out var obj) && context.AbilityIndex is { } index)
+        {
+            var abilities = obj.Face.AbilityList;
+            if (index >= 0 && index < abilities.Count)
+                return abilities[index] is ReplacementAbility replacement ? replacement.With : Body(abilities[index]);
+        }
+
+        // CR 603.7: a delayed trigger's instruction is held in the game state, not on a card.
+        var delayed = state.DelayedTriggers.Where(t => t.Source == source).ToList();
+        return delayed.Count == 1 ? delayed[0].Do : null;
+    }
+
+    /// <summary>
+    /// The context a question outside a resolution ran in, rebuilt from what the question carried:
+    /// there is no stack entry to read it from, so the walk recorded its controller and what it
+    /// was working on when it asked (CR 101.4).
+    /// </summary>
+    [RuleRef("101.4")]
+    private EffectContext Outside(GameState state, ChoiceContext context)
+    {
+        var source = context.Source;
+        var controller = context.Extra.TryGetValue("controller", out var seat)
+            && int.TryParse(seat, CultureInfo.InvariantCulture, out var number)
+                ? new PlayerId(number)
+            : source is { } id && state.Objects.ContainsKey(id) ? characteristics.ControllerOf(state, id)
+            : new PlayerId(0);
+
+        var triggering = context.Extra.TryGetValue("triggering", out var those)
+            ? Numbers(those).Select(n => new ObjectId(n)).ToImmutableList()
+            : [];
+        var triggeringPlayer = context.Extra.TryGetValue("triggeringPlayer", out var who)
+            && int.TryParse(who, CultureInfo.InvariantCulture, out var seated)
+                ? new PlayerId(seated)
+                : (PlayerId?)null;
+
+        return new EffectContext(
+            source,
+            controller,
+            [],
+            [],
+            null,
+            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty,
+            ImmutableDictionary<string, string>.Empty,
+            ImmutableDictionary<string, int>.Empty,
+            triggering,
+            triggeringPlayer);
     }
 
     private static bool Is(Resumption resumption, string kind) =>

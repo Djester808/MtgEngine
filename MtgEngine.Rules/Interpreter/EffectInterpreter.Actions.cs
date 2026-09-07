@@ -65,19 +65,13 @@ public sealed partial class EffectInterpreter
             case Cards.Counter counter:
                 return Leave(run, Objects(run, counter.What), "countered", counter.PutInto ?? Zone.Graveyard, skipIndestructible: false);
 
+            // CR 701.20a and 614.1: tapping and untapping are events, so "doesn't untap during
+            // your untap step" and "can't become tapped" are replacements offered this one.
             case Cards.Tap tap:
-                {
-                    foreach (var id in Objects(run, tap.What))
-                        run = Emit(run, new ObjectChanged(id, Tapped: true));
-                    return run;
-                }
+                return Turned(run, Objects(run, tap.What), tapped: true);
 
             case Cards.Untap untap:
-                {
-                    foreach (var id in Objects(run, untap.What))
-                        run = Emit(run, new ObjectChanged(id, Tapped: false));
-                    return run;
-                }
+                return Turned(run, Objects(run, untap.What), tapped: false);
 
             // CR 701.7: the token is created by the zone system, which knows how an object enters.
             case Cards.CreateToken token:
@@ -199,8 +193,39 @@ public sealed partial class EffectInterpreter
                 continue;
             if (skipIndestructible && Has(run.State, id, KeywordKind.Indestructible))
                 continue;
-            run = Emit(run, new ObjectLeftBy(id, verb, run.Context.Source));
+
+            // CR 614.1: the action itself is offered to the replacement system — "if it would be
+            // countered, exile it instead", "regenerate" — and a replacement that drops the event
+            // means the action does not happen, so the object does not change zones either. The
+            // zone change that follows is offered by the zone system, not proposed twice here.
+            var left = run.Events.Count;
+            run = Propose(run, new ObjectLeftBy(id, verb, run.Context.Source), characteristics.ControllerOf(run.State, id));
+            if (run.Halted)
+                return run;
+            if (!run.Events.Skip(left).OfType<ObjectLeftBy>().Any(e => e.Object == id))
+                continue;
+
             (run, _) = Relocate(run, id, to, Placement.Default, tapped: false, controller: null);
+        }
+
+        return run;
+    }
+
+    /// <summary>
+    /// Tapping or untapping one object at a time, each offered to the replacement system first
+    /// (CR 614.1). A dropped event leaves the permanent as it was, which is what "can't become
+    /// tapped" and "doesn't untap" mean.
+    /// </summary>
+    [RuleRef("614.1")]
+    private EffectRun Turned(EffectRun run, IEnumerable<ObjectId> ids, bool tapped)
+    {
+        foreach (var id in ids)
+        {
+            if (!run.State.Objects.ContainsKey(id))
+                continue;
+            run = Propose(run, new ObjectChanged(id, Tapped: tapped), characteristics.ControllerOf(run.State, id));
+            if (run.Halted)
+                return run;
         }
 
         return run;
