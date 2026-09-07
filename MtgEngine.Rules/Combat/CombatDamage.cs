@@ -28,12 +28,12 @@ public sealed partial class CombatSystem
 
         // Damage assigned to each creature so far in this step, so lethal is judged against it, CR 702.19b.
         var assigned = new Dictionary<ObjectId, int>();
-        var events = ImmutableList<GameEvent>.Empty;
+        var batch = new List<Assignment>();
 
         foreach (var attackerId in combat.Attackers.Keys.OrderBy(id => id.Value))
         {
             if (Fights(state, attackerId, firstStrike) is { } attacker)
-                events = events.AddRange(AttackerDamage(state, combat, attackerId, attacker, assigned));
+                batch.Add(new Assignment(attackerId, attacker, AttackerDamage(state, combat, attackerId, attacker, assigned)));
         }
 
         foreach (var pair in combat.Blockers.OrderBy(p => p.Key.Value))
@@ -41,11 +41,61 @@ public sealed partial class CombatSystem
             foreach (var blockerId in pair.Value)
             {
                 if (Fights(state, blockerId, firstStrike) is { } blocker)
-                    events = events.AddRange(BlockerDamage(state, pair.Key, blockerId, blocker));
+                    batch.Add(new Assignment(blockerId, blocker, BlockerDamage(state, pair.Key, blockerId, blocker)));
             }
         }
 
-        return new Outcome(GameReducer.Apply(state, events), events);
+        return Deal(state, batch);
+    }
+
+    /// <summary>What one creature assigned in this step, and what it was while assigning it.</summary>
+    private sealed record Assignment(ObjectId Source, Characteristics Characteristics, ImmutableList<DamageDealt> Damage);
+
+    /// <summary>
+    /// The batch, dealt. CR 510.2 deals it simultaneously, so every assignment above was computed
+    /// against the state as the step began; here each event is offered to the replacement and
+    /// prevention effects in force (CR 614.1a) and what comes back is folded before the next is
+    /// offered — CR 616.1 read per event, not per batch, because each effect is offered one event.
+    /// <para>
+    /// CR 616.1 also stops the game when the affected player must say which of several effects
+    /// applies first. The question stands and the rest of the batch is not dealt: nothing else
+    /// happens until it is answered (CR 101.4), and re-entering this step to deal the remainder
+    /// needs a resumption the choice system does not have — see <c>seam-requests/E4b.md</c>.
+    /// </para>
+    /// </summary>
+    [RuleRef("510.2")]
+    private Outcome Deal(GameState state, IReadOnlyList<Assignment> batch)
+    {
+        var working = state;
+        var events = ImmutableList<GameEvent>.Empty;
+
+        foreach (var assignment in batch)
+        {
+            var dealt = 0;
+            foreach (var proposed in assignment.Damage)
+            {
+                var happened = Offer(working, proposed, Affected(state, proposed));
+                working = happened.State;
+                events = events.AddRange(happened.Events);
+                dealt += happened.Events.OfType<DamageDealt>().Where(d => d.Source == assignment.Source).Sum(d => d.Amount);
+                if (working.Pending is not null)
+                    return new Outcome(working, events);
+            }
+
+            // CR 702.15b — lifelink gains its controller as much life as the source actually dealt,
+            // so a hit a prevention shield stopped gains nothing and a doubled hit gains double.
+            if (dealt <= 0 || !assignment.Characteristics.Has(KeywordKind.Lifelink))
+                continue;
+
+            var gain = new LifeChanged(assignment.Characteristics.Controller, dealt, "lifelink");
+            var gained = Offer(working, gain, assignment.Characteristics.Controller);
+            working = gained.State;
+            events = events.AddRange(gained.Events);
+            if (working.Pending is not null)
+                return new Outcome(working, events);
+        }
+
+        return new Outcome(working, events);
     }
 
     /// <summary>CR 510.4 — whether this creature assigns damage in this step, and what it is while doing so.</summary>
@@ -68,7 +118,7 @@ public sealed partial class CombatSystem
 
     /// <summary>CR 510.1a–c and 702.19b — an attacker's assignment: to the blockers if it is blocked, otherwise to what it attacks.</summary>
     [RuleRef("510.1")]
-    private ImmutableList<GameEvent> AttackerDamage(GameState state, CombatState combat, ObjectId attackerId, Characteristics attacker, Dictionary<ObjectId, int> assigned)
+    private ImmutableList<DamageDealt> AttackerDamage(GameState state, CombatState combat, ObjectId attackerId, Characteristics attacker, Dictionary<ObjectId, int> assigned)
     {
         // CR 510.1a — a creature that would assign 0 or less damage assigns none.
         var power = attacker.Power ?? 0;
@@ -80,14 +130,14 @@ public sealed partial class CombatSystem
 
         // CR 510.1b — an unblocked creature assigns to the player, planeswalker or battle it attacks.
         if (declared.IsEmpty)
-            return WithLifelink(state, TargetDamage(state, attackerId, power, target), attacker);
+            return TargetDamage(state, attackerId, power, target);
 
         // CR 510.1c — a blocked creature with nothing currently blocking it assigns no damage.
         var blockers = declared.Where(id => OnBattlefield(state, id)).ToImmutableList();
         if (blockers.IsEmpty)
             return [];
 
-        var events = ImmutableList<GameEvent>.Empty;
+        var events = ImmutableList<DamageDealt>.Empty;
         var deathtouch = attacker.Has(KeywordKind.Deathtouch);
         var trample = attacker.Has(KeywordKind.Trample);
         var remaining = power;
@@ -117,23 +167,23 @@ public sealed partial class CombatSystem
             }
         }
 
-        return WithLifelink(state, events, attacker);
+        return events;
     }
 
     /// <summary>CR 510.1d — a blocker assigns its damage to the creature it is blocking.</summary>
     [RuleRef("510.1d")]
-    private ImmutableList<GameEvent> BlockerDamage(GameState state, ObjectId attackerId, ObjectId blockerId, Characteristics blocker)
+    private ImmutableList<DamageDealt> BlockerDamage(GameState state, ObjectId attackerId, ObjectId blockerId, Characteristics blocker)
     {
         var power = blocker.Power ?? 0;
         if (power <= 0 || !OnBattlefield(state, attackerId))
             return [];
 
-        return WithLifelink(state, [Damage(state, blockerId, attackerId, null, power)], blocker);
+        return [Damage(state, blockerId, attackerId, null, power)];
     }
 
     /// <summary>CR 510.1b — damage to what an attacker is attacking, or none when that has gone.</summary>
     [RuleRef("510.1b")]
-    private ImmutableList<GameEvent> TargetDamage(GameState state, ObjectId sourceId, int amount, CombatTarget target)
+    private ImmutableList<DamageDealt> TargetDamage(GameState state, ObjectId sourceId, int amount, CombatTarget target)
     {
         if (target.Player is { } player)
             return [Damage(state, sourceId, null, player, amount)];
@@ -157,17 +207,6 @@ public sealed partial class CombatSystem
         var toughness = _characteristics.Of(state, blockerId).Toughness ?? 0;
         var marked = state.Objects[blockerId].Damage + assigned.GetValueOrDefault(blockerId);
         return Math.Max(1, toughness - marked);
-    }
-
-    /// <summary>CR 702.15b — damage from a source with lifelink gains its controller that much life as well.</summary>
-    [RuleRef("702.15b")]
-    private static ImmutableList<GameEvent> WithLifelink(GameState state, ImmutableList<GameEvent> damage, Characteristics source)
-    {
-        if (!source.Has(KeywordKind.Lifelink))
-            return damage;
-
-        var total = damage.OfType<DamageDealt>().Sum(d => d.Amount);
-        return total <= 0 ? damage : damage.Add(new LifeChanged(source.Controller, total, "lifelink"));
     }
 
     private DamageDealt Damage(GameState state, ObjectId source, ObjectId? toObject, PlayerId? toPlayer, int amount) =>

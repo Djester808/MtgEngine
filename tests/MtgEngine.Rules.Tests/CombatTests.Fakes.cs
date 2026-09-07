@@ -141,6 +141,9 @@ internal sealed class CombatTable
 
     public void Remove(ObjectId id) => State = new ObjectCeasedToExist(id).Apply(State);
 
+    /// <summary>Put a continuous effect in force by hand, CR 611.2: what created it is not combat's business.</summary>
+    public void Enact(ActiveEffect effect) => State = State with { ActiveEffects = State.ActiveEffects.Add(effect) };
+
     public int DamageOn(ObjectId id) => State.Objects[id].Damage;
 
     public bool Tapped(ObjectId id) => State.Objects[id].Tapped;
