@@ -92,6 +92,20 @@ try
                 return await Pilot.SubmitAsync(submitEnv, batch.Cards, outDir, cts.Token);
             }
 
+        // A translator's self-check over one local batch: the collect step's parse and lint, files only.
+        case "answers-check":
+            {
+                var batchDir = Positional(args, 1);
+                if (batchDir is null)
+                {
+                    Console.Error.WriteLine("answers-check needs the local batch directory");
+                    return 64;
+                }
+
+                var raw = Corpus.LoadRaw(Corpus.DefaultPath(root));
+                return AnswersCheckCommand.Run(batchDir, id => Corpus.Card(raw, id), Console.Out);
+            }
+
         case "status":
             return StatusCommand.Run(Positional(args, 1) ?? Path.Combine(root, "cards"), Console.Out);
 
@@ -123,7 +137,7 @@ try
             Console.Error.WriteLine(
                 "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
                 + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
-                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] | status [cardsDir]"
+                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] | status [cardsDir] | answers-check <batchDir>"
             + " (--local on retranslate-submit and pilot-collect: answers from files under <outDir>/local, never the API)");
             return 64;
     }
