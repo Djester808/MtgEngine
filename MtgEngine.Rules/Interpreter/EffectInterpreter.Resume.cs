@@ -188,14 +188,7 @@ public sealed partial class EffectInterpreter : IResumable
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
         var controller = characteristics.ControllerOf(state, stackObject);
-        var context = ContextFor(state, obj, entry, controller);
-        context = Bind(
-            context with
-            {
-                Targets = LegalTargets(state, entry, effect, context),
-                TargetPlayers = LegalTargetPlayers(state, entry, controller),
-            },
-            resumption);
+        var context = Bind(Rechecked(state, obj, entry, controller, effect, resuming: true), resumption);
 
         var path = resumption.Context.EffectPath;
         var run = Execute(

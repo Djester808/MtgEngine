@@ -54,7 +54,7 @@ public sealed partial class EffectInterpreter
 
         var effect = EffectOf(spell, entry);
         var filters = effect is null ? [] : EffectWalk.TargetsIn(effect);
-        var context = ContextFor(run.State, spell, entry, characteristics.ControllerOf(run.State, spell.Id));
+        var context = ContextFor(run.State, spell, entry, characteristics.ControllerOf(run.State, spell.Id), effect);
 
         if (Answered(run) is { } answered)
             return Retarget(run, spell.Id, entry, Named(run.State, answered));

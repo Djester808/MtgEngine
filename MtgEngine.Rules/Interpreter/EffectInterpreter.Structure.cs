@@ -71,7 +71,7 @@ public sealed partial class EffectInterpreter
                     var index = 0;
                     foreach (var id in over)
                     {
-                        run = run with { Context = run.Context with { Triggering = [id] } };
+                        run = Forgetting(run with { Context = run.Context with { Triggering = [id] } }, index, each.Do);
                         run = Child(run, index++, each.Do);
                         if (run.Halted)
                             break;
@@ -340,4 +340,31 @@ public sealed partial class EffectInterpreter
     /// </summary>
     private static EffectRun Descend(EffectRun run, int index) =>
         run with { Path = run.Path + "." + index.ToString(CultureInfo.InvariantCulture) };
+
+    /// <summary>
+    /// CR 700.2 with 608.2: a choice inside "for each" is made once per iteration, so a keyed
+    /// <see cref="Choose"/> the body reads is forgotten — its memory and its answer — as each
+    /// iteration begins, and the body asks again. Two iterations keep what they have: one the walk
+    /// is skipping on its way back to a question (CR 101.4), and the one whose question is being
+    /// answered, which must read that answer rather than ask it a second time.
+    /// </summary>
+    [RuleRef("700.2")]
+    private static EffectRun Forgetting(EffectRun run, int index, Effect body)
+    {
+        var iteration = Descend(run, index).Path;
+        if (run.Resume is { } target && !OnPath(iteration, target))
+            return run;
+        if (run.AnswerPath is { } answered && OnPath(iteration, answered))
+            return run;
+
+        var context = run.Context;
+        foreach (var choose in Cards.Linter.Walk(body).OfType<Choose>())
+        {
+            if (choose.Key is not { } key)
+                continue;
+            context = context with { Remembered = context.Remembered.Remove(key), Chosen = context.Chosen.Remove(key) };
+        }
+
+        return run with { Context = context };
+    }
 }
