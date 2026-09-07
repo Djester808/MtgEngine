@@ -123,7 +123,34 @@ public sealed record AddMana(ManaProduction Mana, PlayerRef? Who = null, Amount?
 /// <summary>
 /// What a mana instruction produces. <paramref name="Fixed"/> is printed mana ("{G}{G}");
 /// otherwise one of the described choices.
+/// <para>
+/// <paramref name="LandCouldProduce"/> is "of any type that a land could produce" (CR 106.1b: a
+/// land's mana ability names the types it could produce). It surveys the lands you control unless
+/// <paramref name="LandCouldProduceOf"/> describes a different set — "a land an opponent controls
+/// could produce" is <c>LandCouldProduce: true</c> with a filter of lands an opponent controls, and
+/// the survey is over exactly the lands that filter admits. Leave the filter null for the ordinary
+/// "a land you control could produce"; a filter that admits no land produces no mana, which is what
+/// an empty board means and not an error.
+/// </para>
+/// <para>
+/// <paramref name="ChosenColorKey"/> is "mana of the chosen colour": the key of the earlier step
+/// that made the choice, and the colour travels with the key (CR 700.5, a choice a card made is
+/// remembered by the object). One firing of a TappedForMana trigger stores the colour the land was
+/// actually tapped for under the key <c>"tapped-for-mana-color"</c>, so "add one mana of any type
+/// that land produced" is a ManaProduction whose ChosenColorKey is exactly that string and nothing
+/// else — no second AddMana, no Choose step, and no ColorOfAttachedOrTarget, which is about an
+/// attached object's colour rather than a colour a trigger observed. It is the one key the engine
+/// writes for a card rather than the card naming its own.
+/// </para>
+/// <para>
+/// <paramref name="ColorsOfRemembered"/> is "one mana of any of that card's colours": the key of an
+/// earlier step that remembered the object whose colours are surveyed (CR 105.2, an object's colours
+/// are its own), typically a card exiled by this permanent. The player chooses among those colours
+/// when the mana is added; a remembered object with no colour produces no mana. Use it instead of
+/// AnyColor, which is every colour and would let a colourless card pay for anything.
+/// </para>
 /// </summary>
+[RuleRef("106.1")]
 public sealed record ManaProduction(
     string? Fixed = null,
     bool AnyColor = false,
@@ -135,7 +162,9 @@ public sealed record ManaProduction(
     bool LandCouldProduce = false,
     bool AnyType = false,
     bool Restriction = false,
-    string? RestrictedTo = null);
+    string? RestrictedTo = null,
+    ObjectFilter? LandCouldProduceOf = null,
+    string? ColorsOfRemembered = null);
 
 /// <summary>"target creature gets +3/+3 until end of turn", "gains flying until end of turn", "becomes a copy".</summary>
 [RuleRef("611.2")]

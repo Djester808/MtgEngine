@@ -281,6 +281,11 @@ public static class Linter
         foreach (var u in nodes.OfType<Unsupported>())
             findings.Add(new(LintSeverity.Error, "L001", $"Unsupported: {u.Reason}", path));
 
+        // The ContinuousEffect half of the same marker (CR 604.1): a static ability's slot cannot
+        // hold an Unsupported, so a dropped clause used to leave no trace at all.
+        foreach (var u in nodes.OfType<UnsupportedContinuous>())
+            findings.Add(new(LintSeverity.Error, "L001", $"Unsupported: {u.Reason}", path));
+
         if (ability is KeywordAbility kw && RequiredParameter.TryGetValue(kw.Keyword, out var parameter))
         {
             var present = parameter switch
@@ -315,6 +320,7 @@ public static class Linter
                 IsChosenName c => c.Key,
                 IsChosenType c => c.Key,
                 IsChosenColor c => c.Key,
+                IsRemembered r => r.Key,
                 _ => null,
             };
             if (key is not null && !produced.Contains(key) && !(faceProduced?.Contains(key) ?? false))
@@ -367,12 +373,52 @@ public static class Linter
         // be produced by a linked ability on another face or another permanent (CR 106.6), so the
         // key is resolved where the mana is, in the interpreter, and a lint error would be wrong.
 
-        // CR 106.6b: one printed rider, one restriction. Both fields set reads as an "and" no card asked for.
-        if (ability is ActivatedAbility { PayOnlyWith: not null, PayOnlyFrom: not null })
-            findings.Add(new(LintSeverity.Error, "L016", "An ability restricts the mana that pays it by both colour and source; a card prints one restriction.", path));
         if (ability is ActivatedAbility { PayOnlyFrom: { } from } && from == new ObjectFilter())
             findings.Add(new(LintSeverity.Error, "L016", "PayOnlyFrom with an empty filter restricts nothing; leave it null when any mana pays.", path));
+
+        // CR 106.6b again: the chosen-colour rider is the third reading of the one printed rider.
+        if (ability is ActivatedAbility activated && Riders(activated) > 1)
+            findings.Add(new(LintSeverity.Error, "L016", "An ability sets more than one of PayOnlyWith, PayOnlyFrom and PayOnlyWithChosenColorKey; a card prints one restriction.", path));
+        if (ability is ActivatedAbility { PayOnlyWithChosenColorKey: { Length: 0 } })
+            findings.Add(new(LintSeverity.Error, "L016", "PayOnlyWithChosenColorKey is empty; name the key the choosing step stored the colour under, or leave it null.", path));
+
+        // CR 202.1: a printed mana cost is a string of symbols. A list that admits nothing, or an
+        // entry that is not a symbol string, describes no card that was ever printed.
+        foreach (var filter in nodes.OfType<ObjectFilter>().Where(f => f.ManaCostIs is not null))
+        {
+            var costs = filter.ManaCostIs!;
+            if (costs.Count == 0)
+                findings.Add(new(LintSeverity.Error, "L018", "ManaCostIs is an empty list, which matches nothing; leave it null when the printed cost does not matter.", path));
+            foreach (var cost in costs.Where(c => string.IsNullOrWhiteSpace(c) || !c.StartsWith('{') || !c.EndsWith('}')))
+                findings.Add(new(LintSeverity.Error, "L018", $"ManaCostIs entry '{cost}' is not a printed mana string; write the symbols as printed (\"{{0}}\", \"{{1}}\").", path));
+        }
+
+        // CR 701.23a: one search, one action. The second destination is only meaningful when it
+        // differs from the first, and only the battlefield can hold a tapped card.
+        foreach (var search in nodes.OfType<Search>())
+        {
+            if (search.OthersTapped && search.OthersTo != Zone.Battlefield)
+                findings.Add(new(LintSeverity.Error, "L019", "Search.OthersTapped is set but the other cards do not go to the battlefield; nothing is tapped in another zone.", path));
+            if (search.OthersTo is { } others && others == search.To)
+                findings.Add(new(LintSeverity.Warning, "L019", "Search.OthersTo names the same zone as To; leave it null when every card found goes to one zone.", path));
+        }
+
+        // CR 106.1: a mana instruction names one production. Two descriptions of the colour would be
+        // read as an "and", and a filter of lands with no survey to use it is a dropped half.
+        foreach (var mana in nodes.OfType<ManaProduction>())
+        {
+            if (mana.LandCouldProduceOf is not null && !mana.LandCouldProduce)
+                findings.Add(new(LintSeverity.Error, "L020", "ManaProduction has LandCouldProduceOf without LandCouldProduce; the filter says which lands are surveyed and nothing surveys them.", path));
+            if (mana.ColorsOfRemembered is { } key && (key.Length == 0 || mana.AnyColor || mana.ChosenColor || !string.IsNullOrEmpty(mana.ChosenColorKey)))
+                findings.Add(new(LintSeverity.Error, "L020", "ManaProduction sets ColorsOfRemembered beside another colour choice, or with an empty key; one instruction names one production.", path));
+        }
     }
+
+    /// <summary>How many of the one-of-three mana-spend riders an activated ability sets (CR 106.6b).</summary>
+    private static int Riders(ActivatedAbility ability) =>
+        (ability.PayOnlyWith is not null ? 1 : 0)
+        + (ability.PayOnlyFrom is not null ? 1 : 0)
+        + (ability.PayOnlyWithChosenColorKey is not null ? 1 : 0);
 
     /// <summary>A cost that asks the player for nothing: no mana, and no other cost beside it.</summary>
     private static bool IsEmptyCost(Cost cost) => cost switch
@@ -385,7 +431,7 @@ public static class Linter
 
     /// <summary>Records whose Key reads a value an earlier step produced, rather than producing one.</summary>
     private static bool IsConsumer(object node) => node is Remembered or RememberedPlayer or Stored or ChosenNumber
-        or ChosenPlayer or ChoiceIs or StoredIs or IsChosenName or IsChosenType or IsChosenColor;
+        or ChosenPlayer or ChoiceIs or StoredIs or IsChosenName or IsChosenType or IsChosenColor or IsRemembered;
 
     private static string? CounterKindOf(object node) => node switch
     {

@@ -115,7 +115,25 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(AbilitiesTriggerTwice), nameof(AbilitiesTriggerTwice))]
 [JsonDerivedType(typeof(RegenerationShield), nameof(RegenerationShield))]
 [JsonDerivedType(typeof(TreatAsHavingKeywordCounter), nameof(TreatAsHavingKeywordCounter))]
+[JsonDerivedType(typeof(UnsupportedContinuous), nameof(UnsupportedContinuous))]
 public abstract record ContinuousEffect;
+
+/// <summary>
+/// An honest marker for a static ability's continuous effect this vocabulary cannot yet say, the
+/// ContinuousEffect half of <see cref="Unsupported"/>. A static ability's slot takes a
+/// ContinuousEffect and nothing else (CR 604.1), so without this record a clause the vocabulary
+/// cannot express has to be dropped, and a dropped clause is a card that plays wrongly with no
+/// sign of it. <paramref name="Reason"/> says what could not be said and <paramref name="Text"/>
+/// keeps the printed line for the judge.
+/// <para>
+/// It lints as L001 exactly like Unsupported, so a file carrying one is never clean and never
+/// reaches a game: the marker is a request for a record, not a way to ship a half-read card. Never
+/// use it for a clause another record already says — check the vocabulary first, because a marker
+/// that could have been a spelling is worse than nothing.
+/// </para>
+/// </summary>
+[RuleRef("604.1")]
+public sealed record UnsupportedContinuous(string Reason, string? Text = null) : ContinuousEffect;
 
 [RuleRef("613.4c")]
 public sealed record ModifyPt(Amount Power, Amount Toughness) : ContinuousEffect;

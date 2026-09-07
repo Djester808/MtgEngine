@@ -2400,6 +2400,16 @@
             }
           ]
         },
+        "payOnlyWithChosenColorKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "anyOf": [
             {
@@ -2417,7 +2427,7 @@
         "costs",
         "do"
       ],
-      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a LoyaltyCost; mana abilities are recognised by the engine, CR 605. PayOnlyWith is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. PayOnlyFrom is the other half of that rider: \u0022activate only using mana produced by artifacts\u0022 names the source the mana came from rather than its colour, and a colour cannot say it (CR 106.6b). The filter describes the permanent whose mana ability produced the mana. Set one field or the other, never both \u2014 a card prints one restriction, and two would be read as an \u0022and\u0022 no card asked for. A restriction neither can express goes to a primitive request rather than being dropped, because paying with the wrong mana is a different game action, not a rounding error."
+      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a LoyaltyCost; mana abilities are recognised by the engine, CR 605. PayOnlyWith is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. PayOnlyFrom is the other half of that rider: \u0022activate only using mana produced by artifacts\u0022 names the source the mana came from rather than its colour, and a colour cannot say it (CR 106.6b). The filter describes the permanent whose mana ability produced the mana. Set one field or the other, never both \u2014 a card prints one restriction, and two would be read as an \u0022and\u0022 no card asked for. A restriction neither can express goes to a primitive request rather than being dropped, because paying with the wrong mana is a different game action, not a rounding error. PayOnlyWithChosenColorKey is the third reading of the same rider, for \u0022activate only using mana of the chosen color\u0022 (CR 106.6b restricts what mana may be spent; CR 601.2h is where the payment is made and the restriction bites). It names the key of the earlier ChooseValue(Color) step, so the restriction is whatever colour this object chose rather than a printed one. It belongs to the same one-of-three group as PayOnlyWith and PayOnlyFrom: set at most one, because two riders would be read as an \u0022and\u0022 no card prints."
     },
     "KeywordAbility": {
       "type": "object",
@@ -2700,6 +2710,16 @@
             }
           ]
         },
+        "rememberAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "anyOf": [
             {
@@ -2716,7 +2736,7 @@
         "kind",
         "keyword"
       ],
-      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. Cost is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in Costs as Cost records instead, mana included as a ManaCost entry, and leaves Cost null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set Repeatable when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice. OfPlayer: \u0022enchant player\u0022, \u0022enchant opponent\u0022 (CR 702.5b): what this Aura may enchant when it is a player rather than an object. An enchant ability with neither Of nor OfPlayer admits any object or player; one with Of only admits objects."
+      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. Cost is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in Costs as Cost records instead, mana included as a ManaCost entry, and leaves Cost null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set Repeatable when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice. OfPlayer: \u0022enchant player\u0022, \u0022enchant opponent\u0022 (CR 702.5b): what this Aura may enchant when it is a player rather than an object. An enchant ability with neither Of nor OfPlayer admits any object or player; one with Of only admits objects. RememberAs is for the keywords that set an object aside for a later ability to name. Hideaway exiles one of the cards it looked at (CR 702.75a) and a second ability on the same permanent then says \u0022you may play the exiled card\u0022; the keyword stores what it exiled under this key and that ability names it with a Remembered selector. Without it the second ability has nothing to point at, because the keyword\u0027s own text is not written out on the card. Set it only for a keyword that puts an object somewhere \u2014 a key on a keyword that sets nothing aside is noise nothing reads."
     },
     "ReplacementAbility": {
       "type": "object",
@@ -3023,13 +3043,23 @@
         },
         "random": {
           "type": "boolean"
+        },
+        "rememberAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "required": [
         "kind"
       ],
-      "description": "CR 118"
+      "description": "\u0022Discard a card\u0022 as a cost, CR 701.8a. RememberAs is the same idea as SacrificeCost\u0027s: the discarded cards are stored under the key so \u0022if you do, [it]\u0022 can name them, and it stays null when nothing refers back."
     },
     "DiscardHand": {
       "type": "object",
@@ -3095,6 +3125,16 @@
               "type": "null"
             }
           ]
+        },
+        "rememberAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -3102,7 +3142,7 @@
         "kind",
         "from"
       ],
-      "description": "\u0022Exile a creature card from your graveyard\u0022, \u0022exile N cards from your hand\u0022."
+      "description": "\u0022Exile a creature card from your graveyard\u0022, \u0022exile N cards from your hand\u0022. RememberAs stores the exiled cards under a key (CR 701.10a) so an effect can say \u0022if you do, [it]\u0022 \u2014 \u0022exile a creature card from your graveyard: put a \u002B1/\u002B1 counter on this for each of its colours\u0022. Null when nothing refers back."
     },
     "ExileSelfCost": {
       "type": "object",
@@ -3388,6 +3428,16 @@
               "type": "null"
             }
           ]
+        },
+        "rememberAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -3395,7 +3445,7 @@
         "kind",
         "what"
       ],
-      "description": "CR 118"
+      "description": "\u0022Sacrifice a creature\u0022: the player chooses which permanent they control is sacrificed (CR 701.17a). Set RememberAs when the effect refers back to what paid \u2014 \u0022sacrifice a creature: add mana equal to its power\u0022, \u0022if you do, draw cards equal to its toughness\u0022. The cost payment stores the objects it sacrificed under the key as they last existed on the battlefield (CR 608.2g reads a sacrificed permanent\u0027s last known information), and the effect names them with a Remembered selector. Leave it null when nothing looks back: a key nothing reads is noise in the file."
     },
     "SacrificeSelf": {
       "type": "object",
@@ -6012,6 +6062,29 @@
             }
           ]
         },
+        "manaCostIs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notInCommanderIdentityColors": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "also": {
           "anyOf": [
             {
@@ -6024,7 +6097,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022. ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is \u0022any of\u0022, and an object matches when its printed cost is one of the listed symbol strings exactly as printed \u2014 [\u0022{0}\u0022, \u0022{1}\u0022] is \u0022with mana value 0 or 1\u0022 said the way a card that cares about the printed cost says it. It is not ManaValue, which counts the cost and so admits \u0022{W}\u0022 for 1 and cannot tell \u0022{0}\u0022 from a land\u0027s absent cost; use ManaValue whenever the card prints a number, and this only where the printed symbols themselves are named. An object with no printed mana cost matches no entry, and an empty list matches nothing at all rather than everything. NotInCommanderIdentityColors is \u0022colors not in your commander\u0027s color identity\u0022, CR 903.4: true admits an object of a colour outside that identity and false admits one wholly inside it. It is the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of its own, because the set is the game\u0027s and not the card\u0027s. Never write it as a Colors or NotColors list, which would fix at translation time a set that depends on the deck."
     },
     "PlayerFilter": {
       "type": "object",
@@ -6327,6 +6400,9 @@
         },
         {
           "$ref": "#/$defs/TreatAsHavingKeywordCounter"
+        },
+        {
+          "$ref": "#/$defs/UnsupportedContinuous"
         }
       ],
       "description": "What a continuous effect does to the objects or players it applies to, CR 611\u2013613. Each record belongs to one layer, which the interpreter reads from the record type."
@@ -9881,6 +9957,29 @@
         },
         "shuffleOnlyIfFound": {
           "type": "boolean"
+        },
+        "othersTo": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Library",
+                "Hand",
+                "Battlefield",
+                "Graveyard",
+                "Stack",
+                "Exile",
+                "Command",
+                "OutsideTheGame"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "othersTapped": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -9889,7 +9988,7 @@
         "for",
         "to"
       ],
-      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there."
+      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there. OthersTo is one search with two destinations: \u0022search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the other into your hand\u0022. It is one search of up to UpTo cards (CR 701.23a \u2014 the whole search is one action), the first card found goes to To with Where and Tapped, and every other card found goes to OthersTo, tapped when OthersTapped is set. Never write it as two Searches: two searches see the library twice, so a player could find two cards that one search could not, and each would shuffle. Leave OthersTo null when every card found goes to the same zone, and leave OthersTapped false unless OthersTo is the battlefield, because nothing is tapped in another zone."
     },
     "Sequence": {
       "type": "object",
@@ -11148,6 +11247,9 @@
         },
         {
           "$ref": "#/$defs/IsPrepared"
+        },
+        {
+          "$ref": "#/$defs/IsRemembered"
         },
         {
           "$ref": "#/$defs/IsRingBearer"
@@ -13745,6 +13847,33 @@
       ],
       "description": "CR 122.1a"
     },
+    "UnsupportedContinuous": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "UnsupportedContinuous"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "description": "An honest marker for a static ability\u0027s continuous effect this vocabulary cannot yet say, the ContinuousEffect half of Unsupported. A static ability\u0027s slot takes a ContinuousEffect and nothing else (CR 604.1), so without this record a clause the vocabulary cannot express has to be dropped, and a dropped clause is a card that plays wrongly with no sign of it. Reason says what could not be said and Text keeps the printed line for the judge. It lints as L001 exactly like Unsupported, so a file carrying one is never clean and never reaches a game: the marker is a request for a record, not a way to ship a half-read card. Never use it for a clause another record already says \u2014 check the vocabulary first, because a marker that could have been a spelling is worse than nothing."
+    },
     "AnyTarget": {
       "type": "object",
       "properties": {
@@ -15610,7 +15739,7 @@
         "kind",
         "what"
       ],
-      "description": "\u0022Whenever a land you control is tapped for mana\u0022, CR 106.12a: the trigger fires when a mana ability of the permanent whose activation cost includes {T} resolves and produces mana (CR 106.12). What describes the permanent tapped. Set OfColor for \u0022tapped for mana of a specified type\u0022 \u2014 \u0022tapped for green mana\u0022 \u2014 and set OfChosenColorKey instead when the card reads \u0022tapped for mana of the chosen color\u0022, naming the key an earlier ChooseValue(ChooseWhat.Color, key) stored the colour under. Set neither for \u0022tapped for mana\u0022 of any type. Never set both: a card prints one colour restriction, and the fixed colour and the chosen one are different cards. This is the trigger half only. What the ability then does \u2014 \u0022add an additional one mana of that color\u0022 \u2014 is an AddMana whose ManaProduction carries the same ChosenColorKey, so the two halves name the same choice."
+      "description": "\u0022Whenever a land you control is tapped for mana\u0022, CR 106.12a: the trigger fires when a mana ability of the permanent whose activation cost includes {T} resolves and produces mana (CR 106.12). What describes the permanent tapped. Set OfColor for \u0022tapped for mana of a specified type\u0022 \u2014 \u0022tapped for green mana\u0022 \u2014 and set OfChosenColorKey instead when the card reads \u0022tapped for mana of the chosen color\u0022, naming the key an earlier ChooseValue(ChooseWhat.Color, key) stored the colour under. Set neither for \u0022tapped for mana\u0022 of any type. Never set both: a card prints one colour restriction, and the fixed colour and the chosen one are different cards. This is the trigger half only. What the ability then does \u2014 \u0022add an additional one mana of that color\u0022 \u2014 is an AddMana whose ManaProduction carries the same ChosenColorKey, so the two halves name the same choice. Every firing of this trigger stores the colour the permanent was actually tapped for under the key \u0022tapped-for-mana-color\u0022, whatever OfColor or OfChosenColorKey say. That is how \u0022add one mana of any type that land produced\u0022 is written: the ability\u0027s AddMana carries a ManaProduction whose ChosenColorKey is the literal string \u0022tapped-for-mana-color\u0022, and there is no other spelling of it \u2014 the key names a colour the game observed, so no step on the card produces it and none has to."
     },
     "TokenCreated": {
       "type": "object",
@@ -15815,10 +15944,30 @@
               "type": "null"
             }
           ]
+        },
+        "landCouldProduceOf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "colorsOfRemembered": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
-      "description": "What a mana instruction produces. Fixed is printed mana (\u0022{G}{G}\u0022); otherwise one of the described choices."
+      "description": "What a mana instruction produces. Fixed is printed mana (\u0022{G}{G}\u0022); otherwise one of the described choices. LandCouldProduce is \u0022of any type that a land could produce\u0022 (CR 106.1b: a land\u0027s mana ability names the types it could produce). It surveys the lands you control unless LandCouldProduceOf describes a different set \u2014 \u0022a land an opponent controls could produce\u0022 is LandCouldProduce: true with a filter of lands an opponent controls, and the survey is over exactly the lands that filter admits. Leave the filter null for the ordinary \u0022a land you control could produce\u0022; a filter that admits no land produces no mana, which is what an empty board means and not an error. ChosenColorKey is \u0022mana of the chosen colour\u0022: the key of the earlier step that made the choice, and the colour travels with the key (CR 700.5, a choice a card made is remembered by the object). One firing of a TappedForMana trigger stores the colour the land was actually tapped for under the key \u0022tapped-for-mana-color\u0022, so \u0022add one mana of any type that land produced\u0022 is a ManaProduction whose ChosenColorKey is exactly that string and nothing else \u2014 no second AddMana, no Choose step, and no ColorOfAttachedOrTarget, which is about an attached object\u0027s colour rather than a colour a trigger observed. It is the one key the engine writes for a card rather than the card naming its own. ColorsOfRemembered is \u0022one mana of any of that card\u0027s colours\u0022: the key of an earlier step that remembered the object whose colours are surveyed (CR 105.2, an object\u0027s colours are its own), typically a card exiled by this permanent. The player chooses among those colours when the mana is added; a remembered object with no colour produces no mana. Use it instead of AnyColor, which is every colour and would let a colourless card pay for anything."
     },
     "Duration": {
       "anyOf": [
@@ -16089,7 +16238,7 @@
         "kind",
         "to"
       ],
-      "description": "Attached to the given object: \u0022Auras attached to it\u0022."
+      "description": "The candidate is attached to what To names, CR 301.5c. The direction is candidate-first and never the other way round: the object being described is the attachment, and To is what it hangs on. AttachedTo(new Self()) therefore means \u0022an Aura or Equipment attached to this permanent\u0022, which is what \u0022Auras attached to it\u0022 says. It is not how \u0022equipped creature\u0022 is written. That phrase names the creature this Equipment is attached to \u2014 the other end of the same link \u2014 and its spelling is the selector Attached, with no predicate at all. A filter of ObjectFilter(Also: AttachedTo(Self)) matches the Equipment\u0027s own Auras and matches the equipped creature never, so a card written that way silently affects nothing."
     },
     "CanBlock": {
       "type": "object",
@@ -16334,6 +16483,23 @@
         "kind"
       ],
       "description": "Carries the Prepared designation, CR 702.180: \u0022prepared creatures you control\u0022, \u0022if it\u0027s prepared\u0022. The designation is put on by the Prepare effect and taken off by Unprepare; it is not a counter, so WithCounter does not see it."
+    },
+    "IsRemembered": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IsRemembered"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key"
+      ],
+      "description": "The candidate is one of the objects an earlier step remembered under Key, CR 603.10: \u0022that creature\u0022, \u0022the exiled card\u0022, said inside a filter rather than as a selector. The Remembered selector names those objects to act on them; this predicate describes them, so a filter can require an object to be the remembered one and hold its other conditions at the same time \u2014 \u0022prevent all damage that would be dealt by the chosen creature\u0022 is a filter of Also: IsRemembered(key), which no selector position can say. It reads a key another step produced and produces none itself, so the key must be remembered on the same face or the file does not lint (L003). Do not use it where a bare Remembered selector already fits: one spelling per idea, and a filter that names exactly one object and nothing else is that selector."
     },
     "IsRingBearer": {
       "type": "object",

@@ -71,6 +71,18 @@ public sealed record Scry(Amount N, PlayerRef? Who = null) : Effect;
 /// libraries among <paramref name="Zones"/>. Set <paramref name="ShuffleOnlyIfFound"/> for the
 /// printed rider "if you do, shuffle" / "shuffle only if you searched your library this way", where
 /// no shuffle happens when the search found nothing there.
+/// <para>
+/// <paramref name="OthersTo"/> is one search with two destinations: "search your library for up to
+/// two basic land cards, reveal them, put one onto the battlefield tapped and the other into your
+/// hand". It is one search of up to <paramref name="UpTo"/> cards (CR 701.23a — the whole search is
+/// one action), the first card found goes to <paramref name="To"/> with
+/// <paramref name="Where"/> and <paramref name="Tapped"/>, and every other card found goes to
+/// <paramref name="OthersTo"/>, tapped when <paramref name="OthersTapped"/> is set. Never write it
+/// as two Searches: two searches see the library twice, so a player could find two cards that one
+/// search could not, and each would shuffle. Leave <paramref name="OthersTo"/> null when every card
+/// found goes to the same zone, and leave <paramref name="OthersTapped"/> false unless
+/// <paramref name="OthersTo"/> is the battlefield, because nothing is tapped in another zone.
+/// </para>
 /// </summary>
 [RuleRef("701.23")]
 public sealed record Search(
@@ -85,7 +97,9 @@ public sealed record Search(
     bool ShuffleAfter = true,
     string? RememberAs = null,
     IReadOnlyList<Zone>? Zones = null,
-    bool ShuffleOnlyIfFound = false) : Effect;
+    bool ShuffleOnlyIfFound = false,
+    Zone? OthersTo = null,
+    bool OthersTapped = false) : Effect;
 
 [RuleRef("701.24")]
 public sealed record Shuffle(PlayerRef? Who = null, Selector? IntoLibrary = null) : Effect;

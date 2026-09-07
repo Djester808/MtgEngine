@@ -111,7 +111,24 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// dual land have a basic land type and are not basic — and it is not a Subtypes list, which is
 /// joined with "and" and so cannot say "any of the five".
 /// </para>
+/// <para>
+/// ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is "any of", and
+/// an object matches when its printed cost is one of the listed symbol strings exactly as printed —
+/// ["{0}", "{1}"] is "with mana value 0 or 1" said the way a card that cares about the printed cost
+/// says it. It is not ManaValue, which counts the cost and so admits "{W}" for 1 and cannot tell
+/// "{0}" from a land's absent cost; use ManaValue whenever the card prints a number, and this only
+/// where the printed symbols themselves are named. An object with no printed mana cost matches no
+/// entry, and an empty list matches nothing at all rather than everything.
+/// </para>
+/// <para>
+/// NotInCommanderIdentityColors is "colors not in your commander's color identity", CR 903.4: true
+/// admits an object of a colour outside that identity and false admits one wholly inside it. It is
+/// the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of
+/// its own, because the set is the game's and not the card's. Never write it as a Colors or
+/// NotColors list, which would fix at translation time a set that depends on the deck.
+/// </para>
 /// </summary>
+[RuleRef("202.1")]
 public sealed record ObjectFilter(
     Zone? In = null,
     CardType? Types = null,
@@ -151,6 +168,8 @@ public sealed record ObjectFilter(
     bool? WithAnyCounter = null,
     bool? IsCommander = null,
     bool? HasBasicLandType = null,
+    IReadOnlyList<string>? ManaCostIs = null,
+    bool? NotInCommanderIdentityColors = null,
     Predicate? Also = null)
 {
     public static ObjectFilter Creature => new(Types: CardType.Creature);
@@ -165,6 +184,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(SharesNameWith), nameof(SharesNameWith))]
 [JsonDerivedType(typeof(AttachedTo), nameof(AttachedTo))]
 [JsonDerivedType(typeof(IsAttached), nameof(IsAttached))]
+[JsonDerivedType(typeof(IsRemembered), nameof(IsRemembered))]
 [JsonDerivedType(typeof(EnteredThisTurn), nameof(EnteredThisTurn))]
 [JsonDerivedType(typeof(CastThisTurn), nameof(CastThisTurn))]
 [JsonDerivedType(typeof(DealtDamageThisTurn), nameof(DealtDamageThisTurn))]
@@ -212,8 +232,38 @@ public sealed record SharesTypeWith(Selector With, bool CreatureTypeOnly = false
 
 public sealed record SharesNameWith(Selector With) : Predicate;
 
-/// <summary>Attached to the given object: "Auras attached to it".</summary>
+/// <summary>
+/// The candidate is attached to what <paramref name="To"/> names, CR 301.5c. The direction is
+/// candidate-first and never the other way round: the object being described is the attachment, and
+/// <paramref name="To"/> is what it hangs on. <c>AttachedTo(new Self())</c> therefore means "an Aura
+/// or Equipment attached to this permanent", which is what "Auras attached to it" says.
+/// <para>
+/// It is not how "equipped creature" is written. That phrase names the creature this Equipment is
+/// attached to — the other end of the same link — and its spelling is the selector
+/// <see cref="Attached"/>, with no predicate at all. A filter of
+/// <c>ObjectFilter(Also: AttachedTo(Self))</c> matches the Equipment's own Auras and matches the
+/// equipped creature never, so a card written that way silently affects nothing.
+/// </para>
+/// </summary>
+[RuleRef("301.5c")]
 public sealed record AttachedTo(Selector To) : Predicate;
+
+/// <summary>
+/// The candidate is one of the objects an earlier step remembered under <paramref name="Key"/>,
+/// CR 603.10: "that creature", "the exiled card", said inside a filter rather than as a selector.
+/// The <see cref="Remembered"/> selector names those objects to act on them; this predicate
+/// describes them, so a filter can require an object to be the remembered one and hold its other
+/// conditions at the same time — "prevent all damage that would be dealt by the chosen creature" is
+/// a filter of <c>Also: IsRemembered(key)</c>, which no selector position can say.
+/// <para>
+/// It reads a key another step produced and produces none itself, so the key must be remembered on
+/// the same face or the file does not lint (L003). Do not use it where a bare Remembered selector
+/// already fits: one spelling per idea, and a filter that names exactly one object and nothing else
+/// is that selector.
+/// </para>
+/// </summary>
+[RuleRef("603.10")]
+public sealed record IsRemembered(string Key) : Predicate;
 
 /// <summary>Attached to anything at all, or unattached when false.</summary>
 public sealed record IsAttached(bool Value = true) : Predicate;

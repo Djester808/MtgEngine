@@ -43,6 +43,15 @@ public abstract record Ability
 /// player rather than an object. An enchant ability with neither <c>Of</c> nor <c>OfPlayer</c> admits
 /// any object or player; one with <c>Of</c> only admits objects.
 /// </para>
+/// <para>
+/// <paramref name="RememberAs"/> is for the keywords that set an object aside for a later ability to
+/// name. Hideaway exiles one of the cards it looked at (CR 702.75a) and a second ability on the same
+/// permanent then says "you may play the exiled card"; the keyword stores what it exiled under this
+/// key and that ability names it with a Remembered selector. Without it the second ability has
+/// nothing to point at, because the keyword's own text is not written out on the card. Set it only
+/// for a keyword that puts an object somewhere — a key on a keyword that sets nothing aside is noise
+/// nothing reads.
+/// </para>
 /// </summary>
 [RuleRef("702")]
 public sealed record KeywordAbility(
@@ -54,7 +63,8 @@ public sealed record KeywordAbility(
     Condition? Condition = null,
     IReadOnlyList<Cost>? Costs = null,
     bool Repeatable = false,
-    PlayerFilter? OfPlayer = null) : Ability;
+    PlayerFilter? OfPlayer = null,
+    string? RememberAs = null) : Ability;
 
 /// <summary>What an instant or sorcery does when it resolves, CR 113.3a.</summary>
 [RuleRef("113.3a")]
@@ -78,6 +88,14 @@ public sealed record TriggeredAbility(Trigger When, Effect Do, Condition? If = n
 /// two would be read as an "and" no card asked for. A restriction neither can express goes to a
 /// primitive request rather than being dropped, because paying with the wrong mana is a different
 /// game action, not a rounding error.
+/// <para>
+/// <paramref name="PayOnlyWithChosenColorKey"/> is the third reading of the same rider, for
+/// "activate only using mana of the chosen color" (CR 106.6b restricts what mana may be spent;
+/// CR 601.2h is where the payment is made and the restriction bites). It names the key of the
+/// earlier ChooseValue(Color) step, so the restriction is whatever colour this object chose rather
+/// than a printed one. It belongs to the same one-of-three group as PayOnlyWith and PayOnlyFrom:
+/// set at most one, because two riders would be read as an "and" no card prints.
+/// </para>
 /// </summary>
 [RuleRef("602")]
 public sealed record ActivatedAbility(
@@ -89,7 +107,8 @@ public sealed record ActivatedAbility(
     Amount? MaxPerTurn = null,
     bool AnyPlayerMayActivate = false,
     Color? PayOnlyWith = null,
-    ObjectFilter? PayOnlyFrom = null) : Ability;
+    ObjectFilter? PayOnlyFrom = null,
+    string? PayOnlyWithChosenColorKey = null) : Ability;
 
 /// <summary>A continuous effect from a static ability, CR 604. Applies to objects via <paramref name="To"/> or to players via <paramref name="Players"/>.</summary>
 [RuleRef("604")]
