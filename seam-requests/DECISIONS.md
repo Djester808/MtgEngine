@@ -183,3 +183,23 @@ the user's "continue"; its merges are gated on `2d6bab7` and the P10 tip.
 | P10 | stored generated scenarios were stale; regenerated on every run | **Accepted**; the card-file diff is one commit per run. |
 | P10 | the 16 cards without a scenario need an artifact/enchantment filler and a stocked library | **Wave 8 (P11)**. |
 | coordinator | verify on the wave-7 tip | **70 of 87 verified, 0 failed, 16 without a scenario, 1 crashed** (`31ee3f6`). |
+
+# Seam decisions after wave 8
+
+Requests from `seam-requests/E4c.md`, `E3f.md`, `E9g.md`, `E5c.md`, `P11.md`, `V6.md`. Wave 8 ran on
+the user's `/goal dont stop till done`, from the seam commit `678e38f`; its merges are gated as one
+batch with the seam commit `cb8c7d5` that answers them.
+
+| From | Request | Decision |
+|---|---|---|
+| E4c | `Subsystems.Wave2()` passes `combat` to `ChoiceSystem` | **Now** (`db281a9`). |
+| E4c | `ResumeCombatDamage` told what the halted hit finally dealt, for that hit's lifelink (CR 702.15b) | **Now, as an overload** with a default that ignores it; **E4d (wave 9)** implements it. Lifelink is offered per hit now, one `LifeChanged` per hit. |
+| E3f | a `CostChoice` shape so a question can offer a cost's objects; `TopOfLibraryOnly` refused rather than widened | **Now**: `ICastingSystem.CostChoices` (default empty) and `CostChoice(Cost, Legal, Count)`; **E3g** implements it from `ObjectCosts`. `TopOfLibraryOnly` stays a named refusal until the mana/zone side can say which card is on top. |
+| E9g | the interpreter carries a copy of the cost table; two object-naming costs on one face; `AsCopy` (CR 707.12) | **E9h** deletes the copy through `CostChoices`; two costs stay a named refusal; `AsCopy` in E9h if the box allows. |
+| E5c | `KeywordAbility.OfPlayer` and an "enchanted player" `PlayerRef` | **Now**: `OfPlayer` (`PlayerFilter?`) and `AttachedPlayer` with its query arm. **E5d** reads `OfPlayer` in CR 704.5m; E5c's reading (no filter admits a player) stands meanwhile. `StateBasedActionTests.cs` at 636 lines is E5d's to split. |
+| P11 | a `Shuffled` expectation (CR 701.20) | **Now**, counting only shuffles after the scenario's steps began (the opening shuffle is the setup's). |
+| P11 | "add one mana of any colour" activations refused (CR 608.2d) because the colour travels with the command | **P12**: `ActivateStep` carries the colour, or the answer step does. |
+| V6 | `MayPay`, `TappedForMana`, `ManaSpent` + `AddMana.Key`, `CreatedTokenThisTurn`, `HasBasicLandType`, `PayOnlyFrom` | **Accepted**; arms in wave 9: `MayPay`/`ManaSpent` → E9h, `TappedForMana` → E6c, `CreatedTokenThisTurn`/`HasBasicLandType` → E0d, `PayOnlyFrom` + provenance writes → E3g. State **now**: `TurnHistory.TokensCreated` (folded by `ObjectCreated`), `ManaPool.Provenance` with `ManaProvenance(Color, Amount, Source, Key)` folded by `ManaChanged`. |
+| V6 | five reported gaps already had one spelling; a colour-set reference would move `IrVersion` | **Agreed**: no second spellings; the colour set waits for a second card. |
+| V6 | `Unsupported` in a definition crashes the runner (Dawn's Truce) | **E9h** refuses by name; **P12** reports "unsupported" as its own count and never runs it. |
+| coordinator | verify on the wave-8 tip | **82 of 87 verified, 1 failed** (Entish Restoration: a question with nothing legal to answer), **3 without a scenario** (Chord of Calling, Finale of Devastation, Harrow), **1 crashed** (Dawn's Truce, the Unsupported marker) — `e521b0d`. |
