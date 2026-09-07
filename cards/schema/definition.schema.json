@@ -5495,7 +5495,7 @@
         "kind",
         "emblem"
       ],
-      "description": "CR 114"
+      "description": "A player gets an emblem (CR 114): an object in the command zone with no characteristics but the abilities the card gave it. Use this only when the card\u0027s own text prints those abilities, which is nearly always a planeswalker\u0027s ultimate (\u0022You get an emblem with \u2026\u0022). An emblem the rules define rather than the card \u2014 the Ring, CR 701.54b \u2014 is RingTemptsYou, and the engine supplies its abilities; see that record\u0027s remarks."
     },
     "CreateToken": {
       "type": "object",
@@ -7676,7 +7676,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 701.54"
+      "description": "The Ring tempts you (CR 701.54): you get the emblem named The Ring if you do not have it, and then choose a creature you control as your Ring-bearer."
     },
     "RollDie": {
       "type": "object",
@@ -13860,7 +13860,8 @@
       "required": [
         "name",
         "abilities"
-      ]
+      ],
+      "description": "The emblem an effect creates, CR 114.1: a name for the log and the abilities it has."
     },
     "TokenSpec": {
       "type": "object",

@@ -37,13 +37,25 @@ public sealed record GeneratedSource(string Generator) : ScenarioSource;
 
 public sealed record HumanSource(string By, string? Note = null) : ScenarioSource;
 
-/// <summary>The board before the first step. Cards are named; the runner resolves names through the definition store.</summary>
+/// <summary>
+/// The board before the first step. Cards are named; the runner resolves names through the
+/// definition store.
+/// </summary>
+/// <param name="AutoAnswer">
+/// Who answers the questions the game stops to ask (CR 101.4). A scenario generated from the
+/// definition — the smoke scenario — sets this true: it has never seen the game's objects, so it
+/// cannot name an option id, and the runner answers every question with the first legal option,
+/// recorded as a real <c>AnswerChoice</c> command so the log still replays. A hand-written
+/// scenario leaves it false and answers itself with <c>AnswerStep</c>: the answer it picks
+/// is usually the point of the test, and a runner that answered first-legal would erase it.
+/// </param>
 public sealed record ScenarioSetup(
     IReadOnlyList<PlayerSetup> Players,
     string ActivePlayer,
     Step StartAt = Step.PrecombatMain,
     int Seed = 1,
-    int Turn = 1);
+    int Turn = 1,
+    bool AutoAnswer = false);
 
 public sealed record PlayerSetup(
     string Name,
@@ -83,9 +95,41 @@ public sealed record CardRef(
 [JsonDerivedType(typeof(ExpectRefusedStep), nameof(ExpectRefusedStep))]
 public abstract record ScenarioStep;
 
-public sealed record CastStep(string Player, string Card, IReadOnlyList<string>? Targets = null, int? X = null, IReadOnlyList<int>? Modes = null, IReadOnlyList<string>? CostChoices = null, string? AlternativeCost = null) : ScenarioStep;
+/// <summary>
+/// A player casts a card (CR 601.2). Cards, targets and cost objects are named by the alias the
+/// setup gave them, or by card name where no name repeats.
+/// </summary>
+/// <param name="CostObjects">
+/// The objects a printed cost eats, chosen as the spell is cast (CR 601.2c) and paid for at
+/// CR 601.2h: the creature a "Sacrifice a creature" cost sacrifices, the cards an exile cost
+/// exiles. Without them the engine has to guess, and refuses instead — "There are not enough
+/// permanents to sacrifice" is the refusal a scenario gets for leaving this null.
+/// </param>
+public sealed record CastStep(
+    string Player,
+    string Card,
+    IReadOnlyList<string>? Targets = null,
+    int? X = null,
+    IReadOnlyList<int>? Modes = null,
+    IReadOnlyList<string>? CostChoices = null,
+    string? AlternativeCost = null,
+    IReadOnlyList<string>? CostObjects = null) : ScenarioStep;
 
-public sealed record ActivateStep(string Player, string Card, int AbilityIndex, IReadOnlyList<string>? Targets = null, int? X = null, IReadOnlyList<string>? CostChoices = null) : ScenarioStep;
+/// <summary>
+/// A player activates an ability (CR 602.2), by its index in the face's ability list.
+/// </summary>
+/// <param name="CostObjects">
+/// The objects the activation cost eats, chosen at CR 602.2b and paid at CR 601.2h — the same
+/// field, and the same reason, as <c>CastStep.CostObjects</c>.
+/// </param>
+public sealed record ActivateStep(
+    string Player,
+    string Card,
+    int AbilityIndex,
+    IReadOnlyList<string>? Targets = null,
+    int? X = null,
+    IReadOnlyList<string>? CostChoices = null,
+    IReadOnlyList<string>? CostObjects = null) : ScenarioStep;
 
 public sealed record PlayLandStep(string Player, string Card) : ScenarioStep;
 
@@ -126,6 +170,8 @@ public sealed record ExpectRefusedStep(ScenarioStep Attempt, string? ReasonConta
 [JsonDerivedType(typeof(HasKeywordNow), nameof(HasKeywordNow))]
 [JsonDerivedType(typeof(TypesAre), nameof(TypesAre))]
 [JsonDerivedType(typeof(PlayerCountersAre), nameof(PlayerCountersAre))]
+[JsonDerivedType(typeof(ManaPoolIs), nameof(ManaPoolIs))]
+[JsonDerivedType(typeof(AttachedToIs), nameof(AttachedToIs))]
 [JsonDerivedType(typeof(EventLogged), nameof(EventLogged))]
 public abstract record Expectation;
 
@@ -152,6 +198,25 @@ public sealed record HasKeywordNow(string Card, KeywordKind Keyword, bool Value 
 public sealed record TypesAre(string Card, CardType Types, IReadOnlyList<string>? Subtypes = null) : Expectation;
 
 public sealed record PlayerCountersAre(string Player, string Counter, int Count) : Expectation;
+
+/// <summary>
+/// A player's mana pool holds exactly this mana (CR 106.4). Written the way a mana cost is —
+/// <c>"{G}{G}"</c>, <c>"{2}{U}"</c> — and read as a total, not an order: a pool is a bag of
+/// symbols, so the expectation compares what is in it and not how it got there. The empty string
+/// is an empty pool. This is what a "add {G} to your mana pool" card should assert; the event it
+/// logged says only that mana changed, which is true of a card that added the wrong colour.
+/// </summary>
+public sealed record ManaPoolIs(string Player, string Mana) : Expectation;
+
+/// <summary>
+/// One permanent is attached to another (CR 301.5, 303.4f): the Aura, Equipment or Fortification
+/// named by <c>Card</c> is attached to the object named by <c>To</c>. This is what an Aura
+/// scenario means; asserting the Aura is merely on the battlefield passes for a moment and then
+/// stops, because CR 704.5m puts an unattached Aura into its owner's graveyard. Named for
+/// <c>TappedIs</c> and not <c>AttachedTo</c>, which is the predicate a card's own filter
+/// uses ("Auras attached to it"); one discriminator, one meaning.
+/// </summary>
+public sealed record AttachedToIs(string Card, string To) : Expectation;
 
 /// <summary>An event of the given kind was logged, optionally mentioning a card.</summary>
 public sealed record EventLogged(string EventKind, string? Card = null) : Expectation;

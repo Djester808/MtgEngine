@@ -203,6 +203,20 @@ public sealed record RollToVisitAttractions(PlayerRef? Who = null) : Effect;
 [RuleRef("701.53")]
 public sealed record Incubate(Amount N, PlayerRef? Who = null) : Effect;
 
+/// <summary>
+/// The Ring tempts you (CR 701.54): you get the emblem named The Ring if you do not have it, and
+/// then choose a creature you control as your Ring-bearer.
+/// </summary>
+/// <remarks>
+/// The emblem carries no abilities here and must not be given any. CR 701.54b prints the emblem's
+/// four abilities in the rules, not on the card — every card that tempts you says only "the Ring
+/// tempts you", and which of the four the emblem has depends on how many times you have been
+/// tempted, which is game state. So the emblem is the engine's to supply from the rulebook, the
+/// same way it supplies the monarch's or the initiative's rules, and a translator that spelled
+/// the four abilities out with <c>CreateEmblem</c> would be putting card data in a card
+/// file that the printed card does not contain — and would drift the moment the rules change it.
+/// <c>CreateEmblem</c> is for the emblems a planeswalker's own text spells out (CR 114.2).
+/// </remarks>
 [RuleRef("701.54")]
 public sealed record RingTemptsYou(PlayerRef? Who = null) : Effect;
 

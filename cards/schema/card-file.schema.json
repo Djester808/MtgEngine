@@ -582,6 +582,10 @@
         },
         "turn": {
           "type": "integer"
+        },
+        "autoAnswer": {
+          "type": "boolean",
+          "description": "Who answers the questions the game stops to ask (CR 101.4). A scenario generated from the definition \u2014 the smoke scenario \u2014 sets this true: it has never seen the game\u0027s objects, so it cannot name an option id, and the runner answers every question with the first legal option, recorded as a real AnswerChoice command so the log still replays. A hand-written scenario leaves it false and answers itself with AnswerStep: the answer it picks is usually the point of the test, and a runner that answered first-legal would erase it."
         }
       },
       "additionalProperties": false,
@@ -632,6 +636,9 @@
     "Expectation": {
       "anyOf": [
         {
+          "$ref": "#/$defs/AttachedToIs"
+        },
+        {
           "$ref": "#/$defs/ControlledBy"
         },
         {
@@ -651,6 +658,9 @@
         },
         {
           "$ref": "#/$defs/Life"
+        },
+        {
+          "$ref": "#/$defs/ManaPoolIs"
         },
         {
           "$ref": "#/$defs/PlayerCountersAre"
@@ -1356,6 +1366,20 @@
               "type": "null"
             }
           ]
+        },
+        "costObjects": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The objects the activation cost eats, chosen at CR 602.2b and paid at CR 601.2h \u2014 the same field, and the same reason, as CastStep.CostObjects."
         }
       },
       "additionalProperties": false,
@@ -1364,7 +1388,8 @@
         "player",
         "card",
         "abilityIndex"
-      ]
+      ],
+      "description": "A player activates an ability (CR 602.2), by its index in the face\u0027s ability list."
     },
     "AddManaStep": {
       "type": "object",
@@ -1567,6 +1592,20 @@
               "type": "null"
             }
           ]
+        },
+        "costObjects": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The objects a printed cost eats, chosen as the spell is cast (CR 601.2c) and paid for at CR 601.2h: the creature a \u0022Sacrifice a creature\u0022 cost sacrifices, the cards an exile cost exiles. Without them the engine has to guess, and refuses instead \u2014 \u0022There are not enough permanents to sacrifice\u0022 is the refusal a scenario gets for leaving this null."
         }
       },
       "additionalProperties": false,
@@ -1574,7 +1613,8 @@
         "kind",
         "player",
         "card"
-      ]
+      ],
+      "description": "A player casts a card (CR 601.2). Cards, targets and cost objects are named by the alias the setup gave them, or by card name where no name repeats."
     },
     "ExpectRefusedStep": {
       "type": "object",
@@ -1651,6 +1691,27 @@
         "kind"
       ],
       "description": "Every player passes until the stack is empty."
+    },
+    "AttachedToIs": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AttachedToIs"
+        },
+        "card": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "card",
+        "to"
+      ],
+      "description": "One permanent is attached to another (CR 301.5, 303.4f): the Aura, Equipment or Fortification named by Card is attached to the object named by To. This is what an Aura scenario means; asserting the Aura is merely on the battlefield passes for a moment and then stops, because CR 704.5m puts an unattached Aura into its owner\u0027s graveyard. Named for TappedIs and not AttachedTo, which is the predicate a card\u0027s own filter uses (\u0022Auras attached to it\u0022); one discriminator, one meaning."
     },
     "ControlledBy": {
       "type": "object",
@@ -2023,6 +2084,27 @@
         "player",
         "value"
       ]
+    },
+    "ManaPoolIs": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ManaPoolIs"
+        },
+        "player": {
+          "type": "string"
+        },
+        "mana": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "player",
+        "mana"
+      ],
+      "description": "A player\u0027s mana pool holds exactly this mana (CR 106.4). Written the way a mana cost is \u2014 \u0022{G}{G}\u0022, \u0022{2}{U}\u0022 \u2014 and read as a total, not an order: a pool is a bag of symbols, so the expectation compares what is in it and not how it got there. The empty string is an empty pool. This is what a \u0022add {G} to your mana pool\u0022 card should assert; the event it logged says only that mana changed, which is true of a card that added the wrong colour."
     },
     "PlayerCountersAre": {
       "type": "object",
@@ -7163,7 +7245,7 @@
         "kind",
         "emblem"
       ],
-      "description": "CR 114"
+      "description": "A player gets an emblem (CR 114): an object in the command zone with no characteristics but the abilities the card gave it. Use this only when the card\u0027s own text prints those abilities, which is nearly always a planeswalker\u0027s ultimate (\u0022You get an emblem with \u2026\u0022). An emblem the rules define rather than the card \u2014 the Ring, CR 701.54b \u2014 is RingTemptsYou, and the engine supplies its abilities; see that record\u0027s remarks."
     },
     "CreateToken": {
       "type": "object",
@@ -9344,7 +9426,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 701.54"
+      "description": "The Ring tempts you (CR 701.54): you get the emblem named The Ring if you do not have it, and then choose a creature you control as your Ring-bearer."
     },
     "RollDie": {
       "type": "object",
@@ -15528,7 +15610,8 @@
       "required": [
         "name",
         "abilities"
-      ]
+      ],
+      "description": "The emblem an effect creates, CR 114.1: a name for the log and the abilities it has."
     },
     "TokenSpec": {
       "type": "object",
