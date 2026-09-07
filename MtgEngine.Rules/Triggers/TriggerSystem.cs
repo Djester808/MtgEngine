@@ -300,11 +300,23 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     [RuleRef("603.3")]
     private static Ev.ObjectCreated Create(GameState state, Firing firing)
     {
+        var source = firing.Source is { } id && state.Objects.TryGetValue(id, out var found) ? found : null;
+        var definition = source?.Definition ?? EmptyDefinition;
+        var faceIndex = source?.FaceIndex ?? 0;
+        var index = firing.AbilityIndex;
+
+        // CR 603.7a: a delayed ability is not one of the abilities its source prints, so no index
+        // into that source's list can name it. Stacked as ability -1 the resolution found no tree
+        // at all and the ability did nothing, while the firing had already spent it (CR 603.7b) —
+        // the instruction was dropped, not deferred. The stack object carries the ability itself.
+        if (index < 0)
+            (definition, index) = WithDelayed(definition, faceIndex, firing.Ability);
+
         // The stack object carries what it triggered on, so the interpreter builds its context
         // from the object alone (CR 603.3d) rather than from the log.
         var entry = new StackEntry(
             firing.Source,
-            firing.AbilityIndex,
+            index,
             [],
             [],
             [],
@@ -316,13 +328,13 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
                 : null,
             Triggering: firing.Subject.Objects,
             Chosen: firing.Chosen.IsEmpty ? null : firing.Chosen);
-        if (firing.Source is { } source && state.Objects.TryGetValue(source, out var obj))
-            return StackZone.CreateAbilityOnStack(state, obj, firing.Controller, entry);
+        if (source is not null)
+            return StackZone.CreateAbilityOnStack(state, source with { Definition = definition }, firing.Controller, entry);
 
         var free = new GameObject(
             new ObjectId(state.NextObjectId),
-            EmptyDefinition,
-            0,
+            definition,
+            faceIndex,
             firing.Controller,
             firing.Controller,
             StackZone.Key,
@@ -332,6 +344,22 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
             SummoningSick = false,
         };
         return new Ev.ObjectCreated(free, -1);
+    }
+
+    /// <summary>
+    /// CR 603.7a: the delayed ability rides on the definition its stack object resolves from. It is
+    /// appended, so every printed ability keeps the index it had and nothing that reads the
+    /// source's list by index moves; the entry names the appended position, which is the only index
+    /// at which CR 608.2 can find the instruction to run.
+    /// </summary>
+    [RuleRef("603.7a")]
+    private static (CardDefinition Definition, int Index) WithDelayed(CardDefinition definition, int faceIndex, TriggeredAbility ability)
+    {
+        var faces = definition.Faces;
+        var face = faces[faceIndex];
+        var index = face.AbilityList.Count;
+        var grown = face with { Abilities = [.. face.AbilityList, ability] };
+        return (definition with { Faces = [.. faces.Take(faceIndex), grown, .. faces.Skip(faceIndex + 1)] }, index);
     }
 
     /// <summary>A delayed trigger's stack object has no card behind it, CR 113.7a; the ability is the whole of it.</summary>
