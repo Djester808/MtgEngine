@@ -145,9 +145,21 @@ public abstract record Effect;
 /// <summary>Instructions in order. "Draw two cards, then discard a card."</summary>
 public sealed record Sequence(IReadOnlyList<Effect> Steps) : Effect;
 
-/// <summary>"Choose one —", "choose two", "choose one or more". Entwine and escalate set <paramref name="Max"/> to the mode count.</summary>
+/// <summary>
+/// "Choose one —", "choose two", "choose one or more". Entwine and escalate set <paramref name="Max"/> to the mode count.
+/// <para>
+/// <paramref name="MaxIf"/> is a mode count that depends on the game as the spell is cast: "choose
+/// one. If you control a commander as you cast this spell, you may choose both instead" is Max 1
+/// with MaxIf a Controls condition over a filter of isCommander and <paramref name="MaxIfMet"/> 2.
+/// The modes are announced as the spell is cast (CR 601.2b, which sends the count to CR 700.2), so
+/// the condition is read at that announcement and never again: a commander that leaves later
+/// changes nothing. MaxIfMet is the ceiling while the condition holds and must exceed Max, or the
+/// rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which
+/// would read the condition on resolution, and never two ChooseModes for one printed list.
+/// </para>
+/// </summary>
 [RuleRef("700.2")]
-public sealed record ChooseMode(IReadOnlyList<Mode> Modes, int Min = 1, int Max = 1, bool SameModeTwice = false) : Effect;
+public sealed record ChooseMode(IReadOnlyList<Mode> Modes, int Min = 1, int Max = 1, bool SameModeTwice = false, Condition? MaxIf = null, int? MaxIfMet = null) : Effect;
 
 public sealed record Mode(string Text, Effect Do);
 

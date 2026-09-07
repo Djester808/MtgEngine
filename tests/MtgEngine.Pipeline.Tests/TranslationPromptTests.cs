@@ -50,6 +50,43 @@ public sealed class TranslationPromptTests
     }
 
     [Fact]
+    public void The_output_rules_name_the_bases_that_carry_kind_and_say_no_other_object_does()
+    {
+        // The bases with a "kind" are exactly the "... kinds" sections of the reference; the records
+        // fifteen third-reading answers gave a "kind" to are named as plain objects.
+        var listedByReference = VocabularyReference.Text().Split('\n')
+            .Where(line => line.StartsWith("## ", StringComparison.Ordinal) && line.TrimEnd().EndsWith(" kinds", StringComparison.Ordinal))
+            .Select(line => line[3..].TrimEnd()[..^" kinds".Length])
+            .ToList();
+        Assert.NotEmpty(listedByReference);
+
+        var rule = TranslationPrompt.OutputRules;
+        var kindLine = rule.Split('\n').Single(line => line.StartsWith("- Only", StringComparison.Ordinal));
+        var namedByRule = kindLine[(kindLine.LastIndexOf(": ", StringComparison.Ordinal) + 2)..].TrimEnd('.', '\r').Split(", ");
+        Assert.Equal(listedByReference.OrderBy(n => n, StringComparer.Ordinal), namedByRule.OrderBy(n => n, StringComparer.Ordinal));
+        Assert.Equal(listedByReference.OrderBy(n => n, StringComparer.Ordinal), TranslationPrompt.DefinitionBases().Select(b => b.Name).OrderBy(n => n, StringComparer.Ordinal));
+        Assert.DoesNotContain(nameof(Provenance), rule, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(ScenarioStep), rule, StringComparison.Ordinal);
+        foreach (var plain in new[] { nameof(CardDefinition), nameof(Face), nameof(TypeLine), nameof(ObjectFilter), nameof(PrintedStat), nameof(ManaProduction), nameof(Comparison), nameof(SearchDestination) })
+            Assert.Contains(plain, rule, StringComparison.Ordinal);
+        Assert.Contains("No other object has a \"kind\"", rule, StringComparison.Ordinal);
+        Assert.Contains(rule, TranslationPrompt.SystemWithVocabulary(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_kind_on_a_face_is_a_rejected_answer_naming_the_member()
+    {
+        var json = CardFileSerializer.WriteDefinition(Definition(new Draw(new Fixed(1))));
+        var kinded = json.Replace("\"role\": \"Main\"", "\"kind\": \"Face\", \"role\": \"Main\"", StringComparison.Ordinal);
+        Assert.NotEqual(json, kinded);
+
+        var (definition, error) = TranslationPrompt.Parse(kinded);
+
+        Assert.Null(definition);
+        Assert.Contains("'kind'", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_marker_dropped_into_a_filter_slot_is_refused_not_read_as_an_empty_filter()
     {
         // "Destroy each permanent" is what the answer used to say once the marker was dropped.

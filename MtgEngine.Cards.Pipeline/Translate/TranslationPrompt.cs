@@ -70,10 +70,37 @@ public static class TranslationPrompt
         - "From among them" — a choice among cards an earlier step revealed, looked at or exiled — is Choose with "among" set to the Remembered selector of that step's key, the filter narrowing the candidates and carrying no "in" (CR 700.2). Never an IsRemembered predicate inside the Choose's filter, whose zone would default to the battlefield. "Any number of" is "upTo":true with no "count"; the cards not chosen are the Remembered key with a filter of "also": NotPredicate(IsRemembered(the choice's key)).
         - IsOneOf on a filter is a selector said inside a filter: "whenever equipped creature dies" is Dies with "also": IsOneOf(Attached), and "whenever that creature attacks" in a delayed trigger is IsOneOf(Triggering) (CR 301.5c). Never AttachedTo(Self), which is the Auras and Equipment hanging on this permanent — the other direction. Keep IsRemembered for a remembered key; IsOneOf(Remembered) is a second spelling of it.
         - TotalAmong and GreatestAmong read "of" once per object "among" admits with that object bound as Self: "creatures you control have total power 10 or greater" is TotalAmong with "of": PowerOf(Self). Never Triggering there, and never the ability's own source.
+        - A search whose destination depends on the card found — "search your library for a creature or land card, reveal it, put it into your hand. If it's a land card, put it onto the battlefield tapped instead" — is ONE Search with "to": Hand and "instead": a list of SearchDestination objects, here one with "matching": the land filter, "to": Battlefield and "tapped": true (CR 701.23a). The first entry the card found matches wins; a card no entry admits goes to "to". Never two Searches, never an If around the Search, and never an entry whose "to" and "tapped" equal the search's own.
+        - A mode count that depends on the game as the spell is cast — "choose one. If you control a commander as you cast this spell, you may choose both instead" — is ONE ChooseMode with "max": 1, "maxIf": a Controls condition over a filter with "isCommander": true, and "maxIfMet": 2 (CR 601.2b, 700.2). The condition is read at announcement, so never an If around the ChooseMode and never two ChooseModes for one list. Write "maxIfMet" only beside "maxIf", and above "max".
         """;
 
-    /// <summary>The cached system prefix: the instructions, the later spellings, and the generated vocabulary reference.</summary>
-    public static string SystemWithVocabulary() => SystemPrompt + "\n\n" + LaterSpellings + "\n\n" + VocabularyReference.Text();
+    /// <summary>
+    /// How the JSON itself is shaped, said once because the parser is strict (P18): a member no
+    /// record has is a rejected answer, and the member fifteen third-reading answers invented was a
+    /// "kind" on a record that has no choice of kinds. The bases that carry it are read from the
+    /// serializer's own list, kept to the ones a definition can hold — exactly the "kinds" sections
+    /// of the reference — so this rule and the reference cannot drift apart.
+    /// </summary>
+    public static string OutputRules { get; } = BuildOutputRules();
+
+    /// <summary>The polymorphic bases a CardDefinition can hold: every one the definition schema defines.</summary>
+    public static IReadOnlyList<Type> DefinitionBases()
+    {
+        var defined = CardFileSerializer.DefinitionSchema()["$defs"]!.AsObject();
+        return CardFileSerializer.PolymorphicBases.Where(b => defined.ContainsKey(b.Name)).ToList();
+    }
+
+    private static string BuildOutputRules()
+    {
+        var bases = string.Join(", ", DefinitionBases().Select(b => b.Name));
+        return "Output rules:\n"
+            + "- Only a value of one of these bases carries a \"kind\" member, naming which of that base's kinds it is: " + bases + ".\n"
+            + "- No other object has a \"kind\". CardDefinition, Face, TypeLine, PrintedStat, TokenSpec, EmblemSpec, ClassLevel, LevelBand, Mode, CounterSpec, SearchDestination, ManaProduction, Comparison, ObjectFilter and PlayerFilter are plain objects of their listed parameters, and a \"kind\" on any of them is an unknown member.\n"
+            + "- Every member of every object is one of the parameters the reference lists for that record, in camelCase. The parser refuses an answer with any other member, naming it; there is no lenient read.";
+    }
+
+    /// <summary>The cached system prefix: the instructions, the output rules, the later spellings, and the generated vocabulary reference.</summary>
+    public static string SystemWithVocabulary() => SystemPrompt + "\n\n" + OutputRules + "\n\n" + LaterSpellings + "\n\n" + VocabularyReference.Text();
 
     /// <summary>A prompt version that changes whenever the system text does, so stored readings never mix.</summary>
     public static string VersionOf(string label) => label + "-" + Hash(SystemWithVocabulary());

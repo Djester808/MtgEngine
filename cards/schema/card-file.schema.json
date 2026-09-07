@@ -7136,6 +7136,26 @@
         },
         "sameModeTwice": {
           "type": "boolean"
+        },
+        "maxIf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxIfMet": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -7143,7 +7163,7 @@
         "kind",
         "modes"
       ],
-      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count."
+      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count. MaxIf is a mode count that depends on the game as the spell is cast: \u0022choose one. If you control a commander as you cast this spell, you may choose both instead\u0022 is Max 1 with MaxIf a Controls condition over a filter of isCommander and MaxIfMet 2. The modes are announced as the spell is cast (CR 601.2b, which sends the count to CR 700.2), so the condition is read at that announcement and never again: a commander that leaves later changes nothing. MaxIfMet is the ceiling while the condition holds and must exceed Max, or the rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which would read the condition on resolution, and never two ChooseModes for one printed list."
     },
     "ChooseValue": {
       "type": "object",
@@ -9983,6 +10003,19 @@
         },
         "othersTapped": {
           "type": "boolean"
+        },
+        "instead": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SearchDestination"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -9991,7 +10024,7 @@
         "for",
         "to"
       ],
-      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there. OthersTo is one search with two destinations: \u0022search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the other into your hand\u0022. It is one search of up to UpTo cards (CR 701.23a \u2014 the whole search is one action), the first card found goes to To with Where and Tapped, and every other card found goes to OthersTo, tapped when OthersTapped is set. Never write it as two Searches: two searches see the library twice, so a player could find two cards that one search could not, and each would shuffle. Leave OthersTo null when every card found goes to the same zone, and leave OthersTapped false unless OthersTo is the battlefield, because nothing is tapped in another zone."
+      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there. OthersTo is one search with two destinations: \u0022search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the other into your hand\u0022. It is one search of up to UpTo cards (CR 701.23a \u2014 the whole search is one action), the first card found goes to To with Where and Tapped, and every other card found goes to OthersTo, tapped when OthersTapped is set. Never write it as two Searches: two searches see the library twice, so a player could find two cards that one search could not, and each would shuffle. Leave OthersTo null when every card found goes to the same zone, and leave OthersTapped false unless OthersTo is the battlefield, because nothing is tapped in another zone. Instead is one search whose destination depends on the card found: \u0022search your library for a creature or land card, reveal it, and put it into your hand. If it\u0027s a land card, put it onto the battlefield tapped instead\u0022. It is still one search of one card (CR 701.23a); the card found is read against each entry\u0027s Matching filter in order, the first entry that admits it sends it to that entry\u0027s To, tapped as that entry says, and a card no entry admits goes to To with Tapped. Never two Searches and never an If around the Search: the condition is the card found, which nothing outside the search can name. An entry equal to the plain destination says nothing and is refused (L023)."
     },
     "Sequence": {
       "type": "object",
@@ -16203,6 +16236,36 @@
         "counter",
         "n"
       ]
+    },
+    "SearchDestination": {
+      "type": "object",
+      "properties": {
+        "matching": {
+          "$ref": "#/$defs/ObjectFilter"
+        },
+        "to": {
+          "type": "string",
+          "enum": [
+            "Library",
+            "Hand",
+            "Battlefield",
+            "Graveyard",
+            "Stack",
+            "Exile",
+            "Command",
+            "OutsideTheGame"
+          ]
+        },
+        "tapped": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "matching",
+        "to"
+      ],
+      "description": "One \u0022instead\u0022 destination of a Search, CR 701.23a: a card found that Matching admits goes to To rather than the search\u0027s own destination, tapped when Tapped is set, which only the battlefield allows. The filter carries no zone: it is read against the one card found, wherever the search looked. It is a plain object of these three parameters and has no \u0022kind\u0022."
     },
     "AllOf": {
       "type": "object",
