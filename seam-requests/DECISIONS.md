@@ -4,6 +4,11 @@ Every request a wave-1 builder filed, with the coordinator's decision. "Now" mea
 the seam commit that follows the wave-1 merges; "wave 2" means the builder named will do it
 with the seam already in place; "no" means the workaround stands and why.
 
+Every "Now" row landed in commit `0f47563` ("Seams after wave 1"), tested by
+`tests/MtgEngine.Rules.Tests/SeamTests.cs`; P5's two requests are in `seam-requests/P5.md`, the
+first applied in `588d4a8`, the second accepted as written. Wave-2 requests go in a second table
+below when their builders file them.
+
 | From | Request | Decision |
 |---|---|---|
 | E1 | `ObjectDrawn(PlayerId, ObjectId)` event, folded into `ObjectsDrawnThisTurn` | **Now.** Added to `Events/GameEvent.cs` and `events.txt`; `ZoneSystem.Draw` emits it after the move. |
