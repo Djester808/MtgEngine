@@ -85,6 +85,11 @@ public static class SmokeScenario
         if (board.Empty || board.Targets > 1)
             return null;
 
+        // CR 601.2c: "target player" is announced with the spell, so the step names the opponent
+        // whenever the definition asks for one; without it the resolution has nobody to remember.
+        if (Linter.Walk(file.Definition).OfType<TargetPlayer>().Any())
+            board.AimsAtPlayer(Opponent);
+
         var x = board.AnnouncedX;
         var cast = new CastStep(Caster, file.Name, board.TargetNames(), x, board.Modes(), CostObjects: board.CostObjects());
         var title = x is null

@@ -103,6 +103,14 @@ internal sealed class SmokeBoard(string card)
         return alias;
     }
 
+    /// <summary>CR 601.2c: a spell that targets a player is aimed at the opponent, once, whatever else it targets; the runner reads a player's name as a player target.</summary>
+    [RuleRef("601.2c")]
+    internal void AimsAtPlayer(string player)
+    {
+        if (!_targets.Contains(player))
+            _targets.Add(player);
+    }
+
     /// <summary>Whether the library still has room for another stocked card, so its size stays the size a count assumes.</summary>
     internal bool CanStock => _library.Count < LibrarySize;
 
