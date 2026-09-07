@@ -125,12 +125,10 @@ public sealed class WaveTwoIntegrationTests
     }
 
     /// <summary>
-    /// CR 101.4: a card's "you may" stops the game and asks. The question is raised here, and it
-    /// is answered nowhere: resuming a question a card asked needs the interpreter's
-    /// <see cref="IResumable"/>, which is wave 3 (E9b) and is not wired into
-    /// <see cref="Subsystems.Wave2"/> — so this asserts that the game stops, that the question
-    /// belongs to the right player, and that nothing else is accepted while it stands, and stops
-    /// short of answering it. See seam-requests/EINT2.md.
+    /// CR 101.4: a card's "you may" stops the game and asks. The question is raised, only its
+    /// player may answer, nothing else is accepted while it stands, the other player sees the
+    /// question but not its options, and the answer resumes the resolution through the
+    /// interpreter's <see cref="IResumable"/> and draws the card.
     /// </summary>
     [Fact]
     [RuleRef("101.4")]
@@ -337,7 +335,7 @@ public sealed class WaveTwoIntegrationTests
     /// applies it — asked with the move that would put the land onto the battlefield, it hands
     /// back the same move with the permanent tapped. What no subsystem does is offer that move
     /// to it: a land played, a permanent spell resolving and an effect that moves a card all
-    /// call <see cref="IZoneSystem.Move"/> directly, so the effect never runs in a real game.
+    /// call <c>IZoneSystem.Move</c> directly, so the effect never runs in a real game.
     /// The rule is asserted here where it is implemented; the join is in seam-requests/EINT2.md.
     /// </summary>
     [RuleRef("614.1c")]

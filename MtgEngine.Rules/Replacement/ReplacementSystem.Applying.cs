@@ -97,7 +97,12 @@ public sealed partial class ReplacementSystem
     [RuleRef("614.1a")]
     private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current)
     {
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current));
+        // CR 101.4: the walk is told which ability of the source the instruction belongs to, so a
+        // question it asks can be found again there when the answer comes (E9c).
+        var index = candidate.Source is { } source && candidate.Ability is { } ability && state.Objects.TryGetValue(source, out var obj)
+            ? obj.Face.AbilityList.ToList().IndexOf(ability)
+            : -1;
+        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), index >= 0 ? index : null);
         return new Applied(null, outcome.State, outcome.Events);
     }
 

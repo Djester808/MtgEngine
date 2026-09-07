@@ -39,6 +39,15 @@ public interface IZoneSystem : ISubsystem
     Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null);
 
     /// <summary>
+    /// The same move showing a chosen face, CR 712.12: a modal double-faced card's land face is
+    /// played rather than cast, and only the move can say which face the new object has. Every
+    /// parameter is required here so a three-argument call still binds to the form above.
+    /// </summary>
+    [RuleRef("712.12")]
+    Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex) =>
+        throw new NotImplementedException("Moving with a chosen face is not built in this zone system.");
+
+    /// <summary>
     /// Several objects change zones at once, CR 400.7 and 704.5m: one board for all of them, so
     /// leaves-the-battlefield triggers see the board as it was before any left. The default is
     /// the loop, which is right for everything until the trigger system needs the simultaneity.
@@ -56,6 +65,11 @@ public interface IZoneSystem : ISubsystem
     Outcome Shuffle(GameState state, PlayerId player);
 
     Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking);
+
+    /// <summary>A token that is a copy, CR 707.2 and 111.4: it arrives with the copiable values it was handed, through the same door as every other object.</summary>
+    [RuleRef("707.2")]
+    Outcome CreateToken(GameState state, Faces.CopiableValues values, PlayerId controller, bool tapped, bool attacking) =>
+        throw new NotImplementedException("Copy tokens are not built in this zone system.");
 }
 
 public sealed record MoveRequest(ObjectId What, ZoneKey To, Placement Where = Placement.Default, bool Tapped = false, PlayerId? Controller = null);
@@ -209,6 +223,14 @@ public interface IInterpreter : ISubsystem
 
     /// <summary>Run an effect outside the stack: a replacement's With, a static ability's setup, a manual scenario step.</summary>
     Outcome Run(GameState state, Effect effect, EffectContext context);
+
+    /// <summary>
+    /// The same walk, told which ability of the context's source the effect belongs to, so a
+    /// question it asks (CR 101.4) can be found again in that ability — a replacement's "instead"
+    /// (CR 614.1a) or a delayed trigger. The default forgets the index; the interpreter keeps it.
+    /// </summary>
+    [RuleRef("101.4")]
+    Outcome Run(GameState state, Effect effect, EffectContext context, int? abilityIndex) => Run(state, effect, context);
 }
 
 /// <summary>What an effect runs inside: its source, controller, chosen targets and the memory earlier steps left.</summary>

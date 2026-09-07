@@ -20,4 +20,6 @@ public sealed class ForwardingInterpreter : IInterpreter
     public Outcome Resolve(GameState state, ObjectId stackObject) => Bound.Resolve(state, stackObject);
 
     public Outcome Run(GameState state, Effect effect, EffectContext context) => Bound.Run(state, effect, context);
+
+    public Outcome Run(GameState state, Effect effect, EffectContext context, int? abilityIndex) => Bound.Run(state, effect, context, abilityIndex);
 }

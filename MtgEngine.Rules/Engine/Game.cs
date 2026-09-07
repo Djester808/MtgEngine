@@ -69,6 +69,11 @@ public sealed record Subsystems(
         var interpreter = new MtgEngine.Rules.Interpreter.EffectInterpreter(query, zones, replacement, layers);
         handle.Target = interpreter;
 
+        // CR 614.1c and 616.1: the zone system offers every move, draw and token to the
+        // replacement system, so "enters tapped" and "instead" happen in a game, not only when
+        // the replacement system is asked directly.
+        zones.Replacements = replacement;
+
         var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
         var combat = new Combat.CombatSystem(layers, query);
         var turn = new Turn.TurnSystem(zones, casting, combat, layers);
