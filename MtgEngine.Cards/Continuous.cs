@@ -136,8 +136,15 @@ public sealed record LoseAbility(KeywordKind Keyword) : ContinuousEffect;
 [RuleRef("613.1f")]
 public sealed record LoseAllAbilities : ContinuousEffect;
 
+/// <summary>
+/// Adds card types, subtypes or supertypes in layer 4 (CR 613.1d) while keeping the ones already
+/// there: "is a creature in addition to its other types", "is also a Goblin". Set AllCreatureTypes
+/// when the object is every creature type at once — changeling (CR 702.72a) and any text reading
+/// "is every creature type" (CR 205.3d). Say it with that flag, never by listing creature types:
+/// the list changes with every set, and the engine derives it rather than carrying card data.
+/// </summary>
 [RuleRef("613.1d")]
-public sealed record AddTypes(CardType? Types = null, IReadOnlyList<string>? Subtypes = null, Supertype? Supertypes = null) : ContinuousEffect;
+public sealed record AddTypes(CardType? Types = null, IReadOnlyList<string>? Subtypes = null, Supertype? Supertypes = null, bool AllCreatureTypes = false) : ContinuousEffect;
 
 [RuleRef("613.1d")]
 public sealed record SetTypes(CardType? Types = null, IReadOnlyList<string>? Subtypes = null, Supertype? Supertypes = null, bool KeepSubtypes = false) : ContinuousEffect;
