@@ -44,26 +44,23 @@
                   "what": {
                     "kind": "Choose",
                     "filter": {
-                      "in": "Library",
                       "manaValue": {
                         "op": "Le",
                         "value": {
                           "kind": "X"
                         }
                       },
-                      "permanent": true,
-                      "also": {
-                        "kind": "IsRemembered",
-                        "key": "k1"
-                      }
+                      "permanent": true
                     },
                     "chooser": {
                       "kind": "You"
                     },
-                    "count": {
-                      "kind": "X"
-                    },
-                    "upTo": true
+                    "upTo": true,
+                    "key": "k2",
+                    "among": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
                   },
                   "to": "Battlefield",
                   "where": "Default",
@@ -76,8 +73,26 @@
                 {
                   "kind": "Move",
                   "what": {
-                    "kind": "Remembered",
-                    "key": "k1"
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Library",
+                      "also": {
+                        "kind": "AllOf",
+                        "of": [
+                          {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          },
+                          {
+                            "kind": "NotPredicate",
+                            "of": {
+                              "kind": "IsRemembered",
+                              "key": "k2"
+                            }
+                          }
+                        ]
+                      }
+                    }
                   },
                   "to": "Graveyard",
                   "where": "Default",
@@ -118,26 +133,23 @@
                   "what": {
                     "kind": "Choose",
                     "filter": {
-                      "in": "Library",
                       "manaValue": {
                         "op": "Le",
                         "value": {
                           "kind": "X"
                         }
                       },
-                      "permanent": true,
-                      "also": {
-                        "kind": "IsRemembered",
-                        "key": "k1"
-                      }
+                      "permanent": true
                     },
                     "chooser": {
                       "kind": "You"
                     },
-                    "count": {
-                      "kind": "X"
-                    },
-                    "upTo": true
+                    "upTo": true,
+                    "key": "k2",
+                    "among": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
                   },
                   "to": "Battlefield",
                   "where": "Default",
@@ -150,8 +162,26 @@
                 {
                   "kind": "Move",
                   "what": {
-                    "kind": "Remembered",
-                    "key": "k1"
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Library",
+                      "also": {
+                        "kind": "AllOf",
+                        "of": [
+                          {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          },
+                          {
+                            "kind": "NotPredicate",
+                            "of": {
+                              "kind": "IsRemembered",
+                              "key": "k2"
+                            }
+                          }
+                        ]
+                      }
+                    }
                   },
                   "to": "Graveyard",
                   "where": "Default",
@@ -169,593 +199,18 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
-        "name": "Genesis Wave",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Genesis Wave",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{G}{G}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Library",
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "upTo": true
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ],
-            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Library",
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "upTo": true
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
-        "name": "Genesis Wave",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Genesis Wave",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{G}{G}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": true,
-                        "key": "k2"
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "also": {
-                            "kind": "AllOf",
-                            "of": [
-                              {
-                                "kind": "IsRemembered",
-                                "key": "k1"
-                              },
-                              {
-                                "kind": "NotPredicate",
-                                "of": {
-                                  "kind": "IsRemembered",
-                                  "key": "k2"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ],
-            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": true,
-                        "key": "k2"
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "also": {
-                            "kind": "AllOf",
-                            "of": [
-                              {
-                                "kind": "IsRemembered",
-                                "key": "k1"
-                              },
-                              {
-                                "kind": "NotPredicate",
-                                "of": {
-                                  "kind": "IsRemembered",
-                                  "key": "k2"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
-        "name": "Genesis Wave",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Genesis Wave",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{X}{G}{G}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Library",
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "in": "Library",
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
-                            },
-                            "permanent": true,
-                            "also": {
-                              "kind": "IsRemembered",
-                              "key": "k1"
-                            }
-                          }
-                        },
-                        "upTo": true
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "in": "Library",
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ],
-            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Reveal",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "X"
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Library",
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "X"
-                            }
-                          },
-                          "permanent": true,
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "in": "Library",
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
-                            },
-                            "permanent": true,
-                            "also": {
-                              "kind": "IsRemembered",
-                              "key": "k1"
-                            }
-                          }
-                        },
-                        "upTo": true
-                      },
-                      "to": "Battlefield",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "in": "Library",
-                          "also": {
-                            "kind": "IsRemembered",
-                            "key": "k1"
-                          }
-                        }
-                      },
-                      "to": "Graveyard",
-                      "where": "Default",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No record replaces a spell\u0027s mana cost with a life payment tied to how it was cast: MayPlayFromZone waives a cost but cannot substitute one, and SpellsCostLifeInsteadOfMana names colours rather than the whole cost (CR 601.2f, CR 118.9).",
-      "path": "faces[0].abilities[2]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }
