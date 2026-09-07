@@ -203,3 +203,27 @@ batch with the seam commit `cb8c7d5` that answers them.
 | V6 | five reported gaps already had one spelling; a colour-set reference would move `IrVersion` | **Agreed**: no second spellings; the colour set waits for a second card. |
 | V6 | `Unsupported` in a definition crashes the runner (Dawn's Truce) | **E9h** refuses by name; **P12** reports "unsupported" as its own count and never runs it. |
 | coordinator | verify on the wave-8 tip | **82 of 87 verified, 1 failed** (Entish Restoration: a question with nothing legal to answer), **3 without a scenario** (Chord of Calling, Finale of Devastation, Harrow), **1 crashed** (Dawn's Truce, the Unsupported marker) — `e521b0d`. |
+
+# Seam decisions after wave 9
+
+Requests from `seam-requests/E6c.md`, `E4d.md`, `E5d.md`, `E3g.md`, `E0d.md`, `E9h.md`, `EINT3.md`,
+`P12.md`. Wave 9 ran from the seam commit `cb8c7d5`; its eight merges are gated on `efe1146`
+(651 engine, 143 vocabulary, 170 pipeline, 633 API tests).
+
+| From | Request | Decision |
+|---|---|---|
+| E6c | a per-object store of the values a card chose, seeded into every context (`OfChosenColorKey`, `IsChosenColor` outside a resolution) | **Now**: `GameObject.Chosen` folded by `ValueChosen`; the interpreter emits it and every context seeds it in **wave 10 (E9i, E6d)**. |
+| E6c | `StackEntry.Chosen` set by the trigger system, read by the interpreter; key `"tapped-for-mana-color"` | **Now** (the field); E6d writes it, E9i reads it. |
+| E6c | `ManaChanged.SpentOn` so `ManaSpent.OnSpell` can match | **Now** (the field); E3h sets it, E6d matches on it. |
+| E6c, E3g, E9h | the spend channel: the same provenance key with a negative amount, one block per mana `"key#n"` | **Agreed as written**; EINT4 plays it end to end. |
+| E4d | nothing | — (the four-argument resumption is implemented; lifelink per hit). |
+| E5d | `IQuery.PlayerMatches` so the trigger system and the state-based actions stop disagreeing about `Also` | **Now** (throwing default); **E0e** implements from the candidate's point of view; E6d and E5e delete their copies. |
+| E5d | a linter pair rule for an Enchant with neither `Of` nor `OfPlayer` | **Declined**: both null is "enchant anything" and legal. |
+| E3g | `StackEntry.ManaProvenanceSpent` | **Now** (the field); E3h fills it. |
+| E0d | generate CR 205.3i's basic land types beside the creature types; `ICharacteristics.PrintedOf` | **V7** generates them and E0e deletes `Query/LandTypes.cs`; `PrintedOf` **now** (throwing default), E0e implements. |
+| E9h | `IZoneSystem.CopyInPlace` for `MayCast(AsCopy)` (CR 707.12) with CR 704.5e as a state-based action | **Now** (throwing default); a zone builder in wave 10 if the box allows, else it stays a named refusal. |
+| E9h | `Unsupported` now refuses (CR 608.2) instead of throwing | **Accepted**; P12 never lets one reach a game. |
+| EINT3 | an instructed cast is refused for lack of priority (CR 608.2g vs 117.1a); `WithoutPayingManaCost` on a command bypasses CR 601.3; an object-restricted Aura on a player is buried not refused; nobody holds priority after a resumed combat batch (CR 510.3) | **Now**: `ICastingSystem.CastInstructed` (default = `Cast`); **E3h** fixes the three casting gaps and **E4e** the priority; EINT3's tests assert the current behaviour until then. |
+| P12 | `ActivateStep.ManaColors` and the command's colours for "add one mana of any color" (CR 608.2d) | **Now**: `ActivateStep.ManaColors` and `ActivateAbility.ManaColors`; E3h reads the command, P13 generates the step. |
+| P12 | a way to hand `VerifyCommand` a runner so its crash path keeps a test | **P13** (the construction is P-series). |
+| coordinator | verify on the wave-9 tip | **83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed** (`efe1146`). The four carry `Unsupported` markers from translations that predate V3–V6 (gift, a chosen colour's devotion, a two-zone search, two lands sharing a type); all four are re-translation items and wait on credits. |
