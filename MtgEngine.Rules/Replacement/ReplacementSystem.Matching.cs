@@ -116,6 +116,12 @@ public sealed partial class ReplacementSystem
         WouldLoseGame w => proposed is PlayerLost defeat
             && Names(state, w.Who, context, defeat.Player),
 
+        // CR 701.24: a shuffle, and not cards put back into a zone in a chosen order, which is
+        // the same event with the flag clear.
+        WouldShuffle w => proposed is ZoneReordered { Shuffle: true } shuffled
+            && shuffled.Zone.Player is { } whose
+            && Names(state, w.Who, context, whose),
+
         WouldBeginStep w => proposed is StepBegan step
             && step.Step == w.Step
             && Names(state, w.Whose, context, state.Turn.ActivePlayer),

@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -18,6 +19,9 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
     /// <summary>No effect applies twice, so the loop ends on its own; this only bounds a bug.</summary>
     private const int MaxRounds = 64;
 
+    /// <summary>Where the already-applied effects are kept while the game waits for an answer.</summary>
+    private const string UsedKey = "used";
+
     private readonly IQuery _query = query;
     private readonly ICharacteristics _layers = characteristics;
     private readonly IInterpreter _interpreter = interpreter;
@@ -35,10 +39,19 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(proposed);
 
-        var used = new HashSet<string>(StringComparer.Ordinal);
+        return Continue(state, proposed, affected, new HashSet<string>(StringComparer.Ordinal), []);
+    }
+
+    /// <summary>
+    /// The loop of CR 616.1, from wherever it currently stands, so that an answered
+    /// replacement-order question resumes it rather than starting it again.
+    /// <paramref name="used"/> is every effect that has already applied to this event and may
+    /// therefore never apply to it again.
+    /// </summary>
+    [RuleRef("616.1")]
+    private Outcome Continue(GameState state, GameEvent? current, PlayerId affected, HashSet<string> used, ImmutableList<GameEvent> extra)
+    {
         var working = state;
-        var extra = ImmutableList<GameEvent>.Empty;
-        GameEvent? current = proposed;
 
         for (var round = 0; round < MaxRounds && current is not null; round++)
         {
@@ -53,8 +66,8 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
             if (tier.Count > 1)
             {
                 // CR 616.1: the affected player chooses one to apply; the rest wait for the answer.
-                var ask = Ask(working, current, affected, tier);
-                return new Outcome(ask.Apply(working), [ask]);
+                var ask = Ask(working, current, affected, tier, used);
+                return new Outcome(ask.Apply(working), extra.Add(ask));
             }
 
             used.Add(tier[0].Key);
@@ -69,7 +82,11 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
             : new Outcome(current.Apply(working), extra.Add(current));
     }
 
-    /// <summary>One effect that could apply to this event: an ability in force, or a prevention shield.</summary>
+    /// <summary>
+    /// One effect that could apply to this event: an ability in force, or a prevention shield,
+    /// which is carried as the whole <see cref="ActiveEffect"/> because spending it edits that
+    /// effect (CR 615.7).
+    /// </summary>
     private sealed record Candidate(
         string Key,
         string Label,
@@ -77,7 +94,7 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
         PlayerId Controller,
         bool SelfReplacement,
         ReplacementAbility? Ability,
-        PreventDamage? Shield);
+        ActiveEffect? Active);
 
     /// <summary>What applying one effect produced: the event as it now stands, or none at all.</summary>
     private sealed record Applied(GameEvent? Event, GameState State, ImmutableList<GameEvent> Extra);
@@ -131,7 +148,7 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
                 var key = $"e{active.Id}";
                 if (used.Contains(key) || !Shields(probe, active, shield, damage))
                     continue;
-                found.Add(new Candidate(key, "prevention shield", active.Source, active.Controller, SelfReplacement: false, null, shield));
+                found.Add(new Candidate(key, "prevention shield", active.Source, active.Controller, SelfReplacement: false, null, active));
             }
         }
 
@@ -155,9 +172,14 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
     private PlayerId ControllerOf(GameState state, GameObject obj) =>
         obj.Zone.Zone == Zone.Battlefield ? _layers.ControllerOf(state, obj.Id) : obj.InitialController;
 
-    /// <summary>CR 616.1: the affected player, or the affected object's controller, chooses.</summary>
+    /// <summary>
+    /// CR 616.1: the affected player, or the affected object's controller, chooses. The event as
+    /// it now stands travels with the question, because resuming means applying the chosen effect
+    /// to <em>that</em> event; so does the set of effects that have already applied, which may
+    /// not apply a second time once the answer comes back.
+    /// </summary>
     [RuleRef("616.1")]
-    private static ChoiceRequested Ask(GameState state, GameEvent current, PlayerId affected, List<Candidate> tier)
+    private static ChoiceRequested Ask(GameState state, GameEvent current, PlayerId affected, List<Candidate> tier, HashSet<string> used)
     {
         var context = new ChoiceContext(
             null,
@@ -165,12 +187,14 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
             "replacement",
             ImmutableDictionary<string, string>.Empty
                 .Add("event", current.GetType().Name)
-                .Add("candidates", string.Join(",", tier.Select(c => c.Key))));
+                .Add("candidates", string.Join(",", tier.Select(c => c.Key)))
+                .Add(UsedKey, string.Join(",", used)),
+            current);
 
         return new ChoiceRequested(new PendingChoice(
             new ChoiceId(state.NextChoiceId),
             affected,
-            "replacement-order",
+            ChoiceKinds.ReplacementOrder,
             "Choose which replacement or prevention effect to apply first",
             [.. tier.Select(c => new ChoiceOption(c.Key, c.Label, c.Source))],
             1,
