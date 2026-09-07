@@ -271,12 +271,61 @@ public static class Linter
         foreach (var target in nodes.OfType<Target>().Where(t => t.Count is Fixed { N: 0 }))
             findings.Add(new(LintSeverity.Error, "L008", "A target with a count of zero targets nothing.", path));
 
+        CheckPayments(ability, nodes, path, findings);
+
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
 
         foreach (var token in nodes.OfType<TokenSpec>().Where(t => string.IsNullOrWhiteSpace(t.Name)))
             findings.Add(new(LintSeverity.Error, "L010", "A token needs a name.", path));
     }
+
+    /// <summary>
+    /// The wave-8 payment and mana records, whose values can be nonsense in ways the shape alone
+    /// does not stop. Each check names the rule it reads, because a finding a reader cannot trace
+    /// to a rule gets suppressed rather than fixed.
+    /// </summary>
+    private static void CheckPayments(Ability ability, IReadOnlyList<object> nodes, string path, List<LintFinding> findings)
+    {
+        foreach (var may in nodes.OfType<MayPay>())
+        {
+            // CR 606.2: a loyalty cost is an activation cost of a loyalty ability. Nothing pays one
+            // while an effect resolves, so a MayPay offering it can never be accepted.
+            if (may.Paid is LoyaltyCost)
+                findings.Add(new(LintSeverity.Error, "L014", "A MayPay cannot offer a LoyaltyCost; a loyalty cost is only paid to activate a loyalty ability (CR 606.2).", path));
+
+            // CR 118.5: a cost of {0} is still paid, but a cost that asks for nothing at all is a
+            // choice the player has no reason to decline, and is always a dropped half of the text.
+            if (IsEmptyCost(may.Paid))
+                findings.Add(new(LintSeverity.Error, "L014", "A MayPay whose Paid cost asks for nothing is not a choice; give it the cost the card prints.", path));
+
+            if (may.Then is DoNothing && may.Else is null or DoNothing)
+                findings.Add(new(LintSeverity.Warning, "L014", "A MayPay with nothing in Then or Else does nothing whichever way it is answered.", path));
+        }
+
+        // CR 106.12a: the colour is either the printed one or the chosen one, never both at once.
+        foreach (var tapped in nodes.OfType<TappedForMana>().Where(t => t.OfColor is not null && !string.IsNullOrEmpty(t.OfChosenColorKey)))
+            findings.Add(new(LintSeverity.Error, "L015", "TappedForMana has both a printed OfColor and an OfChosenColorKey; a card prints one or the other.", path));
+
+        // A ManaSpent whose key no AddMana produced is deliberately not checked here: the mana can
+        // be produced by a linked ability on another face or another permanent (CR 106.6), so the
+        // key is resolved where the mana is, in the interpreter, and a lint error would be wrong.
+
+        // CR 106.6b: one printed rider, one restriction. Both fields set reads as an "and" no card asked for.
+        if (ability is ActivatedAbility { PayOnlyWith: not null, PayOnlyFrom: not null })
+            findings.Add(new(LintSeverity.Error, "L016", "An ability restricts the mana that pays it by both colour and source; a card prints one restriction.", path));
+        if (ability is ActivatedAbility { PayOnlyFrom: { } from } && from == new ObjectFilter())
+            findings.Add(new(LintSeverity.Error, "L016", "PayOnlyFrom with an empty filter restricts nothing; leave it null when any mana pays.", path));
+    }
+
+    /// <summary>A cost that asks the player for nothing: no mana, and no other cost beside it.</summary>
+    private static bool IsEmptyCost(Cost cost) => cost switch
+    {
+        ManaCost mana => string.IsNullOrWhiteSpace(mana.Mana),
+        Costs all => all.All.Count == 0 || all.All.All(IsEmptyCost),
+        ChooseCost choose => choose.Options.Count == 0,
+        _ => false,
+    };
 
     /// <summary>Records whose Key reads a value an earlier step produced, rather than producing one.</summary>
     private static bool IsConsumer(object node) => node is Remembered or RememberedPlayer or Stored or ChosenNumber

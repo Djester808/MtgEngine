@@ -41,12 +41,16 @@ public sealed record DistributeCounters(Amount N, string Counter, Selector Among
 public sealed record ChangeTarget(Selector What, Selector? To = null, bool AllTargets = false, PlayerRef? Who = null) : Effect;
 
 /// <summary>
-/// "You may pay {4}. If you do, ..." — a cost paid inside a resolving effect, CR 118.12. The cost is
-/// paid where it stands rather than as part of casting or activating, so it composes: wrap it in May
-/// with a StoreChoiceAs key for "you may pay", and follow it with If(ChoiceIs(key, "yes"), ...) for
-/// the "if you do" half. Use Unless for "unless that player pays", where the cost belongs to someone
-/// else and the effect is what happens when it goes unpaid. Any Cost record works here, including
-/// PayManaCost for an amount counted from the game.
+/// "Sacrifice a creature", "pay 3 life" — a cost paid inside a resolving effect with no choice
+/// offered and nothing hanging on it, CR 118.12. The cost is paid where it stands rather than as
+/// part of casting or activating. Any Cost record works here, including PayManaCost for an amount
+/// counted from the game.
+/// <para>
+/// Use MayPay for "you may pay {4}. If you do, ..." and Unless for "unless that player pays": both
+/// are one record each and neither is spelled as a May or an If wrapped around this one. A PayCost
+/// inside a May with a StoreChoiceAs key is the shape MayPay replaced, and a canonical pass
+/// collapses it.
+/// </para>
 /// </summary>
 [RuleRef("118.12")]
 public sealed record PayCost(Cost Cost, PlayerRef? Who = null) : Effect;
@@ -105,9 +109,16 @@ public sealed record CounterSpec(string Counter, Amount N);
 /// "only to cast creature spells" as ObjectFilter(Spell: true, Types: CardType.Creature) and "only
 /// to activate abilities" with an ability filter; a restriction the filter cannot express goes to a
 /// primitive request rather than being dropped, because unrestricted mana is a different card.
+/// <para>
+/// Set <paramref name="Key"/> when a later step has to say "that mana": CR 106.6 lets a mana
+/// instruction create a delayed triggered ability that fires when the mana it produced is spent,
+/// and the ManaSpent trigger names the mana by this key. Mana is not an object, so a Remembered
+/// selector cannot hold it and there is nothing else to point at. Leave it null otherwise — a key
+/// nothing reads is noise in the file.
+/// </para>
 /// </summary>
 [RuleRef("106")]
-public sealed record AddMana(ManaProduction Mana, PlayerRef? Who = null, Amount? N = null, ObjectFilter? SpendOnlyOn = null) : Effect;
+public sealed record AddMana(ManaProduction Mana, PlayerRef? Who = null, Amount? N = null, ObjectFilter? SpendOnlyOn = null, string? Key = null) : Effect;
 
 /// <summary>
 /// What a mana instruction produces. <paramref name="Fixed"/> is printed mana ("{G}{G}");

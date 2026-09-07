@@ -65,6 +65,8 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(DungeonCompleted), nameof(DungeonCompleted))]
 [JsonDerivedType(typeof(Learns), nameof(Learns))]
 [JsonDerivedType(typeof(CommanderCast), nameof(CommanderCast))]
+[JsonDerivedType(typeof(TappedForMana), nameof(TappedForMana))]
+[JsonDerivedType(typeof(ManaSpent), nameof(ManaSpent))]
 [JsonDerivedType(typeof(AnyOfTriggers), nameof(AnyOfTriggers))]
 public abstract record Trigger;
 
@@ -225,6 +227,43 @@ public sealed record Learns(PlayerRef Who) : Trigger;
 
 [RuleRef("903")]
 public sealed record CommanderCast(PlayerRef By) : Trigger;
+
+/// <summary>
+/// "Whenever a land you control is tapped for mana", CR 106.12a: the trigger fires when a mana
+/// ability of the permanent whose activation cost includes {T} resolves and produces mana
+/// (CR 106.12). <paramref name="What"/> describes the permanent tapped.
+/// <para>
+/// Set <paramref name="OfColor"/> for "tapped for mana of a specified type" — "tapped for green
+/// mana" — and set <paramref name="OfChosenColorKey"/> instead when the card reads "tapped for mana
+/// of the chosen color", naming the key an earlier ChooseValue(ChooseWhat.Color, key) stored the
+/// colour under. Set neither for "tapped for mana" of any type. Never set both: a card prints one
+/// colour restriction, and the fixed colour and the chosen one are different cards.
+/// </para>
+/// <para>
+/// This is the trigger half only. What the ability then does — "add an additional one mana of that
+/// color" — is an AddMana whose ManaProduction carries the same ChosenColorKey, so the two halves
+/// name the same choice.
+/// </para>
+/// </summary>
+[RuleRef("106.12a")]
+public sealed record TappedForMana(ObjectFilter What, Color? OfColor = null, string? OfChosenColorKey = null) : Trigger;
+
+/// <summary>
+/// "When that mana is spent to cast a spell, ...", CR 106.6: a mana instruction may create a
+/// delayed triggered ability that triggers when the mana it produced is spent (CR 603.7a).
+/// <paramref name="ManaKey"/> is the Key of the AddMana in the same ability that produced that
+/// mana, which is how "that mana" is said without pointing at an object — mana is not an object.
+/// One delayed ability is created for each mana that AddMana produced (CR 106.6a).
+/// <paramref name="OnSpell"/> narrows what the mana was spent on when the card does ("spent to cast
+/// a creature spell"); leave it null for "spent to cast a spell".
+/// <para>
+/// Use it as the When of a DelayedTrigger the same resolution creates, never as a printed
+/// TriggeredAbility's own trigger: the mana it watches does not exist until the AddMana has run,
+/// and a standing trigger would have no key to match.
+/// </para>
+/// </summary>
+[RuleRef("106.6")]
+public sealed record ManaSpent(string ManaKey, ObjectFilter? OnSpell = null) : Trigger;
 
 /// <summary>"Whenever you cast or copy an instant or sorcery": several events, one ability.</summary>
 public sealed record AnyOfTriggers(IReadOnlyList<Trigger> Of) : Trigger;

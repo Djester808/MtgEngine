@@ -47,6 +47,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(StoredIs), nameof(StoredIs))]
 [JsonDerivedType(typeof(TargetsAre), nameof(TargetsAre))]
 [JsonDerivedType(typeof(FirstTimeThisTurn), nameof(FirstTimeThisTurn))]
+[JsonDerivedType(typeof(CreatedTokenThisTurn), nameof(CreatedTokenThisTurn))]
 [JsonDerivedType(typeof(NotCondition), nameof(NotCondition))]
 [JsonDerivedType(typeof(And), nameof(And))]
 [JsonDerivedType(typeof(Or), nameof(Or))]
@@ -174,6 +175,17 @@ public sealed record TargetsAre(ObjectFilter Filter) : Condition;
 
 /// <summary>"the first time this ability resolves each turn".</summary>
 public sealed record FirstTimeThisTurn : Condition;
+
+/// <summary>
+/// "if you created a token this turn": a player put one or more tokens onto the battlefield this
+/// turn, CR 111.1 ("Some effects put tokens onto the battlefield"). Counted over the whole turn and
+/// every effect in it, and a token that has since left the battlefield or ceased to exist still
+/// counts — the same reading AttackedThisTurn takes of a creature that has died.
+/// <paramref name="What"/> narrows it to a kind of token when the card does ("created a Treasure
+/// token this turn"), read against the token as it was created rather than as it is now.
+/// </summary>
+[RuleRef("111.1")]
+public sealed record CreatedTokenThisTurn(PlayerRef Who, ObjectFilter? What = null) : Condition;
 
 public sealed record NotCondition(Condition Of) : Condition;
 
