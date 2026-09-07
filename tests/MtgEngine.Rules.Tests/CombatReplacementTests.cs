@@ -1,5 +1,7 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Commands;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -159,40 +161,213 @@ public sealed class CombatReplacementTests
 
     /// <summary>
     /// CR 616.1 and 101.4 — when the affected player has to say which effect applies first, the
-    /// game stops. The question stands and the rest of the batch is not dealt.
-    /// <para>
-    /// <b>The gap this test records.</b> The remaining assignments are lost, not queued: answering
-    /// the question resumes the replacement loop for the one event it was asked about, and nothing
-    /// re-enters the combat damage step to deal the rest. What resumption would need is written in
-    /// <c>seam-requests/E4b.md</c>; until it lands, a halt in combat leaves the pending question
-    /// and the undealt assignments, which is what the last two assertions here say.
-    /// </para>
+    /// game stops: the question stands and the rest of the batch is not dealt yet. CR 510.2 says
+    /// where it will pick up, so the question carries the step it halted in and the index of the
+    /// hit it was asked about. Two marks and no continuation: the answer alone is enough.
     /// </summary>
     [Fact]
     [RuleRef("616.1")]
-    public void A_halt_leaves_the_question_pending_and_the_rest_of_the_batch_undealt()
+    public void A_halt_marks_the_question_with_its_step_and_the_hit_it_stopped_on()
+    {
+        var t = Halting(out var fake, out _, out _);
+
+        var events = t.Strike(firstStrike: false);
+
+        var asked = Assert.IsType<ChoiceRequested>(Assert.Single(events));
+        Assert.Same(asked.Choice, t.State.Pending);
+        Assert.Equal(ChoiceKinds.RegularDamage, asked.Choice.Context.Extra[ChoiceKinds.CombatDamageStep]);
+        Assert.Equal("0", asked.Choice.Context.Extra[ChoiceKinds.CombatDamageIndex]);
+
+        // Nothing after the halted hit has happened yet: CR 101.4, the game is waiting.
+        Assert.Single(fake.Offered);
+        Assert.Equal(20, t.Life(t.B));
+    }
+
+    /// <summary>CR 510.4 — the first-strike step marks itself as the step it is.</summary>
+    [Fact]
+    [RuleRef("510.4")]
+    public void A_halt_in_the_first_strike_step_says_so()
+    {
+        var t = new CombatTable();
+        var striker = t.Creature(t.A, 2, 2, [KeywordKind.FirstStrike]);
+        t.Subject.Replacements = CombatReplacementFake.HaltingOn(0);
+        t.Attack(t.A, striker, t.B);
+
+        var events = t.Strike(firstStrike: true);
+
+        var asked = Assert.IsType<ChoiceRequested>(Assert.Single(events));
+        Assert.Equal(ChoiceKinds.FirstStrikeDamage, asked.Choice.Context.Extra[ChoiceKinds.CombatDamageStep]);
+    }
+
+    /// <summary>
+    /// CR 510.2 and 616.1 — the gap wave 7 recorded, closed. Answering the question finishes the
+    /// one event it was about, and then the rest of the batch is dealt: the second attacker's
+    /// damage is offered and lands, which is what nothing did before.
+    /// </summary>
+    [Fact]
+    [RuleRef("510.2")]
+    public void Answering_the_question_deals_the_rest_of_the_batch()
+    {
+        var t = Halting(out var fake, out var first, out var second);
+        t.Strike(firstStrike: false);
+
+        var events = Answer(t, fake);
+
+        // The halted hit, finished by the replacement system, then the hit that was still owed.
+        Assert.Null(t.State.Pending);
+        Assert.Equal(2, fake.Offered.Count);
+        Assert.Equal(second, Assert.IsType<DamageDealt>(fake.Offered[1]).Source);
+        Assert.Equal(15, t.Life(t.B));
+        Assert.Contains(events, e => e is DamageDealt { Amount: 3 } d && d.Source == second);
+
+        // The answer itself is the first event, then the hit it finished, CR 101.4.
+        Assert.IsType<ChoiceAnswered>(events[0]);
+        Assert.Equal(first, Assert.IsType<DamageDealt>(events[1]).Source);
+    }
+
+    /// <summary>
+    /// CR 616.1 — a second question inside the same batch is a halt like the first, and carries its
+    /// own marks, so resuming it picks up after the hit it stopped on rather than at the top.
+    /// </summary>
+    [Fact]
+    [RuleRef("616.1")]
+    public void A_second_halt_in_the_same_batch_carries_its_own_marks()
     {
         var t = new CombatTable();
         var first = t.Creature(t.A, 2, 2);
         var second = t.Creature(t.A, 3, 3);
-        var asked = 0;
-        var fake = new CombatReplacementFake
-        {
-            Instead = (state, proposed) => asked++ == 0
-                ? CombatReplacementFake.Asks(state, proposed)
-                : CombatReplacementFake.Stands(state, proposed),
-        };
+        var third = t.Creature(t.A, 4, 4);
+        var fake = CombatReplacementFake.HaltingOn(0, 1);
+        t.Subject.Replacements = fake;
+        t.Attack(
+            t.A,
+            new AttackDeclaration(first, new CombatTarget(t.B, null)),
+            new AttackDeclaration(second, new CombatTarget(t.B, null)),
+            new AttackDeclaration(third, new CombatTarget(t.B, null)));
+        t.Strike(firstStrike: false);
+
+        var events = Answer(t, fake);
+
+        var asked = Assert.IsType<ChoiceRequested>(events[^1]);
+        Assert.Equal("1", asked.Choice.Context.Extra[ChoiceKinds.CombatDamageIndex]);
+        Assert.Equal(18, t.Life(t.B));
+
+        // And the second answer finishes the batch: the third attacker's damage is dealt too.
+        Answer(t, fake);
+        Assert.Null(t.State.Pending);
+        Assert.Equal(11, t.Life(t.B));
+    }
+
+    /// <summary>
+    /// CR 702.15b and 702.2b — a resumed batch is the same batch, so what follows the damage
+    /// follows the damage actually dealt: the surviving attacker's lifelink gains what it dealt,
+    /// and its deathtouch is marked on what it hit. A deathtouch attacker assigns lethal (one, CR
+    /// 702.2b) and then the rest, so it hits twice and gains for each hit, CR 702.15b.
+    /// </summary>
+    [Fact]
+    [RuleRef("702.15b")]
+    public void A_resumed_batch_gains_lifelink_and_marks_deathtouch_for_the_damage_dealt()
+    {
+        var t = new CombatTable();
+        var first = t.Creature(t.A, 2, 2);
+        var second = t.Creature(t.A, 3, 3, [KeywordKind.Lifelink, KeywordKind.Deathtouch]);
+        var blocker = t.Creature(t.B, 5, 5);
+        var fake = CombatReplacementFake.HaltingOn(0);
         t.Subject.Replacements = fake;
         t.Attack(t.A, new AttackDeclaration(first, new CombatTarget(t.B, null)), new AttackDeclaration(second, new CombatTarget(t.B, null)));
+        t.Block(t.B, new BlockDeclaration(blocker, second));
+        t.Strike(firstStrike: false);
 
-        var events = t.Strike(firstStrike: false);
+        var events = Answer(t, fake);
 
-        Assert.IsType<ChoiceRequested>(Assert.Single(events));
-        Assert.NotNull(t.State.Pending);
+        Assert.Equal(3, events.OfType<LifeChanged>().Where(l => string.Equals(l.Reason, "lifelink", StringComparison.Ordinal)).Sum(l => l.Delta));
+        Assert.Equal(23, t.Life(t.A));
+        Assert.Equal(3, t.DamageOn(blocker));
+        Assert.True(t.State.Objects[blocker].DealtDeathtouchDamage);
+        Assert.Equal(18, t.Life(t.B));
+    }
 
-        // The gap: the second attacker's assignment was never offered and never dealt.
-        Assert.Single(fake.Offered);
+    /// <summary>
+    /// The same through the real <see cref="MtgEngine.Rules.Replacement.ReplacementSystem"/>: two
+    /// prevention shields both apply to the same hit, so CR 616.1 asks which goes first, the answer
+    /// prevents it, and the batch carries on — into the second attacker's hit, which the same two
+    /// shields make the same question about, marked with its own index this time.
+    /// </summary>
+    [Fact]
+    [RuleRef("616.1")]
+    public void The_real_replacement_system_asks_resumes_and_asks_again()
+    {
+        var t = new CombatTable();
+        var first = t.Creature(t.A, 3, 3);
+        var second = t.Creature(t.A, 4, 4);
+        var real = Replacement(t);
+        t.Subject.Replacements = real;
+        t.Enact(Shield(t.B, 1));
+        t.Enact(Shield(t.B, 2));
+        t.Attack(t.A, new AttackDeclaration(first, new CombatTarget(t.B, null)), new AttackDeclaration(second, new CombatTarget(t.B, null)));
+
+        var halted = t.Strike(firstStrike: false);
+        Assert.Equal("0", Assert.IsType<ChoiceRequested>(Assert.Single(halted)).Choice.Context.Extra[ChoiceKinds.CombatDamageIndex]);
+
+        var events = Answer(t, real);
+
+        var again = Assert.IsType<ChoiceRequested>(events[^1]);
+        Assert.Equal(ChoiceKinds.ReplacementOrder, again.Choice.Kind);
+        Assert.Equal("1", again.Choice.Context.Extra[ChoiceKinds.CombatDamageIndex]);
+
+        // Both hits are shielded, so answering the second question finishes a batch that dealt nothing.
+        Answer(t, real);
+        Assert.Null(t.State.Pending);
         Assert.Equal(20, t.Life(t.B));
+    }
+
+    /// <summary>
+    /// CR 101.4 — no continuation is stored anywhere: the halt, the answer and the rest of the
+    /// batch are all events, so folding the log gives the same board the live game reached.
+    /// </summary>
+    [Fact]
+    [RuleRef("101.4")]
+    public void A_game_replayed_from_its_log_reaches_the_same_state()
+    {
+        var t = Halting(out var fake, out _, out _);
+        t.Strike(firstStrike: false);
+        Answer(t, fake);
+
+        var replayed = GameReducer.Replay([.. t.Log]);
+
+        Assert.Equal(t.Life(t.B), replayed.Player(t.B).Life);
+        Assert.Equal(t.Life(t.A), replayed.Player(t.A).Life);
+        Assert.Null(replayed.Pending);
+        Assert.Equal(t.State.NextChoiceId, replayed.NextChoiceId);
+    }
+
+    /// <summary>Two attackers, and a replacement system that halts on the first of them.</summary>
+    private static CombatTable Halting(out CombatReplacementFake fake, out ObjectId first, out ObjectId second)
+    {
+        var t = new CombatTable();
+        first = t.Creature(t.A, 2, 2);
+        second = t.Creature(t.A, 3, 3);
+        fake = CombatReplacementFake.HaltingOn(0);
+        t.Subject.Replacements = fake;
+        t.Attack(t.A, new AttackDeclaration(first, new CombatTarget(t.B, null)), new AttackDeclaration(second, new CombatTarget(t.B, null)));
+        return t;
+    }
+
+    /// <summary>
+    /// Answer the open question the way a game does: through the choice system, which records the
+    /// answer, hands the halted event to the replacement system and then asks the combat system for
+    /// the rest of the batch (CR 616.1, 510.2).
+    /// </summary>
+    private static ImmutableList<GameEvent> Answer(CombatTable table, IReplacementSystem replacements)
+    {
+        var pending = table.State.Pending ?? throw new InvalidOperationException("nothing is waiting on an answer.");
+        var choices = new ChoiceSystem(
+            new ChoiceResumptionFakeZones(),
+            new ChoiceResumptionFakeTurn(),
+            new CombatReplacementResumable(replacements),
+            null,
+            table.Subject);
+        return table.Apply(choices.Answer(table.State, new AnswerChoice(pending.Player, pending.Id, [pending.Options[0].Id])));
     }
 
     /// <summary>
@@ -250,8 +425,8 @@ public sealed class CombatReplacementTests
     }
 
     /// <summary>CR 615.1 — "prevent all damage that would be dealt to you this turn", as state.</summary>
-    private static ActiveEffect Shield(PlayerId player) =>
-        new(1, new PreventDamage(null, null, null, ToPlayersToo: true), null, player, [], [player], new UntilEndOfTurn(), 1, FromStaticAbility: false);
+    private static ActiveEffect Shield(PlayerId player, int id = 1) =>
+        new(id, new PreventDamage(null, null, null, ToPlayersToo: true), null, player, [], [player], new UntilEndOfTurn(), id, FromStaticAbility: false);
 
     private static MtgEngine.Rules.Replacement.ReplacementSystem Replacement(CombatTable table) =>
         new(table.Query, table.Layers, new CombatReplacementNoInterpreter());

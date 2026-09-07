@@ -1,4 +1,6 @@
+using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -22,18 +24,45 @@ public sealed partial class CombatSystem
     public Outcome DealCombatDamage(GameState state, bool firstStrike)
     {
         ArgumentNullException.ThrowIfNull(state);
+        return Deal(state, Batch(state, firstStrike), firstStrike, 0);
+    }
+
+    /// <summary>
+    /// CR 510.2 and 616.1 — the rest of a batch a replacement-order question stopped. The batch is
+    /// a pure function of the board, so it is recomputed rather than kept across the halt (CR 101.4:
+    /// nothing is stored between the question and its answer), and the assignments up to and
+    /// including <paramref name="from"/> are skipped: the ones before it were dealt when the step
+    /// ran, and the one at <paramref name="from"/> is what
+    /// <see cref="IReplacementSystem.Resume"/> has just finished.
+    /// </summary>
+    [RuleRef("510.2")]
+    public Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return Deal(state, Batch(state, firstStrike), firstStrike, Math.Max(0, from + 1));
+    }
+
+    /// <summary>
+    /// CR 510.1 and 510.2 — every hit of this step, in the order it is offered. Attackers first, in
+    /// object order, then blockers by the attacker they blocked; each hit carries what its source
+    /// was while assigning it, because CR 510.2 computes the whole batch against the board the step
+    /// began on and the source may be dead by the time the hit lands.
+    /// </summary>
+    [RuleRef("510.1")]
+    private List<Hit> Batch(GameState state, bool firstStrike)
+    {
         var combat = state.Combat;
+        var batch = new List<Hit>();
         if (combat is null || !combat.AttackersDeclared)
-            return Outcome.Unchanged(state);
+            return batch;
 
         // Damage assigned to each creature so far in this step, so lethal is judged against it, CR 702.19b.
         var assigned = new Dictionary<ObjectId, int>();
-        var batch = new List<Assignment>();
 
         foreach (var attackerId in combat.Attackers.Keys.OrderBy(id => id.Value))
         {
             if (Fights(state, attackerId, firstStrike) is { } attacker)
-                batch.Add(new Assignment(attackerId, attacker, AttackerDamage(state, combat, attackerId, attacker, assigned)));
+                batch.AddRange(AttackerDamage(state, combat, attackerId, attacker, assigned).Select(d => new Hit(attackerId, attacker, d)));
         }
 
         foreach (var pair in combat.Blockers.OrderBy(p => p.Key.Value))
@@ -41,15 +70,15 @@ public sealed partial class CombatSystem
             foreach (var blockerId in pair.Value)
             {
                 if (Fights(state, blockerId, firstStrike) is { } blocker)
-                    batch.Add(new Assignment(blockerId, blocker, BlockerDamage(state, pair.Key, blockerId, blocker)));
+                    batch.AddRange(BlockerDamage(state, pair.Key, blockerId, blocker).Select(d => new Hit(blockerId, blocker, d)));
             }
         }
 
-        return Deal(state, batch);
+        return batch;
     }
 
-    /// <summary>What one creature assigned in this step, and what it was while assigning it.</summary>
-    private sealed record Assignment(ObjectId Source, Characteristics Characteristics, ImmutableList<DamageDealt> Damage);
+    /// <summary>One hit of the batch: what it would deal, and what its source was while assigning it.</summary>
+    private sealed record Hit(ObjectId Source, Characteristics Characteristics, DamageDealt Damage);
 
     /// <summary>
     /// The batch, dealt. CR 510.2 deals it simultaneously, so every assignment above was computed
@@ -58,44 +87,74 @@ public sealed partial class CombatSystem
     /// offered — CR 616.1 read per event, not per batch, because each effect is offered one event.
     /// <para>
     /// CR 616.1 also stops the game when the affected player must say which of several effects
-    /// applies first. The question stands and the rest of the batch is not dealt: nothing else
-    /// happens until it is answered (CR 101.4), and re-entering this step to deal the remainder
-    /// needs a resumption the choice system does not have — see <c>seam-requests/E4b.md</c>.
+    /// applies first. The question stands and nothing else happens until it is answered (CR 101.4),
+    /// so the halt marks the question with this step and the index of the hit it stopped on and
+    /// <see cref="ResumeCombatDamage"/> deals the rest once the answer has finished that one event.
     /// </para>
     /// </summary>
     [RuleRef("510.2")]
-    private Outcome Deal(GameState state, IReadOnlyList<Assignment> batch)
+    private Outcome Deal(GameState state, IReadOnlyList<Hit> batch, bool firstStrike, int from)
     {
         var working = state;
         var events = ImmutableList<GameEvent>.Empty;
 
-        foreach (var assignment in batch)
+        for (var index = from; index < batch.Count; index++)
         {
-            var dealt = 0;
-            foreach (var proposed in assignment.Damage)
-            {
-                var happened = Offer(working, proposed, Affected(state, proposed));
-                working = happened.State;
-                events = events.AddRange(happened.Events);
-                dealt += happened.Events.OfType<DamageDealt>().Where(d => d.Source == assignment.Source).Sum(d => d.Amount);
-                if (working.Pending is not null)
-                    return new Outcome(working, events);
-            }
+            var hit = batch[index];
+            var happened = Offer(working, hit.Damage, Affected(state, hit.Damage));
+            working = happened.State;
+            events = events.AddRange(happened.Events);
+            if (working.Pending is not null)
+                return Halted(working, events, firstStrike, index);
 
             // CR 702.15b — lifelink gains its controller as much life as the source actually dealt,
-            // so a hit a prevention shield stopped gains nothing and a doubled hit gains double.
-            if (dealt <= 0 || !assignment.Characteristics.Has(KeywordKind.Lifelink))
+            // so a hit a prevention shield stopped gains nothing and a doubled hit gains double. It
+            // follows each hit rather than each creature, because a creature that hits twice (lethal
+            // to a blocker and the rest elsewhere, CR 510.1c and 702.2b) may be stopped between the
+            // two, and the gain has to belong to the hit it came from for the resumption to be exact.
+            var dealt = happened.Events.OfType<DamageDealt>().Where(d => d.Source == hit.Source).Sum(d => d.Amount);
+            if (dealt <= 0 || !hit.Characteristics.Has(KeywordKind.Lifelink))
                 continue;
 
-            var gain = new LifeChanged(assignment.Characteristics.Controller, dealt, "lifelink");
-            var gained = Offer(working, gain, assignment.Characteristics.Controller);
+            var gain = new LifeChanged(hit.Characteristics.Controller, dealt, "lifelink");
+            var gained = Offer(working, gain, hit.Characteristics.Controller);
             working = gained.State;
             events = events.AddRange(gained.Events);
+
+            // A halt on the life gain marks the same index: the gain is the event the replacement
+            // system resumes, and the hit that earned it has already been dealt.
             if (working.Pending is not null)
-                return new Outcome(working, events);
+                return Halted(working, events, firstStrike, index);
         }
 
         return new Outcome(working, events);
+    }
+
+    /// <summary>
+    /// CR 616.1 with 101.4 — the question the batch stopped on, told where it stopped. The marks go
+    /// on the pending choice and on the <see cref="ChoiceRequested"/> that raised it, so a game
+    /// rebuilt by replaying its log stops on the same marked question: nothing is held anywhere but
+    /// the state, and resumption is a re-run of this step and not a captured continuation.
+    /// </summary>
+    [RuleRef("616.1")]
+    private static Outcome Halted(GameState state, ImmutableList<GameEvent> events, bool firstStrike, int index)
+    {
+        if (state.Pending is not { } pending)
+            return new Outcome(state, events);
+
+        var marked = pending with
+        {
+            Context = pending.Context with
+            {
+                Extra = pending.Context.Extra
+                    .SetItem(ChoiceKinds.CombatDamageStep, firstStrike ? ChoiceKinds.FirstStrikeDamage : ChoiceKinds.RegularDamage)
+                    .SetItem(ChoiceKinds.CombatDamageIndex, index.ToString(CultureInfo.InvariantCulture)),
+            },
+        };
+
+        var requested = new ChoiceRequested(marked);
+        var at = events.FindLastIndex(e => e is ChoiceRequested asked && asked.Choice.Id == pending.Id);
+        return new Outcome(requested.Apply(state), at < 0 ? events.Add(requested) : events.SetItem(at, requested));
     }
 
     /// <summary>CR 510.4 — whether this creature assigns damage in this step, and what it is while doing so.</summary>

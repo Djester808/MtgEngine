@@ -73,9 +73,14 @@ internal sealed class CombatTable
 
     public CombatTable()
     {
-        State = GameReducer.Replay([new GameStarted([new PlayerStart("one", [], []), new PlayerStart("two", [], [])], 7, 20, "commander")]);
+        var started = new GameStarted([new PlayerStart("one", [], []), new PlayerStart("two", [], [])], 7, 20, "commander");
+        Log.Add(started);
+        State = GameReducer.Replay([started]);
         Subject = new CombatSystem(Layers, Query);
     }
+
+    /// <summary>Every event this table applied, in order: the log the game could be rebuilt from, CR 101.4.</summary>
+    public List<GameEvent> Log { get; } = [];
 
     public CombatFakeCharacteristics Layers { get; } = new();
 
@@ -107,7 +112,9 @@ internal sealed class CombatTable
             Tapped = tapped,
             SummoningSick = summoningSick,
         };
-        State = new ObjectCreated(obj, -1).Apply(State);
+        var created = new ObjectCreated(obj, -1);
+        Log.Add(created);
+        State = created.Apply(State);
         Layers.Set(id, new Characteristics(
             "engine test object",
             types,
@@ -139,6 +146,9 @@ internal sealed class CombatTable
 
     public ImmutableList<GameEvent> End() => Run(Subject.EndCombat(State));
 
+    /// <summary>Take an outcome some other subsystem produced against this table's state.</summary>
+    public ImmutableList<GameEvent> Apply(Outcome outcome) => Run(outcome);
+
     public void Remove(ObjectId id) => State = new ObjectCeasedToExist(id).Apply(State);
 
     /// <summary>Put a continuous effect in force by hand, CR 611.2: what created it is not combat's business.</summary>
@@ -153,6 +163,7 @@ internal sealed class CombatTable
     private ImmutableList<GameEvent> Run(Outcome outcome)
     {
         State = outcome.State;
+        Log.AddRange(outcome.Events);
         return outcome.Events;
     }
 }

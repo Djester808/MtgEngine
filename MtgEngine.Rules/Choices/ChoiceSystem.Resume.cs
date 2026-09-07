@@ -23,8 +23,31 @@ public sealed partial class ChoiceSystem
         ChoiceKinds.LegendRule => LegendRule(state, choice, chosen),
         ChoiceKinds.Mulligan => Mulligan(state, choice, chosen).Then(s => Next(s, choice.Player)),
         ChoiceKinds.MulliganBottom => Bottom(state, chosen).Then(s => Next(s, choice.Player)),
-        _ => Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))),
+        _ => Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context)))
+            .Then(after => RestOfTheBatch(after, choice)),
     };
+
+    /// <summary>
+    /// CR 510.2 with 616.1: a replacement-order question raised inside the combat damage step
+    /// stopped the batch. The replacement system has just finished the one event it was asked
+    /// about; the assignments after it are still owed, and the marks the halt left on the question
+    /// say which step and which hit, so the combat system re-runs the step from there. A question
+    /// carrying no marks came from somewhere else and this is not its business; a second question
+    /// already open means the game is waiting again and nothing else happens (CR 101.4).
+    /// </summary>
+    [RuleRef("510.2")]
+    private Outcome RestOfTheBatch(GameState state, PendingChoice choice)
+    {
+        if (combat is null
+            || state.Pending is not null
+            || !choice.Context.Extra.TryGetValue(ChoiceKinds.CombatDamageIndex, out var raw)
+            || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var from))
+            return Outcome.Unchanged(state);
+
+        var firstStrike = choice.Context.Extra.TryGetValue(ChoiceKinds.CombatDamageStep, out var step)
+            && string.Equals(step, ChoiceKinds.FirstStrikeDamage, StringComparison.Ordinal);
+        return combat.ResumeCombatDamage(state, firstStrike, from);
+    }
 
     /// <summary>
     /// CR 608.2m: an answer that finished a resolution (the interpreter says so with
