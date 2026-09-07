@@ -185,7 +185,11 @@ public sealed partial class CastingTests
         var activated = casting.Activate(table.State, new ActivateAbility(CastingTable.A, land, 0));
 
         Assert.True(StackZone.IsEmpty(activated.State));
-        Assert.Equal(new ManaPool(0, 0, 0, 0, 1, 0), activated.State.Player(CastingTable.A).Mana);
+
+        // CR 106.6: the mana remembers the land that produced it, so the pool is compared by its
+        // counts rather than by record equality — the provenance is asserted in its own test.
+        var pool = activated.State.Player(CastingTable.A).Mana;
+        Assert.Equal(new ManaPool(0, 0, 0, 0, 1, 0), pool with { Provenance = [] });
         Assert.True(activated.State.Objects[land].Tapped);
         Assert.Contains(activated.Events, e => e is AbilityActivated);
         Assert.Contains(activated.Events, e => e is ManaChanged);
@@ -203,7 +207,7 @@ public sealed partial class CastingTests
             summoningSick: false);
 
         var activated = casting.Activate(table.State, new ActivateAbility(CastingTable.A, rock, 0, CostChoices: ["U"]));
-        Assert.Equal(new ManaPool(0, 1, 0, 0, 0, 0), activated.State.Player(CastingTable.A).Mana);
+        Assert.Equal(new ManaPool(0, 1, 0, 0, 0, 0), activated.State.Player(CastingTable.A).Mana with { Provenance = [] });
 
         var refusal = casting.Check(table.State, new ActivateAbility(CastingTable.A, rock, 0));
         Assert.Equal("608.2d", refusal?.Rule);
