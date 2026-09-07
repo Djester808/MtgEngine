@@ -37,6 +37,27 @@ public static partial class SmokeScenario
 
                 break;
 
+            // CR 404.1 with CR 701.19: "put target card from a graveyard on top of its owner's
+            // library" — the graveyard is stocked with a card the filter admits, the spell is aimed
+            // at it, and afterwards that card is in the library and the graveyard holds only the
+            // spell. The placement is not asserted: a library's order is not a zone a scenario can
+            // read, and the zone is what the effect says happens.
+            case Move { What: Target lifted, To: Zone.Library, UnderControlOf: null, Tapped: false, FaceDown: false, Attacking: false, Transformed: false, WithCounters: null, AttachedTo: null }
+                when lifted is { Count: null or Fixed { N: 1 }, UpTo: false } && lifted.Filter.OwnedBy is null or You
+                    && SmokeFillers.Buried(lifted.Filter, board.AnnouncedX) is { } lost:
+                board.Expect(new InZone(board.Buries(lost), Zone.Library, Caster));
+                board.Caster(library: 1, graveyard: -1);
+                break;
+
+            // CR 400.7 with CR 110.6: "put this artifact on top of its owner's library" moves the
+            // source itself off the battlefield, so what the play shows is the zone it went to —
+            // and a card there is neither tapped nor untapped, which is why the tap the activation
+            // paid is not an expectation (<see cref="SmokeActivation"/>).
+            case Move { What: Self, To: var away, UnderControlOf: null, Tapped: false, FaceDown: false, Attacking: false, Transformed: false, WithCounters: null, AttachedTo: null }
+                when board.PlaysFromBattlefield && away is Zone.Library or Zone.Hand or Zone.Graveyard or Zone.Exile:
+                board.MovesItselfTo(away);
+                break;
+
             default:
                 break;
         }

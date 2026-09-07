@@ -56,6 +56,21 @@ public static partial class SmokeScenario
             return board.Build(id, $"playing {file.Name} puts it onto the battlefield", new PlayLandStep(Caster, file.Name), spellGoesToTheGraveyard: false, usedTheStack: false);
         }
 
+        // CR 306.5b: a planeswalker enters the battlefield with loyalty counters equal to its
+        // printed loyalty. The engine puts none on it, so CR 704.5i buries it the moment it
+        // arrives and the battlefield a permanent's scenario asserts (CR 110.1) is right about the
+        // card and wrong about the play. No scenario until it has its loyalty
+        // (seam-requests/P20.md § 2).
+        if ((face.Types.Types & CardType.Planeswalker) != 0)
+            return null;
+
+        // CR 107.4f: a Phyrexian symbol may be paid with two life instead of the mana. The engine's
+        // casting system refuses such a cost outright ("Phyrexian mana {G/P} is not supported yet"),
+        // so a scenario staged against one reports the engine's gap as the card failing
+        // (seam-requests/P20.md § 3).
+        if (face.ManaCost is { Length: > 0 } phyrexian && phyrexian.Contains("/P", StringComparison.OrdinalIgnoreCase))
+            return null;
+
         if (!Costs(board, face))
             return null;
         board.Printed(face.ManaCost);
@@ -266,6 +281,15 @@ public static partial class SmokeScenario
             // CR 701.5: a countered spell is put into its owner's graveyard.
             case Counter { What: Target countered, PutInto: null or Zone.Graveyard } when Spell(countered):
                 board.Expect(new InZone(board.SpellOnTheStack(), Zone.Graveyard, Opponent));
+                break;
+
+            // CR 118.6 with CR 701.5: "counter target spell unless its controller pays {1}" — the
+            // opponent's pool holds exactly what their spell cost and is empty by the time they are
+            // asked, so the payment cannot be made and the spell is countered. Only a mana payment:
+            // a cost that eats an object is one the opponent might be able to meet, and which half
+            // of the card the play then shows is not a generated scenario's to guess.
+            case Unless { Do: Counter { What: Target unpaid, PutInto: null or Zone.Graveyard }, Paid: ManaCost { Mana.Length: > 0 } } when Spell(unpaid):
+                board.Expect(new InZone(board.SpellOnTheStack(withNothingLeftToPay: true), Zone.Graveyard, Opponent));
                 break;
 
             // CR 701.13: milling moves cards from the top of a library into that graveyard.
