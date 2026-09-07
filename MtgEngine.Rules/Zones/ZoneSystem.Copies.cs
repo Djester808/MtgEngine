@@ -49,7 +49,10 @@ public sealed partial class ZoneSystem
         // own owner; for the ordinary case — the owner of the original — the two are the same key.
         var destination = KeyFor(copied.Zone.Zone, owner);
 
-        var made = CopyRules.NewCopy(
+        // CR 306.5b: a copy made where a planeswalker stands is a permanent entering the
+        // battlefield, so it arrives with its printed loyalty; a copy made in any other zone is
+        // untouched by that rule.
+        var made = Entering(CopyRules.NewCopy(
             CopyRules.CopyOf(copied),
             new ObjectId(state.NextObjectId),
             owner,
@@ -59,7 +62,7 @@ public sealed partial class ZoneSystem
             isToken: false) with
         {
             Designations = [CopyOfCard],
-        };
+        });
 
         var tape = new Tape(state);
 

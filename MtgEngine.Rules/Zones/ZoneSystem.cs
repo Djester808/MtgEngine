@@ -154,8 +154,11 @@ public sealed partial class ZoneSystem : IZoneSystem
         // to its owner's instead; and the shared zones take no player in their key, CR 400.1.
         var destination = KeyFor(to.Zone, moving.Owner);
 
-        // CR 603.10: the object as it last existed travels with the move, for the abilities that look back.
-        return new ObjectMoved(what, Reborn(counters, moving, destination, tapped, controller, faceIndex), PositionIn(board, destination, where), Departed: moving);
+        // CR 603.10: the object as it last existed travels with the move, for the abilities that
+        // look back. CR 306.5b: what the rules give the object as it enters is on the proposal, so
+        // the replacement effects are offered a planeswalker that already has its printed loyalty.
+        var arriving = Entering(Reborn(counters, moving, destination, tapped, controller, faceIndex));
+        return new ObjectMoved(what, arriving, PositionIn(board, destination, where), Departed: moving);
     }
 
     /// <summary>
@@ -278,17 +281,20 @@ public sealed partial class ZoneSystem : IZoneSystem
     [RuleRef("111.1")]
     private Outcome Arrive(GameState state, GameObject created, bool attacking)
     {
+        // CR 306.5b: a token that is a copy of a planeswalker enters with its loyalty like any
+        // other permanent arriving on the battlefield, and before anything is offered.
+        var entering = Entering(created);
         var tape = new Tape(state);
-        var happened = Offer(state, new ObjectCreated(created, -1), created.InitialController);
+        var happened = Offer(state, new ObjectCreated(entering, -1), entering.InitialController);
         tape.AddAll(happened);
 
         // CR 506.3c: an effect can put a token onto the battlefield attacking. It joins the combat
         // already happening; with no combat there is nothing to attack and the flag is moot.
         if (attacking
-            && happened.Any(e => e is ObjectCreated c && c.Object.Id == created.Id)
+            && happened.Any(e => e is ObjectCreated c && c.Object.Id == entering.Id)
             && tape.State.Combat is { } combat)
         {
-            tape.Add(new AttackersDeclared(combat.AttackingPlayer, combat.Attackers.SetItem(created.Id, DefenderIn(tape.State, combat))));
+            tape.Add(new AttackersDeclared(combat.AttackingPlayer, combat.Attackers.SetItem(entering.Id, DefenderIn(tape.State, combat))));
         }
 
         return tape.Done();
