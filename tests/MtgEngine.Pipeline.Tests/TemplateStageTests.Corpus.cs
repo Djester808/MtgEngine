@@ -25,9 +25,36 @@ public sealed class TemplateStageTestsCorpus(ITestOutputHelper output)
     /// </summary>
     private const int FreeSliceFloor = 2_400;
 
+    /// <summary>
+    /// The switch the gate's slow lane sets. The bulk file is 200 MB and reading it is minutes of
+    /// I/O, so this measurement does not belong in a builder's scoped run or in the ordinary
+    /// suite; it belongs where the gate can afford it. xunit 2 has no <c>Assert.Skip</c>, so the
+    /// skip is an early return that says out loud it measured nothing — the same shape the
+    /// missing-corpus arm below already uses, for the same reason.
+    /// </summary>
+    public const string RunCorpusVariable = "RUN_CORPUS";
+
+    /// <summary>Whether the corpus lane is switched on for this process.</summary>
+    public static bool CorpusLaneEnabled => LaneEnabled(Environment.GetEnvironmentVariable(RunCorpusVariable));
+
+    /// <summary>
+    /// The switch read as a value rather than from the environment, so the rule can be asserted
+    /// without a test writing a process-wide variable other tests are reading at the same time.
+    /// Exactly "1" turns the lane on: "true", "yes" and the empty string leave it off, so a stray
+    /// value in a shell profile cannot quietly put a 200 MB read into every run.
+    /// </summary>
+    public static bool LaneEnabled(string? value) => string.Equals(value, "1", StringComparison.Ordinal);
+
     [Fact]
+    [Trait("Category", "Slow")]
     public void The_stage_accepts_at_least_the_measured_free_slice()
     {
+        if (!CorpusLaneEnabled)
+        {
+            output.WriteLine($"skipped: {RunCorpusVariable} is not \"1\" — the corpus measurement runs in the gate's slow lane, not in the ordinary suite.");
+            return;
+        }
+
         if (Repo.CorpusPath() is not { } path)
         {
             output.WriteLine("skipped: no oracle_cards.json under MtgEngine.Api/bin/Debug/net10.0/bulk-data — run the API once to download the corpus.");
@@ -170,4 +197,32 @@ public sealed class TemplateStageTestsCorpus(ITestOutputHelper output)
 
     private static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+}
+
+/// <summary>
+/// The lane, asserted rather than trusted. The corpus measurement is the one test in this project
+/// that cannot run in a builder's box, so both halves of what keeps it out of an ordinary run have
+/// a test: the trait the gate filters on, and the switch that has to be exactly "1".
+/// </summary>
+public sealed class TemplateStageTestsCorpusLane
+{
+    [Fact]
+    public void The_corpus_measurement_carries_the_slow_trait_the_gate_filters_on()
+    {
+        var method = typeof(TemplateStageTestsCorpus)
+            .GetMethod(nameof(TemplateStageTestsCorpus.The_stage_accepts_at_least_the_measured_free_slice))!;
+
+        var trait = Assert.Single(method.GetCustomAttributesData(), a => a.AttributeType == typeof(TraitAttribute));
+        Assert.Equal("Category", (string?)trait.ConstructorArguments[0].Value);
+        Assert.Equal("Slow", (string?)trait.ConstructorArguments[1].Value);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("0", false)]
+    [InlineData("true", false)]
+    [InlineData("1", true)]
+    public void Only_the_exact_value_one_switches_the_corpus_lane_on(string? value, bool expected) =>
+        Assert.Equal(expected, TemplateStageTestsCorpus.LaneEnabled(value));
 }
