@@ -8,29 +8,40 @@ using CardZone = MtgEngine.Cards.Zone;
 namespace MtgEngine.Rules.Casting;
 
 /// <summary>
-/// Paying an activation cost, CR 601.2h: every cost is paid in full or the activation is
-/// refused, because partial payments are not allowed. The costs this slice pays are the tap
-/// symbol, mana, sacrificing the source and paying life; any other cost is refused naming
-/// itself, so nothing is ever half paid.
+/// Everything one payment needs to know, CR 601.2h: whose it is, what the source of the cost is,
+/// the X that was announced, and the restriction CR 106.6b puts on which mana may be spent.
+/// </summary>
+[RuleRef("601.2h")]
+internal sealed record CostContext(
+    GameObject? Source,
+    Characteristics? Characteristics,
+    PlayerId Player,
+    int? X,
+    IZoneSystem Zones,
+    IQuery Query,
+    Color? PayOnlyWith = null)
+{
+    /// <summary>The context an <see cref="Amount"/> or an <see cref="ObjectFilter"/> on a cost is read in.</summary>
+    public EffectContext Effect => CostPayment.Context(Source?.Id, Player, X);
+}
+
+/// <summary>
+/// Paying a cost, CR 601.2h: every cost is paid in full or the action is refused, because partial
+/// payments are not allowed. Mana, the tap symbol and the costs a source pays with itself are
+/// here; the costs that name other objects are <see cref="ObjectCosts"/>. Any cost neither can
+/// pay is refused naming itself, so nothing is ever half paid and the backlog gets the primitive.
 /// </summary>
 [RuleRef("601.2h")]
 internal static class CostPayment
 {
     /// <summary>Pay all of the costs, in the order written. Throws <see cref="RefusedException"/> naming the rule that stops it.</summary>
-    public static Outcome Pay(
-        GameState state,
-        GameObject source,
-        Characteristics characteristics,
-        IReadOnlyList<Cost> costs,
-        PlayerId player,
-        int? x,
-        IZoneSystem zones,
-        IQuery query)
+    public static Outcome Pay(GameState state, CostContext context, IReadOnlyList<Cost> costs)
     {
+        ArgumentNullException.ThrowIfNull(context);
         var events = ImmutableList.CreateBuilder<GameEvent>();
         foreach (var cost in Flatten(costs))
         {
-            var step = One(state, source, characteristics, cost, player, x, zones, query);
+            var step = One(state, context, cost);
             events.AddRange(step.Events);
             state = step.State;
         }
@@ -39,21 +50,29 @@ internal static class CostPayment
     }
 
     /// <summary>A mana cost, parsed and spent out of the player's pool, CR 601.2h.</summary>
-    public static Outcome PayMana(GameState state, PlayerId player, string? printed, int? x, string reason) =>
-        PaySymbols(state, player, ManaSymbols.Parse(printed), x, reason).Outcome;
+    public static Outcome PayMana(GameState state, PlayerId player, string? printed, int? x, string reason, Color? only = null) =>
+        PaySymbols(state, player, ManaSymbols.Parse(printed), x, reason, only).Outcome;
 
     /// <summary>
     /// An already-parsed cost spent out of the pool, CR 601.2h, with what was actually spent
     /// handed back: CR 202.3a's "mana spent to cast this spell" is a property of the spell, so
     /// the caller records it on the stack entry rather than recomputing it later.
+    /// <paramref name="only"/> is CR 106.6b's spend restriction: when it is set, only mana of
+    /// those colours may pay, and the refusal names that rule rather than an empty pool.
     /// </summary>
     [RuleRef("601.2h")]
-    public static PaidMana PaySymbols(GameState state, PlayerId player, IReadOnlyList<ManaSymbol> symbols, int? x, string reason)
+    public static PaidMana PaySymbols(GameState state, PlayerId player, IReadOnlyList<ManaSymbol> symbols, int? x, string reason, Color? only = null)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var payment = ManaSymbols.Pay(state.Player(player).Mana, symbols, x);
+        var pool = state.Player(player).Mana;
+        var payment = ManaSymbols.Pay(only is null ? pool : ManaSymbols.Only(pool, only.Value), symbols, x);
         if (payment.Refused is { } refusal)
-            throw new RefusedException(refusal.Reason, refusal.Rule);
+        {
+            throw only is null
+                ? new RefusedException(refusal.Reason, refusal.Rule)
+                : new RefusedException("That cost must be paid with mana this ability accepts.", "106.6b");
+        }
+
         if (payment.Delta.Total == 0)
             return new PaidMana(Outcome.Unchanged(state), ManaPool.Empty);
 
@@ -112,38 +131,54 @@ internal static class CostPayment
         }
     }
 
-    private static Outcome One(
-        GameState state,
-        GameObject source,
-        Characteristics characteristics,
-        Cost cost,
-        PlayerId player,
-        int? x,
-        IZoneSystem zones,
-        IQuery query)
+    private static Outcome One(GameState state, CostContext context, Cost cost)
     {
         switch (cost)
         {
             case ManaCost mana:
-                return PayMana(state, player, mana.Mana, x, "activation cost");
+                return PayMana(state, context.Player, mana.Mana, context.X, "cost", context.PayOnlyWith);
+
+            // CR 118.8: generic mana whose amount the game counts, evaluated as the cost is
+            // announced (CR 601.2h) and paid alongside any printed coloured part.
+            case PayManaCost counted:
+                return PayCounted(state, context, counted);
 
             case TapSelf:
-                return TapTheSource(state, source, characteristics);
+                return TapTheSource(state, context);
+
+            case UntapSelf:
+                return UntapTheSource(state, context);
 
             case SacrificeSelf:
-                return Sacrifice(state, source, zones);
+                return Sacrifice(state, context);
 
             case DiscardSelfCost:
-                return Discard(state, source, zones);
+                return Discard(state, context);
 
             case PayLife life:
-                return LoseLife(state, player, query.Evaluate(state, life.Amount, Context(source.Id, player, x)));
+                return LoseLife(state, context.Player, context.Query.Evaluate(state, life.Amount, context.Effect));
 
             default:
                 // CR 601.2h: an unpayable cost can't be paid. Naming the cost is how the backlog
-                // gets it: the primitive is missing, the activation is not silently allowed.
-                throw new RefusedException($"A {cost.GetType().Name} cost cannot be paid yet.", "601.2h");
+                // gets it: the primitive is missing, the action is not silently allowed.
+                return ObjectCosts.Pay(state, context, cost)
+                    ?? throw new RefusedException($"A {cost.GetType().Name} cost cannot be paid yet.", "601.2h");
         }
+    }
+
+    /// <summary>
+    /// CR 118.8: "pay {X}, where X is that creature's power". The amount is counted when the cost
+    /// is announced, CR 601.2h, so the payment is never suspended waiting to learn what it is.
+    /// </summary>
+    [RuleRef("118.8")]
+    private static Outcome PayCounted(GameState state, CostContext context, PayManaCost cost)
+    {
+        var generic = context.Query.Evaluate(state, cost.Generic, context.Effect);
+        if (generic < 0)
+            throw new RefusedException("A mana cost cannot be less than nothing.", "118.8");
+
+        ImmutableList<ManaSymbol> symbols = [.. ManaSymbols.Parse(cost.Colored), new ManaSymbol { Generic = generic }];
+        return PaySymbols(state, context.Player, symbols, context.X, "cost", context.PayOnlyWith).Outcome;
     }
 
     /// <summary>
@@ -152,26 +187,40 @@ internal static class CostPayment
     /// recent turn began, CR 302.6 — the summoning sickness rule, which haste turns off, CR 702.10b.
     /// </summary>
     [RuleRef("302.6")]
-    private static Outcome TapTheSource(GameState state, GameObject source, Characteristics characteristics)
+    private static Outcome TapTheSource(GameState state, CostContext context)
     {
+        var source = Source(context);
         if (source.Tapped)
             throw new RefusedException("It is already tapped.", "118.4");
-        if (characteristics.Types.HasFlag(CardType.Creature) && source.SummoningSick && !characteristics.Has(KeywordKind.Haste))
+        if (context.Characteristics is { } chars && chars.Types.HasFlag(CardType.Creature) && source.SummoningSick && !chars.Has(KeywordKind.Haste))
             throw new RefusedException("It has not been under your control since your most recent turn began.", "302.6");
 
         var tapped = new ObjectChanged(source.Id, Tapped: true);
         return new Outcome(tapped.Apply(state), [tapped]);
     }
 
+    /// <summary>The untap symbol, CR 118.1: only a tapped permanent can pay it.</summary>
+    [RuleRef("118.1")]
+    private static Outcome UntapTheSource(GameState state, CostContext context)
+    {
+        var source = Source(context);
+        if (!source.Tapped)
+            throw new RefusedException("It is not tapped.", "118.4");
+
+        var untapped = new ObjectChanged(source.Id, Tapped: false);
+        return new Outcome(untapped.Apply(state), [untapped]);
+    }
+
     /// <summary>Sacrificing the source, CR 701.17: its controller moves it to its owner's graveyard.</summary>
     [RuleRef("701.17")]
-    private static Outcome Sacrifice(GameState state, GameObject source, IZoneSystem zones)
+    private static Outcome Sacrifice(GameState state, CostContext context)
     {
+        var source = Source(context);
         if (source.Zone.Zone != CardZone.Battlefield)
             throw new RefusedException("Only a permanent on the battlefield can be sacrificed.", "701.17a");
 
         var left = new ObjectLeftBy(source.Id, "sacrificed", null);
-        var moved = zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
+        var moved = context.Zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
         return new Outcome(moved.State, moved.Events.Insert(0, left));
     }
 
@@ -180,13 +229,14 @@ internal static class CostPayment
     /// the cost of cycling (CR 702.29a), so the source is in a hand, not on the battlefield.
     /// </summary>
     [RuleRef("701.9a")]
-    private static Outcome Discard(GameState state, GameObject source, IZoneSystem zones)
+    private static Outcome Discard(GameState state, CostContext context)
     {
+        var source = Source(context);
         if (source.Zone.Zone != CardZone.Hand)
             throw new RefusedException("Only a card in a hand can be discarded.", "701.9a");
 
         var left = new ObjectLeftBy(source.Id, "discarded", null);
-        var moved = zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
+        var moved = context.Zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
         return new Outcome(moved.State, moved.Events.Insert(0, left));
     }
 
@@ -204,6 +254,9 @@ internal static class CostPayment
         var paid = new LifeChanged(player, -amount, "cost");
         return new Outcome(paid.Apply(state), [paid]);
     }
+
+    private static GameObject Source(CostContext context) =>
+        context.Source ?? throw new RefusedException("There is no source to pay that cost with.", "601.2h");
 
     internal static EffectContext Context(ObjectId? source, PlayerId controller, int? x) => new(
         source,

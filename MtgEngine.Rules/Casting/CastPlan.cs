@@ -23,7 +23,8 @@ internal sealed record CastPlan(
     Face Printed,
     CardZone From,
     ImmutableList<ManaSymbol> Mana,
-    ImmutableList<string> OptionalCostsPaid)
+    ImmutableList<string> OptionalCostsPaid,
+    ImmutableList<Cost> NonMana)
 {
     /// <summary>The types the spell has on the stack, CR 712.11c: only the chosen face is evaluated.</summary>
     public CardType Types => Printed.Types.Types;
@@ -60,10 +61,15 @@ internal sealed record CastPlan(
 
         var printed = definition.Faces[chosen.FaceIndex];
         var paid = ImmutableList.CreateBuilder<string>();
-        var mana = Alternative(card, printed, command, paid) ?? ManaSymbols.Parse(printed.ManaCost);
-        mana = Additional(printed, command, paid, mana);
+        var extra = ImmutableList.CreateBuilder<Cost>();
+
+        // CR 601.2b: an additional cost printed on the spell is announced with it and paid along
+        // with the mana cost, whether or not the caster wants to — it is not optional.
+        extra.AddRange(printed.AdditionalCosts ?? []);
+        var mana = Alternative(card, printed, command, paid, extra) ?? ManaSymbols.Parse(printed.ManaCost);
+        mana = Additional(printed, command, paid, extra, mana);
         mana = Shaped(state, printed, query, command.Player, mana);
-        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable());
+        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable());
     }
 
     /// <summary>CR 715.3d: the card exiled on an adventure is the one card its owner may cast from exile.</summary>
@@ -77,7 +83,7 @@ internal sealed record CastPlan(
     /// no alternative cost was announced, so the printed mana cost stands.
     /// </summary>
     [RuleRef("118.9")]
-    private static ImmutableList<ManaSymbol>? Alternative(GameObject card, Face printed, CastSpell command, ImmutableList<string>.Builder paid)
+    private static ImmutableList<ManaSymbol>? Alternative(GameObject card, Face printed, CastSpell command, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra)
     {
         var zone = card.Zone.Zone;
         if (command.AlternativeCost is not { } kind)
@@ -96,14 +102,16 @@ internal sealed record CastPlan(
         if (semantic.CastFrom is { } from && from != zone)
             throw new RefusedException($"{kind} is not paid from there.", semantic.Rule);
 
-        // CR 702.34a: flashback is the alternative cost this slice pays in full, because exiling
-        // the card as it resolves is the whole of its rider. The rest name themselves and their
-        // rule rather than casting a spell whose rider the engine would drop.
-        if (kind != KeywordKind.Flashback)
+        // CR 702.34a: flashback's whole rider is exiling the card as it resolves, which
+        // Destination does. CR 702.138a: escape's is the non-mana half printed beside its mana,
+        // which KeywordAbility.Costs carries and CostPayment pays. The rest name themselves and
+        // their rule rather than casting a spell whose rider the engine would drop.
+        if (kind is not (KeywordKind.Flashback or KeywordKind.Escape))
             throw new RefusedException($"{kind} cannot be paid yet.", semantic.Rule);
         if (!ManaSymbols.TryParse(ability.Cost, out var symbols, out _))
             throw new RefusedException($"The {kind} cost cannot be paid yet.", "601.2h");
 
+        extra.AddRange(ability.Costs ?? []);
         paid.Add(kind.ToString());
         return symbols;
     }
@@ -113,25 +121,34 @@ internal sealed record CastPlan(
     /// cost and recorded, so "if it was kicked" (CR 702.32c) can be asked when the spell resolves.
     /// </summary>
     [RuleRef("601.2b")]
-    private static ImmutableList<ManaSymbol> Additional(Face printed, CastSpell command, ImmutableList<string>.Builder paid, ImmutableList<ManaSymbol> mana)
+    private static ImmutableList<ManaSymbol> Additional(Face printed, CastSpell command, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra, ImmutableList<ManaSymbol> mana)
     {
-        var kicked = 0;
+        var times = new Dictionary<KeywordKind, int>();
         foreach (var kind in command.OptionalCosts ?? [])
         {
+            // CR 702.174b: a gift is promised as the spell is cast and the promise is remembered
+            // on the spell. There is nowhere on the stack entry to write it (seam-requests/E3c.md),
+            // so the spell is refused rather than cast with a promise the game would forget.
+            if (kind == KeywordKind.Gift)
+                throw new RefusedException("A gift promised as a spell is cast cannot be recorded yet.", "702.174b");
+
             var semantic = KeywordSemantics.Of(kind);
             if (semantic.Cost != CostShape.Additional)
                 throw new RefusedException($"{kind} is not an additional cost.", semantic.Rule);
             var ability = Keyword(printed, kind) ?? throw new RefusedException($"That card has no {kind}.", semantic.Rule);
 
-            // CR 702.32b: multikicker may be paid any number of times, but the vocabulary has one
-            // Kicker keyword and no repeat count, so a second payment is refused rather than
-            // guessed at.
-            if (kind == KeywordKind.Kicker && ++kicked > 1)
-                throw new RefusedException("A kicker cost cannot be paid twice yet.", "702.32b");
-            if (!ManaSymbols.TryParse(ability.Cost, out var extra, out _))
+            // CR 702.32b: multikicker may be paid any number of times, and KeywordAbility.Repeatable
+            // is how the printed text says so. An ordinary kicker is paid once, CR 702.32a.
+            times[kind] = times.GetValueOrDefault(kind) + 1;
+            if (times[kind] > 1 && !ability.Repeatable)
+                throw new RefusedException($"A {kind} cost cannot be paid more than once.", semantic.Rule);
+            if (!ManaSymbols.TryParse(ability.Cost, out var more, out _))
                 throw new RefusedException($"The {kind} cost cannot be paid yet.", "601.2h");
 
-            mana = mana.AddRange(extra);
+            // CR 601.2b: each payment is a separate additional cost, so a cost paid twice is paid
+            // twice over and recorded twice — "if it was kicked twice" counts the entries.
+            mana = mana.AddRange(more);
+            extra.AddRange(ability.Costs ?? []);
             paid.Add(kind.ToString());
         }
 
