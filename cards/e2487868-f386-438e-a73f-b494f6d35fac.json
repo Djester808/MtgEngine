@@ -40,54 +40,38 @@
                   "rememberAs": "k1"
                 },
                 {
-                  "kind": "ForEach",
-                  "over": {
-                    "kind": "Remembered",
-                    "key": "k1"
-                  },
-                  "do": {
-                    "kind": "If",
-                    "test": {
-                      "kind": "Matches",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      },
-                      "filter": {
-                        "anyTypes": [
-                          "Artifact",
-                          "Battle",
-                          "Creature",
-                          "Enchantment",
-                          "Land",
-                          "Planeswalker"
-                        ],
-                        "manaValue": {
-                          "op": "Le",
-                          "value": {
-                            "kind": "X"
-                          }
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Library",
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "X"
                         }
+                      },
+                      "permanent": true,
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
                       }
                     },
-                    "then": {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Move",
-                        "what": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        },
-                        "to": "Battlefield",
-                        "where": "Default",
-                        "tapped": false,
-                        "faceDown": false,
-                        "attacking": false,
-                        "transformed": false,
-                        "ownersChoiceOfOrder": true
-                      }
-                    }
-                  }
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "count": {
+                      "kind": "X"
+                    },
+                    "upTo": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
                 },
                 {
                   "kind": "Move",
@@ -130,54 +114,38 @@
                   "rememberAs": "k1"
                 },
                 {
-                  "kind": "ForEach",
-                  "over": {
-                    "kind": "Remembered",
-                    "key": "k1"
-                  },
-                  "do": {
-                    "kind": "If",
-                    "test": {
-                      "kind": "Matches",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      },
-                      "filter": {
-                        "anyTypes": [
-                          "Artifact",
-                          "Battle",
-                          "Creature",
-                          "Enchantment",
-                          "Land",
-                          "Planeswalker"
-                        ],
-                        "manaValue": {
-                          "op": "Le",
-                          "value": {
-                            "kind": "X"
-                          }
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Library",
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "X"
                         }
+                      },
+                      "permanent": true,
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
                       }
                     },
-                    "then": {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Move",
-                        "what": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        },
-                        "to": "Battlefield",
-                        "where": "Default",
-                        "tapped": false,
-                        "faceDown": false,
-                        "attacking": false,
-                        "transformed": false,
-                        "ownersChoiceOfOrder": true
-                      }
-                    }
-                  }
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "count": {
+                      "kind": "X"
+                    },
+                    "upTo": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
                 },
                 {
                   "kind": "Move",
@@ -251,54 +219,38 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "If",
-                        "test": {
-                          "kind": "Matches",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "filter": {
-                            "anyTypes": [
-                              "Artifact",
-                              "Battle",
-                              "Creature",
-                              "Enchantment",
-                              "Land",
-                              "Planeswalker"
-                            ],
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Library",
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
                             }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
                           }
                         },
-                        "then": {
-                          "kind": "May",
-                          "do": {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        }
-                      }
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "upTo": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     },
                     {
                       "kind": "Move",
@@ -341,54 +293,38 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "If",
-                        "test": {
-                          "kind": "Matches",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "filter": {
-                            "anyTypes": [
-                              "Artifact",
-                              "Battle",
-                              "Creature",
-                              "Enchantment",
-                              "Land",
-                              "Planeswalker"
-                            ],
-                            "manaValue": {
-                              "op": "Le",
-                              "value": {
-                                "kind": "X"
-                              }
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Library",
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
                             }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
                           }
                         },
-                        "then": {
-                          "kind": "May",
-                          "do": {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        }
-                      }
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "upTo": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     },
                     {
                       "kind": "Move",
@@ -452,9 +388,66 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Unsupported",
-                      "reason": "The vocabulary has no way to choose a subset of a specific remembered group of objects: Choose only filters by ObjectFilter over a zone, and there is no predicate for \u0027is one of the objects remembered under a key\u0027. So neither \u0027put any number of permanent cards with mana value X or less from among them onto the battlefield\u0027 nor tracking which of the revealed cards were not chosen (to move only that remainder to the graveyard) can be expressed.",
-                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
+                            }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": true,
+                        "key": "k2"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k2"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     }
                   ]
                 },
@@ -483,9 +476,66 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Unsupported",
-                      "reason": "The vocabulary has no way to choose a subset of a specific remembered group of objects: Choose only filters by ObjectFilter over a zone, and there is no predicate for \u0027is one of the objects remembered under a key\u0027. So neither \u0027put any number of permanent cards with mana value X or less from among them onto the battlefield\u0027 nor tracking which of the revealed cards were not chosen (to move only that remainder to the graveyard) can be expressed.",
-                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
+                            }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": true,
+                        "key": "k2"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k2"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
                     }
                   ]
                 },

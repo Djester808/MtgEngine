@@ -113,6 +113,33 @@ public sealed class PilotTests
     }
 
     [Fact]
+    public async Task Collect_again_reads_answers_a_translator_replaced_and_a_plain_collect_does_not()
+    {
+        var harness = new Harness();
+        harness.Client.Answer(Opus, ScribeId, Json(Drawing(ScribeId, "Test Scribe")));
+        harness.Client.Answer(Sonnet, ScribeId, Json(Drawing(ScribeId, "Test Scribe")));
+        harness.Client.Answer(Opus, SageId, Json(Drawing(SageId, "Test Sage")));
+        harness.Client.Answer(Sonnet, SageId, Json(Milling(SageId, "Test Sage")));
+        await Pilot.SubmitAsync(harness.Environment, harness.Cards, harness.OutDir, CancellationToken.None);
+        await Pilot.CollectAsync(harness.Environment, harness.OutDir, CancellationToken.None);
+        Assert.Equal(ImplementationStatus.Disputed, harness.Writer.Load(SageId)!.Status);
+
+        // A batch once collected is never read twice, so the redo a translator wrote over the old
+        // answer file stays unseen until the collect is told to look again.
+        harness.Client.Answer(Sonnet, SageId, Json(Drawing(SageId, "Test Sage")));
+        await Pilot.CollectAsync(harness.Environment, harness.OutDir, CancellationToken.None);
+        Assert.Equal(ImplementationStatus.Disputed, harness.Writer.Load(SageId)!.Status);
+
+        var code = await Pilot.CollectAsync(harness.Environment, harness.OutDir, CancellationToken.None, again: true);
+
+        Assert.Equal(0, code);
+        var agreed = harness.Writer.Load(SageId);
+        Assert.NotNull(agreed);
+        Assert.Equal(ImplementationStatus.Translated, agreed.Status);
+        Assert.True(agreed.Source is TranslatedProvenance { Agreed: true });
+        Assert.Contains("reading its 2 answers again", harness.Log.ToString(), StringComparison.Ordinal);
+    }
+    [Fact]
     public async Task A_reading_that_lints_dirty_is_repaired_once_and_the_repair_is_what_is_judged()
     {
         var harness = new Harness();

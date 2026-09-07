@@ -60,9 +60,45 @@
                   }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Prevention of combat damage dealt BY one named creature cannot be said: a PreventDamage shield covers only damage dealt to what it is applied to, and its From names the damage\u0027s source with an ObjectFilter, which describes objects and cannot point at the single creature this ability targeted; no predicate identifies a remembered object either (TargetedBy is false once the ability has resolved, and SharesNameWith would also cover other copies).",
-                  "text": "Prevent all combat damage that would be dealt by that creature this turn."
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": false
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
                 }
               ]
             },
@@ -115,9 +151,45 @@
                   }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Prevention of combat damage dealt BY one named creature cannot be said: a PreventDamage shield covers only damage dealt to what it is applied to, and its From names the damage\u0027s source with an ObjectFilter, which describes objects and cannot point at the single creature this ability targeted; no predicate identifies a remembered object either (TargetedBy is false once the ability has resolved, and SharesNameWith would also cover other copies).",
-                  "text": "Prevent all combat damage that would be dealt by that creature this turn."
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": false
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
                 }
               ]
             },
@@ -130,17 +202,382 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Disputed",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5",
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": true
+    "agreed": false
   },
   "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "38a12bd7-4394-44a8-91a0-6a4ff7fa4f71",
+        "name": "Maze of Ith",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Maze of Ith",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "who": {
+                        "kind": "EachPlayer"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn."
+              }
+            ],
+            "oracleText": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "who": {
+                        "kind": "EachPlayer"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "38a12bd7-4394-44a8-91a0-6a4ff7fa4f71",
+        "name": "Maze of Ith",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Maze of Ith",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn."
+              }
+            ],
+            "oracleText": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "combat": true,
+                        "toPlayersToo": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "keywordList": [],
   "scenarioList": []
 }

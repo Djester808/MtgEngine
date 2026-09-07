@@ -85,6 +85,16 @@ public sealed class TranslationStore
         WriteFile(RepairPath(reading.OracleId, reading.Model, reading.PromptVersion), reading with { Repaired = true });
     }
 
+    /// <summary>
+    /// Drop the stored first answer and its repair, so the next collect reads this card again
+    /// from its batch: the road for a local batch whose answer files were replaced in place.
+    /// </summary>
+    public void ForgetReading(string oracleId, string model, string promptVersion)
+    {
+        File.Delete(ReadingPath(oracleId, model, promptVersion));
+        File.Delete(RepairPath(oracleId, model, promptVersion));
+    }
+
     public StoredBatch? Batch(string batchId) => ReadFile<StoredBatch>(BatchPath(batchId));
 
     public void WriteBatch(StoredBatch batch)

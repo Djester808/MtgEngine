@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: ObjectFilter cannot say \u0027with mana cost {0} or {1}\u0027. That is the printed mana cost, not the mana value: a card with no mana cost (an artifact land such as Darksteel Citadel) and an artifact with a coloured one-mana cost both have to be excluded, so a manaValue Le 1 comparison, with or without colorless, is a different set of cards. Needs a printed-mana-cost predicate.",
-      "path": "faces[0].abilities[2]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

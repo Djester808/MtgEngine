@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: An activation may be restricted to mana of the chosen colour, and neither field on ActivatedAbility can say it: PayOnlyWith takes printed colours only and PayOnlyFrom describes the source permanent, not a colour a ChooseValue stored. Needs a PayOnlyWith that can name a chosen-colour key.",
-      "path": "faces[0].abilities[2]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

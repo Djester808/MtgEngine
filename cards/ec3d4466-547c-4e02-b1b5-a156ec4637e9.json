@@ -65,9 +65,17 @@
               }
             ],
             "do": {
-              "kind": "Unsupported",
-              "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
-              "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false,
+                "colorsOfRemembered": "imprinted"
+              }
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -122,9 +130,17 @@
               }
             ],
             "do": {
-              "kind": "Unsupported",
-              "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
-              "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false,
+                "colorsOfRemembered": "imprinted"
+              }
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -212,9 +228,17 @@
                   }
                 ],
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
-                  "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "imprinted"
+                  }
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -269,9 +293,17 @@
                   }
                 ],
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "\u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
-                  "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "imprinted"
+                  }
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -350,9 +382,17 @@
                   }
                 ],
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "ManaProduction has no way to say \u0027a color of a remembered object\u0027 \u2014 it can name a fixed color, any color, a chosen color, or the color of an attached or targeted object (colorOfAttachedOrTarget), but not the color of a card remembered earlier under a key (the exiled imprinted card).",
-                  "text": "Add one mana of any of the exiled card\u0027s colors."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "exiled"
+                  }
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -410,9 +450,17 @@
                   }
                 ],
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "ManaProduction has no way to say \u0027a color of a remembered object\u0027 \u2014 it can name a fixed color, any color, a chosen color, or the color of an attached or targeted object (colorOfAttachedOrTarget), but not the color of a card remembered earlier under a key (the exiled imprinted card).",
-                  "text": "Add one mana of any of the exiled card\u0027s colors."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "exiled"
+                  }
                 },
                 "timing": "Any",
                 "where": "Battlefield",

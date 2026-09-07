@@ -45,78 +45,70 @@
               }
             },
             "do": {
-              "kind": "May",
-              "do": {
-                "kind": "Sequence",
-                "steps": [
-                  {
-                    "kind": "Sacrifice",
-                    "choice": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Creature",
-                        "Enchantment",
-                        "Land",
-                        "Planeswalker"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "rememberAs": "k1"
-                  },
-                  {
-                    "kind": "ForEachPlayer",
-                    "over": {
-                      "kind": "EachOpponent"
-                    },
-                    "do": {
-                      "kind": "MayPay",
-                      "paid": {
-                        "kind": "SacrificeCost",
-                        "what": {
-                          "permanent": true,
-                          "also": {
-                            "kind": "SharesTypeWith",
-                            "with": {
-                              "kind": "Remembered",
-                              "key": "k1"
-                            },
-                            "creatureTypeOnly": false
-                          }
-                        }
-                      },
-                      "then": {
-                        "kind": "DoNothing"
-                      },
-                      "else": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "Fixed",
-                              "n": 2
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Draw",
-                            "n": {
-                              "kind": "Fixed",
-                              "n": 1
-                            }
-                          }
-                        ]
-                      },
-                      "who": {
-                        "kind": "TriggeringPlayer"
+              "kind": "MayPay",
+              "paid": {
+                "kind": "SacrificeCost",
+                "what": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Creature",
+                    "Enchantment",
+                    "Land",
+                    "Planeswalker"
+                  ]
+                },
+                "rememberAs": "k1"
+              },
+              "then": {
+                "kind": "ForEachPlayer",
+                "over": {
+                  "kind": "EachOpponent"
+                },
+                "do": {
+                  "kind": "MayPay",
+                  "paid": {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "permanent": true,
+                      "also": {
+                        "kind": "SharesTypeWith",
+                        "with": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "creatureTypeOnly": false
                       }
                     }
+                  },
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "LoseLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
                   }
-                ]
+                }
               }
             },
             "optional": false,
@@ -137,78 +129,70 @@
               }
             },
             "do": {
-              "kind": "May",
-              "do": {
-                "kind": "Sequence",
-                "steps": [
-                  {
-                    "kind": "Sacrifice",
-                    "choice": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Creature",
-                        "Enchantment",
-                        "Land",
-                        "Planeswalker"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "rememberAs": "k1"
-                  },
-                  {
-                    "kind": "ForEachPlayer",
-                    "over": {
-                      "kind": "EachOpponent"
-                    },
-                    "do": {
-                      "kind": "MayPay",
-                      "paid": {
-                        "kind": "SacrificeCost",
-                        "what": {
-                          "permanent": true,
-                          "also": {
-                            "kind": "SharesTypeWith",
-                            "with": {
-                              "kind": "Remembered",
-                              "key": "k1"
-                            },
-                            "creatureTypeOnly": false
-                          }
-                        }
-                      },
-                      "then": {
-                        "kind": "DoNothing"
-                      },
-                      "else": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "Fixed",
-                              "n": 2
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Draw",
-                            "n": {
-                              "kind": "Fixed",
-                              "n": 1
-                            }
-                          }
-                        ]
-                      },
-                      "who": {
-                        "kind": "TriggeringPlayer"
+              "kind": "MayPay",
+              "paid": {
+                "kind": "SacrificeCost",
+                "what": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Creature",
+                    "Enchantment",
+                    "Land",
+                    "Planeswalker"
+                  ]
+                },
+                "rememberAs": "k1"
+              },
+              "then": {
+                "kind": "ForEachPlayer",
+                "over": {
+                  "kind": "EachOpponent"
+                },
+                "do": {
+                  "kind": "MayPay",
+                  "paid": {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "permanent": true,
+                      "also": {
+                        "kind": "SharesTypeWith",
+                        "with": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "creatureTypeOnly": false
                       }
                     }
+                  },
+                  "then": {
+                    "kind": "DoNothing"
+                  },
+                  "else": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "LoseLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
                   }
-                ]
+                }
               }
             },
             "optional": false,
@@ -220,446 +204,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
-        "name": "Braids, Arisen Nightmare",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-e0445c80-fa53-4c3e-881e-940e9fce7f57",
+      "title": "casting Braids, Arisen Nightmare does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Braids, Arisen Nightmare",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Nightmare"
-              ],
-              "subtypeList": [
-                "Nightmare"
-              ]
-            },
-            "manaCost": "{1}{B}{B}",
-            "power": {
-              "text": "3",
-              "number": 3
-            },
-            "toughness": {
-              "text": "3",
-              "number": 3
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "End",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Sacrifice",
-                        "choice": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Creature",
-                            "Enchantment",
-                            "Land",
-                            "Planeswalker"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "rememberAs": "k1"
-                      },
-                      {
-                        "kind": "ForEachPlayer",
-                        "over": {
-                          "kind": "EachOpponent"
-                        },
-                        "do": {
-                          "kind": "MayPay",
-                          "paid": {
-                            "kind": "SacrificeCost",
-                            "what": {
-                              "permanent": true,
-                              "also": {
-                                "kind": "SharesTypeWith",
-                                "with": {
-                                  "kind": "Remembered",
-                                  "key": "k1"
-                                },
-                                "creatureTypeOnly": false
-                              }
-                            }
-                          },
-                          "then": {
-                            "kind": "DoNothing"
-                          },
-                          "else": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 2
-                                },
-                                "who": {
-                                  "kind": "TriggeringPlayer"
-                                }
-                              },
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 1
-                                }
-                              }
-                            ]
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+                "name": "Braids, Arisen Nightmare",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "End",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Sacrifice",
-                        "choice": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Creature",
-                            "Enchantment",
-                            "Land",
-                            "Planeswalker"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "rememberAs": "k1"
-                      },
-                      {
-                        "kind": "ForEachPlayer",
-                        "over": {
-                          "kind": "EachOpponent"
-                        },
-                        "do": {
-                          "kind": "MayPay",
-                          "paid": {
-                            "kind": "SacrificeCost",
-                            "what": {
-                              "permanent": true,
-                              "also": {
-                                "kind": "SharesTypeWith",
-                                "with": {
-                                  "kind": "Remembered",
-                                  "key": "k1"
-                                },
-                                "creatureTypeOnly": false
-                              }
-                            }
-                          },
-                          "then": {
-                            "kind": "DoNothing"
-                          },
-                          "else": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 2
-                                },
-                                "who": {
-                                  "kind": "TriggeringPlayer"
-                                }
-                              },
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 1
-                                }
-                              }
-                            ]
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
-        "name": "Braids, Arisen Nightmare",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Braids, Arisen Nightmare",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Nightmare"
-              ],
-              "subtypeList": [
-                "Nightmare"
-              ]
-            },
-            "manaCost": "{1}{B}{B}",
-            "power": {
-              "text": "3",
-              "number": 3
-            },
-            "toughness": {
-              "text": "3",
-              "number": 3
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "End",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Sacrifice",
-                        "choice": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Creature",
-                            "Enchantment",
-                            "Land",
-                            "Planeswalker"
-                          ]
-                        },
-                        "rememberAs": "k1"
-                      },
-                      {
-                        "kind": "ForEachPlayer",
-                        "over": {
-                          "kind": "EachOpponent"
-                        },
-                        "do": {
-                          "kind": "Unless",
-                          "do": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 2
-                                },
-                                "who": {
-                                  "kind": "TriggeringPlayer"
-                                }
-                              },
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 1
-                                }
-                              }
-                            ]
-                          },
-                          "paid": {
-                            "kind": "SacrificeCost",
-                            "what": {
-                              "permanent": true,
-                              "also": {
-                                "kind": "SharesTypeWith",
-                                "with": {
-                                  "kind": "Remembered",
-                                  "key": "k1"
-                                },
-                                "creatureTypeOnly": false
-                              }
-                            }
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
-              }
-            ],
-            "oracleText": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "End",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Sacrifice",
-                        "choice": {
-                          "anyTypes": [
-                            "Artifact",
-                            "Creature",
-                            "Enchantment",
-                            "Land",
-                            "Planeswalker"
-                          ]
-                        },
-                        "rememberAs": "k1"
-                      },
-                      {
-                        "kind": "ForEachPlayer",
-                        "over": {
-                          "kind": "EachOpponent"
-                        },
-                        "do": {
-                          "kind": "Unless",
-                          "do": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 2
-                                },
-                                "who": {
-                                  "kind": "TriggeringPlayer"
-                                }
-                              },
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 1
-                                }
-                              }
-                            ]
-                          },
-                          "paid": {
-                            "kind": "SacrificeCost",
-                            "what": {
-                              "permanent": true,
-                              "also": {
-                                "kind": "SharesTypeWith",
-                                "with": {
-                                  "kind": "Remembered",
-                                  "key": "k1"
-                                },
-                                "creatureTypeOnly": false
-                              }
-                            }
-                          },
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Braids, Arisen Nightmare"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Braids, Arisen Nightmare",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T213226-eeb2f8",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T21:32:26.7822441+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-e0445c80-fa53-4c3e-881e-940e9fce7f57",
+      "title": "casting Braids, Arisen Nightmare does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Braids, Arisen Nightmare",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Braids, Arisen Nightmare"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Braids, Arisen Nightmare",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

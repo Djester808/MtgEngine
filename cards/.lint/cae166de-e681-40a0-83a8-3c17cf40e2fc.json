@@ -1,11 +1,11 @@
 {
   "findings": [
     {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: Protection needs its Of filter to name the colours protected from, and ObjectFilter\u0027s Colors/AnyColor/NotColors take printed colours only. No filter field, Predicate or Amount reads a player\u0027s commander\u0027s colour identity, so \u0027each color that\u0027s not in your commander\u0027s color identity\u0027 cannot be written; ManaProduction.CommanderIdentity says it for mana and nothing says it for an object filter. NotPredicate(SharesColorWith(Commander(You))) is not the same reading: colour identity is not colour, and per-colour protection still applies to a multicoloured object that shares one colour with the commander.",
-      "path": "faces[0].abilities[1]"
+      "severity": "Warning",
+      "code": "L002",
+      "message": "The definition has Protection and Scryfall does not list it; check it is granted, not printed.",
+      "path": "scryfallKeywords"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

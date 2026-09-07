@@ -101,7 +101,12 @@ public static class Pilot
     /// batch. When all of them have ended: collect, repair once where a reading needs it, agree,
     /// write the card files and the report.
     /// </summary>
-    public static async Task<int> CollectAsync(PilotEnvironment env, string outDir, CancellationToken ct)
+    /// <param name="again">
+    /// Read every answer of the submission's batches again, forgetting the readings stored from
+    /// the first collect: a local batch is a directory whose answer files a later translator may
+    /// have replaced, and a batch once marked collected is otherwise never read twice.
+    /// </param>
+    public static async Task<int> CollectAsync(PilotEnvironment env, string outDir, CancellationToken ct, bool again = false)
     {
         ArgumentNullException.ThrowIfNull(env);
         var submission = PilotSubmission.Read(outDir);
@@ -113,6 +118,8 @@ public static class Pilot
 
         var promptVersion = submission.PromptVersion ?? env.PromptVersion;
         Record(env, submission, promptVersion);
+        if (again)
+            Forget(env, submission, promptVersion);
         if (!await Ended(env, submission, ct))
             return NotEnded;
 
@@ -147,6 +154,23 @@ public static class Pilot
         {
             if (env.Store.Batch(batchId) is null)
                 env.Store.WriteBatch(new StoredBatch(batchId, model, promptVersion, submission.OracleIds, Collected: false));
+        }
+    }
+
+    /// <summary>
+    /// Un-collect the submission's batches: every stored reading of theirs is dropped and each
+    /// batch is marked uncollected, so the stage reads the answers as they are now.
+    /// </summary>
+    private static void Forget(PilotEnvironment env, PilotSubmission submission, string promptVersion)
+    {
+        foreach (var (model, batchId) in submission.Batches)
+        {
+            if (env.Store.Batch(batchId) is not { } batch)
+                continue;
+            foreach (var oracleId in batch.OracleIds)
+                env.Store.ForgetReading(oracleId, model, promptVersion);
+            env.Store.WriteBatch(batch with { Collected = false });
+            env.Log.WriteLine(FormattableString.Invariant($"{model} {batchId}: reading its {batch.OracleIds.Count} answers again"));
         }
     }
 

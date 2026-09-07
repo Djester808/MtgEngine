@@ -31,27 +31,24 @@
               }
             },
             "do": {
-              "kind": "May",
-              "do": {
-                "kind": "Exile",
-                "what": {
-                  "kind": "Target",
-                  "filter": {
-                    "types": [
-                      "Land"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
-                  },
-                  "upTo": false,
-                  "distinct": true
+              "kind": "Exile",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
                 },
-                "faceDown": false,
-                "rememberAs": "k1"
-              }
+                "upTo": false,
+                "distinct": true
+              },
+              "faceDown": false,
+              "rememberAs": "k1"
             },
-            "optional": false,
+            "optional": true,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -79,8 +76,9 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": false,
+                "chosenColorKey": "k2",
                 "colorOfAttachedOrTarget": false,
-                "landCouldProduce": true,
+                "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
               },
@@ -111,27 +109,24 @@
               }
             },
             "do": {
-              "kind": "May",
-              "do": {
-                "kind": "Exile",
-                "what": {
-                  "kind": "Target",
-                  "filter": {
-                    "types": [
-                      "Land"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
-                  },
-                  "upTo": false,
-                  "distinct": true
+              "kind": "Exile",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
                 },
-                "faceDown": false,
-                "rememberAs": "k1"
-              }
+                "upTo": false,
+                "distinct": true
+              },
+              "faceDown": false,
+              "rememberAs": "k1"
             },
-            "optional": false,
+            "optional": true,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -159,8 +154,9 @@
                 "anyColor": false,
                 "commanderIdentity": false,
                 "chosenColor": false,
+                "chosenColorKey": "k2",
                 "colorOfAttachedOrTarget": false,
-                "landCouldProduce": true,
+                "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
               },
@@ -185,7 +181,7 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": false
@@ -264,9 +260,24 @@
                   }
                 },
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "\u0022adds one mana of any type that land produced\u0022: ManaProduction cannot say it. LandCouldProduce is the types a land could produce, not the types this tapping actually produced -- for a dual land tapped for {W} the two sets differ -- and it carries no player or ObjectFilter, so it cannot point at the triggering land either. AnyType is unrestricted, OneOf and Fixed take printed mana, and no key field reads the mana an event produced. Needs a production that names a land and the type it produced.",
-                  "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "chosenColorKey": "k2",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -327,9 +338,24 @@
                   }
                 },
                 "do": {
-                  "kind": "Unsupported",
-                  "reason": "\u0022adds one mana of any type that land produced\u0022: ManaProduction cannot say it. LandCouldProduce is the types a land could produce, not the types this tapping actually produced -- for a dual land tapped for {W} the two sets differ -- and it carries no player or ObjectFilter, so it cannot point at the triggering land either. AnyType is unrestricted, OneOf and Fixed take printed mana, and no key field reads the mana an event produced. Needs a production that names a land and the type it produced.",
-                  "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "chosenColorKey": "k2",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
                 },
                 "optional": false,
                 "where": "Battlefield",
@@ -419,8 +445,9 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": false,
+                    "chosenColorKey": "k2",
                     "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
+                    "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
                   },
@@ -499,8 +526,9 @@
                     "anyColor": false,
                     "commanderIdentity": false,
                     "chosenColor": false,
+                    "chosenColorKey": "k2",
                     "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": true,
+                    "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
                   },

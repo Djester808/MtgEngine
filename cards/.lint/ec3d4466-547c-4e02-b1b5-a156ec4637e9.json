@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: \u0022Add one mana of any of the exiled card\u0027s colors\u0022: ManaProduction has no option for the colours of an object an earlier ability remembered (the imprinted card). AnyColor is unrestricted, OneOf takes printed colours, ChosenColorKey reads a ChooseValue(Color) choice, and ColorOfAttachedOrTarget names an attached or targeted object, which the exiled card is neither.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

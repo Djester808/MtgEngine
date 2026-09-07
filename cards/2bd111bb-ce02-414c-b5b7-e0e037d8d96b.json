@@ -59,11 +59,9 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "SpellsCostLifeInsteadOfMana",
-              "who": {
-                "kind": "You"
-              },
-              "colors": []
+              "kind": "UnsupportedContinuous",
+              "reason": "No record replaces a spell\u0027s mana cost with a life payment tied to how it was cast: MayPlayFromZone waives a cost but cannot substitute one, and SpellsCostLifeInsteadOfMana names colours rather than the whole cost (CR 601.2f, CR 118.9).",
+              "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
             },
             "players": {
               "kind": "You"
@@ -147,11 +145,9 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "SpellsCostLifeInsteadOfMana",
-              "who": {
-                "kind": "You"
-              },
-              "colors": []
+              "kind": "UnsupportedContinuous",
+              "reason": "No record replaces a spell\u0027s mana cost with a life payment tied to how it was cast: MayPlayFromZone waives a cost but cannot substitute one, and SpellsCostLifeInsteadOfMana names colours rather than the whole cost (CR 601.2f, CR 118.9).",
+              "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
             },
             "players": {
               "kind": "You"
@@ -268,11 +264,9 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "SpellsCostLifeInsteadOfMana",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "colors": []
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record replaces a spell\u0027s mana cost with a life payment tied to how it was cast: MayPlayFromZone waives a cost but cannot substitute one, and SpellsCostLifeInsteadOfMana names colours rather than the whole cost (CR 601.2f, CR 118.9).",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
                 },
                 "players": {
                   "kind": "You"
@@ -356,11 +350,9 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "SpellsCostLifeInsteadOfMana",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "colors": []
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record replaces a spell\u0027s mana cost with a life payment tied to how it was cast: MayPlayFromZone waives a cost but cannot substitute one, and SpellsCostLifeInsteadOfMana names colours rather than the whole cost (CR 601.2f, CR 118.9).",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
                 },
                 "players": {
                   "kind": "You"
@@ -453,6 +445,17 @@
                 "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
               },
               {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "SpellsCostLifeInsteadOfMana(who, colors) has no way to scope the substitution to spells cast under this specific permission: it names a player and a set of colors, not a source of the permission to cast. Applying it unscoped would let every spell that player casts from any zone be paid for with life instead of mana, which is not what this card does \u2014 the life payment applies only to spells cast from the top of the library via this ability.",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
                 "kind": "ActivatedAbility",
                 "costs": [
                   {
@@ -506,6 +509,17 @@
                   "from": "Library",
                   "topOfLibraryOnly": true,
                   "withoutPayingManaCost": false
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "SpellsCostLifeInsteadOfMana(who, colors) has no way to scope the substitution to spells cast under this specific permission: it names a player and a set of colors, not a source of the permission to cast. Applying it unscoped would let every spell that player casts from any zone be paid for with life instead of mana, which is not what this card does \u2014 the life payment applies only to spells cast from the top of the library via this ability.",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,

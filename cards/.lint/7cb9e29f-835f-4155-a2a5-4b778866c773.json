@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No selector names the card hideaway exiled with this permanent (CR 702.75a): the exile happens inside the Hideaway keyword ability, which has no RememberAs, and neither ObjectFilter nor Predicate can say \u0027exiled with this permanent\u0027, so \u0027the exiled card\u0027 cannot be pointed at.",
-      "path": "faces[0].abilities[3]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

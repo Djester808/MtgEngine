@@ -65,7 +65,7 @@ try
                 var outDir = args.Length > 1 ? args[1] : Path.Combine(root, ".agents", "pilot");
                 var repair = !args.Contains("--no-repair", StringComparer.Ordinal);
                 var collectEnv = args.Contains("--local", StringComparer.Ordinal) ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair);
-                return await Pilot.CollectAsync(collectEnv, outDir, cts.Token);
+                return await Pilot.CollectAsync(collectEnv, outDir, cts.Token, again: args.Contains("--again", StringComparer.Ordinal));
             }
 
         // The re-translation round (seam-requests/P14.md): the cards that disagreed or carry an
@@ -144,7 +144,7 @@ try
                 "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
                 + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
                 + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] | status [cardsDir] | answers-check <batchDir>"
-            + " (--local on retranslate-submit and pilot-collect: answers from files under <outDir>/local, never the API)");
+            + " (--local on retranslate-submit and pilot-collect: answers from files under <outDir>/local, never the API; --again on pilot-collect: read every answer file again after translators replaced them)");
             return 64;
     }
 }
