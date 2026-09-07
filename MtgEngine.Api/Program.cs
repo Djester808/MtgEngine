@@ -127,13 +127,13 @@ builder.Services.AddSingleton<DeckGate>();
 // captures a context that has been disposed under it.
 builder.Services.AddSingleton<IGameLogStore, GameLogStore>();
 
-// Singleton: it holds the live tables. Wave1() is the engine as it stands; the seams that are
-// still stubs (views, legal actions, triggers) report themselves rather than failing a command.
+// Singleton: it holds the live tables. Wave2() is the engine as it stands, composed per table
+// with the oracle ids that table enforces, so a view can say which cards the engine plays.
 builder.Services.AddSingleton(sp => new GameSessionService(
     sp.GetRequiredService<IGameLogStore>(),
     sp.GetRequiredService<ICardFilePool>(),
     sp.GetRequiredService<DeckGate>(),
-    MtgEngine.Rules.Engine.Subsystems.Wave1));
+    enforced => MtgEngine.Rules.Engine.Subsystems.Wave2(enforced.Contains)));
 
 builder.Services.AddScoped<GameReportService>();
 

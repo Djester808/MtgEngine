@@ -2,11 +2,11 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Text.Json;
 using MtgEngine.Cards;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
-using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
 
@@ -46,14 +46,18 @@ public sealed class GameSessionService
     private readonly IGameLogStore _store;
     private readonly ICardFilePool _pool;
     private readonly DeckGate _gate;
-    private readonly Func<Subsystems> _subsystems;
+    private readonly Func<ImmutableHashSet<string>, Subsystems> _subsystems;
 
-    public GameSessionService(IGameLogStore store, ICardFilePool pool, DeckGate gate, Func<Subsystems>? subsystems = null)
+    /// <param name="subsystems">
+    /// The engine for a table, given the oracle ids the table enforces: the view says per card
+    /// whether the engine plays it or the table does by hand, and only the admission knows.
+    /// </param>
+    public GameSessionService(IGameLogStore store, ICardFilePool pool, DeckGate gate, Func<ImmutableHashSet<string>, Subsystems>? subsystems = null)
     {
         _store = store;
         _pool = pool;
         _gate = gate;
-        _subsystems = subsystems ?? Subsystems.Wave1;
+        _subsystems = subsystems ?? (enforced => Subsystems.Wave2(enforced.Contains));
     }
 
     /// <summary>
@@ -81,14 +85,15 @@ public sealed class GameSessionService
             request.StartingLife,
             request.Format);
 
-        var engine = new Game(_subsystems(), _pool);
+        var enforcedIds = enforced.ToImmutable();
+        var engine = new Game(_subsystems(enforcedIds), _pool);
         var created = engine.Create(setup);
 
         var id = Guid.NewGuid();
         var session = new GameSession(
             id, engine, created.State, created.Events,
             [.. request.Seats.Select(s => s.UserId)],
-            enforced.ToImmutable(),
+            enforcedIds,
             request.AllowHonourSystem);
 
         await _store.CreateAsync(
@@ -121,9 +126,10 @@ public sealed class GameSessionService
         var log = EventLogSerializer.Read(stored.LogJson).ToImmutableList();
         var state = GameReducer.Replay(log);
         var seats = (JsonSerializer.Deserialize<string[]>(stored.SeatsJson) ?? []).ToImmutableList();
+        var enforcedIds = EnforcedIn(log);
         var session = new GameSession(
-            id, new Game(_subsystems(), _pool), state, log, seats,
-            EnforcedIn(log), stored.AllowHonourSystem);
+            id, new Game(_subsystems(enforcedIds), _pool), state, log, seats,
+            enforcedIds, stored.AllowHonourSystem);
 
         return _live.GetOrAdd(id, session);
     }
