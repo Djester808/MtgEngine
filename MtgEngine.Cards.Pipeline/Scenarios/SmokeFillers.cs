@@ -85,6 +85,21 @@ internal static class SmokeFillers
     }
 
     /// <summary>
+    /// CR 701.15a: a card a revealed set can hold that the choice among them will <em>not</em> take,
+    /// so "the rest" has something in it — the first filler the filter does not describe, or null
+    /// when it describes every one. Read the way <see cref="Findable"/> reads, so the two cannot
+    /// disagree about what a filter admits.
+    /// </summary>
+    [RuleRef("701.15a")]
+    internal static string? Unfindable(ObjectFilter filter, int? x = null)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        if (!Plain(filter) || filter.In is not (null or Zone.Library))
+            return null;
+        return Cards().FirstOrDefault(name => !(Matches(filter, name) && CostsRight(filter.ManaValue, name, x)));
+    }
+
+    /// <summary>
     /// CR 202.3: whether this filler's printed mana value satisfies the filter's comparison. No
     /// comparison is satisfied by anything; a comparison against an amount the scenario cannot put
     /// a number to is satisfied by nothing, because guessing the bound would be inventing the card.

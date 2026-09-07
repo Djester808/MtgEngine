@@ -41,15 +41,65 @@ internal sealed class SmokeBoard(string card)
     private int _opponentLibrary;
     private int _opponentGraveyard;
     private bool _opponentActs;
+    private int _casterLife;
+    private int _opponentLife;
+
+    /// <summary>Objects an earlier step remembered under a key, as the alias the setup gave each and the filler it is (CR 608.2h).</summary>
+    private readonly Dictionary<string, List<(string Alias, string Card)>> _remembered = new(StringComparer.Ordinal);
+
+    /// <summary>A reveal of the top of the library that has yet to be stocked: the key it remembers under, and how many cards.</summary>
+    private readonly Dictionary<string, int> _reveals = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Nothing was asserted, so there is no scenario: a check that always passes is worse than
     /// none. A zone that changed counts, even though its expectation is only written at the end.
     /// </summary>
-    internal bool Empty => _expect.Count == 0 && !Moved;
+    internal bool Empty => _expect.Count == 0 && !Moved && SpellEndsIn == Zone.Graveyard;
 
     private bool Moved =>
-        (_casterArrivals | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard) != 0;
+        (_casterArrivals | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard | _casterLife | _opponentLife) != 0;
+
+    /// <summary>The card under test, so a generator can name it in an expectation of its own.</summary>
+    internal string Card => card;
+
+    /// <summary>
+    /// CR 608.2m: where the spell itself ends up once it has resolved — its owner's graveyard,
+    /// unless the card says otherwise ("exile this card", "shuffle this card into its owner's
+    /// library"), in which case the last thing the scenario asserts is that other zone.
+    /// </summary>
+    [RuleRef("608.2m")]
+    internal Zone SpellEndsIn { get; set; } = Zone.Graveyard;
+
+    /// <summary>
+    /// CR 119.3 and CR 119.4: life gained and lost adds up, so a card that does both to one player
+    /// asserts the total rather than two totals that cannot both hold.
+    /// </summary>
+    [RuleRef("119.4")]
+    internal void Lives(bool mine, int delta)
+    {
+        if (mine)
+            _casterLife += delta;
+        else
+            _opponentLife += delta;
+    }
+
+    /// <summary>CR 608.2h: an object a step remembered under a key, so a later step can read it back.</summary>
+    [RuleRef("608.2h")]
+    internal void Remember(string key, string alias, string card)
+    {
+        if (!_remembered.TryGetValue(key, out var list))
+            _remembered[key] = list = [];
+        list.Add((alias, card));
+    }
+
+    internal IReadOnlyList<(string Alias, string Card)> Recalled(string key) =>
+        _remembered.TryGetValue(key, out var list) ? list : [];
+
+    /// <summary>A reveal of the top cards remembered under a key, waiting for the step that says what they must be.</summary>
+    internal void Reveals(string key, int n) => _reveals[key] = n;
+
+    /// <summary>How many cards a pending reveal is for, taken once: the step that stocks them settles it.</summary>
+    internal int? Revealed(string key) => _reveals.Remove(key, out var n) ? n : null;
 
     /// <summary>How many targets the steps supply. More than <see cref="TargetLimit"/> is a smoke scenario's limit.</summary>
     internal int Targets => _targets.Count;
@@ -284,9 +334,13 @@ internal sealed class SmokeBoard(string card)
     {
         if (spellGoesToTheGraveyard)
         {
-            // CR 608.2m: the spell itself is the last thing to move, into its owner's graveyard.
-            _expect.Add(new InZone(card, Zone.Graveyard));
-            _casterGraveyard++;
+            // CR 608.2m: the spell itself is the last thing to move, into its owner's graveyard —
+            // or wherever its own text sent it instead, which the zone counts follow.
+            _expect.Add(new InZone(card, SpellEndsIn));
+            if (SpellEndsIn == Zone.Graveyard)
+                _casterGraveyard++;
+            else if (SpellEndsIn == Zone.Library)
+                _casterLibrary++;
         }
 
         Counts();
@@ -399,6 +453,12 @@ internal sealed class SmokeBoard(string card)
             _expect.Add(new ZoneCount(SmokeScenario.Opponent, Zone.Library, LibrarySize + _opponentLibrary));
         if (_opponentGraveyard != 0)
             _expect.Add(new ZoneCount(SmokeScenario.Opponent, Zone.Graveyard, _opponentGraveyard));
+
+        // CR 119.1: each player starts at twenty, and what the card did to that is one number.
+        if (_casterLife != 0)
+            _expect.Add(new Life(SmokeScenario.Caster, 20 + _casterLife));
+        if (_opponentLife != 0)
+            _expect.Add(new Life(SmokeScenario.Opponent, 20 + _opponentLife));
     }
 
     private static List<CardRef> Filler(int n) =>
