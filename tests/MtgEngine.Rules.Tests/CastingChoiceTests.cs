@@ -171,20 +171,24 @@ public sealed class CastingChoiceTests
     }
 
     [Fact]
-    public void Mana_produced_with_a_spend_restriction_is_ordinary_mana_until_the_pool_can_hold_it()
+    public void Mana_produced_with_a_spend_restriction_is_a_block_now_that_the_pool_can_hold_it()
     {
-        // KNOWN GAP, CR 106.6a. AddMana.SpendOnlyOn is not read, because ManaPool has nowhere to
-        // keep the restriction (seam-requests/E3d.md asks for the field). The mana arrives
-        // unrestricted and every cost may spend it — the one thing in this area that refuses
-        // nothing. This test says so out loud so the gap is not mistaken for a rule.
+        // CR 106.6a. This was the wave-6 gap: AddMana.SpendOnlyOn had nowhere to live, so the
+        // mana arrived unrestricted and every cost could spend it. ManaPool.Restricted landed in
+        // the seams after wave 6 and the production reads the filter now, so the pool holds a
+        // block and only what the filter matches is offered a payment (RestrictedManaTests).
         var table = new CastingTable();
         var engine = table.Add(CastingChoiceCards.RestrictedProducer(), CastingTable.A, CardZone.Battlefield, summoningSick: false);
 
         var activated = casting.Activate(table.State, new ActivateAbility(CastingTable.A, engine, 0));
 
         var pool = activated.State.Player(CastingTable.A).Mana;
-        Assert.Equal(new ManaPool(0, 0, 0, 0, 1, 0), pool);
-        Assert.Equal(pool, RestrictedPool.Pools.Spendable(activated.State, pool, query, engine, Context(engine, CastingTable.A)));
+        Assert.Equal(0, pool.Green);
+        Assert.Equal(new RestrictedBlock(Color.Green, 1, new ObjectFilter(Types: CardType.Creature)), Assert.Single(pool.Restricted));
+
+        // CR 106.6a: the engine that made it is not a creature spell, so its own cost is not
+        // something this mana may pay, and the pool offers the payment nothing.
+        Assert.Equal(0, RestrictedPool.Pools.Spendable(activated.State, pool, query, engine, Context(engine, CastingTable.A)).Green);
     }
 
     private static EffectContext Context(ObjectId source, PlayerId controller) => new(

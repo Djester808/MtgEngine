@@ -196,9 +196,28 @@ public static class ManaSymbols
     public static ManaPool OfColor(Color color)
     {
         var made = new int[6];
-        var slot = SingleColor(color);
-        made[slot ?? Colorless]++;
+        made[Slot(color)]++;
         return new ManaPool(made[0], made[1], made[2], made[3], made[4], made[Colorless]);
+    }
+
+    /// <summary>The pool slot a colour of mana sits in, CR 106.1: WUBRG in order, then colorless.</summary>
+    [RuleRef("106.1")]
+    public static int Slot(Color color) => SingleColor(color) ?? Colorless;
+
+    /// <summary>
+    /// A pool read as colour and amount, CR 106.1b: there is no generic mana in a pool, so what
+    /// is not one of the five colours is <see cref="Color.Colorless"/>.
+    /// </summary>
+    [RuleRef("106.1b")]
+    public static IEnumerable<(Color Color, int Amount)> Amounts(ManaPool pool)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        yield return (Color.White, pool.White);
+        yield return (Color.Blue, pool.Blue);
+        yield return (Color.Black, pool.Black);
+        yield return (Color.Red, pool.Red);
+        yield return (Color.Green, pool.Green);
+        yield return (Color.Colorless, pool.Colorless);
     }
 
     /// <summary>Read a colour from a cost choice: "W", "white", "{G}".</summary>
