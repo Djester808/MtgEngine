@@ -75,8 +75,16 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         return true;
     }
 
+    /// <summary>
+    /// CR 205.3: does this object have that subtype? An object that is every creature type
+    /// (CR 205.3d, what changeling grants under CR 702.72a) has every creature type of CR 205.3m
+    /// without any of them being in its list — and still has no subtype that is not a creature
+    /// type, so an Equipment or a Saga is not one of them.
+    /// </summary>
+    [RuleRef("205.3d")]
     private static bool HasSubtype(Characteristics c, string subtype) =>
-        c.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase));
+        c.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase))
+        || (c.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
 
     /// <summary>Historic: legendary or an artifact (CR 205.4a, 205.2a) or a Saga (CR 205.3, CR 714).</summary>
     private static bool IsHistoric(Characteristics c) =>
