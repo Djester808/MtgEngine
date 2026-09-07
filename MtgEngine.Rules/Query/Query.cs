@@ -27,14 +27,21 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         if (!state.Objects.TryGetValue(candidate, out var obj) || obj.Zone.Zone != ZoneOf(filter))
             return false;
 
-        var c = _layers.Of(state, candidate);
-        return TypesMatch(filter, c)
-            && ColorsMatch(filter, c)
-            && StatsMatch(state, filter, c, obj, context)
-            && StatusMatch(state, filter, c, obj, context)
-            && ControlMatch(state, filter, c, obj, context)
+        return MatchesAs(state, filter, obj, _layers.Of(state, candidate), context)
             && (filter.Also is null || Holds(state, filter.Also, candidate, context));
     }
+
+    /// <summary>
+    /// The half of a filter that is answered from the object and its characteristics alone. It is
+    /// separate because a look-back reads an object the state no longer holds (CR 603.10, CR 111.1)
+    /// against the characteristics it had, and that object has no id to hand the layers.
+    /// </summary>
+    private bool MatchesAs(GameState state, ObjectFilter filter, GameObject obj, Characteristics c, EffectContext context) =>
+        TypesMatch(filter, c)
+        && ColorsMatch(filter, c)
+        && StatsMatch(state, filter, c, obj, context)
+        && StatusMatch(state, filter, c, obj, context)
+        && ControlMatch(state, filter, c, obj, context);
 
     /// <summary>Every object that could match, in a deterministic order. The zone is checked first so a filter never asks the layers about an object in the wrong zone.</summary>
     private IEnumerable<ObjectId> Candidates(GameState state, ObjectFilter filter, EffectContext context)
@@ -68,6 +75,12 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false;
         if (f.NotSubtypes is { Count: > 0 } nosubs && nosubs.Any(s => HasSubtype(c, s)))
             return false;
+        // CR 205.3i: "a land with a basic land type" is any of the five, whatever else it has, and
+        // is a different question from the Basic supertype (CR 205.4a) — a dual land has a basic
+        // land type and is not basic. The subtypes are read after layer 4, so a land that has been
+        // given a type answers yes, and one whose types were removed answers no.
+        if (f.HasBasicLandType is { } basicLand && basicLand != HasAnyBasicLandType(c))
+            return false;
         if (f.Historic is { } historic && historic != IsHistoric(c))
             return false;
         if (f.Outlaw is { } outlaw && outlaw != IsOutlaw(c))
@@ -85,6 +98,15 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
     private static bool HasSubtype(Characteristics c, string subtype) =>
         c.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase))
         || (c.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
+
+    /// <summary>
+    /// CR 205.3i: does this object have any of the five basic land types? An object that is every
+    /// creature type (CR 205.3d) has none of them, because they are land types and not creature
+    /// types, which <see cref="HasSubtype"/> already gets right.
+    /// </summary>
+    [RuleRef("205.3i")]
+    private static bool HasAnyBasicLandType(Characteristics c) =>
+        LandTypes.Basic.Any(basic => HasSubtype(c, basic));
 
     /// <summary>Historic: legendary or an artifact (CR 205.4a, 205.2a) or a Saga (CR 205.3, CR 714).</summary>
     private static bool IsHistoric(Characteristics c) =>

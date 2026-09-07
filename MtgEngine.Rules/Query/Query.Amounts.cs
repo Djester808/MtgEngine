@@ -135,11 +135,10 @@ public sealed partial class Query
     /// <summary>Domain: the basic land types among lands the player controls, CR 205.3i.</summary>
     private int BasicLandTypes(GameState state, PlayerRef who, EffectContext ctx)
     {
-        string[] basics = ["Plains", "Island", "Swamp", "Mountain", "Forest"];
         var lands = Candidates(state, new ObjectFilter(Types: CardType.Land, ControlledBy: who), ctx)
             .Select(id => _layers.Of(state, id))
             .ToList();
-        return basics.Count(basic => lands.Any(land => HasSubtype(land, basic)));
+        return LandTypes.Basic.Count(basic => lands.Any(land => HasSubtype(land, basic)));
     }
 
     /// <summary>

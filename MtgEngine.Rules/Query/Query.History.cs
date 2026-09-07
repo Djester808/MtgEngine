@@ -35,6 +35,48 @@ public sealed partial class Query
         return players.Count != 0 && state.History.LeftBattlefield.Any(o => players.Contains(o.InitialController));
     }
 
+    /// <summary>
+    /// "if you created a token this turn", CR 111.1. The turn keeps every token as it was created,
+    /// under the player who created it, so the answer survives the token: one sacrificed, exiled or
+    /// gone to the "cease to exist" state-based action of CR 111.7 still counts, exactly as
+    /// <see cref="Left"/> counts a permanent that has left. A filter is therefore read against the
+    /// token's own characteristics at creation and never against the state, which no longer has it.
+    /// </summary>
+    [RuleRef("111.1")]
+    private bool CreatedToken(GameState state, CreatedTokenThisTurn condition, EffectContext ctx)
+    {
+        var creators = Players(state, condition.Who, ctx);
+        if (creators.Count == 0)
+            return false;
+
+        foreach (var creator in creators)
+        {
+            if (!state.History.TokensCreated.TryGetValue(creator, out var made))
+                continue;
+            if (condition.What is not { } what)
+                return made.Count > 0;
+            if (made.Any(token => WasAsCreated(state, what, token, ctx)))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Does an object the state no longer holds match a description? Its characteristics are the
+    /// printed ones (CR 613.1), because the layers of CR 613 are computed from what exists now;
+    /// its zone is the one it was created in. A filter whose extra predicate asks about the object
+    /// in play (<see cref="ObjectFilter.Also"/>) has no answer here rather than a guessed one.
+    /// </summary>
+    [RuleRef("603.10")]
+    private bool WasAsCreated(GameState state, ObjectFilter filter, GameObject snapshot, EffectContext ctx)
+    {
+        if (filter.Also is not null)
+            throw Unanswerable(nameof(CreatedTokenThisTurn), "a look-back filter cannot ask a predicate of an object the state no longer holds", "111.1");
+        return snapshot.Zone.Zone == ZoneOf(filter)
+            && MatchesAs(state, filter, snapshot, MtgEngine.Rules.Layers.LayerSystem.PrintedCharacteristics(snapshot), ctx);
+    }
+
     /// <summary>A creature by its last face, CR 603.10; face down it was a 2/2 creature, CR 708.2.</summary>
     [RuleRef("708.2")]
     private static bool WasCreature(GameObject departed) =>
