@@ -4,6 +4,7 @@ using MtgEngine.Rules.Casting;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Faces;
+using MtgEngine.Rules.Query;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Interpreter;
@@ -49,25 +50,40 @@ public sealed partial class EffectInterpreter
             case Cards.VillainousChoice villainous:
                 return Villainous(run, villainous);
 
-            // CR 115.7: changing a target rewrites a stack entry, and no event carries one yet.
-            case ChangeTarget:
-                throw new RefusedException(
-                    $"{nameof(ChangeTarget)} needs an event that rewrites a stack entry's targets; asked for in seam-requests/E9d.md",
-                    "115.7");
+            // CR 115.7: a spell on the stack is made to point somewhere else.
+            case ChangeTarget change:
+                return Retargeted(run, change);
 
-            // CR 702.180: the designation lives on GameObject.Designations and no event sets it.
-            case Cards.Prepare:
-            case Cards.Unprepare:
-                throw new RefusedException(
-                    $"{nameof(Cards.Prepare)}/{nameof(Cards.Unprepare)} need an event that sets a designation; asked for in seam-requests/E9d.md",
-                    "702.180");
+            // CR 702.180: prepared is a designation, put on and taken off by these two.
+            case Cards.Prepare prepare:
+                return Designated(run, Objects(run, prepare.What), Designations.Prepared, true);
 
-            // CR 601: casting from inside a resolution is the casting system's, through a seam
-            // the interpreter does not hold.
-            case MayCast:
-                throw new RefusedException(
-                    $"{nameof(MayCast)} needs ICastingSystem on the interpreter's seam; asked for in seam-requests/E9d.md",
-                    "601");
+            case Cards.Unprepare unprepare:
+                return Designated(run, Objects(run, unprepare.What), Designations.Prepared, false);
+
+            // CR 701.60a: a suspected creature has menace and can't block, which the query reads.
+            case Cards.Suspect suspect:
+                return Designated(run, Objects(run, suspect.What), Designations.Suspected, true);
+
+            // CR 701.64a: harnessed, which the query reads the same way.
+            case Cards.Harness harness:
+                return Designated(run, Objects(run, harness.What), Designations.Harnessed, true);
+
+            // CR 701.15a: goaded by a named player, so the designation carries that seat.
+            case Cards.Goad goad:
+                return Goaded(run, goad);
+
+            // CR 701.37a: counters and the monstrous designation, once.
+            case Cards.Monstrosity monstrosity:
+                return Monstrous(run, monstrosity);
+
+            // CR 701.54: the tempted player chooses their Ring-bearer.
+            case Cards.RingTemptsYou ring:
+                return Tempted(run, ring);
+
+            // CR 601: casting from inside a resolution, through the casting system.
+            case MayCast may:
+                return MayCastCard(run, may);
 
             default:
                 return null;

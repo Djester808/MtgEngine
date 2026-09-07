@@ -160,7 +160,7 @@ public sealed partial class EffectInterpreter(
             var id = entry.Targets[i];
             if (!state.Objects.ContainsKey(id))
                 continue;
-            var filter = filters.Count == 0 ? null : filters[Math.Min(i, filters.Count - 1)].Filter;
+            var filter = FilterAt(filters, i);
             if (filter is null || query.Matches(state, filter, id, context))
                 legal.Add(id);
         }

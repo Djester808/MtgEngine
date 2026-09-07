@@ -27,7 +27,12 @@ public sealed partial class EffectInterpreter
 
                     var deathtouch = Has(run.State, source, KeywordKind.Deathtouch);
                     var commander = run.State.Objects.TryGetValue(source, out var from) && from.IsCommander;
-                    foreach (var id in Objects(run, damage.To))
+
+                    // CR 115.4: "any target" was one choice made as the spell was put on the
+                    // stack, and the entry holds it as an object or as a player. So the damage
+                    // goes to whichever half is there, and never to both.
+                    var any = damage.To is AnyTarget;
+                    foreach (var id in any ? run.Context.Targets : Objects(run, damage.To))
                     {
                         if (!run.State.Objects.ContainsKey(id))
                             continue;
@@ -39,7 +44,7 @@ public sealed partial class EffectInterpreter
                             return run;
                     }
 
-                    foreach (var player in Players(run, damage.ToPlayer))
+                    foreach (var player in any ? run.Context.TargetPlayers : Players(run, damage.ToPlayer))
                     {
                         run = Propose(run, new DamageDealt(source, null, player, amount, Combat: false, commander, deathtouch), player);
                         if (run.Halted)
