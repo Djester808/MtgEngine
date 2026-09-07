@@ -204,8 +204,17 @@ public sealed record CopySpell(Selector What, Amount? N = null, bool MayChooseNe
 [RuleRef("601")]
 public sealed record MayCast(Selector What, bool WithoutPayingManaCost = false, Duration? Until = null, PlayerRef? Who = null, bool AsCopy = false, Cost? AlternativeCost = null) : Effect;
 
-/// <summary>"You may play that card this turn" (lands included).</summary>
-public sealed record MayPlay(Selector What, Duration? Until = null, PlayerRef? Who = null) : Effect;
+/// <summary>
+/// "You may play that card this turn" (lands included). With <paramref name="WithoutPayingManaCost"/>,
+/// "you may play the exiled card without paying its mana cost" — hideaway's play, CR 702.75a. A
+/// card played this way is played as its type says (CR 305.1 for a land, CR 601 for a spell): a
+/// spell is cast without paying its mana cost (CR 118.9), and a land played this way is still the
+/// turn's land play and needs a land play left (CR 305.2), because the permission is to play, not
+/// an extra play. This is the one spelling of a play permission that waives the cost: MayCast
+/// carries the same waiver and cannot play a land, so hideaway's play is never MayCast.
+/// </summary>
+[RuleRef("702.75a")]
+public sealed record MayPlay(Selector What, Duration? Until = null, PlayerRef? Who = null, bool WithoutPayingManaCost = false) : Effect;
 
 [RuleRef("701.3")]
 public sealed record Attach(Selector What, Selector To) : Effect;

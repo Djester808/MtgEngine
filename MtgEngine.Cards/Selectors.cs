@@ -55,8 +55,18 @@ public sealed record AnyTarget(Amount? Count = null, bool UpTo = false, string? 
 /// <summary>"each creature", "all artifacts": every object matching the filter, no targeting.</summary>
 public sealed record Each(ObjectFilter Filter) : Selector;
 
-/// <summary>A non-targeted choice: "choose a creature you control". The chooser picks when the effect resolves.</summary>
-public sealed record Choose(ObjectFilter Filter, PlayerRef Chooser, Amount? Count = null, bool UpTo = false, string? Key = null) : Selector;
+/// <summary>
+/// A non-targeted choice: "choose a creature you control". The chooser picks when the effect
+/// resolves. <paramref name="Among"/> is "from among them": the candidates are the objects that
+/// selector names — a Remembered key from an earlier reveal, look or exile — wherever they are,
+/// and <paramref name="Filter"/> only narrows them ("permanent cards with mana value X or less from
+/// among them"). With Among set the filter's In is not read, because the candidates' zone is their
+/// own; writing one beside it is L022. This is the one spelling of a choice among remembered
+/// objects: never an IsRemembered predicate in the filter, whose zone would default to the
+/// battlefield and match none of the revealed cards. "Any number" is UpTo with no Count.
+/// </summary>
+[RuleRef("700.2")]
+public sealed record Choose(ObjectFilter Filter, PlayerRef Chooser, Amount? Count = null, bool UpTo = false, string? Key = null, Selector? Among = null) : Selector;
 
 /// <summary>The object this Aura, Equipment or Fortification is attached to: "enchanted creature", "equipped creature".</summary>
 [RuleRef("301.5")]
@@ -185,6 +195,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(AttachedTo), nameof(AttachedTo))]
 [JsonDerivedType(typeof(IsAttached), nameof(IsAttached))]
 [JsonDerivedType(typeof(IsRemembered), nameof(IsRemembered))]
+[JsonDerivedType(typeof(IsOneOf), nameof(IsOneOf))]
 [JsonDerivedType(typeof(EnteredThisTurn), nameof(EnteredThisTurn))]
 [JsonDerivedType(typeof(CastThisTurn), nameof(CastThisTurn))]
 [JsonDerivedType(typeof(DealtDamageThisTurn), nameof(DealtDamageThisTurn))]
@@ -264,6 +275,22 @@ public sealed record AttachedTo(Selector To) : Predicate;
 /// </summary>
 [RuleRef("603.10")]
 public sealed record IsRemembered(string Key) : Predicate;
+
+/// <summary>
+/// The candidate is one of the objects <paramref name="Of"/> names: a selector said inside a
+/// filter. "Whenever equipped creature dies" is Dies with a filter of <c>Also: IsOneOf(Attached)</c>
+/// (CR 301.5c names the equipped creature from the Equipment's side), and "whenever that creature
+/// attacks" inside a delayed trigger is IsOneOf(Triggering). It is the general form of IsRemembered,
+/// which is IsOneOf(Remembered(key)) and stays the spelling for a remembered key; use this for the
+/// selectors that have no predicate of their own — Attached, Triggering, Commander, Top.
+/// <para>
+/// It is not AttachedTo(Self), which runs the other way: that predicate admits the Auras and
+/// Equipment hanging on this permanent, never the creature this permanent hangs on, so a trigger
+/// written with it fires for the wrong objects.
+/// </para>
+/// </summary>
+[RuleRef("301.5c")]
+public sealed record IsOneOf(Selector Of) : Predicate;
 
 /// <summary>Attached to anything at all, or unattached when false.</summary>
 public sealed record IsAttached(bool Value = true) : Predicate;

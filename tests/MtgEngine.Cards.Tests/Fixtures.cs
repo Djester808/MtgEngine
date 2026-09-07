@@ -18,7 +18,9 @@ internal static class Fixtures
                 Abilities:
                 [
                     new StaticAbility(new ModifyPt(new Fixed(1), new Fixed(-1)), To: new Attached()) { Text = "Equipped creature gets +1/-1." },
-                    new TriggeredAbility(new Dies(new ObjectFilter(Also: new AttachedTo(new Self()))), new Draw(new Fixed(2))) { Text = "Whenever equipped creature dies, draw two cards." },
+                    // CR 301.5c: "equipped creature" is the creature this Equipment is attached to, said in a
+                    // filter as IsOneOf(Attached). AttachedTo(Self) would name the Auras on this Equipment.
+                    new TriggeredAbility(new Dies(new ObjectFilter(Also: new IsOneOf(new Attached()))), new Draw(new Fixed(2))) { Text = "Whenever equipped creature dies, draw two cards." },
                     new KeywordAbility(KeywordKind.Equip, Cost: "{1}") { Text = "Equip {1}" },
                 ],
                 OracleText: "Equipped creature gets +1/-1.\nWhenever equipped creature dies, draw two cards.\nEquip {1}")

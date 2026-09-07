@@ -301,8 +301,23 @@ public sealed record DealsDamageAsToughness : ContinuousEffect;
 
 public sealed record AssignDamageAsThoughUnblocked : ContinuousEffect;
 
-/// <summary>"You may play lands from your graveyard", "you may cast spells from the top of your library". With WithoutPayingManaCost, "you may cast it this turn without paying its mana cost" (CR 118.9): the permission also waives the mana cost of the cast it allows.</summary>
-public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false) : ContinuousEffect;
+/// <summary>
+/// "You may play lands from your graveyard", "you may cast spells from the top of your library".
+/// With WithoutPayingManaCost, "you may cast it this turn without paying its mana cost" (CR 118.9):
+/// the permission also waives the mana cost of the cast it allows.
+/// <para>
+/// With <paramref name="PayLifeEqualToManaValueInstead"/>, "if you cast a spell this way, pay life
+/// equal to its mana value rather than pay its mana cost": an alternative cost (CR 118.9) that the
+/// permission itself carries, paid at CR 601.2f in place of the mana cost, and only by a cast this
+/// permission allowed — a spell the player casts from hand pays as printed. The two sentences are
+/// one record, and this flag is their one spelling: never a second StaticAbility for the second
+/// sentence, and never SpellsCostLifeInsteadOfMana, which is every spell of a colour from any zone.
+/// A land played this way pays nothing either way. The two flags are two different alternative
+/// costs and a card prints one, so both set is a contradiction the linter refuses (L021).
+/// </para>
+/// </summary>
+[RuleRef("118.9")]
+public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false, bool PayLifeEqualToManaValueInstead = false) : ContinuousEffect;
 
 public sealed record MayLookAtTopCard(PlayerRef Who, bool AnyTime = true) : ContinuousEffect;
 

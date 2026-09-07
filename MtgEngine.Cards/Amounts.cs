@@ -85,10 +85,21 @@ public sealed record Devotion(PlayerRef Who, Color Colors = Color.Colorless, str
 /// <summary>The number of basic land types among lands a player controls.</summary>
 public sealed record Domain(PlayerRef Who) : Amount;
 
-/// <summary>"the greatest power among creatures you control".</summary>
+/// <summary>
+/// "the greatest power among creatures you control". <paramref name="Of"/> is read once per object
+/// <paramref name="Among"/> admits, with that object bound as Self while it is read: "the greatest
+/// power among creatures you control" is Of: PowerOf(Self). It is not Triggering, which stays the
+/// trigger's own object throughout, and it is not the card the ability is printed on, which is
+/// out of reach inside the amount. The same binding rules TotalAmong.
+/// </summary>
 public sealed record GreatestAmong(ObjectFilter Among, Amount Of) : Amount;
 
-/// <summary>"the total power of creatures you control".</summary>
+/// <summary>
+/// "the total power of creatures you control". <paramref name="Of"/> is read once per object
+/// <paramref name="Among"/> admits, with that object bound as Self while it is read, and the
+/// readings are summed: Of: PowerOf(Self). Self here is the candidate, never the source of the
+/// ability, and never Triggering — the same binding as GreatestAmong.
+/// </summary>
 public sealed record TotalAmong(ObjectFilter Among, Amount Of) : Amount;
 
 /// <summary>A number chosen earlier in the same effect with <see cref="Choose"/>.</summary>
