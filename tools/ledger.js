@@ -204,6 +204,9 @@ if (cmd === 'register') {
     'utf8'
   );
   if (!reclaim) fs.writeFileSync(path.join(agentDir, 'calls'), '0\n', 'utf8');
+  // The claim is the first heartbeat: the guard only stamps guarded calls, and an agent that
+  // spends its first minutes reading makes none, which the sweep would otherwise read as idle.
+  fs.writeFileSync(path.join(agentDir, 'last-call'), now + '\n', 'utf8');
 
   append({
     ts: now,
