@@ -114,7 +114,8 @@
             ],
             "library": [
               {
-                "name": "Scenario Filler Land",
+                "name": "Scenario Filler Basic Land",
+                "alias": "find-1",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -278,6 +279,15 @@
       "expect": [
         {
           "kind": "InZone",
+          "card": "find-1",
+          "zone": "Hand"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ZoneReordered"
+        },
+        {
+          "kind": "InZone",
           "card": "Demonic Tutor",
           "zone": "Graveyard"
         },
@@ -307,10 +317,10 @@
   ],
   "verification": {
     "engineHash": "engine:0813f37cabbabed6",
-    "runId": "verify-20260907T131245-182247",
+    "runId": "verify-20260907T143954-ae6f55",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T13:12:45.6447306+00:00"
+    "at": "2026-09-07T14:39:54.407414+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -359,7 +369,8 @@
             ],
             "library": [
               {
-                "name": "Scenario Filler Land",
+                "name": "Scenario Filler Basic Land",
+                "alias": "find-1",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -521,6 +532,15 @@
         }
       ],
       "expect": [
+        {
+          "kind": "InZone",
+          "card": "find-1",
+          "zone": "Hand"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ZoneReordered"
+        },
         {
           "kind": "InZone",
           "card": "Demonic Tutor",
