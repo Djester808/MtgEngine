@@ -75,6 +75,11 @@ public sealed record Subsystems(
         zones.Replacements = replacement;
 
         var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
+
+        // CR 601: an effect that lets a player cast a card casts it through the casting system,
+        // which is built after the interpreter, so it is handed back through a handle.
+        interpreter.Casting = casting;
+
         var combat = new Combat.CombatSystem(layers, query);
         var turn = new Turn.TurnSystem(zones, casting, combat, layers);
         var sba = new Sba.StateBasedActions(zones, layers, query);
