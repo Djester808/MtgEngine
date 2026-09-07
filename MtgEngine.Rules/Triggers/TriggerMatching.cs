@@ -132,8 +132,13 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         if (happened is not Ev.ObjectMoved moved || (trigger.To is { } to && moved.To.Zone.Zone != to))
             return [];
         var left = state.History.LeftBattlefield.Any(o => o.Id == moved.From);
-        if (trigger.From is { } from && (from != Zone.Battlefield || !left))
-            return [];
+        if (trigger.From is { } from)
+        {
+            if (from != Zone.Battlefield)
+                throw new Engine.RefusedException("A zone change's source zone is only knowable for the battlefield today.", "603.6");
+            if (!left)
+                return [];
+        }
         if (trigger.NotFrom is { } notFrom)
         {
             if (notFrom != Zone.Battlefield)
@@ -145,7 +150,10 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         // The object that arrived is the one to describe when it is still there; when the trigger
         // looks back past the battlefield the caller restored the object that left, CR 603.10.
         var subject = left ? moved.From : moved.To.Id;
-        return _query.Matches(state, trigger.What, subject, ctx) ? [TriggerSubject.Of(subject, Controller(state, subject))] : [];
+        // CR 603.6 with 603.10: a card that arrived somewhere other than the battlefield is described
+        // where it lies, so the filter is read in that zone rather than the battlefield it defaults to.
+        var what = left || trigger.What.In is not null ? trigger.What : trigger.What with { In = moved.To.Zone.Zone };
+        return _query.Matches(state, what, subject, ctx) ? [TriggerSubject.Of(subject, Controller(state, subject))] : [];
     }
 
     [RuleRef("603.2")]

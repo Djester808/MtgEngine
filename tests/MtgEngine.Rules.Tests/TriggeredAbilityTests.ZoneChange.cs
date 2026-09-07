@@ -32,19 +32,18 @@ public sealed partial class TriggeredAbilityTests
 
     [Fact]
     [RuleRef("603.6")]
-    public void A_zone_change_naming_no_destination_fires_wherever_the_card_goes()
+    public void A_zone_change_from_a_zone_the_event_cannot_name_is_refused_not_silently_missed()
     {
         var board = new TriggeredAbilityBoard();
         var watcher = board.Put(TriggeredAbilityBoard.Definition(
             "watcher", CardType.Enchantment, [Ability(new ZoneChange(ObjectFilter.Creature, From: Zone.Graveyard))]));
         var buried = board.Put(TriggeredAbilityBoard.Creature("buried"), zone: Zone.Graveyard).Object.Id;
 
-        // "Whenever a creature card leaves your graveyard": the source zone is the graveyard, and
-        // the event says where it went; a trigger that names no destination does not care.
-        // A source zone other than the battlefield is not knowable from the event today, so the
-        // matcher refuses rather than guessing (the From half of the same ask).
-        var ex = Assert.ThrowsAny<Exception>(() => board.Collect(board.MoveTo(buried, Zone.Exile)));
-        Assert.True(ex is RefusedException || ex.InnerException is RefusedException, ex.GetType().Name);
+        // "Whenever a creature card leaves your graveyard": the trigger names no destination, and
+        // the source zone it names is not knowable from the event today (only the battlefield is,
+        // through the turn's record), so the matcher refuses with the rule rather than never firing.
+        var ex = Assert.Throws<RefusedException>(() => board.Collect(board.MoveTo(buried, Zone.Exile)));
+        Assert.Equal("603.6", ex.Rule);
     }
 
     [Fact]
