@@ -37,20 +37,21 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     {
         ArgumentNullException.ThrowIfNull(command);
         var card = InHand(state, command.Card, command.Player, "305.1");
-        var face = LandFace(state, card);
+        var face = LandFace(state, card, command.FaceIndex);
         RequireSorcerySpeed(state, command.Player, "305.1");
-
-        // CR 712.12: a modal double-faced card's land face is played, not cast — but the zone
-        // system has no way to say which face the permanent enters with, so it is refused by name
-        // rather than played as the wrong face. seam-requests/E3b.md asks for the two fields.
-        if (face != card.FaceIndex)
-            throw new RefusedException("A land face on the back of a card cannot be played yet.", "712.12");
 
         // CR 305.2a: compare lands played with lands playable; 305.2b refuses when they are equal.
         if (state.Player(command.Player).LandsPlayedThisTurn >= LandsPerTurn)
             throw new RefusedException("You have already played a land this turn.", "305.2");
 
-        var moved = zones.Move(state, card.Id, ZoneKey.Of(CardZone.Battlefield, command.Player), controller: command.Player);
+        var battlefield = ZoneKey.Of(CardZone.Battlefield, command.Player);
+
+        // CR 712.12: a modal double-faced card's land face is played, not cast, and the permanent
+        // enters showing that face — only the move can say so, so the face-index form is used when
+        // the face being played is not the one the card is already showing.
+        var moved = face == card.FaceIndex
+            ? zones.Move(state, card.Id, battlefield, controller: command.Player)
+            : zones.Move(state, card.Id, battlefield, Placement.Default, false, command.Player, face);
         var played = new LandPlayed(NewIdOf(moved.Events, card.Id), command.Player);
         return new Outcome(played.Apply(moved.State), moved.Events.Add(played));
     }
@@ -76,8 +77,11 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
         // The costs that are not mana come first because each one moves objects, and the spell's
         // own new object is numbered from the state they leave behind (CR 400.7).
-        var others = CostPayment.Pay(state, new CostContext(card, chars, command.Player, command.X, zones, query), plan.NonMana);
-        var paid = CostPayment.PaySymbols(others.State, command.Player, plan.Mana, command.X, "cast");
+        // CR 601.2c: the objects that pay a cost naming some come off the command, read in the
+        // order the costs are written.
+        var costs = new CostContext(card, chars, command.Player, command.X, zones, query, Chosen: new ChosenObjects(command.CostObjects ?? []));
+        var others = CostPayment.Pay(state, costs, plan.NonMana);
+        var paid = CostPayment.PaySymbols(others.State, costs, plan.Mana, "cast");
         var entry = new StackEntry(
             Source: null,
             AbilityIndex: null,
@@ -88,7 +92,10 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             IsCopy: false,
             ManaSpent: CostPayment.ByColor(paid.Spent),
             CastFrom: plan.From,
-            OptionalCostsPaid: plan.OptionalCostsPaid);
+            OptionalCostsPaid: plan.OptionalCostsPaid,
+
+            // CR 702.174b: the promise is part of the spell, so it travels on the stack entry.
+            GiftPromisedTo: plan.GiftPromisedTo);
         var move = StackZone.MoveSpellToStack(paid.Outcome.State, card, entry, plan.Chosen.FaceIndex);
         var cast = new SpellCast(move.To.Id, command.Player, plan.From);
         ImmutableList<GameEvent> events = [.. others.Events, .. paid.Outcome.Events, move, cast];
@@ -122,7 +129,10 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             RequireSorcerySpeed(state, command.Player, "602.2a");
 
         // CR 106.6b: a printed rider on which mana may be spent travels with the payment.
-        var paid = CostPayment.Pay(state, new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith), ability.Costs);
+        var paid = CostPayment.Pay(
+            state,
+            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? [])),
+            ability.Costs);
         var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
         if (IsManaAbility(ability, command))
         {
@@ -359,22 +369,30 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         state.Objects.TryGetValue(id, out var obj) ? obj : throw new RefusedException("There is no such object.", "109.1");
 
     /// <summary>
-    /// Which face is played as a land, CR 305.1 and 712.12. The card's own face when that is a
-    /// land; otherwise the one land face among the faces this card may be played as, CR 601.3b.
-    /// Two land faces would be a choice, and there is nowhere on the command to make it.
+    /// Which face is played as a land, CR 305.1 and 712.12. The face the command names when it
+    /// names one, and it must be a land face this card may be played as; otherwise the card's own
+    /// face when that is a land, or the one land face among the faces it may be played as
+    /// (CR 601.3b). Two land faces and no choice on the command is refused rather than picked.
     /// </summary>
     [RuleRef("712.12")]
-    private int LandFace(GameState state, GameObject card)
+    private int LandFace(GameState state, GameObject card, int? chosen)
     {
+        var lands = FaceRules.CastableFaces(card.Definition, card.Zone.Zone).Where(f => f.IsLandFace).ToList();
+        if (chosen is { } index)
+        {
+            return lands.Any(f => f.FaceIndex == index)
+                ? index
+                : throw new RefusedException("That face cannot be played as a land.", "712.12");
+        }
+
         if (characteristics.Of(state, card.Id).Types.HasFlag(CardType.Land))
             return card.FaceIndex;
 
-        var lands = FaceRules.CastableFaces(card.Definition, card.Zone.Zone).Where(f => f.IsLandFace).ToList();
         return lands.Count switch
         {
             1 => lands[0].FaceIndex,
             0 => throw new RefusedException("That card is not a land.", "305.1"),
-            _ => throw new RefusedException("Which land face to play cannot be chosen yet.", "712.12"),
+            _ => throw new RefusedException("Which land face to play was not chosen.", "712.12"),
         };
     }
 

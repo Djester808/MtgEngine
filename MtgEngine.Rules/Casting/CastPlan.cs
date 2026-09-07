@@ -24,7 +24,8 @@ internal sealed record CastPlan(
     CardZone From,
     ImmutableList<ManaSymbol> Mana,
     ImmutableList<string> OptionalCostsPaid,
-    ImmutableList<Cost> NonMana)
+    ImmutableList<Cost> NonMana,
+    PlayerId? GiftPromisedTo = null)
 {
     /// <summary>The types the spell has on the stack, CR 712.11c: only the chosen face is evaluated.</summary>
     public CardType Types => Printed.Types.Types;
@@ -69,7 +70,28 @@ internal sealed record CastPlan(
         var mana = Alternative(card, printed, command, paid, extra) ?? ManaSymbols.Parse(printed.ManaCost);
         mana = Additional(printed, command, paid, extra, mana);
         mana = Shaped(state, printed, query, command.Player, mana);
-        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable());
+        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command));
+    }
+
+    /// <summary>
+    /// CR 702.174b: the gift is promised to an opponent as the spell is cast, and the promise is
+    /// part of the spell — the stack entry keeps it so the spell's own text can ask later. The
+    /// opponent promised is the first of the command's <see cref="CastSpell.TargetPlayers"/>: the
+    /// gift is not a target (CR 115.10), but the players a cast names is the one channel the
+    /// command has for naming one, and a gift promised to nobody is not a promise.
+    /// </summary>
+    [RuleRef("702.174b")]
+    private static PlayerId? Gift(Face printed, CastSpell command)
+    {
+        if (!(command.OptionalCosts ?? []).Contains(KeywordKind.Gift))
+            return null;
+        if (Keyword(printed, KeywordKind.Gift) is null)
+            throw new RefusedException("That card has no gift to promise.", "702.174b");
+
+        var promised = (command.TargetPlayers ?? []).FirstOrDefault(p => p != command.Player, command.Player);
+        return promised == command.Player
+            ? throw new RefusedException("A gift is promised to an opponent.", "702.174b")
+            : promised;
     }
 
     /// <summary>CR 715.3d: the card exiled on an adventure is the one card its owner may cast from exile.</summary>
@@ -126,11 +148,13 @@ internal sealed record CastPlan(
         var times = new Dictionary<KeywordKind, int>();
         foreach (var kind in command.OptionalCosts ?? [])
         {
-            // CR 702.174b: a gift is promised as the spell is cast and the promise is remembered
-            // on the spell. There is nowhere on the stack entry to write it (seam-requests/E3c.md),
-            // so the spell is refused rather than cast with a promise the game would forget.
+            // CR 702.174b: promising a gift costs nothing and is not an additional cost, so it is
+            // recorded (Gift) and skipped here rather than priced.
             if (kind == KeywordKind.Gift)
-                throw new RefusedException("A gift promised as a spell is cast cannot be recorded yet.", "702.174b");
+            {
+                paid.Add(kind.ToString());
+                continue;
+            }
 
             var semantic = KeywordSemantics.Of(kind);
             if (semantic.Cost != CostShape.Additional)

@@ -126,7 +126,11 @@ internal sealed class FaceCastingZones : IZoneSystem
 {
     public string Name => "face casting zones";
 
-    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null)
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null) =>
+        Move(state, what, to, where, tapped, controller, null);
+
+    /// <summary>CR 712.12: the same move, showing the face the object was played as.</summary>
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex)
     {
         var obj = state.Objects[what];
         var moved = new ObjectMoved(
@@ -138,6 +142,7 @@ internal sealed class FaceCastingZones : IZoneSystem
                 Timestamp = state.NextTimestamp,
                 Tapped = tapped,
                 InitialController = controller ?? obj.InitialController,
+                FaceIndex = faceIndex ?? obj.FaceIndex,
                 Damage = 0,
                 Stack = null,
             },

@@ -68,7 +68,10 @@ public sealed class FaceCastingTests
         var card = table.Add(FaceCastingFaces.ModalLand(), CastingTable.A, CardZone.Hand);
 
         Assert.Equal("712.12", casting.Check(table.State, new CastSpell(CastingTable.A, card, FaceIndex: 1))?.Rule);
-        Assert.Equal("712.12", casting.Check(table.State, new PlayLand(CastingTable.A, card))?.Rule);
+
+        // It is played instead, and a card with one land face needs no choice on the command;
+        // CastingChoiceTests holds the face the permanent then shows.
+        Assert.Null(casting.Check(table.State, new PlayLand(CastingTable.A, card)));
     }
 
     [Fact]
