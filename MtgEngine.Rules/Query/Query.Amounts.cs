@@ -55,9 +55,10 @@ public sealed partial class Query
             Max max => Math.Max(Evaluate(state, max.Left, context), Evaluate(state, max.Right, context)),
             Min min => Math.Min(Evaluate(state, min.Left, context), Evaluate(state, min.Right, context)),
 
-            ManaSpentOnThis => throw Unanswerable(nameof(ManaSpentOnThis), NoManaSpent),
-            SpellsCastThisTurn => throw Unanswerable(nameof(SpellsCastThisTurn), NoHistory),
-            DamageDealtThisTurn => throw Unanswerable(nameof(DamageDealtThisTurn), NoHistory),
+            ManaSpentOnThis spent => ManaSpent(state, spent.OfColor, context), // CR 601.2h
+            Cards.TimesKicked => KicksOfSource(state, context), // CR 702.32b
+            SpellsCastThisTurn cast => SpellsCast(state, cast, context), // CR 603.10
+            DamageDealtThisTurn damage => DamageThisTurn(state, damage, context), // CR 120.3
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };
     }
@@ -69,10 +70,66 @@ public sealed partial class Query
         return counter is null ? obj.Counters.Values.Sum() : obj.Counters.GetValueOrDefault(counter);
     }
 
-    /// <summary>Devotion, CR 700.5: mana symbols of the given colors among the mana costs of permanents the player controls.</summary>
-    private int DevotionOf(GameState state, Cards.Devotion devotion, EffectContext ctx) =>
-        Candidates(state, new ObjectFilter(ControlledBy: devotion.Who), ctx)
-            .Sum(id => ManaCosts.Devotion(_layers.Of(state, id).ManaCost, devotion.Colors));
+    /// <summary>
+    /// Devotion, CR 700.5: mana symbols of the given colors among the mana costs of permanents the
+    /// player controls. When the card chose the colour rather than printing it, the choice made
+    /// earlier in the same effect is the colour counted — "your devotion to the chosen color" is a
+    /// different card from "your devotion to black", so the printed field is never used for it.
+    /// </summary>
+    [RuleRef("700.5")]
+    private int DevotionOf(GameState state, Cards.Devotion devotion, EffectContext ctx)
+    {
+        var colors = devotion.Colors;
+        if (devotion.ChosenColorKey is { } key)
+        {
+            colors = ctx.Chosen.TryGetValue(key, out var chosen) && ColorNamed(chosen) is { } named
+                ? named
+                : throw Unanswerable(nameof(Cards.Devotion), $"no color was chosen for \"{key}\"", "700.5");
+        }
+
+        return Candidates(state, new ObjectFilter(ControlledBy: devotion.Who), ctx)
+            .Sum(id => ManaCosts.Devotion(_layers.Of(state, id).ManaCost, colors));
+    }
+
+    /// <summary>Mana spent to cast the spell this effect is on, CR 601.2h; with no colour named, every symbol paid.</summary>
+    [RuleRef("601.2h")]
+    private static int ManaSpent(GameState state, Color? ofColor, EffectContext ctx)
+    {
+        var spent = Spent(state, ctx);
+        return ofColor is { } color ? spent.GetValueOrDefault(color) : spent.Values.Sum();
+    }
+
+    /// <summary>
+    /// Spells cast this turn, CR 603.10: the turn's record holds who cast each spell and from
+    /// where. A filter is applied to the spell object, which only still exists while it is on the
+    /// stack — a resolved spell is a different object (CR 400.7), so a filtered count is a count
+    /// of what is still castable-or-on-the-stack and the plain count is the honest one.
+    /// </summary>
+    [RuleRef("603.10")]
+    private int SpellsCast(GameState state, SpellsCastThisTurn cast, EffectContext ctx)
+    {
+        var casters = Players(state, cast.By, ctx);
+        return state.History.SpellsCast.Count(record => casters.Contains(record.By)
+            && (cast.Matching is not { } filter
+                || (state.Objects.ContainsKey(record.Spell) && Matches(state, filter, record.Spell, ctx))));
+    }
+
+    /// <summary>
+    /// Damage dealt this turn, CR 120.3. The turn's history totals it per source and per receiver,
+    /// so "damage dealt by these sources" and "damage dealt to that player" are both answerable and
+    /// the pair of the two is not — that refuses rather than guessing. See seam-requests/E0b.md.
+    /// </summary>
+    [RuleRef("120.3")]
+    private int DamageThisTurn(GameState state, DamageDealtThisTurn damage, EffectContext ctx)
+    {
+        if (damage.By is { } by && damage.To is null)
+            return Resolve(state, by, ctx).Sum(id => state.History.DamageDealtBy.GetValueOrDefault(id));
+        if (damage.To is { } to && damage.By is null)
+            return Players(state, to, ctx).Sum(p => state.History.DamageReceivedByPlayer.GetValueOrDefault(p));
+        if (damage is { By: null, To: null })
+            return state.History.DamageDealtBy.Values.Sum();
+        throw Unanswerable(nameof(DamageDealtThisTurn), NoDamagePairs, "120.3");
+    }
 
     /// <summary>Domain: the basic land types among lands the player controls, CR 205.3i.</summary>
     private int BasicLandTypes(GameState state, PlayerRef who, EffectContext ctx)

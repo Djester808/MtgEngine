@@ -145,6 +145,11 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false; // CR 509.1a
         if (f.Blocked is { } blocked && blocked != IsBlocked(state, obj.Id))
             return false; // CR 509.1h
+        // "each creature in combat": attacking (CR 506.2) or blocking (CR 506.4). The fixed fields
+        // are joined with "and", so Attacking + Blocking would match nothing; this is the one
+        // disjunction that gets a field of its own.
+        if (f.InCombat is { } inCombat && inCombat != (IsAttacking(state, obj.Id) || IsBlocking(state, obj.Id)))
+            return false; // CR 506.2, 506.4
         if (f.WithCounter is { } kind && obj.Counters.GetValueOrDefault(kind) <= 0)
             return false; // CR 122.1
         if (f.WithAnyCounter is { } anyCounter && anyCounter != obj.Counters.Values.Any(n => n > 0))
@@ -205,7 +210,13 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         _ => throw new NotImplementedException($"Comparison operator {op} is not implemented."),
     };
 
-    /// <summary>The one honest answer to a question the state cannot yet answer: which record asked, and what is missing.</summary>
-    private static NotImplementedException Unanswerable(string record, string missing) =>
-        new($"{record} cannot be answered by the query layer yet: {missing}.");
+    /// <summary>
+    /// The one honest answer to a question the state cannot yet answer: which record asked, what
+    /// is missing, and the rule the record cites. It is a <see cref="RefusedException"/> and not a
+    /// <see cref="NotImplementedException"/> on purpose — <see cref="Game.Apply"/> turns it into a
+    /// <see cref="Refused"/>, so a table with one such card is told which primitive is missing
+    /// instead of the game dying with the command half applied.
+    /// </summary>
+    private static RefusedException Unanswerable(string record, string missing, string? rule = null) =>
+        new($"{record} cannot be answered by the query layer yet: {missing}.", rule);
 }

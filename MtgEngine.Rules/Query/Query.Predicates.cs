@@ -59,24 +59,57 @@ public sealed partial class Query
             ProducesMana produces => _layers.Of(state, candidate).Abilities
                 .OfType<ActivatedAbility>().Any(a => Produces(a.Do, produces.Colors)), // CR 605.1a
 
-            EnteredThisTurn => throw Unanswerable(nameof(EnteredThisTurn), NoHistory),
-            CastThisTurn => throw Unanswerable(nameof(CastThisTurn), NoHistory),
-            DealtDamageThisTurn => throw Unanswerable(nameof(DealtDamageThisTurn), NoHistory),
-            WasDealtDamageThisTurn => throw Unanswerable(nameof(WasDealtDamageThisTurn), NoHistory),
-            WasKicked => throw Unanswerable(nameof(WasKicked), "no state records the optional costs paid for a spell (CR 601.2b)"),
-            IsSuspected => throw Unanswerable(nameof(IsSuspected), NoDesignation),
-            IsGoaded => throw Unanswerable(nameof(IsGoaded), NoDesignation),
-            IsRingBearer => throw Unanswerable(nameof(IsRingBearer), NoDesignation),
-            IsHarnessed => throw Unanswerable(nameof(IsHarnessed), NoDesignation),
-            CanBlock => throw Unanswerable(nameof(CanBlock), "blocking legality belongs to the combat subsystem (CR 509.1a)"),
-            CouldBlock => throw Unanswerable(nameof(CouldBlock), "blocking legality belongs to the combat subsystem (CR 509.1a)"),
+            // CR 603.10: the turn's history is what "this turn" means, and a zone change folds it
+            // as it happens, so the answer survives the object it is about ceasing to exist.
+            EnteredThisTurn => state.History.EnteredBattlefield.Contains(candidate),
+
+            // CR 400.7: a spell that resolved became a new object, so this is true of the spell on
+            // the stack, not of the permanent it became. A card asking about the permanent asks
+            // through the trigger that saw it enter.
+            CastThisTurn => state.History.SpellsCast.Any(cast => cast.Spell == candidate),
+
+            DealtDamageThisTurn dealt => dealt.To is null
+                ? state.History.DamageDealtBy.GetValueOrDefault(candidate) > 0 // CR 120.3
+                : throw Unanswerable(nameof(DealtDamageThisTurn), NoDamagePairs, "120.3"),
+            WasDealtDamageThisTurn => state.History.DamageReceivedBy.GetValueOrDefault(candidate) > 0, // CR 120.3
+
+            // CR 702.32a: kicker is an optional additional cost, and casting records what was paid.
+            WasKicked => Kicks(obj) > 0,
+
+            IsSuspected => obj.Designations.Contains(Designations.Suspected), // CR 701.60a
+            IsGoaded goaded => Goaded(state, obj, goaded.By, ctx), // CR 701.15a
+            IsRingBearer => obj.Designations.Contains(Designations.RingBearer), // CR 701.54a
+            IsHarnessed => obj.Designations.Contains(Designations.Harnessed), // CR 701.64a
+            IsPrepared => obj.Designations.Contains(Designations.Prepared), // CR 702.180
+
+            CanBlock => throw Unanswerable(nameof(CanBlock), "blocking legality belongs to the combat subsystem (CR 509.1a)", "509.1a"),
+            CouldBlock => throw Unanswerable(nameof(CouldBlock), "blocking legality belongs to the combat subsystem (CR 509.1a)", "509.1a"),
             _ => throw Unanswerable(predicate.GetType().Name, "no arm in the query layer"),
         };
     }
 
-    private const string NoHistory = "no state records what happened earlier this turn; see seam-requests/E0.md";
+    private const string NoDamagePairs =
+        "the turn's history totals damage per source and per receiver, not per pair, so \"dealt damage to that player this turn\" has nothing to read; see seam-requests/E0b.md";
 
-    private const string NoDesignation = "no state records per-object designations (CR 701.60, 701.15, 701.54, 701.64); see seam-requests/E0.md";
+    /// <summary>
+    /// CR 701.15a: goading names the goader, because a goaded creature must attack a player other
+    /// than that one, so one creature can be goaded by several players at once. With no player
+    /// named the question is "goaded at all"; with one it is "goaded by them".
+    /// </summary>
+    [RuleRef("701.15a")]
+    private bool Goaded(GameState state, GameObject obj, PlayerRef? by, EffectContext ctx) =>
+        by is null
+            ? obj.Designations.Any(d => d.StartsWith(Designations.GoadedPrefix, StringComparison.Ordinal))
+            : Players(state, by, ctx).Any(p => obj.Designations.Contains(Designations.GoadedBy(p)));
+
+    /// <summary>
+    /// CR 702.32b: kicker's cost may be paid more than once when it is repeatable, and casting
+    /// records one entry per payment, so the count is the number of entries and "was kicked" is
+    /// that count being more than none.
+    /// </summary>
+    [RuleRef("702.32b")]
+    private static int Kicks(GameObject obj) =>
+        obj.Stack?.OptionalCostsPaid?.Count(c => string.Equals(c, nameof(KeywordKind.Kicker), StringComparison.Ordinal)) ?? 0;
 
     private bool SharesType(GameState state, ObjectId left, ObjectId right, bool creatureTypeOnly)
     {
