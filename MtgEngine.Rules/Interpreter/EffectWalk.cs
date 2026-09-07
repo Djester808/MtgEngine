@@ -31,13 +31,55 @@ internal static class EffectWalk
     ];
 
     /// <summary>
+    /// The <see cref="TargetPlayer"/> references the effect names, in the order the text reads
+    /// them: the same pre-order walk as <see cref="TargetsIn"/>, so the n-th keyed player target
+    /// is the n-th player announced (CR 601.2c).
+    /// </summary>
+    [RuleRef("601.2c")]
+    public static ImmutableList<TargetPlayer> TargetPlayersIn(Effect effect) =>
+        [.. Nodes(effect, new HashSet<object>(ReferenceEqualityComparer.Instance)).OfType<TargetPlayer>()];
+
+    /// <summary>
+    /// The same tree with every unkeyed <see cref="Target"/> and <see cref="AnyTarget"/> keyed by
+    /// its slot: the n-th target selector in <see cref="TargetsIn"/> order is the n-th announced
+    /// (CR 601.2c), so it is given <see cref="Query.Query.TargetSlot"/>(n) and from then on reads
+    /// exactly what was announced for it, the way a selector the card keyed itself does. Two
+    /// unkeyed targets used to read the whole announced list each — "target creature you control
+    /// fights target creature you don't control" fought the first creature against itself. A
+    /// selector the card keyed is left alone, and a tree with no unkeyed target is returned as it
+    /// is, so a single unkeyed target and a keyed one both behave as they always did.
+    /// </summary>
+    [RuleRef("601.2c")]
+    public static Effect KeyTargets(Effect effect)
+    {
+        var slots = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
+        var at = 0;
+        foreach (var selector in TargetsIn(effect))
+        {
+            if (selector is Target { Key: null } or AnyTarget { Key: null })
+                slots[selector] = Query.Query.TargetSlot(at);
+            at++;
+        }
+
+        if (slots.Count == 0)
+            return effect;
+
+        return (Effect)Rewrite(effect, node => node switch
+        {
+            Target target when slots.TryGetValue(target, out var slot) => target with { Key = slot },
+            AnyTarget any when slots.TryGetValue(any, out var slot) => any with { Key = slot },
+            _ => node,
+        })!;
+    }
+
+    /// <summary>
     /// Every <see cref="Amount"/> in the effect, worked out now and replaced by a
     /// <see cref="Fixed"/>. CR 611.2b: the value is locked in when the effect is created and is
     /// never recalculated, so the layer system must never see a countable amount.
     /// </summary>
     [RuleRef("611.2b")]
     public static ContinuousEffect Freeze(ContinuousEffect effect, Func<Amount, int> evaluate) =>
-        (ContinuousEffect)Rewrite(effect, evaluate)!;
+        (ContinuousEffect)Rewrite(effect, node => node is Amount amount and not Fixed ? new Fixed(evaluate(amount)) : node)!;
 
     /// <summary>
     /// The <see cref="Choose"/> selectors this one node reads, in reading order, CR 700.2: every
@@ -97,19 +139,24 @@ internal static class EffectWalk
                 yield return found;
     }
 
-    private static object? Rewrite(object? node, Func<Amount, int> evaluate)
+    /// <summary>
+    /// The tree with <paramref name="map"/> applied to every vocabulary node, top down: a node the
+    /// map replaces is taken as it is, and one it returns unchanged is descended into and rebuilt
+    /// only when something under it changed.
+    /// </summary>
+    private static object? Rewrite(object? node, Func<object, object?> map)
     {
         switch (node)
         {
             case null or string:
                 return node;
-            case Fixed:
-                return node;
-            case Amount amount:
-                return new Fixed(evaluate(amount));
             case System.Collections.IEnumerable items:
-                return RewriteList(items, evaluate);
+                return RewriteList(items, map);
         }
+
+        var mapped = map(node);
+        if (!ReferenceEquals(mapped, node))
+            return mapped;
 
         var type = node.GetType();
         if (type.Namespace != Vocabulary || type.IsEnum || !type.IsClass)
@@ -130,19 +177,22 @@ internal static class EffectWalk
             if (property is null)
                 return node;
             var value = property.GetValue(node);
-            arguments[i] = Rewrite(value, evaluate);
+            arguments[i] = Rewrite(value, map);
             changed |= !ReferenceEquals(value, arguments[i]);
         }
 
         return changed ? constructor.Invoke(arguments) : node;
     }
 
-    private static object RewriteList(System.Collections.IEnumerable items, Func<Amount, int> evaluate)
+    private static object RewriteList(System.Collections.IEnumerable items, Func<object, object?> map)
     {
         var element = items.GetType().GetInterfaces()
             .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))
             ?.GetGenericArguments()[0] ?? typeof(object);
-        var rewritten = items.Cast<object?>().Select(item => Rewrite(item, evaluate)).ToList();
+        var original = items.Cast<object?>().ToList();
+        var rewritten = original.Select(item => Rewrite(item, map)).ToList();
+        if (original.Zip(rewritten).All(pair => ReferenceEquals(pair.First, pair.Second)))
+            return items;
         var array = Array.CreateInstance(element, rewritten.Count);
         for (var i = 0; i < rewritten.Count; i++)
             array.SetValue(rewritten[i], i);

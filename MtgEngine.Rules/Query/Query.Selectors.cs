@@ -11,6 +11,14 @@ namespace MtgEngine.Rules.Query;
 /// </summary>
 public sealed partial class Query
 {
+    /// <summary>
+    /// The key an unkeyed target selector reads its slot under, CR 601.2c: the n-th
+    /// <see cref="Target"/> or <see cref="AnyTarget"/> in reading order is the n-th announced. The
+    /// colon keeps it apart from any key a card could write.
+    /// </summary>
+    [RuleRef("601.2c")]
+    public static string TargetSlot(int slot) => "target:" + slot.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     public ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -20,8 +28,12 @@ public sealed partial class Query
             Self => context.Source is { } source && state.Objects.ContainsKey(source) ? [source] : [], // CR 109.5
             Each each => [.. Candidates(state, each.Filter, context)],
 
-            // The targets were chosen when the spell was cast, CR 601.2c; a keyed target is the
-            // one an earlier step remembered under that key.
+            // The targets were chosen when the spell was cast, CR 601.2c, and each selector reads
+            // its own slot: a keyed target is what the interpreter remembered under that key, and
+            // a selector the card left unkeyed was keyed by its slot (TargetSlot) before the walk
+            // began, so it reads exactly the objects announced for it and nothing when its slot is
+            // past what was announced. Only a tree no one keyed — an effect run off the stack with
+            // the targets handed in — still reads the whole list.
             Target target => target.Key is { } key && context.Remembered.TryGetValue(key, out var remembered)
                 ? remembered
                 : context.Targets,

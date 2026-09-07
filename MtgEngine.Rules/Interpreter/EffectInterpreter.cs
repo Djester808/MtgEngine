@@ -39,18 +39,15 @@ public sealed partial class EffectInterpreter(
             ?? throw new InvalidOperationException($"{stackObject} has no stack entry and cannot resolve (CR 608.2)");
         var controller = characteristics.ControllerOf(state, stackObject);
         var effect = EffectOf(obj, entry);
-        var context = ContextFor(state, obj, entry, controller);
+        var context = Rechecked(state, obj, entry, controller, effect);
 
         // CR 608.2b: an illegal target is skipped, and a spell all of whose targets are illegal
         // does not resolve at all. A targeted player counts on both sides of that: one who has
         // become illegal is dropped like an object, and a spell that named nothing else fizzles.
-        var legal = LegalTargets(state, entry, effect, context);
-        var legalPlayers = LegalTargetPlayers(state, entry, controller);
         var named = entry.Targets.Count + Targeted(entry.TargetPlayers, entry).Count;
-        if (named > 0 && legal.Count == 0 && Targeted(legalPlayers, entry).Count == 0)
+        if (named > 0 && context.Targets.Count == 0 && Targeted(context.TargetPlayers, entry).Count == 0)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
-        context = context with { Targets = legal, TargetPlayers = legalPlayers };
         if (effect is null)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
@@ -92,6 +89,15 @@ public sealed partial class EffectInterpreter(
     [RuleRef("603.7")]
     private static Effect? EffectOf(GameObject obj, StackEntry entry)
     {
+        var tree = Printed(obj, entry);
+
+        // CR 601.2c: the n-th target selector in the tree is the n-th target announced, so each
+        // unkeyed one is keyed by its slot before anything reads it (EffectWalk.KeyTargets).
+        return tree is null ? null : EffectWalk.KeyTargets(tree);
+    }
+
+    private static Effect? Printed(GameObject obj, StackEntry entry)
+    {
         var abilities = obj.Face.AbilityList;
         if (entry.AbilityIndex is { } index)
             return index >= 0 && index < abilities.Count ? Body(abilities[index]) : null;
@@ -118,7 +124,7 @@ public sealed partial class EffectInterpreter(
     /// where both name a key.
     /// </summary>
     [RuleRef("608.2d")]
-    private static EffectContext ContextFor(GameState state, GameObject obj, StackEntry entry, PlayerId controller)
+    private static EffectContext ContextFor(GameState state, GameObject obj, StackEntry entry, PlayerId controller, Effect? tree)
     {
         var triggering = TriggeringOf(state, entry);
         var source = entry.Source ?? obj.Id;
@@ -139,47 +145,18 @@ public sealed partial class EffectInterpreter(
             ? those[0]
             : (PlayerId?)null;
 
-        // CR 601.2c with 608.2h: a target chosen as the spell was announced is remembered under
-        // the key its Target selector declared, in the order the selectors are written, so a later
-        // step's Remembered(key) or RememberedPlayer(key) names it (and, after it moved, the
-        // look-back reads what it was).
-        if (EffectOf(obj, entry) is { } tree)
+        // CR 601.2c with 608.2h: a player targeted as the spell was announced is remembered under
+        // the key its TargetPlayer declared, in the order the references are written, so a later
+        // step's RememberedPlayer(key) names them. The object targets are remembered by
+        // RememberTargets once the CR 608.2b re-check has said which are still legal.
+        if (tree is not null)
         {
-            var objectAt = 0;
             var playerAt = 0;
-            foreach (var node in Cards.Linter.Walk(tree))
+            foreach (var player in EffectWalk.TargetPlayersIn(tree))
             {
-                switch (node)
-                {
-                    case Cards.Target { Key: { } key } target:
-                        {
-                            var take = target.Count is Fixed { N: var n } && n > 0 ? n : 1;
-                            var taken = entry.Targets.Skip(objectAt).Take(take).ToImmutableList();
-                            objectAt += take;
-                            if (!remembered.ContainsKey(key))
-                                remembered = remembered.SetItem(key, taken);
-                            break;
-                        }
-
-                    case Cards.AnyTarget { Key: { } anyKey }:
-                        {
-                            if (objectAt < entry.Targets.Count && !remembered.ContainsKey(anyKey))
-                                remembered = remembered.SetItem(anyKey, [entry.Targets[objectAt]]);
-                            objectAt++;
-                            break;
-                        }
-
-                    case Cards.TargetPlayer { Key: { } playerKey }:
-                        {
-                            if (playerAt < entry.TargetPlayers.Count && !rememberedPlayers.ContainsKey(playerKey))
-                                rememberedPlayers = rememberedPlayers.SetItem(playerKey, [entry.TargetPlayers[playerAt]]);
-                            playerAt++;
-                            break;
-                        }
-
-                    default:
-                        break;
-                }
+                if (player.Key is { } playerKey && playerAt < entry.TargetPlayers.Count && !rememberedPlayers.ContainsKey(playerKey))
+                    rememberedPlayers = rememberedPlayers.SetItem(playerKey, [entry.TargetPlayers[playerAt]]);
+                playerAt++;
             }
         }
 
@@ -209,68 +186,6 @@ public sealed partial class EffectInterpreter(
             ? [source]
             : [];
     }
-
-    /// <summary>
-    /// The targets that are still legal, CR 608.2b. Each chosen target is re-checked against the
-    /// filter of the <see cref="Target"/> selector it came from, in the order the tree names them.
-    /// </summary>
-    [RuleRef("608.2b")]
-    private ImmutableList<ObjectId> LegalTargets(GameState state, StackEntry entry, Effect? effect, EffectContext context)
-    {
-        if (entry.Targets.Count == 0)
-            return entry.Targets;
-
-        var filters = effect is null ? [] : EffectWalk.TargetsIn(effect);
-        var legal = ImmutableList.CreateBuilder<ObjectId>();
-        for (var i = 0; i < entry.Targets.Count; i++)
-        {
-            var id = entry.Targets[i];
-            if (!state.Objects.ContainsKey(id))
-                continue;
-            var filter = FilterAt(filters, i);
-            if (filter is null || query.Matches(state, filter, id, context))
-                legal.Add(id);
-        }
-
-        return legal.ToImmutable();
-    }
-
-    /// <summary>
-    /// The players still legally targeted, CR 608.2b with 115.6 and 702.16j. The two prohibitions
-    /// are read exactly as the casting system reads them at announcement, from the same point of
-    /// view, so a spell is not announced against a player it could not resolve against:
-    /// <see cref="PlayerRestriction.BeTargeted"/> is the card-text form ("by spells or abilities
-    /// your opponents control") and so lets the resolving object's own controller keep naming
-    /// themselves, while protection from everything is the stronger one that no source targets
-    /// through. A gift's promised player (CR 115.10) rides on the same list and is not a target,
-    /// so nothing is re-checked for them.
-    /// </summary>
-    [RuleRef("608.2b")]
-    private ImmutableList<PlayerId> LegalTargetPlayers(GameState state, StackEntry entry, PlayerId controller)
-    {
-        if (entry.TargetPlayers.Count == 0)
-            return entry.TargetPlayers;
-
-        var legal = ImmutableList.CreateBuilder<PlayerId>();
-        foreach (var player in entry.TargetPlayers)
-        {
-            var limits = characteristics.PlayerRestrictions(state, player);
-            var illegal = limits.ProtectionFromEverything
-                || (limits.Has(PlayerRestriction.BeTargeted) && player != controller);
-            if (player == entry.GiftPromisedTo || !illegal)
-                legal.Add(player);
-        }
-
-        return legal.ToImmutable();
-    }
-
-    /// <summary>
-    /// The players on a stack entry that are targets, CR 608.2b: everyone the spell named, less a
-    /// gift's promised player, who travels on the same list and is not one (CR 115.10).
-    /// </summary>
-    [RuleRef("115.10")]
-    private static ImmutableList<PlayerId> Targeted(ImmutableList<PlayerId> players, StackEntry entry) =>
-        entry.GiftPromisedTo is { } promised ? players.RemoveAll(p => p == promised) : players;
 
     /* ---------------------------------------------------------------------------------------- *
      * The walk itself.
