@@ -179,14 +179,16 @@ internal static class CastingTestsPermissions
     /// <summary>
     /// "You may cast that card from your graveyard this turn", CR 601.3a, as the interpreter's
     /// may-cast arm creates it: the card the resolution named on <c>AppliesTo</c> and the player
-    /// on <c>AppliesToPlayers</c>, with the zone on the effect itself.
+    /// on <c>AppliesToPlayers</c>, with the zone on the effect itself. <paramref name="free"/> is
+    /// CR 118.9's waived mana cost; <paramref name="payLife"/> is the other alternative cost a
+    /// permission carries, life equal to the spell's mana value instead of its mana cost.
     /// </summary>
-    public static ContinuousEffectCreated ToPlay(GameState state, ObjectId card, CardZone from, bool free = false, PlayerId? who = null)
+    public static ContinuousEffectCreated ToPlay(GameState state, ObjectId card, CardZone from, bool free = false, PlayerId? who = null, bool payLife = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         return new ContinuousEffectCreated(new ActiveEffect(
             1,
-            new MayPlayFromZone(new You(), from, WithoutPayingManaCost: free),
+            new MayPlayFromZone(new You(), from, WithoutPayingManaCost: free, PayLifeEqualToManaValueInstead: payLife),
             null,
             who ?? CastingTable.A,
             [card],
@@ -194,6 +196,28 @@ internal static class CastingTestsPermissions
             new UntilEndOfTurn(),
             state.NextTimestamp,
             FromStaticAbility: false));
+    }
+
+    /// <summary>
+    /// "You may play lands and cast spells from the top of your library", CR 601.3a, as a static
+    /// ability's permission stands: no card named, the player on <c>AppliesToPlayers</c>, and the
+    /// top-of-library bound on the effect itself. With <paramref name="payLife"/>, the rider "if
+    /// you cast a spell this way, pay life equal to its mana value rather than pay its mana cost"
+    /// (CR 118.9) rides on the same record.
+    /// </summary>
+    public static ContinuousEffectCreated ToPlayFromTop(GameState state, bool payLife = false, PlayerId? who = null)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return new ContinuousEffectCreated(new ActiveEffect(
+            1,
+            new MayPlayFromZone(new You(), CardZone.Library, TopOfLibraryOnly: true, PayLifeEqualToManaValueInstead: payLife),
+            null,
+            who ?? CastingTable.A,
+            [],
+            [who ?? CastingTable.A],
+            new UntilEndOfTurn(),
+            state.NextTimestamp,
+            FromStaticAbility: true));
     }
 
     /// <summary>A sorcery whose additional cost is paying life, CR 601.2b: a cost that names no object.</summary>
