@@ -9,6 +9,35 @@ Nothing from the deleted engine is restored. Where this plan names a decision th
 also made (state as a fold of the event log, computed characteristics, the game stops and
 asks), it is because the decision was right, not because the code was.
 
+## Status — where the programme stands (2026-09-07, 11:00 UTC)
+
+The sections below are the design as it was written before anything ran. This is what has
+happened since, so the plan reads as a record and not only as an intention; the per-wave
+decisions, every builder's seam request and its answer, are in `seam-requests/DECISIONS.md`.
+
+| Wave | What it was | Outcome |
+|---|---|---|
+| 0 — the contract | vocabulary, engine skeleton, seams, hooks, gate | merged and gated 2026-09-06 |
+| 1 — subsystems and the pipeline | E0 E1 E2 E3 E4 E5 E7, P1 P2 P3, C1 | merged, gated, seam commit `0f47563`; a two-player game of lands and vanilla creatures plays to a win through `Game.Apply` (EINT) |
+| 2 — the interpreter meets the game | E6 E8 E9 E12 E13 E14 E15, A1, V1, P5 | merged, gated, seam commit `4e97e3f`; `Subsystems.Wave2()` composes every real subsystem; the wave-2 exit test plays triggers, a burn spell, the legend rule and an answered "may" (EINT2) |
+| 3 onward — rounds | the plan's rolling rounds ran as numbered waves 3–6: E9b E8b E3b E2b V2 P4 P6 (wave 3); E1b E9c V3 P7 E14b P6b (4); E7b E0b V4 E3c E9d P8 C3 (5); E8c E0c E9e E3d P9 (6) | each merged and gated with its own seam commit; wave 7 (E4b E3e E9f E6b V5, then P10) is running |
+
+Measured, as of the wave-6 tip `b2549d6`:
+
+- **Gate**: 527 engine, 115 vocabulary, 153 pipeline and 633 API tests green; every merge on
+  `card-engine` was gated; `master` is untouched at `01af6ee`.
+- **Pilot**: 200 deck faces through both translators; 167 and 166 lint clean; 87 agree after
+  two canonical passes (54% of both-clean pairs) — see the decision point below.
+- **Verify**: of the 87 agreed cards, 66 are `Verified` through real games with the engine
+  hash in each card file; 4 fail for named causes, 16 have no smoke scenario yet, 1 crashes on
+  its own `Unsupported` marker.
+- **Not done from the design**: the free slice and the 3,864 deck faces are not yet
+  translated (the pilot's 200 only); the human-style verifiers, the corpus run and the
+  rulings-as-scenarios round wait on API credits, which are exhausted; triage has been the
+  coordinator reading every seam request and verify log rather than a triage agent; the
+  client's badge, dispute and coverage pages are on `card-engine-c1` with specs and capture
+  registrations but have never been rendered against a live API.
+
 ## The four rules every agent works under
 
 1. **A card is data or it does not exist.** No card name, card text or card-shaped special
@@ -43,7 +72,7 @@ Parallel work only starts once the contract it builds against is merged. Every w
 exit criterion the coordinator checks before launching the next; "the agents reported done"
 is not one.
 
-### Wave 0 — the contract (serial, one agent, coordinator reviews)
+### Wave 0 — the contract (serial, one agent, coordinator reviews) — done 2026-09-06
 
 Deliverables:
 
@@ -65,7 +94,7 @@ Deliverables:
 Exit: solution builds, `dotnet format --verify-no-changes` clean, the name-table and
 keyword-agreement tests green, a `CardFile` round-trips through JSON unchanged.
 
-### Wave 1 — subsystems and the pipeline (parallel, at most 8 engine builders + 4 others)
+### Wave 1 — subsystems and the pipeline (parallel, at most 8 engine builders + 4 others) — done 2026-09-07
 
 Each builder owns the files in its row and no others. Where two subsystems meet, the seam is
 an event or an interface fixed in wave 0; a builder who needs to change a seam stops and
@@ -96,7 +125,12 @@ gate; E1–E8 together play a two-player game of basic lands and vanilla creatur
 through the real `Game.Apply`; P1–P3 have produced `cards/` files for the 3,864 deck faces
 and the free slice; C1's board moves a card and logs the event.
 
-### Wave 2 — the interpreter meets the game (parallel, up to 8)
+### Wave 2 — the interpreter meets the game (parallel, up to 8) — done 2026-09-07
+
+E10 and E11 (the keyword-action arms) were not separate builders: the interpreter's arms were
+written by E9 and grown by E9b–E9e in the later rounds, by corpus frequency, as the table's
+"one scenario per arm" turned out to be the verify command's smoke scenarios rather than
+hand-written ones.
 
 | Agent | Owns | Lands with |
 |---|---|---|
@@ -118,7 +152,12 @@ Exit: the free slice and every deck card whose scenarios pass are `Verified`; a 
 verified cards plays end to end on the hub with enforcement; the status endpoint reports the
 counts the ledger holds.
 
-### Wave 3 — verify, triage, grow (rolling)
+### Wave 3 — verify, triage, grow (rolling) — running as numbered waves 3–7
+
+What ran: builder rounds, each answering the previous round's seam requests and the verify
+log's failures, with a coordinator seam commit and a full gate per round. What has not run
+yet: the verifiers (no refutation exists to measure the decision point against), the corpus
+run, and the rulings round — all three need API credits.
 
 - **Verifiers**, eight per landing, never the builder who wrote it. Each takes a `Verified`
   card, plays it by hand through the runner in a scenario the builder did not write, and
@@ -396,6 +435,8 @@ start with. It is a wave-2 client task if wanted, not a dependency of anything.
 
 ## Schedule
 
+As planned:
+
 | By the end of | State |
 |---|---|
 | day 0 | wave 0 merged; pilot translation running |
@@ -404,6 +445,23 @@ start with. It is a wave-2 client task if wanted, not a dependency of anything.
 | day 5 | wave 2 exit: verified deck cards enforced on the hub |
 | day 7 onward | wave 3 rounds; verified count climbs daily; corpus run in the background |
 
-Days, not hours, because subsystem builders finish in about a day and the exit criteria
-are gates that get checked, not estimates. Anything faster is bought with scope: fewer
-subsystems in wave 1 means a smaller enforced slice at day 3, not an earlier one.
+As it went (all 2026-09-06/07, UTC):
+
+| When | State |
+|---|---|
+| 06 evening | wave 0 merged; the five-card smoke batches submitted |
+| 07 03:45 | wave 1 merged and gated (198 engine tests); C1's board on the client branch |
+| 07 04:15 | seam commit; wave 2 launched |
+| 07 05:00 | wave 2 merged and gated (333); the 200-face pilot submitted |
+| 07 05:45 | pilot collected: 31 of 200 identical, then 72 and 87 after two canonical passes; repairs blocked by the credit balance |
+| 07 06:40 | wave 3 merged and gated (395); the wave-2 exit test answers its "may" |
+| 07 08:05 | wave 4 merged and gated (422); enters-tapped and its kin reach a real game |
+| 07 09:00 | wave 5 merged and gated (481); first verify run: 57 of 87 |
+| 07 10:45 | wave 6 merged and gated (527); verify: 66 of 87 |
+| 07 11:00 | wave 7 running |
+
+Builders finished in 15–35 minutes rather than a day, because each box was one folder, one
+anchor and 150 tool calls with a wall clock enforced by a hook; the cost moved to the
+coordinator, who merged by hand, cut a seam commit per round and gated every tip. The
+thing that did not compress was the translation itself, which is bounded by credits, not
+by agents.
