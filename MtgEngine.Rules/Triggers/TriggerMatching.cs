@@ -447,7 +447,7 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         var seen = new HashSet<ObjectId>();
         foreach (var block in changed.Delta.Provenance.OrderBy(b => b.Source.Value))
         {
-            if (block.Amount >= 0 || !string.Equals(block.Key, trigger.ManaKey, StringComparison.Ordinal))
+            if (block.Amount >= 0 || !Keyed(block.Key, trigger.ManaKey))
                 continue;
             if (seen.Add(block.Source))
                 subjects.Add(TriggerSubject.Of(block.Source, changed.Player));
@@ -455,6 +455,22 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
 
         return subjects.ToImmutable();
     }
+
+    /// <summary>
+    /// Which blocks are that mana, CR 106.6a. The instruction that produced the mana creates one
+    /// delayed ability per single mana and names that mana's own key exactly — <c>"k#0"</c> — so an
+    /// exact match is the ordinary reading and each ability watches one block. An ability whose
+    /// linked mana was produced somewhere else (CR 106.6 lets the two halves sit on different
+    /// objects) has no per-mana key to name and is left holding the bare key the card wrote, and
+    /// then every single mana under that key is mana it watches.
+    /// </summary>
+    [RuleRef("106.6a")]
+    private static bool Keyed(string? key, string manaKey) =>
+        key is not null
+        && (string.Equals(key, manaKey, StringComparison.Ordinal)
+            || (key.Length > manaKey.Length
+                && key[manaKey.Length] == '#'
+                && key.StartsWith(manaKey, StringComparison.Ordinal)));
 
     /// <summary>Sacrificed and discarded are named on the event that says why the object left, CR 701.17 and 701.9.</summary>
     [RuleRef("701.17")]

@@ -12,13 +12,20 @@ namespace MtgEngine.Rules.Tests;
 /// </summary>
 internal sealed class TriggeredAbilityBoard
 {
-    public TriggeredAbilityBoard(int players = 2) =>
-        State = GameReducer.Replay(
-        [
-            new GameStarted([.. Enumerable.Range(0, players).Select(i => new PlayerStart($"seat {i}", [], []))], 11UL, 20, "commander"),
-        ]);
+    public TriggeredAbilityBoard(int players = 2)
+    {
+        var started = new GameStarted([.. Enumerable.Range(0, players).Select(i => new PlayerStart($"seat {i}", [], []))], 11UL, 20, "commander");
+        Recorded.Add(started);
+        State = GameReducer.Replay(Recorded);
+    }
 
     public GameState State { get; private set; }
+
+    /// <summary>
+    /// Every event the board folded, in order, so a test that cares about the log being the game
+    /// can replay the board and not only the events the engine produced afterwards.
+    /// </summary>
+    public List<GameEvent> Recorded { get; } = [];
 
     public static ICharacteristics Layers { get; } = new Layers.LayerSystem();
 
@@ -69,6 +76,7 @@ internal sealed class TriggeredAbilityBoard
                     : ImmutableDictionary<string, int>.Empty.SetItem(counter, 1),
             },
             -1);
+        Recorded.Add(created);
         State = created.Apply(State);
         return created;
     }
@@ -105,6 +113,7 @@ internal sealed class TriggeredAbilityBoard
 
     public TriggeredAbilityBoard Fold(params GameEvent[] events)
     {
+        Recorded.AddRange(events);
         State = GameReducer.Apply(State, events);
         return this;
     }
