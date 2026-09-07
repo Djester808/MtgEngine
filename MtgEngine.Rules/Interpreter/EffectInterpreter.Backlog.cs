@@ -94,13 +94,8 @@ public sealed partial class EffectInterpreter
         {
             var paid = CostPayment.Pay(
                 run.State,
-                source,
-                characteristics.Of(run.State, id),
-                [pay.Cost],
-                player,
-                run.Context.X,
-                zones,
-                query);
+                new Casting.CostContext(source, characteristics.Of(run.State, id), player, run.Context.X, zones, query),
+                [pay.Cost]);
             return Merge(run, paid);
         }
         catch (RefusedException)
