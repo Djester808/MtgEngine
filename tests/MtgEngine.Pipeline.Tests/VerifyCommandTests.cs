@@ -96,7 +96,7 @@ public sealed class VerifyCommandTests : IDisposable
         // A crash is this card's result, not the run's: the run finished, so it exits zero.
         Assert.Equal(VerifyCommand.Completed, code);
         Assert.Contains("CRASHED", log.ToString(), StringComparison.Ordinal);
-        Assert.Contains(nameof(NotImplementedException), log.ToString(), StringComparison.Ordinal);
+        Assert.Contains(nameof(NotSupportedException), log.ToString(), StringComparison.Ordinal);
         Assert.Contains("1 crashed", log.ToString(), StringComparison.Ordinal);
         // The card behind it in the directory still ran, which is the whole point.
         Assert.Equal(ImplementationStatus.Verified, Read(Mute).Status);
@@ -223,10 +223,17 @@ public sealed class VerifyCommandTests : IDisposable
     /// An instant that draws — so it gets a smoke scenario — and then does something the
     /// interpreter has no arm for, so resolving it throws out of the engine.
     /// </summary>
+    /// <summary>
+    /// A card that gets a scenario (the draw is assertable) and then throws inside the engine when
+    /// it resolves. The effect that throws is an <see cref="Unsupported"/> marker rather than a
+    /// missing interpreter arm: an arm that raises a question before it fails stops throwing the
+    /// moment the runner answers questions for a generated scenario, and this fixture is about the
+    /// crash path in <see cref="VerifyCommand"/> and not about which effect happens to lack an arm.
+    /// </summary>
     private static CardFile Crasher(string oracleId) => Card(
         oracleId,
         "Verify Crasher",
-        [new SpellAbility(new Sequence([new Draw(new Fixed(1)), new ChangeTarget(new ThisSpellsTargets())]))]);
+        [new SpellAbility(new Sequence([new Draw(new Fixed(1)), new Unsupported("no arm for this")]))]);
 
     /// <summary>An instant whose only effect is one no smoke scenario can assert, so it gets no scenario at all.</summary>
     private static CardFile NoScenarios(string oracleId) =>

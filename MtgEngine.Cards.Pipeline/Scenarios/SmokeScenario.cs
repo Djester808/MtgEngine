@@ -1,3 +1,7 @@
+using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Interpreter;
+using MtgEngine.Rules.Scenarios;
+
 namespace MtgEngine.Cards.Pipeline.Scenarios;
 
 /// <summary>
@@ -55,6 +59,9 @@ public static class SmokeScenario
         var permanent = Permanent(face.Types.Types);
         if (permanent)
         {
+            if (!Enchant(board, face))
+                return null;
+
             // CR 110.1: a permanent spell resolves onto the battlefield, and that alone is worth asserting.
             board.Expect(new InZone(file.Name, Zone.Battlefield));
         }
@@ -67,7 +74,7 @@ public static class SmokeScenario
             return null;
 
         var x = face.ManaCost is { Length: > 0 } cost && cost.Contains("{X}", StringComparison.Ordinal) ? AnnouncedX : (int?)null;
-        var cast = new CastStep(Caster, file.Name, board.TargetNames(), x);
+        var cast = new CastStep(Caster, file.Name, board.TargetNames(), x, board.Modes());
         var title = x is null
             ? $"casting {file.Name} does what its definition says"
             : FormattableString.Invariant($"casting {file.Name} with X={x} does what its definition says");
@@ -162,6 +169,67 @@ public static class SmokeScenario
                 board.Expect(new TappedIs(board.Body(Mine(tapped)), true));
                 break;
 
+            // CR 701.7 over CR 109.2: a wipe destroys everything the filter describes, whoever
+            // controls it, so both battlefields empty and both graveyards fill.
+            case Destroy { What: Each all } when Wipeable(all.Filter):
+                Sweep(board, Bodies);
+                break;
+
+            // CR 701.16: each player sacrifices, so each player loses the one permanent they had.
+            // The engine asks which one; a generated scenario answers with the first legal option.
+            case Sacrifice { What: null, Choice: { } offered, Who: EachPlayer, N: null or Fixed { N: 1 } } when Wipeable(offered):
+                Sweep(board, 1);
+                break;
+
+            // CR 700.2: the modes are chosen as the spell is cast. A smoke scenario takes the
+            // first, and asserts whatever that mode does.
+            case ChooseMode { Min: 1, Max: 1, Modes: { Count: > 0 } modes }:
+                board.Mode(0);
+                foreach (var inner in Flatten(modes[0].Do))
+                {
+                    if (!Assert(board, inner))
+                        return false;
+                }
+
+                break;
+
+            // CR 701.23 with CR 400.1: a search that puts a land onto the battlefield leaves the
+            // library one smaller and the battlefield one larger.
+            case Search { To: Zone.Battlefield, From: Zone.Library, Who: null or You } onto when Findable(onto.For):
+                board.Caster(library: -1);
+                board.Arrives(1);
+                break;
+
+            // CR 106.4: mana goes into a pool, and a pool is not a zone a scenario can count. The
+            // expectation is the event the engine logs for it (seam-requests/P9.md § 2).
+            case AddMana { Who: null or You }:
+                board.Expect(new EventLogged(nameof(ManaChanged)));
+                break;
+
+            // CR 611.1: a continuous effect changes nothing about where anything is, so what a
+            // play can show is that the game created the effect (seam-requests/P9.md § 2).
+            case Apply { To: Each affected }:
+                // An effect over "each" of nothing is not created at all, so the board has to hold
+                // one of whatever it is about — on the side the filter names, so a wipe-shaped
+                // effect kills someone else's and the caster's graveyard count still holds.
+                board.Place(affected.Filter.ControlledBy is You, ScenarioFiller.Creature, 1);
+                board.Expect(new EventLogged(nameof(ContinuousEffectCreated)));
+                break;
+
+            case Apply { To: Self } or ApplyToPlayer:
+                board.Expect(new EventLogged(nameof(ContinuousEffectCreated)));
+                break;
+
+            // CR 121.1: "draw a card for each" draws as many as the board gives it to count.
+            case Draw { N: CountOf counted, Who: null or You } when Countable(counted.Filter):
+                {
+                    board.Place(true, ScenarioFiller.Creature, Bodies);
+                    var drawn = Math.Min(board.OnBattlefield(true), LibrarySize);
+                    board.Caster(hand: drawn, library: -drawn);
+                }
+
+                break;
+
             case Destroy or Sacrifice or Exile or PutCounters or Counter or Tap:
                 // The effect aims at something the board cannot place — a land, a spell of a kind,
                 // a filtered permanent. Casting it would be refused for want of a legal target, so
@@ -183,6 +251,70 @@ public static class SmokeScenario
         else
             board.Opponent(hand, library, graveyard);
     }
+
+    /// <summary>How many bodies each player gets when the card is about permanents in general rather than one of them.</summary>
+    private const int Bodies = 2;
+
+    /// <summary>
+    /// CR 704.5m: an Aura on the battlefield attached to nothing is put into its owner's
+    /// graveyard, so an Aura cast at nothing never verifies. "Enchant X" is the targeting
+    /// restriction (CR 702.5b), and it is in the definition as a keyword ability with a filter —
+    /// so the board places what the filter describes and the spell is cast at it. A filter naming
+    /// something the board has no card for gets no scenario, rather than one that always fails.
+    /// </summary>
+    [RuleRef("704.5m")]
+    private static bool Enchant(SmokeBoard board, Face face)
+    {
+        var enchant = face.AbilityList.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
+        if (enchant is null)
+            return true;
+        if (enchant.Of is not { } filter || filter.In is not (null or Zone.Battlefield))
+            return false;
+
+        // "Enchant permanent" is the whole filter, and a creature is a permanent (CR 110.1).
+        var anyPermanent = filter == new ObjectFilter(In: filter.In, Permanent: true, ControlledBy: filter.ControlledBy);
+        if (!anyPermanent && !Simple(filter))
+            return false;
+
+        var card = anyPermanent ? ScenarioFiller.Creature : filter.Types switch
+        {
+            null or CardType.Creature => ScenarioFiller.Creature,
+            CardType.Land => ScenarioFiller.Land,
+            _ => null,
+        };
+        if (card is null)
+            return false;
+
+        board.Aimed(filter.ControlledBy is null or You, card);
+        return true;
+    }
+
+    /// <summary>Bodies on both battlefields and nothing left of them: what a wipe or an each-player sacrifice does.</summary>
+    [RuleRef("701.7")]
+    private static void Sweep(SmokeBoard board, int each)
+    {
+        board.Place(true, ScenarioFiller.Creature, each);
+        board.Place(false, ScenarioFiller.Creature, each);
+        board.Expect(new ZoneCount(Caster, Zone.Battlefield, 0));
+        board.Expect(new ZoneCount(Opponent, Zone.Battlefield, 0));
+        board.Caster(graveyard: each);
+        board.Opponent(graveyard: each);
+    }
+
+    /// <summary>
+    /// A filter a wipe can be asserted against with creatures alone: creatures, permanents, or
+    /// nonland permanents. Anything narrower would need the board to place a card it has not got.
+    /// </summary>
+    private static bool Wipeable(ObjectFilter filter) =>
+        filter.ControlledBy is null
+        && filter == new ObjectFilter(In: filter.In, Types: filter.Types, NotTypes: filter.NotTypes)
+        && filter.In is null or Zone.Battlefield
+        && filter.Types is null or CardType.Creature
+        && filter.NotTypes is null or CardType.Land;
+
+    /// <summary>A count the board can supply: the caster's own creatures, and nothing else about them.</summary>
+    private static bool Countable(ObjectFilter filter) =>
+        Simple(filter) && filter.Types == CardType.Creature && filter.ControlledBy is You && filter.In is null or Zone.Battlefield;
 
     /// <summary>A target the board can place: a creature described by nothing but its type and its controller.</summary>
     private static bool Creature(Target target) =>

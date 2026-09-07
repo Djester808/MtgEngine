@@ -19,16 +19,25 @@ namespace MtgEngine.Rules.Scenarios;
 /// Everything after the setup is the engine's: a step is a <see cref="Command"/> through
 /// <see cref="Game.Apply"/>, and a refusal is the engine's refusal.
 /// </remarks>
-public sealed class ScenarioRunner(Game game) : IScenarioRunner
+public sealed class ScenarioRunner(Game game, bool autoAnswer = false) : IScenarioRunner
 {
     public Game Game { get; } = game;
+
+    /// <summary>
+    /// Answer every question the game stops to ask with its first legal option
+    /// (<see cref="ScenarioAnswers"/>), for scenarios that could not name an option id when they
+    /// were written. A scenario that carries an <see cref="AnswerStep"/> of its own is left alone
+    /// whatever this says: a scenario about a choice must still make it.
+    /// </summary>
+    [RuleRef("101.4")]
+    public bool AutoAnswer { get; } = autoAnswer;
 
     public ScenarioResult Run(Scenario scenario, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         ct.ThrowIfCancellationRequested();
 
-        var run = new ScenarioRun(Game, scenario);
+        var run = new ScenarioRun(Game, scenario, AutoAnswer && !scenario.Steps.OfType<AnswerStep>().Any());
         try
         {
             run.Build(ct);
@@ -47,7 +56,7 @@ public sealed class ScenarioRunner(Game game) : IScenarioRunner
 internal sealed class ScenarioFailure(string message) : Exception(message);
 
 /// <summary>One run of one scenario: the state, the log, and the names the scenario used for things.</summary>
-internal sealed class ScenarioRun(Game game, Scenario scenario)
+internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer = false)
 {
     private readonly Dictionary<string, PlayerId> _players = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ObjectId> _objects = new(StringComparer.OrdinalIgnoreCase);
@@ -121,9 +130,36 @@ internal sealed class ScenarioRun(Game game, Scenario scenario)
         {
             ct.ThrowIfCancellationRequested();
             Step(step);
+            Answer();
             if (_state.Outcome is not null)
                 break;
         }
+    }
+
+    /// <summary>
+    /// CR 101.4: the game stopped and is waiting. A generated scenario answers with the first
+    /// legal option, through a real <see cref="AnswerChoice"/> command, so the log carries the
+    /// answer and the run still replays. A question with nothing legal to say is left standing,
+    /// and the expectations then fail on the position the game is actually in.
+    /// </summary>
+    [RuleRef("101.4")]
+    private bool Answer()
+    {
+        var answered = false;
+        for (var guard = 0; autoAnswer && guard < 64; guard++)
+        {
+            if (_state.Pending is not { } pending || _state.Outcome is not null)
+                return answered;
+            var choice = ScenarioAnswers.FirstLegal(pending);
+            if (choice.Count == 0)
+                return answered;
+            Command(new AnswerChoice(pending.Player, pending.Id, [.. choice]));
+            if (_state.Pending == pending)
+                return answered;
+            answered = true;
+        }
+
+        return answered;
     }
 
     internal ScenarioResult Report(string? error)
@@ -244,6 +280,8 @@ internal sealed class ScenarioRun(Game game, Scenario scenario)
         var stack = ZoneKey.Shared(Zone.Stack);
         for (var guard = 0; guard < 500; guard++)
         {
+            if (_state.Pending is not null && !Answer())
+                return;
             if (_state.In(stack).IsEmpty || _state.Pending is not null || _state.Outcome is not null)
                 return;
             var holder = _state.Priority.Holder ?? _state.Turn.ActivePlayer;

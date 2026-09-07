@@ -19,7 +19,9 @@ internal sealed class SmokeBoard(string card)
     private readonly List<string> _targets = [];
     private readonly List<Expectation> _expect = [];
 
-    private int _casterTokens;
+    private readonly List<int> _modes = [];
+
+    private int _casterArrivals;
     private int _casterHand;
     private int _casterLibrary;
     private int _casterGraveyard;
@@ -35,7 +37,7 @@ internal sealed class SmokeBoard(string card)
     internal bool Empty => _expect.Count == 0 && !Moved;
 
     private bool Moved =>
-        (_casterTokens | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard) != 0;
+        (_casterArrivals | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard) != 0;
 
     /// <summary>How many targets the steps supply. A second one is a smoke scenario's limit.</summary>
     internal int Targets => _targets.Count;
@@ -43,13 +45,43 @@ internal sealed class SmokeBoard(string card)
     internal void Expect(Expectation expectation) => _expect.Add(expectation);
 
     /// <summary>The card the spell is aimed at, placed on the battlefield of whoever is to own it.</summary>
-    internal string Body(bool mine)
+    internal string Body(bool mine) => Aimed(mine, ScenarioFiller.Creature);
+
+    /// <summary>
+    /// CR 601.2c: a permanent of the named kind, placed and then named as a target. An Aura's
+    /// "enchant" restriction picks the kind (CR 702.5b); everything else aims at a creature.
+    /// </summary>
+    [RuleRef("702.5b")]
+    internal string Aimed(bool mine, string card)
+    {
+        Place(mine, card, 1);
+        _targets.Add(card);
+        return card;
+    }
+
+    /// <summary>Permanents that nothing points at: bodies for a wipe to destroy, or for a count to count.</summary>
+    internal void Place(bool mine, string card, int n)
     {
         var where = mine ? _casterBattlefield : _opponentBattlefield;
-        where.Add(new CardRef(ScenarioFiller.Creature));
-        _targets.Add(ScenarioFiller.Creature);
-        return ScenarioFiller.Creature;
+        for (var i = 0; i < n; i++)
+            where.Add(new CardRef(card));
     }
+
+    /// <summary>How many permanents each player has, so a wipe knows what it is asserting the absence of.</summary>
+    internal int OnBattlefield(bool mine) => mine ? _casterBattlefield.Count : _opponentBattlefield.Count;
+
+    /// <summary>CR 700.2: the modes are chosen as the spell is cast, so the step carries them.</summary>
+    [RuleRef("700.2")]
+    internal void Mode(int index) => _modes.Add(index);
+
+    internal IReadOnlyList<int>? Modes() => _modes.Count == 0 ? null : _modes;
+
+    /// <summary>
+    /// CR 400.1: one more permanent on the caster's battlefield than the setup put there —
+    /// a token made, or a card a search put straight onto it.
+    /// </summary>
+    [RuleRef("400.1")]
+    internal void Arrives(int n) => _casterArrivals += n;
 
     /// <summary>CR 601: a spell on the stack for a counterspell to be aimed at, cast by the other player.</summary>
     [RuleRef("601")]
@@ -63,7 +95,7 @@ internal sealed class SmokeBoard(string card)
 
     /// <summary>CR 111.1: tokens arrive on the caster's battlefield, beside whatever the setup put there.</summary>
     [RuleRef("111.1")]
-    internal void Tokens(int n) => _casterTokens += n;
+    internal void Tokens(int n) => Arrives(n);
 
     /// <summary>Cards move between the caster's zones: the counts are asserted once, at the end.</summary>
     internal void Caster(int hand = 0, int library = 0, int graveyard = 0)
@@ -126,8 +158,8 @@ internal sealed class SmokeBoard(string card)
 
     private void Counts()
     {
-        if (_casterTokens != 0)
-            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Battlefield, _casterBattlefield.Count + _casterTokens));
+        if (_casterArrivals != 0)
+            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Battlefield, _casterBattlefield.Count + _casterArrivals));
 
         // The card under test left the caster's hand when it was played, and the filler stayed.
         if (_casterHand != 0)

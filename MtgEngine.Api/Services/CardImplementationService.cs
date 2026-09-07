@@ -110,7 +110,12 @@ public sealed class CardImplementationService(ICardFilePool pool, CardImplementa
             ? files.Where(f => f.Status == ImplementationStatus.Disputed).Select(Dispute).ToList()
             : null;
 
-        return new CardCoverageDto(files.Count, byStatus, backlog, Verification(last), disputed);
+        // A card the runner had nothing to play is neither verified nor failed, and counting it as
+        // either would misreport the run. It is the third number the dashboard needs (C3).
+        var withoutScenarios = files.Count(f =>
+            f.Status is ImplementationStatus.Translated or ImplementationStatus.Verified && f.ScenarioList.Count == 0);
+
+        return new CardCoverageDto(files.Count, byStatus, backlog, Verification(last, withoutScenarios), disputed);
     }
 
     /// <summary>
@@ -155,8 +160,10 @@ public sealed class CardImplementationService(ICardFilePool pool, CardImplementa
     private static string? Excluded(CardFile file) =>
         file.Source is ExcludedProvenance excluded ? excluded.Reason : null;
 
-    private static VerificationDto? Verification(Verification? verification) =>
-        verification is null ? null : new VerificationDto(verification.EngineHash, verification.RunId, verification.Passed, verification.Total, verification.At);
+    private static VerificationDto? Verification(Verification? verification, int withoutScenarios = 0) =>
+        verification is null
+            ? null
+            : new VerificationDto(verification.EngineHash, verification.RunId, verification.Passed, verification.Total, verification.At, withoutScenarios);
 
     /// <summary>
     /// A scenario's own pass is not stored per scenario; the run stores how many of them passed.
