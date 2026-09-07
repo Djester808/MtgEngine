@@ -73,6 +73,8 @@ public sealed class CreatureTypeTests
 
             var written = Names(Directory.GetFiles(temp));
             Assert.Contains("CreatureTypes.g.cs", written);
+            // CR 205.3i's basic land types are generated the same way and by the same run (V7).
+            Assert.Contains("LandTypes.g.cs", written);
             Assert.Equal(Names(Directory.GetFiles(committed, "*.g.cs")), written);
             foreach (var name in written)
             {
