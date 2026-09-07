@@ -87,9 +87,13 @@ internal sealed class RecordingInterpreter : IInterpreter
 
     public List<ObjectId> Resolved { get; } = [];
 
+    /// <summary>The stack entry each resolved object carried as it was handed over, so a test can see what the announcement left on it.</summary>
+    public List<StackEntry?> Entries { get; } = [];
+
     public Outcome Resolve(GameState state, ObjectId stackObject)
     {
         Resolved.Add(stackObject);
+        Entries.Add(state.Objects[stackObject].Stack);
         return Outcome.Unchanged(state);
     }
 
@@ -178,7 +182,7 @@ internal static class TestFaces
 
     public static CardDefinition Sorcery(string cost = "{2}") => Definition("Test Rite", new TypeLine(CardType.Sorcery), cost);
 
-    public static CardDefinition Instant(string cost = "{1}") => Definition("Test Reply", new TypeLine(CardType.Instant), cost);
+    public static CardDefinition Instant(string cost = "{1}", params Ability[] abilities) => Definition("Test Reply", new TypeLine(CardType.Instant), cost, abilities: abilities);
 
     public static CardDefinition Artifact(string cost = "{2}", params Ability[] abilities) => Definition(
         "Test Engine",
