@@ -37,34 +37,29 @@ public sealed partial class InterpreterTests
         Assert.Equal(Choices.ChoiceKinds.Value, pending.Kind);
         Assert.Equal(E0, pending.Player);
 
-        // CR 614.12 is not held to yet, and this is the seam: the choice is made *as* the object
-        // arrives, so the permanent should already be on the battlefield with the question open.
-        // The replacement system treats a With it has no verb for as CR 614.1a's "instead" and
-        // drops the entering event, so the land never arrives at all. Asserted as it stands until
-        // the replacement half lands (seam-requests/E9l.md).
-        Assert.Empty(table.Battlefield(E0, InterpreterTestsEnteringTable.HallName));
-        Assert.False(table.State.Objects.ContainsKey(pending.Context.Source!.Value));
+        // CR 614.12: the choice is made *as* the object arrives, so the permanent is already on the
+        // battlefield with the question open, and the question's source is that permanent.
+        var land = Assert.Single(table.Battlefield(E0, InterpreterTestsEnteringTable.HallName));
+        Assert.Equal(land, pending.Context.Source);
     }
 
     [Fact]
     [RuleRef("101.4")]
-    public void The_answer_to_a_choice_made_while_entering_cannot_find_the_effect_that_asked()
+    public void The_answer_to_a_choice_made_while_entering_finds_the_effect_that_asked_and_keeps_the_answer()
     {
         var table = new InterpreterTestsEnteringTable(HallDeck(), HallDeck());
         table.PassTo(1, Step.PrecombatMain);
         table.Do(new PlayLand(E0, table.InHand(E0, InterpreterTestsEnteringTable.HallName)));
 
         var pending = table.State.Pending!;
-        var refused = table.Refuse(new AnswerChoice(pending.Player, pending.Id, ["Goblin"]));
+        table.Do(new AnswerChoice(pending.Player, pending.Id, ["Goblin"]));
 
-        // CR 101.4: the walk is found again by the source the question carried, and the object that
-        // asked is the one that was entering — which the dropped event means does not exist. There
-        // is nothing the interpreter can look up: the source is not in the state, so neither its
-        // abilities nor the ability index are reachable from here. The refusal is honest (the game
-        // stays on the question rather than the front door throwing), and it stays until the
-        // entering event survives its own replacement (seam-requests/E9l.md).
-        Assert.Equal("101.4", refused.Rule);
-        Assert.Empty(table.Battlefield(E0, InterpreterTestsEnteringTable.HallName));
+        // CR 101.4 with 608.2d: the walk is found again by the source the question carried and the
+        // index of the ability that asked, both of which the entering permanent now has (CR 614.12);
+        // the answer is kept on the permanent for the abilities that read it.
+        var land = Assert.Single(table.Battlefield(E0, InterpreterTestsEnteringTable.HallName));
+        Assert.Null(table.State.Pending);
+        Assert.Equal("Goblin", table.State.Objects[land].Chosen[InterpreterTestsEnteringTable.TypeKey]);
     }
 
     /* ---------------------------------------------------------------------------------------- *

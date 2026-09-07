@@ -220,6 +220,31 @@ public static class ManaSymbols
         yield return (Color.Colorless, pool.Colorless);
     }
 
+    /// <summary>
+    /// The key under which a stack entry carries the colours an activation announced for the mana
+    /// its effect adds, CR 608.2d: one letter per mana in the order the effect adds them, so an
+    /// ability that adds mana of any colour and then does more (CR 605.1a) resolves to the colour
+    /// its controller chose rather than asking again.
+    /// </summary>
+    public const string AnnouncedColorsKey = "mana-colors";
+
+    /// <summary>
+    /// The colour announced for the <paramref name="index"/>th mana, CR 608.2d: null when nothing
+    /// was announced for it, and a letter that names no colour is refused rather than quietly
+    /// ignored, because the choice was made and it was not a legal one.
+    /// </summary>
+    [RuleRef("608.2d")]
+    public static Color? ColorAt(string? colors, int index) =>
+        string.IsNullOrEmpty(colors) || index >= colors.Length
+            ? null
+            : ColorFromChoice(colors[index].ToString())
+                ?? throw new Engine.RefusedException("That is not a colour of mana to add.", "608.2d");
+
+    /// <summary>Whether a colour is one of the five, CR 105.1, rather than a set of them or colourless.</summary>
+    [RuleRef("105.1")]
+    public static bool IsSingleColor(Color color) =>
+        color is Color.White or Color.Blue or Color.Black or Color.Red or Color.Green;
+
     /// <summary>Read a colour from a cost choice: "W", "white", "{G}".</summary>
     public static Color? ColorFromChoice(string? choice)
     {

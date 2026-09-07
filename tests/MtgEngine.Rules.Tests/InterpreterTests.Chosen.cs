@@ -1,6 +1,7 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
@@ -182,6 +183,45 @@ public sealed partial class InterpreterTests
     }
 
     /// <summary>"As this enters, choose a color", CR 608.2d.</summary>
+    /* ---------------------------------------------------------------------------------------- *
+     * CR 608.2d with 605.1a — mana of any colour, announced with the activation.
+     * ---------------------------------------------------------------------------------------- */
+
+    [Fact]
+    [RuleRef("608.2d")]
+    public void An_any_colour_add_mana_on_the_stack_adds_the_colours_the_activation_announced()
+    {
+        var table = new InterpreterTable();
+        var permanent = table.Permanent(table.A, CardType.Artifact, null, null);
+        table.Resolve(table.OnStack(table.A, new AddMana(new ManaProduction(AnyColor: true), N: new Fixed(2)), Announced(permanent, "WU")));
+
+        // CR 608.2d: the choice was made as the ability was activated, one letter per mana in the
+        // order they are added; CR 605.1a is why an ability that adds mana and does more reaches
+        // the interpreter through the stack at all.
+        var pool = table.State.Player(table.A).Mana;
+        Assert.Equal(1, pool.White);
+        Assert.Equal(1, pool.Blue);
+        Assert.Equal(2, pool.Total);
+    }
+
+    [Fact]
+    [RuleRef("608.2d")]
+    public void An_any_colour_add_mana_with_no_colour_announced_is_refused()
+    {
+        var table = new InterpreterTable();
+        var permanent = table.Permanent(table.A, CardType.Artifact, null, null);
+
+        // CR 608.2d: a choice that was never made cannot be applied, and the interpreter does not
+        // guess a colour; the refusal names the rule.
+        var refused = Assert.Throws<RefusedException>(() => table.Resolve(table.OnStack(table.A, new AddMana(new ManaProduction(AnyColor: true)), Of(permanent))));
+
+        Assert.Equal("608.2d", refused.Rule);
+    }
+
+    /// <summary>An ability of that permanent on the stack with the colours its activation announced, CR 608.2d.</summary>
+    private static StackEntry Announced(ObjectId source, string colors) =>
+        Of(source) with { Chosen = ImmutableDictionary<string, string>.Empty.Add(ManaSymbols.AnnouncedColorsKey, colors) };
+
     private static readonly ChooseValue Choose =
         new(ChooseWhat.Color, "color", Options: ["White", "Blue", "Black", "Red", "Green"]);
 

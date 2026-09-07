@@ -134,13 +134,13 @@ public sealed partial class EffectInterpreter
             // CR 106.4: mana goes into the pool of the player the ability's controller names.
             case AddMana mana:
                 {
-                    var pool = PoolFor(run, mana);
                     var times = Math.Max(1, Number(run, mana.N));
                     var produced = 0;
                     foreach (var player in PlayersOrYou(run, mana.Who))
                     {
+                        // CR 608.2d: each mana added is its own colour choice, read by its index.
                         for (var i = 0; i < times; i++)
-                            run = Emit(run, new ManaChanged(player, ManaDelta(pool, mana, run.Context.Source, ref produced), "addMana"));
+                            run = Emit(run, new ManaChanged(player, ManaDelta(PoolFor(run, mana, i), mana, run.Context.Source, ref produced), "addMana"));
                     }
 
                     return run;
@@ -300,7 +300,15 @@ public sealed partial class EffectInterpreter
     internal static string ManaKey(string key, int index) =>
         key + "#" + index.ToString(CultureInfo.InvariantCulture);
 
-    private ManaPool PoolFor(EffectRun run, AddMana mana)
+    /// <summary>
+    /// What the <paramref name="index"/>th mana of one instruction is, CR 106.1: printed mana from
+    /// the symbols; a keyed colour from what was chosen earlier (CR 608.2d); "any color", "one of"
+    /// a set, or the chosen colour with no key from the letters the activation announced, which
+    /// the stack entry carries under the mana key (CR 605.1a: an ability that adds mana and does
+    /// more still resolves to its controller's choice). A set of one colour needs no announcement.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private ManaPool PoolFor(EffectRun run, AddMana mana, int index)
     {
         var production = mana.Mana;
         if (production.Fixed is { } symbols)
@@ -311,6 +319,16 @@ public sealed partial class EffectInterpreter
             return ManaSymbols.OfColor(colour);
         if (production.ChosenColorKey is { } missing)
             throw new Engine.RefusedException($"No colour was chosen under '{missing}' for this mana.", "608.2d");
+        if (production.AnyColor || production.ChosenColor || production.OneOf is not null)
+        {
+            run.Context.Chosen.TryGetValue(Mana.ManaSymbols.AnnouncedColorsKey, out var announced);
+            var announcedColour = Mana.ManaSymbols.ColorAt(announced, index)
+                ?? (production.OneOf is { } only && Mana.ManaSymbols.IsSingleColor(only) ? (Color?)only : null);
+            return announcedColour is { } chosenColour
+                ? Mana.ManaSymbols.OfColor(chosenColour)
+                : throw new Engine.RefusedException("The colour of mana to add was not chosen.", "608.2d");
+        }
+
         throw new Engine.RefusedException($"No interpreter arm for this shape of {nameof(ManaProduction)}.", "608.2");
     }
 }

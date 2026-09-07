@@ -241,16 +241,4 @@ public sealed partial class CastingSystem
             .Where(b => b.Amount < 0)
             .Select(b => b with { Amount = -b.Amount }),
     ];
-
-    /// <summary>
-    /// CR 608.2d: the colour chosen for the nth mana an "add one mana of any color" instruction
-    /// adds, one letter per mana in the order they are added. A letter that names no colour is
-    /// refused rather than quietly ignored, because the choice was made and it was not a legal one.
-    /// </summary>
-    [RuleRef("608.2d")]
-    private static Color? ColorAt(string? colors, int index) =>
-        string.IsNullOrEmpty(colors) || index >= colors.Length
-            ? null
-            : ManaSymbols.ColorFromChoice(colors[index].ToString())
-                ?? throw new RefusedException("That is not a colour of mana to add.", "608.2d");
 }

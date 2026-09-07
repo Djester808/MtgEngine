@@ -106,7 +106,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             paid.State,
             source,
             chars.Controller,
-            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false, ManaProvenanceSpent: ProvenanceSpent(paid.Events)));
+            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false, Chosen: AnnouncedColors(command.ManaColors), ManaProvenanceSpent: ProvenanceSpent(paid.Events)));
         ImmutableList<GameEvent> events = [.. spent, onStack, activated with { StackObject = onStack.Object.Id }];
         return new Outcome(GameReducer.Apply(state, events), events);
     }
@@ -348,9 +348,9 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         // activation that names its colour there.
         if (production.AnyColor || production.ChosenColor || production.OneOf is not null)
         {
-            var chosen = ColorAt(command.ManaColors, index)
+            var chosen = ManaSymbols.ColorAt(command.ManaColors, index)
                 ?? command.CostChoices?.Select(ManaSymbols.ColorFromChoice).FirstOrDefault(c => c is not null)
-                ?? (production.OneOf is { } only && IsSingleColor(only) ? (Color?)only : null);
+                ?? (production.OneOf is { } only && ManaSymbols.IsSingleColor(only) ? (Color?)only : null);
             return chosen is null
                 ? throw new RefusedException("The colour of mana to add was not chosen.", "608.2d")
                 : ManaSymbols.OfColor(chosen.Value);
@@ -359,8 +359,14 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         throw new RefusedException("That kind of mana production is not supported yet.", "106.1");
     }
 
-    private static bool IsSingleColor(Color color) =>
-        color is Color.White or Color.Blue or Color.Black or Color.Red or Color.Green;
+    /// <summary>
+    /// CR 608.2d with 605.1a: an ability that adds mana of any colour and does more uses the stack,
+    /// and the colours its activation announced travel on the entry under the mana key, one
+    /// letter per mana, so the resolution adds what was chosen. Nothing announced, nothing carried.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static ImmutableDictionary<string, string>? AnnouncedColors(string? colors) =>
+        string.IsNullOrEmpty(colors) ? null : ImmutableDictionary<string, string>.Empty.Add(ManaSymbols.AnnouncedColorsKey, colors);
 
     private static void RequireSorcerySpeed(GameState state, PlayerId player, string rule)
     {
