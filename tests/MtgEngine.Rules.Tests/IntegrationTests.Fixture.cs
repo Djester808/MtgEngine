@@ -3,7 +3,6 @@ using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
-using MtgEngine.Rules.Turn;
 
 namespace MtgEngine.Rules.Tests;
 

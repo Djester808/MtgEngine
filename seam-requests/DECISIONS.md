@@ -38,3 +38,41 @@ below when their builders file them.
 | P1, P3 | `SmokeTests.cs` unnecessary using | **Done** (coordinator's defect). |
 | P3 | `Pilot.Evaluate` lints a single reading as `Disputed` and can never agree | **Now.** The pilot lints readings as `Translated`; the pilot numbers gathered before this were wrong by construction, and no decision was read from them. |
 | P1 | the prompt is duplicated between `Translator.cs` and `Translate/TranslationPrompt.cs` | **Now.** The pilot uses the stage's prompt; `Translator.cs` keeps only what the pilot still needs until it is retired. |
+
+# Seam decisions after wave 2
+
+Every request a wave-2 builder filed (`seam-requests/E6.md`, `E8.md`, `E9.md`, `E12.md`,
+`E13.md`, `E14.md`, `E15.md`, `EINT.md`, `V1.md`). "Now" landed in the "Seams after wave 2"
+commit, tested by `tests/MtgEngine.Rules.Tests/WaveTwoSeamTests.cs`; "wave 3" names the
+builder that does it with the seam in place.
+
+| From | Request | Decision |
+|---|---|---|
+| E9, E6 | `events.txt` lines (ContinuousEffectCreated, DelayedTriggerCreated, ExtraTurnGranted, TriggerFired) | **Done** at their merges. |
+| E9, E6 | `StackEntry.Remembered`, `RememberedPlayers`, `Triggering` | **Now.** Defaulted fields; the trigger system fills them when it stacks a trigger, the interpreter reads them into the context (CR 603.3d). |
+| E9 | `CreateToken` taking a `CombatTarget` | **No.** The vocabulary carries only `bool Attacking`; the wave-1 row E1 is closed. |
+| E6 | `ObjectMoved` carries the departed object | **Now.** `GameObject? Departed = null`; `ZoneSystem.Move` and `Draw` set it (CR 603.10 look-back; `ZoneChange` from a non-battlefield zone can match now — E6's matcher reads it in wave 3). |
+| E6 | `trigger-order` choice halts the game | **Accepted.** CR 603.3b is a choice; it resumes through `IResumable`. Revisit if tables find it noisy. |
+| E6 | events for the ~30 triggers with nothing to match | **Wave 3, as they are needed.** Each comes from the subsystem that performs the action. |
+| E15 | `Layers.Printed` reads `FaceRules.ActiveFace` / `FaceDown` | **Now.** |
+| E15 | casting chooses among `CastableFaces`, the stack carries the chosen face, `ResolvesTo` | **Wave 3 (E3b).** |
+| E15 | interpreter verbs Transform/Convert/Flip/Meld, copies and copy tokens | **Wave 3 (E9b).** |
+| E15 | `ObjectTurnedOver(Object, FaceIndex, TurnKind)` event | **Now.** Folds `FaceIndex` and `FaceDown`. |
+| E15 | melded permanent components | **No, for now.** When a meld card is translated. |
+| E12 | `IsThisObject`, `DiscardSelfCost`, `AddTypes.AllCreatureTypes` in the vocabulary | **Done by V1.** |
+| V1 | `Query` answers `IsThisObject`; `CostPayment` pays `DiscardSelfCost` | **Now.** |
+| V1 | `Layers` applies `AddTypes.AllCreatureTypes` | **Wave 3 (V2).** It needs the creature-type list of CR 205.3m generated from `comprehensive-rules.txt` like the keyword enums, so the engine holds rules data and no card data; the flag then lives on `Characteristics` and the query reads it. |
+| E12 | `CostModifier` matching this spell (affinity) | **No.** Casting reads the affinity keyword directly (wave 3, E3b); affinity moves to `Expands: false`. |
+| E12 | riot is a replacement | **Noted.** E8 runs it once the expander emits a `ReplacementAbility`. |
+| E8 | `ActiveEffectChanged(int Id, ContinuousEffect? Effect)` | **Now.** Null ends the effect. |
+| E8 | the proposed event beside a `replacement-order` choice | **Now.** `GameEvent? Event = null` on `ChoiceContext`. |
+| E8 | `Shuffled` distinct from `ZoneReordered` | **Now.** `bool Shuffle = false` on `ZoneReordered`, set by `ZoneSystem.Shuffle`. |
+| E13 | hoist `IResumable`/`Resumption` into `Engine/Seams.cs`; the interpreter implements it | **Now** for the hoist; the implementation is **wave 3 (E9b)**, after which `Subsystems.Wave2()` passes the interpreter to the choice system. |
+| E13 | `ITurnSystem.OpenHands` (CR 103.5) from `Game.Create` | **Now on the seam, wave 3 (E2b) in the turn system.** A default returns the state unchanged; `GameSetup.OfferMulligans = false` until E2b, which also begins turn 1 after the last keep. |
+| E13 | bottoming is one `ObjectMoved` per card | **Accepted.** |
+| E14 | `ICombatSystem.CouldAttack`/`CouldBlock` | **Wave 3 (E2b, with the combat folder).** One reading of CR 508.1a. |
+| E14 | wire `ViewProjector` and `LegalActions` | **Now**, in both `Wave1()` and `Wave2()`, with an `enforced` lookup the session supplies. |
+| EINT | `Wave1()` passes the combat system to `TurnSystem` | **Now.** The test fixture's rewrap is gone. |
+| EINT | `ObjectId`/`PlayerId` as dictionary keys in the log | **Now.** Ids are bare numbers in the log; the exit test round-trips the whole log. |
+| EINT | CR 510.4 first-strike step always walked; CR 704.3 SBA after `Advance` | **Wave 3 (E2b).** |
+| coordinator | `Game.Settle` never saw the command's own events, so a cast spell's triggers were never collected | **Now.** `Settle(state, since)` collects them first (CR 603.3); `WaveTwoSeamTests` plays an enters-the-battlefield trigger to resolution through `Wave2()`. |

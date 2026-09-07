@@ -1,6 +1,5 @@
 using System.Globalization;
 using MtgEngine.Cards;
-using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;

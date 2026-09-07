@@ -32,7 +32,7 @@ public sealed record Subsystems(
     /// actions are real; triggers, replacement, the interpreter, choices and views are still
     /// stubs, which is enough for a game of lands and vanilla creatures.
     /// </summary>
-    public static Subsystems Wave1()
+    public static Subsystems Wave1(Func<string, bool>? enforced = null)
     {
         var layers = new Layers.LayerSystem();
         var query = new Query.Query(layers);
@@ -43,15 +43,19 @@ public sealed record Subsystems(
         var combat = new Combat.CombatSystem(layers, query);
         var turn = new Turn.TurnSystem(zones, casting, combat);
         var sba = new Sba.StateBasedActions(zones, layers, query);
-        return new Subsystems(query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
+        return new Subsystems(
+            query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(),
+            new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
+            new MtgEngine.Rules.Legal.LegalActions(casting, layers));
     }
 
     /// <summary>
-    /// What wave 2 built on top of wave 1: triggers, replacement, the interpreter and the choice
-    /// system are real; views and legal actions are still stubs until E14 lands. Cards with
-    /// abilities play through this one.
+    /// What wave 2 built on top of wave 1: triggers, replacement, the interpreter, the choice
+    /// system, views and legal actions are all real. Cards with abilities play through this one.
+    /// <paramref name="enforced"/> says, by oracle id, whether the engine plays a card or the table
+    /// does by hand; the session that admitted the deck knows, the engine does not.
     /// </summary>
-    public static Subsystems Wave2()
+    public static Subsystems Wave2(Func<string, bool>? enforced = null)
     {
         var layers = new Layers.LayerSystem();
         var query = new Query.Query(layers);
@@ -70,8 +74,13 @@ public sealed record Subsystems(
         var turn = new Turn.TurnSystem(zones, casting, combat);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);
-        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter as IResumable);
-        return new Subsystems(query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices, new Stubs.Views(), new Stubs.Legal());
+        // Wave 3 (E9b): the interpreter implements IResumable and is passed here, so a card's
+        // question resumes; until then the choice system answers the rules' own questions only.
+        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn);
+        return new Subsystems(
+            query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices,
+            new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
+            new MtgEngine.Rules.Legal.LegalActions(casting, layers));
     }
 }
 

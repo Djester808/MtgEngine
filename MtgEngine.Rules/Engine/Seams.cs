@@ -149,7 +149,8 @@ public sealed record Characteristics(
     int? Defense,
     string? ManaCost,
     ImmutableList<Ability> Abilities,
-    PlayerId Controller)
+    PlayerId Controller,
+    bool EveryCreatureType = false)
 {
     public bool Has(KeywordKind keyword) => Abilities.OfType<KeywordAbility>().Any(k => k.Keyword == keyword);
 }
@@ -159,6 +160,16 @@ public interface IReplacementSystem : ISubsystem
 {
     /// <summary>Offer an event to every applicable replacement and prevention effect; return what actually happens, CR 616.</summary>
     Outcome Replace(GameState state, GameEvent proposed, PlayerId affected);
+
+    /// <summary>
+    /// CR 616.1: the affected player chose which of several applicable replacements applies
+    /// first. The question carried the event in <see cref="ChoiceContext.Event"/>; this applies
+    /// the chosen effect to it and offers the result to the rest. Wave 3 (E8b) implements it;
+    /// the interpreter's <see cref="IResumable"/> hands the "replacement-order" kind here.
+    /// </summary>
+    [RuleRef("616.1")]
+    Outcome Resume(GameState state, Resumption resumption) =>
+        throw new NotImplementedException("Resuming a replacement-order choice is not built yet: wave 3, agent E8b.");
 }
 
 /// <summary>Executes effect trees. Owns selector resolution, remembered objects and the keyword actions.</summary>
