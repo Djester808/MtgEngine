@@ -56,7 +56,7 @@ public static class SmokeActivation
         var board = new SmokeBoard(file.Name) { PlaysFromBattlefield = true };
         if (Pay(board, ability.Costs) is not { } mana)
             return null;
-        if (!SmokeScenario.Reads(board, ability.Do) || board.Empty || board.Targets > 1)
+        if (!SmokeScenario.Reads(board, ability.Do) || board.Empty || board.Targets > board.TargetLimit)
             return null;
 
         // CR 106.4: the pool the activation leaves behind is only the ability's own mana when the

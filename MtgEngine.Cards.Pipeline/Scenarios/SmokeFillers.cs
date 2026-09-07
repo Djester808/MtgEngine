@@ -22,22 +22,31 @@ internal static class SmokeFillers
         ScenarioFiller.Land,
     ];
 
-    /// <summary>The fillers a library can be stocked with, so a search of any of the card types finds one.</summary>
-    private static IReadOnlyList<string> Cards() =>
-    [
-        ScenarioFiller.BasicLand,
-        ScenarioFiller.Creature,
-        ScenarioFiller.Artifact,
-        ScenarioFiller.Enchantment,
-        ScenarioFiller.Spell,
-        ScenarioFiller.Sorcery,
-        ScenarioFiller.Land,
+    /// <summary>The fillers a library or a graveyard can be stocked with, so a search of any of the card types finds one.</summary>
+    private static IReadOnlyList<string> Cards()
+    {
+        IReadOnlyList<string> plain =
+        [
+            ScenarioFiller.BasicLand,
+            ScenarioFiller.Creature,
+            ScenarioFiller.Artifact,
+            ScenarioFiller.Enchantment,
+            ScenarioFiller.Spell,
+            ScenarioFiller.Sorcery,
+            ScenarioFiller.Land,
 
-        // Last, so a search that says nothing about a mana value still finds what it always found;
-        // these two are here for the searches that do compare one (CR 202.3).
-        ScenarioFiller.CheapCreature,
-        ScenarioFiller.CostlyCreature,
-    ];
+            // Last, so a search that says nothing about a mana value still finds what it always found;
+            // these two are here for the searches that do compare one (CR 202.3).
+            ScenarioFiller.CheapCreature,
+            ScenarioFiller.CostlyCreature,
+        ];
+
+        // After them, every other filler the runner knows — a basic land of one of the basic land
+        // types above all (CR 305.6), which a "Forest card" search can find and nothing here names.
+        // Behind the plain ones, so a search that says nothing about a subtype still finds what it
+        // always found.
+        return [.. plain, .. ScenarioFiller.Names.Where(name => !plain.Contains(name, StringComparer.Ordinal))];
+    }
 
     /// <summary>
     /// CR 109.2: the permanents this filter describes that the board can place, best first, or
@@ -99,6 +108,24 @@ internal static class SmokeFillers
         };
     }
 
+    /// <summary>
+    /// CR 404.1: the card a graveyard is stocked with so a spell aimed at "target card in your
+    /// graveyard" has one to name, or null when the filter describes a card the runner has not got.
+    /// Whose graveyard is the caller's to settle: the filter's owner is not read here.
+    /// </summary>
+    [RuleRef("404.1")]
+    internal static string? Buried(ObjectFilter filter, int? x = null)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        if (filter.In is not Zone.Graveyard || !Plain(filter with { In = null, OwnedBy = null }))
+            return null;
+        return Cards().FirstOrDefault(name => Matches(filter, name) && CostsRight(filter.ManaValue, name, x));
+    }
+
+    /// <summary>CR 208.1: the printed power of one filler, or null when the name is not a filler's or it has none.</summary>
+    [RuleRef("208.1")]
+    internal static int? PowerOf(string card) => ScenarioFiller.For(card)?.Faces[0].Power?.Number;
+
     /// <summary>The number a comparison is against: a printed one, or the X the scenario announced (CR 601.2b).</summary>
     [RuleRef("601.2b")]
     private static int? Bound(Amount amount, int? x) => amount switch
@@ -128,6 +155,8 @@ internal static class SmokeFillers
             AnyTypes: filter.AnyTypes,
             NotTypes: filter.NotTypes,
             Supertypes: filter.Supertypes,
+            Subtypes: filter.Subtypes,
+            NotSubtypes: filter.NotSubtypes,
             ControlledBy: filter.ControlledBy,
             Permanent: filter.Permanent,
             Spell: filter.Spell,
@@ -147,8 +176,18 @@ internal static class SmokeFillers
             return false;
         if (filter.Supertypes is { } supertypes && (line.Supertypes & supertypes) != supertypes)
             return false;
+
+        // CR 205.3: subtypes read as any-of — "a Forest or Island card" — and a filler with none
+        // printed is not a Human, so "non-Human" admits it.
+        if (filter.Subtypes is { Count: > 0 } wanted && !wanted.Any(subtype => HasSubtype(line, subtype)))
+            return false;
+        if (filter.NotSubtypes is { Count: > 0 } unwanted && unwanted.Any(subtype => HasSubtype(line, subtype)))
+            return false;
         return filter.Permanent is not { } permanent || permanent == IsPermanent(line.Types);
     }
+
+    private static bool HasSubtype(TypeLine line, string subtype) =>
+        line.SubtypeList.Any(printed => string.Equals(printed, subtype, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>CR 205.2a: the permanent card types.</summary>
     [RuleRef("205.2a")]

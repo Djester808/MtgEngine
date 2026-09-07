@@ -17,7 +17,7 @@ namespace MtgEngine.Cards.Pipeline.Scenarios;
 /// effect it cannot assert gets no scenario at all rather than a scenario that always passes.
 /// Nothing here asserts a card's flavour: only what the record in front of it says happens.
 /// </remarks>
-public static class SmokeScenario
+public static partial class SmokeScenario
 {
     public const string Caster = "A";
     public const string Opponent = "B";
@@ -82,7 +82,7 @@ public static class SmokeScenario
             return null;
         }
 
-        if (board.Empty || board.Targets > 1)
+        if (board.Empty || board.Targets > board.TargetLimit)
             return null;
 
         // CR 601.2c: "target player" is announced with the spell, so the step names the opponent
@@ -136,21 +136,69 @@ public static class SmokeScenario
         switch (effect)
         {
             // CR 121.1: drawing puts cards in hand, and the spell itself has left it.
-            case Draw { N: Fixed n, Who: null or You } when n.N > 0 && n.N <= LibrarySize:
-                board.Caster(hand: n.N, library: -n.N);
+            case Draw { Who: null or You } draw when Number(board, draw.N) is { } drawn && drawn > 0 && drawn <= LibrarySize:
+                board.Caster(hand: drawn, library: -drawn);
                 break;
 
             // CR 119.3: damage to a player is life lost.
-            case DealDamage { N: Fixed n, To: null, ToPlayer: not null and not You } when n.N > 0:
-                board.Expect(new Life(Opponent, 20 - n.N));
+            case DealDamage { To: null, ToPlayer: not null and not You } burn when Number(board, burn.N) is { } dealt && dealt > 0:
+                board.Expect(new Life(Opponent, 20 - dealt));
                 break;
 
-            case GainLife { N: Fixed n, Who: null or You } when n.N > 0:
-                board.Expect(new Life(Caster, 20 + n.N));
+            // CR 115.4: "any target" is one of a creature, a player, a planeswalker or a battle, and
+            // the choice is the scenario's — it takes the opponent, who is always there to be aimed
+            // at (CR 601.2c), and CR 120.3a turns the damage into life lost.
+            case DealDamage { To: AnyTarget { Count: null or Fixed { N: 1 }, UpTo: false }, ToPlayer: null } bolt
+                when Number(board, bolt.N) is { } struck && struck > 0:
+                board.AimsAtPlayer(Opponent);
+                board.Expect(new Life(Opponent, 20 - struck));
                 break;
 
-            case LoseLife { N: Fixed n, Who: not null and not You } when n.N > 0:
-                board.Expect(new Life(Opponent, 20 - n.N));
+            case GainLife { Who: null or You } gain when Number(board, gain.N) is { } gained && gained > 0:
+                board.Expect(new Life(Caster, 20 + gained));
+                break;
+
+            case LoseLife { Who: not null and not You } drain when Number(board, drain.N) is { } lost && lost > 0:
+                board.Expect(new Life(Opponent, 20 - lost));
+                break;
+
+            // CR 402.1: "return target card from your graveyard to your hand" — the graveyard is
+            // stocked with a card the filter describes, under an alias, and the spell is aimed at
+            // it; afterwards it is in hand and the graveyard holds only the spell.
+            case Move { What: Target dug, To: Zone.Hand, Where: Placement.Default, UnderControlOf: null, Tapped: false, FaceDown: false, Attacking: false, Transformed: false, WithCounters: null, AttachedTo: null }
+                when dug is { Count: null or Fixed { N: 1 }, UpTo: false } && dug.Filter.OwnedBy is null or You
+                    && SmokeFillers.Buried(dug.Filter, board.AnnouncedX) is { } buried:
+                board.Expect(new InZone(board.Buries(buried), Zone.Hand, Caster));
+                board.Caster(hand: 1, graveyard: -1);
+                break;
+
+            // CR 701.14a: each creature deals damage equal to its power to the other. The first is
+            // the six-power filler and the second the two-power one, so exactly one of them has
+            // lethal damage marked (CR 704.5g) and the scenario can say which — the loser is in its
+            // owner's graveyard and the winner is still on the battlefield. Both are targets, named
+            // on the step in the order the record names them (CR 601.2c). Only a keyed pair plays
+            // today: the engine hands an unkeyed Target every announced target rather than its own
+            // slot, so the first creature would fight itself (seam-requests/P16.md); a keyed one is
+            // remembered as announced and reads its own.
+            case Fight { A: Target { Key: not null } first, B: Target { Key: not null } second } when Fightable(first) && Fightable(second):
+                {
+                    board.TargetLimit = 2;
+                    var winner = board.Aimed(Mine(first), ScenarioFiller.CostlyCreature);
+                    var loser = board.Aimed(Mine(second), ScenarioFiller.Creature);
+                    board.Expect(new InZone(loser, Zone.Graveyard, Owner(second)));
+                    board.Expect(new InZone(winner, Zone.Battlefield));
+                    Moves(board, second.Filter.ControlledBy, graveyard: 1);
+                }
+
+                break;
+
+            // CR 208.1 with CR 121.1: "draw cards equal to the greatest power among creatures you
+            // control" draws the printed power of the one creature the board gives it to look at.
+            case Draw { N: GreatestAmong { Of: PowerOf { Of: Self } } greatest, Who: null or You }
+                when greatest.Among.ControlledBy is null or You && SmokeFillers.Bodies(greatest.Among).Contains(ScenarioFiller.Creature)
+                    && SmokeFillers.PowerOf(ScenarioFiller.Creature) is { } power && power > 0 && power <= LibrarySize:
+                board.Place(true, ScenarioFiller.Creature, 1);
+                board.Caster(hand: power, library: -power);
                 break;
 
             // CR 701.7: destroying a permanent puts it into its owner's graveyard. "Artifact or
@@ -201,12 +249,12 @@ public static class SmokeScenario
 
             // CR 701.13: milling moves cards from the top of a library into that graveyard.
             case Mill { N: Fixed milled } mill when milled.N > 0 && milled.N <= LibrarySize:
-                Move(board, mill.Who, library: -milled.N, graveyard: milled.N);
+                Moves(board, mill.Who, library: -milled.N, graveyard: milled.N);
                 break;
 
             // CR 701.8: a discard moves a card from a hand to its owner's graveyard.
             case Discard { N: Fixed discarded, What: null, WholeHand: false } discard when discarded.N > 0 && discarded.N <= HandSize:
-                Move(board, discard.Who, hand: -discarded.N, graveyard: discarded.N);
+                Moves(board, discard.Who, hand: -discarded.N, graveyard: discarded.N);
                 break;
 
             // CR 701.21: tapping a permanent leaves it tapped.
@@ -299,7 +347,7 @@ public static class SmokeScenario
     }
 
     /// <summary>Milling and discarding name a player, and everyone who is not you is the opponent here.</summary>
-    private static void Move(SmokeBoard board, PlayerRef? who, int hand = 0, int library = 0, int graveyard = 0)
+    private static void Moves(SmokeBoard board, PlayerRef? who, int hand = 0, int library = 0, int graveyard = 0)
     {
         if (who is null or You)
             board.Caster(hand, library, graveyard);
@@ -309,85 +357,6 @@ public static class SmokeScenario
 
     /// <summary>How many bodies each player gets when the card is about permanents in general rather than one of them.</summary>
     private const int Bodies = 2;
-
-    /// <summary>
-    /// CR 704.5m: an Aura on the battlefield attached to nothing is put into its owner's
-    /// graveyard, so an Aura cast at nothing never verifies. "Enchant X" is the targeting
-    /// restriction (CR 702.5b), and it is in the definition as a keyword ability with a filter —
-    /// so the board places what the filter describes and the spell is cast at it. A filter naming
-    /// something the board has no card for gets no scenario, rather than one that always fails.
-    /// </summary>
-    [RuleRef("704.5m")]
-    private static bool Enchant(SmokeBoard board, Face face)
-    {
-        var enchant = face.AbilityList.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
-        if (enchant is null)
-            return true;
-        if (enchant.Of is not { } filter || filter.In is not (null or Zone.Battlefield))
-            return false;
-
-        // "Enchant permanent" is the whole filter, and a creature is a permanent (CR 110.1).
-        var anyPermanent = filter == new ObjectFilter(In: filter.In, Permanent: true, ControlledBy: filter.ControlledBy);
-        if (!anyPermanent && !Simple(filter))
-            return false;
-
-        var card = anyPermanent ? ScenarioFiller.Creature : filter.Types switch
-        {
-            null or CardType.Creature => ScenarioFiller.Creature,
-            CardType.Land => ScenarioFiller.Land,
-            _ => null,
-        };
-        if (card is null)
-            return false;
-
-        board.Enchants(filter.ControlledBy is null or You, card);
-        return true;
-    }
-
-    /// <summary>
-    /// CR 601.2c: an additional cost that eats an object is chosen as the spell is cast, and the
-    /// engine refuses a cast that names nothing for it ("There are not enough permanents to
-    /// sacrifice", CR 601.2h). So the board places the body the cost will eat and the step names
-    /// it. A cost the board has no card for gets no scenario, rather than one that reports the
-    /// generator's own gap as the card failing.
-    /// </summary>
-    /// <returns>False when a printed cost cannot be paid from what the board can place.</returns>
-    [RuleRef("601.2c")]
-    private static bool Costs(SmokeBoard board, Face face)
-    {
-        foreach (var cost in face.AdditionalCosts ?? [])
-        {
-            switch (cost)
-            {
-                // CR 701.10: the cost sacrifices one permanent of the caster's, of whatever kind it
-                // names — a creature, a land ("as an additional cost, sacrifice a land"), an
-                // artifact. The board places whichever filler the cost's own filter admits.
-                case SacrificeCost { Count: null or Fixed { N: 1 } } sacrifice
-                    when sacrifice.What.ControlledBy is null or You && SmokeFillers.Bodies(sacrifice.What) is [var eaten, ..]:
-                    board.Sacrificed(eaten);
-                    break;
-
-                // CR 701.8: the cost discards one card, any card, and the hand is filler.
-                case DiscardCost { Count: null or Fixed { N: 1 }, What: null, Random: false }:
-                    board.Discarded();
-                    break;
-
-                // A cost that eats an object the board cannot place is the CR 601.2h refusal
-                // itself: no body, no cast. The card gets no scenario rather than one that
-                // reports the generator's gap as the card failing.
-                case SacrificeCost or DiscardCost:
-                    return false;
-
-                // Everything else — life, mana, counters on the spell's own source — is paid
-                // without naming an object, so the engine settles it as it did before there was
-                // anywhere to name one.
-                default:
-                    break;
-            }
-        }
-
-        return true;
-    }
 
     /// <summary>Bodies on both battlefields and nothing left of them: what a wipe or an each-player sacrifice does.</summary>
     [RuleRef("701.7")]
@@ -412,64 +381,21 @@ public static class SmokeScenario
     private static IReadOnlyList<string> Aimable(Target target) =>
         target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Bodies(target.Filter) : [];
 
-    /// <summary>
-    /// CR 701.19: the library is stocked with the cards this search is going to find, on top, and
-    /// the aliases they were stocked under are returned so the expectations can name them. A search
-    /// for "up to N" finds N, because the runner answers with as many as the question allows — so
-    /// the board stocks N and the scenario says where every one of them went, rather than asserting
-    /// one card and staying silent about the rest. Empty when the search wants a card the runner
-    /// has not got, or the library has no room left for them.
-    /// </summary>
-    [RuleRef("701.19")]
-    private static IReadOnlyList<string> Stock(SmokeBoard board, Search search)
-    {
-        if (search.To is not (Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library))
-            return [];
-        if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } card)
-            return [];
-
-        var wanted = search.UpTo is Fixed { N: > 0 and var n } ? n : 1;
-        var stocked = new List<string>(wanted);
-        for (var i = 0; i < wanted && board.CanStock; i++)
-            stocked.Add(board.Stocks(card));
-        return stocked;
-    }
+    /// <summary>CR 701.14: one creature the target's filter admits, so a filler creature can stand in for it in a fight.</summary>
+    [RuleRef("701.14")]
+    private static bool Fightable(Target target) => Aimable(target).Contains(ScenarioFiller.Creature);
 
     /// <summary>
-    /// Where each found card ended up, and CR 701.20's shuffle. A search that puts the cards back
-    /// on top of the library moves nothing, so the shuffle is all there is to see — and it is worth
-    /// seeing, because a search that never shuffled would leave the library stacked. The shuffle is
-    /// asserted as a shuffle and not as "something was reordered", which the backlog also logs.
+    /// CR 601.2b: a printed number, or the X the cast announced when the record says X; null for
+    /// an amount the board cannot put a number to, which then asserts nothing.
     /// </summary>
-    [RuleRef("701.20")]
-    private static void Found(SmokeBoard board, Search search, IReadOnlyList<string> found)
+    [RuleRef("601.2b")]
+    private static int? Number(SmokeBoard board, Amount amount) => amount switch
     {
-        var n = found.Count;
-        switch (search.To)
-        {
-            case Zone.Hand:
-                board.Caster(hand: n, library: -n);
-                break;
-            case Zone.Graveyard:
-                board.Caster(graveyard: n, library: -n);
-                break;
-            case Zone.Battlefield:
-                board.Caster(library: -n);
-                board.Arrives(n);
-                break;
-            default:
-                break;
-        }
-
-        if (search.To is not Zone.Library)
-        {
-            foreach (var card in found)
-                board.Expect(new InZone(card, search.To));
-        }
-
-        if (search.ShuffleAfter)
-            board.Expect(new Shuffled(Caster));
-    }
+        Fixed printed => printed.N,
+        X => board.AnnouncedX,
+        _ => null,
+    };
 
     /// <summary>A count the board can supply: the caster's own creatures, and nothing else about them.</summary>
     private static bool Countable(ObjectFilter filter) =>
