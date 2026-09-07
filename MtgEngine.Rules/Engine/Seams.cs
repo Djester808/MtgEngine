@@ -158,6 +158,26 @@ public sealed record EffectContext(
     ImmutableList<ObjectId> Triggering,
     PlayerId? TriggeringPlayer);
 
+/// <summary>
+/// The read-only query layer every subsystem shares: does this object match a filter, is this
+/// condition true, what number is this amount, which objects does a selector name. Built on
+/// <see cref="ICharacteristics"/>; never changes state. Targeting legality and choices are not
+/// here, only the answers the rules text asks for.
+/// </summary>
+public interface IQuery : ISubsystem
+{
+    bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context);
+
+    bool Holds(GameState state, Condition condition, EffectContext context);
+
+    int Evaluate(GameState state, Amount amount, EffectContext context);
+
+    /// <summary>Resolve a non-targeting selector to the objects it names now. Targets come from the context.</summary>
+    ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context);
+
+    ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context);
+}
+
 /// <summary>Pending questions and their answers, resumed by kind, never by continuation.</summary>
 public interface IChoiceSystem : ISubsystem
 {

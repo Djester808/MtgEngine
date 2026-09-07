@@ -15,6 +15,12 @@
  * The heartbeat is .agent/last-call, stamped by .claude/hooks/agent-guard.js on every tool
  * call. An agent with a ready/<id> marker is finished, not idle — the queue merges it.
  *
+ * It also prints the other failure a launch has: registered and never claimed. An isolated
+ * agent claims its manifest from inside its own worktree (`node tools/ledger.js claim <id>`),
+ * so a registration in .agents/manifests with no worktree carrying it means the agent died
+ * before its first command, or never read its brief. There is no heartbeat to go stale for
+ * that one, so without this line it is invisible.
+ *
  *   node tools/sweep.js
  */
 
@@ -56,8 +62,12 @@ function verdict({ ready, sinceCall, sinceLaunch }) {
   return ['nothing', ''];
 }
 
+const trees = worktrees();
+/** git lists the main checkout first, whichever worktree you ask from. */
+const mainCheckout = trees[0] || process.cwd();
+
 const rows = [];
-for (const wt of worktrees()) {
+for (const wt of trees) {
   let manifest;
   try {
     manifest = JSON.parse(fs.readFileSync(path.join(wt, '.agent', 'manifest.json'), 'utf8'));
@@ -78,7 +88,29 @@ for (const wt of worktrees()) {
   rows.push({ id, role: String(manifest.role || '?'), sinceCall, sinceLaunch, ready, action, why, wt });
 }
 
-if (rows.length === 0) {
+/** Registered by the coordinator, and no worktree is carrying that manifest. */
+const claimed = new Set(rows.map((r) => r.id));
+const unclaimed = [];
+const registryDir = path.join(mainCheckout, '.agents', 'manifests');
+let registryFiles = [];
+try {
+  registryFiles = fs.readdirSync(registryDir).filter((f) => f.toLowerCase().endsWith('.json'));
+} catch {
+  /* nothing registered yet */
+}
+for (const f of registryFiles) {
+  let m = null;
+  try {
+    m = JSON.parse(fs.readFileSync(path.join(registryDir, f), 'utf8'));
+  } catch {
+    /* unreadable registration — still worth naming, by its file */
+  }
+  const id = String((m && m.id) || path.basename(f, path.extname(f)));
+  if (!claimed.has(id)) unclaimed.push({ id, role: String((m && m.role) || '?') });
+}
+unclaimed.sort((a, b) => a.id.localeCompare(b.id));
+
+if (rows.length === 0 && unclaimed.length === 0) {
   console.log('sweep: no worktree carries .agent/manifest.json — nothing launched');
   process.exit(0);
 }
@@ -90,7 +122,18 @@ for (const r of rows.sort((a, b) => a.id.localeCompare(b.id))) {
     `${pad(r.id, 8)}${pad(r.role, 11)}${pad(show(r.sinceCall), 7)}${pad(show(r.sinceLaunch), 7)}${pad(r.ready ? 'yes' : 'no', 7)}${pad(r.action, 9)}${r.why}`
   );
 }
+for (const r of unclaimed) {
+  console.log(
+    `${pad(r.id, 8)}${pad(r.role, 11)}${pad('  -  ', 7)}${pad('  -  ', 7)}${pad('no', 7)}${pad('check', 9)}registered, not claimed — no worktree carries this manifest`
+  );
+}
 const acting = rows.filter((r) => r.action !== 'nothing');
 console.log('');
-console.log(`sweep: ${rows.length} agent(s), ${acting.length} needing action. Read-only — nothing was killed.`);
+const tail = unclaimed.length ? `, ${unclaimed.length} registered, not claimed` : '';
+console.log(
+  `sweep: ${rows.length} agent(s), ${acting.length} needing action${tail}. Read-only — nothing was killed.`
+);
 for (const r of acting) console.log(`  ${r.action} ${r.id}  (${r.wt})`);
+for (const r of unclaimed) {
+  console.log(`  check ${r.id}  (registered, not claimed — it never ran, or died before its first command)`);
+}

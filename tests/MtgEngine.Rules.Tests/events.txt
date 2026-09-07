@@ -1,21 +1,34 @@
 # Every GameEvent type in MtgEngine.Rules, one per line, sorted ordinally.
 # EventLogTests compares this to the assembly: adding or renaming an event is a change here too,
 # so a stored game that can no longer be read is a red build rather than a lost game.
+AbilityActivated
+AttackersDeclared
+BlockersDeclared
 ChoiceAnswered
 ChoiceRequested
+CombatEnded
 CountersChanged
+DamageDealt
+DrawFromEmptyLibraryAttempted
 GameEnded
 GameStarted
+LandPlayed
 LifeChanged
+ManaChanged
+ManaPoolEmptied
 ManualActionTaken
 ObjectCeasedToExist
 ObjectChanged
 ObjectCreated
+ObjectLeftBy
 ObjectMoved
 PlayerCountersChanged
 PlayerLost
 PriorityGranted
 PriorityPassed
 RngAdvanced
+SpellCast
+StackObjectResolved
 StepBegan
 TurnBegan
+ZoneReordered

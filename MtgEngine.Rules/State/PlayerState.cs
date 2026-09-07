@@ -17,6 +17,9 @@ public sealed record PlayerState(PlayerId Id, string Name, int Life)
 
     public int ObjectsDrawnThisTurn { get; init; }
 
+    /// <summary>Set when a draw found no card, CR 121.4; the next state-based action check loses the game, CR 704.5b.</summary>
+    public bool DrewFromEmptyLibrary { get; init; }
+
     /// <summary>Damage dealt by each commander, CR 903.10a.</summary>
     public ImmutableDictionary<ObjectId, int> CommanderDamage { get; init; } = ImmutableDictionary<ObjectId, int>.Empty;
 }

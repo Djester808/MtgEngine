@@ -7,6 +7,7 @@ namespace MtgEngine.Rules.Engine;
 
 /// <summary>The subsystems composed. Wave-1 builders replace the stubs one seam at a time; only the coordinator edits the wiring.</summary>
 public sealed record Subsystems(
+    IQuery Query,
     IZoneSystem Zones,
     ITurnSystem Turn,
     ICastingSystem Casting,
@@ -22,7 +23,7 @@ public sealed record Subsystems(
 {
     /// <summary>Every seam stubbed: the engine as it stands before wave 1.</summary>
     public static Subsystems AllStubs() => new(
-        new Stubs.Zones(), new Stubs.Turn(), new Stubs.Casting(), new Stubs.Combat(), new Stubs.Sba(),
+        new Stubs.Query(), new Stubs.Zones(), new Stubs.Turn(), new Stubs.Casting(), new Stubs.Combat(), new Stubs.Sba(),
         new Stubs.Triggers(), new Stubs.Layers(), new Stubs.Replacement(), new Stubs.Interpreter(),
         new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
 }

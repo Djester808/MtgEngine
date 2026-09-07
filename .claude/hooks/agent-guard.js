@@ -15,8 +15,16 @@
  *     "owns": ["MtgEngine.Rules/Combat/**", "tests/MtgEngine.Rules.Tests/CombatTests*.cs"],
  *     "anchor": "CombatTests", "maxToolCalls": 120, "launchedAt": "2026-09-07T14:00:00Z" }
  *
- * No manifest means the coordinator's own checkout: everything is allowed and nothing is
- * written. With a manifest, every call bumps `<cwd>/.agent/calls` and stamps
+ * The coordinator cannot write that file before launch when the agent gets its own worktree:
+ * the harness picks the path and the branch, so there is nothing to write into until the
+ * agent is already running. So the manifest is registered ahead of the launch and claimed
+ * from inside the worktree — `node tools/ledger.js claim <id>` — and until it is, this hook
+ * denies that worktree every write and every command except reading and the claim itself.
+ * Otherwise an isolated agent would be indistinguishable from the coordinator and get the
+ * run of the repo, which is the loophole this replaces.
+ *
+ * No manifest in the MAIN checkout means the coordinator's own session: everything is
+ * allowed and nothing is written. With a manifest, every call bumps `<cwd>/.agent/calls` and stamps
  * `<cwd>/.agent/last-call` — that file is the heartbeat `tools/sweep.js` reads — and then:
  *
  *   Edit/Write outside `owns`            denied: write it to seam-requests/<id>.md
@@ -36,6 +44,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 
@@ -102,6 +111,108 @@ const segmentsOf = (cmd) =>
  * path counts.
  */
 const MENTIONS_TMP = /(?<![\w.\-/\\])(?:\/tmp\/|\\tmp\\)/;
+
+/* ---------------------------------------------------------------------------------------- *
+ * An agent worktree that has not claimed its manifest yet.
+ * ---------------------------------------------------------------------------------------- */
+
+/** Commands that only read. Matched on the first word, exactly — `./bin/ls` is not `ls`. */
+const READ_ONLY_HEADS = new Set([
+  'cat',
+  'ls',
+  'pwd',
+  'head',
+  'tail',
+  'grep',
+  'rg',
+  'find',
+  'wc',
+  'echo',
+]);
+
+/** …and the subcommands of git that only read. */
+const READ_ONLY_GIT = new Set(['status', 'branch', 'log', 'rev-parse', 'worktree', 'diff']);
+
+/** The one thing an unclaimed worktree is for. */
+const CLAIM_RE = /^node\s+["']?(?:\.[\\/])?tools[\\/]ledger\.js["']?\s+claim\s+\S+$/;
+
+/**
+ * Is `cwd` a *linked* worktree rather than the main checkout? In the main checkout
+ * `--git-dir` and `--git-common-dir` resolve to the same directory; in a linked worktree the
+ * first is `<main>/.git/worktrees/<name>` and the second is `<main>/.git`.
+ *
+ * Cannot answer, for any reason: not a linked worktree. A guard that mistakes the
+ * coordinator's checkout for an unclaimed agent bricks the session.
+ */
+function isLinkedWorktree(cwd) {
+  // Fast path, so the coordinator does not pay two `git` spawns on every call it makes: a
+  // main checkout has `.git` as a directory, a linked worktree has it as a file. Anything
+  // else — a subdirectory, no git at all — falls through to the real check.
+  try {
+    if (fs.statSync(path.join(cwd, '.git')).isDirectory()) return false;
+  } catch {
+    /* no .git here; ask git */
+  }
+  try {
+    const q = (a) =>
+      execSync(`git ${a}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const gitDir = path.resolve(cwd, q('rev-parse --git-dir'));
+    const commonDir = path.resolve(cwd, q('rev-parse --git-common-dir'));
+    return norm(gitDir) !== norm(commonDir);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One command of a possibly-compound line, from an unclaimed worktree. Every segment has to
+ * pass: `cat x && rm -rf y` reads on its first word and is not read-only.
+ */
+function readOnlyOrClaim(seg) {
+  const s = seg.trim();
+  if (!s) return true;
+  if (CLAIM_RE.test(s)) return true;
+
+  // A redirection turns any of these into a write — `echo x > Program.cs` reads as `echo`.
+  // Descriptor duplication and /dev/null do not, so they do not count.
+  const redirects = s.replace(/\d?>+\s*&\s*\d/g, '').replace(/\d?>+\s*\/dev\/null/g, '');
+  if (/>/.test(redirects)) return false;
+
+  const words = s.split(/\s+/);
+  const head = words[0].toLowerCase();
+  if (head === 'git') return READ_ONLY_GIT.has(String(words[1] || '').toLowerCase());
+  // `find -exec`/-delete runs arbitrary commands under a read-only name.
+  if (head === 'find' && /(^|\s)-(exec|execdir|delete|ok|fprint|fls)\b/.test(s)) return false;
+  return READ_ONLY_HEADS.has(head);
+}
+
+/**
+ * No manifest at `cwd`. Returns when the call may proceed; exits 2 when it may not.
+ *
+ * The main checkout with no manifest is the coordinator and keeps the run of the repo. A
+ * linked worktree with no manifest is an agent that has not claimed yet, and gets nothing but
+ * reading and the claim.
+ */
+function checkUnclaimed(cwd, payload) {
+  const tool = payload.tool_name;
+  const isWrite = WRITE_TOOLS.has(tool);
+  if (!isWrite && tool !== 'Bash') return;
+  if (!isLinkedWorktree(cwd)) return;
+
+  if (tool === 'Bash') {
+    const cmd = String(payload.tool_input?.command || '');
+    if (segmentsOf(cmd).every(readOnlyOrClaim)) return;
+  }
+
+  deny([
+    'This is an agent worktree with no manifest. Claim yours first: node tools/ledger.js claim <your id>',
+    '',
+    'Your id is in your brief; the coordinator registered the manifest before launching you.',
+    'Until you claim it nothing here knows what you own, so everything is denied except',
+    'reading (cat, ls, head, tail, grep, rg, find, wc, echo, git status/log/diff/rev-parse)',
+    'and the claim itself. If the claim says you are not registered, report that and stop.',
+  ]);
+}
 
 function checkBash(cmd, manifest, id) {
   const role = String(manifest.role || '');
@@ -212,13 +323,18 @@ function main() {
   const cwd = payload.cwd || process.cwd();
   const agentDir = path.join(cwd, '.agent');
 
-  let manifest;
+  let manifest = null;
   try {
     manifest = JSON.parse(fs.readFileSync(path.join(agentDir, 'manifest.json'), 'utf8'));
   } catch {
-    process.exit(0); // No manifest: the coordinator's own checkout. No side effects either.
+    manifest = null;
   }
-  if (!manifest || typeof manifest !== 'object') process.exit(0);
+  if (!manifest || typeof manifest !== 'object') {
+    // Either the coordinator's own checkout — allowed, and no side effects — or an agent
+    // worktree that has not claimed its manifest yet, which may only read and claim.
+    checkUnclaimed(cwd, payload);
+    process.exit(0);
+  }
   manifest.__cwd = cwd;
 
   const id = String(manifest.id || 'agent');

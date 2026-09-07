@@ -208,6 +208,120 @@ public sealed record ChoiceAnswered(ChoiceId Id, PlayerId Player, ImmutableList<
         state.Pending?.Id == Id ? state with { Pending = null } : state;
 }
 
+/// <summary>A zone's order changed without any object changing zones: a shuffle, or cards put back in a chosen order.</summary>
+[RuleRef("701.24")]
+public sealed record ZoneReordered(ZoneKey Zone, ImmutableList<ObjectId> Order) : GameEvent
+{
+    public override GameState Apply(GameState state) => state with { Zones = state.Zones.SetItem(Zone, Order) };
+}
+
+/// <summary>A player drew when the library was empty, CR 121.4. The state-based action in 704.5b does the rest.</summary>
+[RuleRef("121.4")]
+public sealed record DrawFromEmptyLibraryAttempted(PlayerId Player) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var p = state.Player(Player);
+        return state with { Players = state.Players.SetItem(Player.Value, p with { DrewFromEmptyLibrary = true }) };
+    }
+}
+
+/// <summary>Damage was dealt, CR 120. Marked on a permanent, or taken from a life total; the source's characteristics decide lifelink, infect and the rest, and those are separate events.</summary>
+[RuleRef("120")]
+public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? ToPlayer, int Amount, bool Combat, bool FromCommander) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        if (ToObject is { } id && state.Objects.TryGetValue(id, out var obj))
+            return state with { Objects = state.Objects.SetItem(id, obj with { Damage = obj.Damage + Amount }) };
+        if (ToPlayer is { } pid)
+        {
+            var p = state.Player(pid);
+            var commanderDamage = FromCommander ? p.CommanderDamage.SetItem(Source, p.CommanderDamage.GetValueOrDefault(Source) + Amount) : p.CommanderDamage;
+            return state with { Players = state.Players.SetItem(pid.Value, p with { Life = p.Life - Amount, CommanderDamage = commanderDamage }) };
+        }
+
+        return state;
+    }
+}
+
+/// <summary>Mana entered a pool, CR 106.4. Positive amounts add; the mana subsystem spends with negative ones.</summary>
+[RuleRef("106.4")]
+public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var p = state.Player(Player);
+        var m = p.Mana;
+        var next = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless);
+        return state with { Players = state.Players.SetItem(Player.Value, p with { Mana = next }) };
+    }
+}
+
+[RuleRef("106.4")]
+public sealed record ManaPoolEmptied(PlayerId Player) : GameEvent
+{
+    public override GameState Apply(GameState state) =>
+        state with { Players = state.Players.SetItem(Player.Value, state.Player(Player) with { Mana = ManaPool.Empty }) };
+}
+
+/// <summary>A spell was cast, CR 601: the object is already on the stack by an <see cref="ObjectMoved"/>; this names the moment for triggers.</summary>
+[RuleRef("601.2i")]
+public sealed record SpellCast(ObjectId Spell, PlayerId Caster, Zone From) : GameEvent
+{
+    public override GameState Apply(GameState state) => state;
+}
+
+[RuleRef("602.2")]
+public sealed record AbilityActivated(ObjectId StackObject, ObjectId Source, int AbilityIndex, PlayerId Player) : GameEvent
+{
+    public override GameState Apply(GameState state) => state;
+}
+
+[RuleRef("305")]
+public sealed record LandPlayed(ObjectId Land, PlayerId Player) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var p = state.Player(Player);
+        return state with { Players = state.Players.SetItem(Player.Value, p with { LandsPlayedThisTurn = p.LandsPlayedThisTurn + 1 }) };
+    }
+}
+
+[RuleRef("608.2")]
+public sealed record StackObjectResolved(ObjectId StackObject) : GameEvent
+{
+    public override GameState Apply(GameState state) => state;
+}
+
+[RuleRef("508")]
+public sealed record AttackersDeclared(PlayerId Player, ImmutableDictionary<ObjectId, CombatTarget> Attackers) : GameEvent
+{
+    public override GameState Apply(GameState state) => state with
+    {
+        Combat = new CombatState(Player, Attackers, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty, AttackersDeclared: true, BlockersDeclared: false),
+    };
+}
+
+[RuleRef("509")]
+public sealed record BlockersDeclared(PlayerId Player, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>> Blockers) : GameEvent
+{
+    public override GameState Apply(GameState state) =>
+        state.Combat is null ? state : state with { Combat = state.Combat with { Blockers = Blockers, BlockersDeclared = true } };
+}
+
+[RuleRef("511")]
+public sealed record CombatEnded : GameEvent
+{
+    public override GameState Apply(GameState state) => state with { Combat = null };
+}
+
+/// <summary>An object was destroyed, sacrificed, countered or otherwise left by a named rule; the zone change itself is a separate <see cref="ObjectMoved"/>.</summary>
+public sealed record ObjectLeftBy(ObjectId Object, string Verb, ObjectId? By) : GameEvent
+{
+    public override GameState Apply(GameState state) => state;
+}
+
 /// <summary>The randomness was used: the state's counter advanced. The consuming event records what came out.</summary>
 public sealed record RngAdvanced(RngState To) : GameEvent
 {

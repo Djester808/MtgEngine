@@ -14,6 +14,21 @@ public static class Stubs
     private static NotImplementedException Missing(string subsystem, string agent) =>
         new($"{subsystem} is not built yet: wave 1, agent {agent}.");
 
+    public sealed class Query : IQuery
+    {
+        public string Name => "query layer";
+
+        public bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context) => throw Missing(Name, "E0");
+
+        public bool Holds(GameState state, Condition condition, EffectContext context) => throw Missing(Name, "E0");
+
+        public int Evaluate(GameState state, Amount amount, EffectContext context) => throw Missing(Name, "E0");
+
+        public ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context) => throw Missing(Name, "E0");
+
+        public ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context) => throw Missing(Name, "E0");
+    }
+
     public sealed class Zones : IZoneSystem
     {
         public string Name => "zones";

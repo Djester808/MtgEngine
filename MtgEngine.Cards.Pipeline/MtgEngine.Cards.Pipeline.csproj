@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The offline pipeline: select cards from the Scryfall JSON, translate them into the
+    vocabulary with two models, agree, generate scenarios, run them, write card files.
+    Runs as a console tool, never inside the API. Wave 0 ships the pilot; wave 1's P1-P3 and
+    wave 2's P4 grow it into the stages the plan names.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MtgEngine.Cards.Pipeline</RootNamespace>
+    <!-- The API's user-secrets store holds the Anthropic key; the pipeline reads the same one. -->
+    <UserSecretsId>c08fa7fc-c4cf-464d-912e-e908d84a6322</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.46.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <!-- Same override the API carries: the transitive e_sqlite3 2.1.x has a known vulnerability. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
+  </ItemGroup>
+</Project>

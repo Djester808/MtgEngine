@@ -73,14 +73,19 @@ sends the change to the coordinator rather than editing the other builder's file
 
 | Agent | Owns | Lands with |
 |---|---|---|
+| E0 query layer | `Rules/Query/*`: `IQuery` — filter matching, conditions, amounts, non-targeting selectors, player refs | `QueryTests` |
 | E1 zones and objects | `Rules/Zones/*`, `Rules/Objects/*`, game creation, shuffle, draw | `ZoneChangeTests`, rulebook examples for 400–406 |
 | E2 turn and priority | `Rules/Turn/*`, `Rules/Priority/*`, untap, draw step, cleanup, passing, N players | `TurnStructureTests`, `PriorityTests`, examples for 500–514, 117 |
 | E3 mana, costs, casting, stack | `Rules/Mana/*`, `Rules/Casting/*`, `Rules/Stack/*` | `CastingTests`, `ManaTests`, examples for 601–608, 106 |
 | E4 combat | `Rules/Combat/*` | `CombatTests`, examples for 506–510, evasion keywords |
 | E5 state-based actions, win/loss, commander | `Rules/Sba/*`, `Rules/Commander/*` | `StateBasedActionTests`, examples for 704, 903 |
-| E6 triggers | `Rules/Triggers/*`: event matching, APNAP ordering, intervening if | `TriggeredAbilityTests`, examples for 603 |
 | E7 continuous effects and layers | `Rules/Characteristics/*`: layers 1–7, timestamps, dependency | `LayerTests`, examples for 611–613 |
-| E8 replacement and prevention | `Rules/Replacement/*` | `ReplacementEffectTests`, examples for 614–615 |
+
+Triggers (E6) and replacement effects (E8) move to wave 2: a game of lands and vanilla
+creatures needs neither, and both consume the query layer, which has to exist first. The
+shared events every subsystem produces or reads — damage, mana, casting, activation, land
+plays, resolution, attackers, blockers, zone reorders — are defined in wave 0's
+`Events/GameEvent.cs`, so no builder invents its own spelling of one.
 | P1 translation | `Pipeline/Translate/*`: batch requests, two models, structured output against the schema | `TranslateStageTests` with recorded responses |
 | P2 free slice and tokens | `Pipeline/Templates/*`: keyword-only, vanilla, six mana patterns, `all_parts` token specs | `TemplateStageTests` asserting the 2,990 count |
 | P3 agreement and cross-check | `Pipeline/Agree/*`: structural diff, keyword cross-check, status assignment, file writer | `AgreeStageTests` |
@@ -95,7 +100,9 @@ and the free slice; C1's board moves a card and logs the event.
 
 | Agent | Owns | Lands with |
 |---|---|---|
-| E9 interpreter core | `Rules/Interpreter/*`: `Sequence`, `If`, `May`, `Unless`, `ForEach`, `ChooseMode`, selector resolution, `Remembered` | `InterpreterTests` |
+| E6 triggers | `Rules/Triggers/*`: event matching, APNAP ordering, intervening if | `TriggeredAbilityTests`, examples for 603 |
+| E8 replacement and prevention | `Rules/Replacement/*` | `ReplacementEffectTests`, examples for 614–615 |
+| E9 interpreter core | `Rules/Interpreter/*`: `Sequence`, `If`, `May`, `Unless`, `ForEach`, `ChooseMode`, targets, `Remembered` | `InterpreterTests` |
 | E10 keyword actions A | one arm per CR 701 action, first half by corpus frequency | one scenario per arm |
 | E11 keyword actions B | second half | one scenario per arm |
 | E12 keyword abilities | one arm per CR 702 keyword in the deck slice, by frequency | one scenario per keyword |
@@ -179,8 +186,15 @@ as printed".
 | verifiers | Opus, effort high, prompted to refute | judgement is what verification is |
 | triage | Opus | attribution is judgement |
 | lookups, file searches | Haiku, read-only | never writes code |
-| translation, first reading | `claude-opus-5`, Message Batches, structured output against the schema | the unique sentences |
+| translation, first reading | `claude-opus-5`, Message Batches, JSON constrained by the prompt and validated by the serializer and linter | the unique sentences |
 | translation, second reading | `claude-sonnet-5`, same | a different model, so agreement carries information |
+
+Structured outputs cannot take the vocabulary's schema, because the API rejects recursive
+schemas and effects, selectors and filters refer to each other. So the translator gets the
+generated vocabulary reference (`pipeline reference`, about ten thousand tokens, cached as the
+system prefix) and is asked for JSON only; the serializer and the linter are the validation,
+with one repair round for a reading that fails either. Parse and lint failure rates are pilot
+metrics in their own right.
 | rulings to scenarios | `claude-sonnet-5`, Message Batches | checked by the runner, not a second model |
 | narration judge | `claude-sonnet-5` | never Haiku, which echoes |
 
