@@ -297,6 +297,35 @@ public enum TurnKind
 }
 
 /// <summary>
+/// A designation was given to or taken from an object: prepared (CR 702.180), suspected
+/// (701.60), goaded-by (701.15a, the name carries the goader's seat), ring-bearer (701.54),
+/// harnessed (701.64), monstrous (701.37). The names live in <c>Rules/Query/Designations.cs</c>.
+/// </summary>
+[RuleRef("702.180")]
+public sealed record ObjectDesignated(ObjectId Object, string Designation, bool Given) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        if (!state.Objects.TryGetValue(Object, out var obj))
+            return state;
+        var designations = Given ? obj.Designations.Add(Designation) : obj.Designations.Remove(Designation);
+        return state with { Objects = state.Objects.SetItem(Object, obj with { Designations = designations }) };
+    }
+}
+
+/// <summary>A spell or ability on the stack had its targets changed, CR 115.7 (or new ones chosen, CR 114.6).</summary>
+[RuleRef("115.7")]
+public sealed record StackTargetsChanged(ObjectId StackObject, ImmutableList<ObjectId> Targets, ImmutableList<PlayerId> TargetPlayers) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        if (!state.Objects.TryGetValue(StackObject, out var obj) || obj.Stack is not { } entry)
+            return state;
+        return state with { Objects = state.Objects.SetItem(StackObject, obj with { Stack = entry with { Targets = Targets, TargetPlayers = TargetPlayers } }) };
+    }
+}
+
+/// <summary>
 /// One continuous effect in force was edited, or with a null effect ended: a prevention shield
 /// that spent part of itself, CR 615.9, or a "prevent the next N" that reached zero.
 /// </summary>

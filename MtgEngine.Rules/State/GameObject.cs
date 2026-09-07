@@ -67,4 +67,5 @@ public sealed record StackEntry(
     ImmutableList<string>? OptionalCostsPaid = null,
     ImmutableDictionary<string, ImmutableList<ObjectId>>? Remembered = null,
     ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null,
-    ImmutableList<ObjectId>? Triggering = null);
+    ImmutableList<ObjectId>? Triggering = null,
+    PlayerId? GiftPromisedTo = null);

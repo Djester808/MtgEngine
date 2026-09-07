@@ -121,3 +121,28 @@ lands). "Now" landed in "Seams after wave 4" (`9dc935d`).
 | P6, P6b | an `AnyTarget` spelling in the vocabulary | **Wave 5 (V4)**, with the canonical collapse P6b wrote down. |
 | P6 | the pilot prints `AgreeReport.Of(results).Text()` | **Wave 5 (P7 or P8)**; the pilot files belong to P7 this wave. |
 | coordinator | the 200-face agreement after two canonical passes is 87/200, 54% among both-clean; the rest is translator structure (step splitting, remember-versus-target, condition construct, unsupported-versus-real) | **The 80% bar is judged on canonical agreement after a re-translation with the "one spelling" rules now in the reference**, which needs API credits; no vocabulary redesign. |
+
+# Seam decisions after wave 5
+
+Requests from `seam-requests/E0b.md`, `E3c.md`, `E7b.md`, `E9d.md`, `V4.md`, `P8.md`, and C3's
+report. "Now" landed in "Seams after wave 5".
+
+| From | Request | Decision |
+|---|---|---|
+| E7b | `ICharacteristics.PlayerRestrictions` | **Now**, as a default of none; the interim interface is gone. |
+| E7b | the replacement system drops damage and life changes a player's limits forbid | **Wave 6 (E8c).** |
+| E3c | `CastSpell.CostObjects` / `ActivateAbility.CostObjects` (CR 601.2c) | **Now on the commands**; the casting system reads them in **wave 6 (E3d)**, refusing a choice it was not given meanwhile. |
+| E3c | restricted mana on the pool (`AddMana.SpendOnlyOn`, CR 106.6a) | **Wave 6 (E3d, with the State seam it names).** Until then restricted mana is ordinary mana — the one gap that refuses nothing; it is written here so it is not forgotten. |
+| E3c | `StackEntry.GiftPromisedTo` (CR 702.174b) | **Now.** The casting arm records it in wave 6 (E3d); the query reads it now. |
+| E1b, E3b | `PlayLand.FaceIndex` (CR 712.12) | **Now on the command**; casting passes it to the face-index move in wave 6 (E3d). |
+| E9d | `ObjectDesignated` and `StackTargetsChanged` events | **Now.** Prepare/unprepare, suspect, goad, monstrous, ring-bearer and `ChangeTarget` get their arms in **wave 6 (E9e)**. |
+| E9d | `ICastingSystem` as a settable handle on the interpreter for `MayCast` (CR 601) | **Wave 6 (E9e)**, the handle pattern of `ForwardingInterpreter`, set in `Wave2()`. |
+| E0b | `TurnHistory.Died`/`LeftBattlefield` keep only ids, so morbid and revolt are unqualified counts | **Wave 6 (state).** The history keeps the departed object (it is already on `ObjectMoved.Departed`). |
+| E0b | damage this turn is totalled per source and per receiver, never per pair | **Wave 6 (state)**, a per-pair map. |
+| E0b | `FirstTimeThisTurn` needs a per-turn resolution tally (also `OncePerTurn`) | **Wave 6 (state + E6b)**. |
+| E0b | `Raid`/`AttackedThisTurn` attribute attackers to the active player | **Accepted** (CR 508.1). |
+| V4 | `AnyTarget` needs a query arm and the damage arm reads whichever half the stack entry holds | **Wave 6 (E0c + E9e)** — and it matters now, because the canonical card files carry `AnyTarget`. |
+| V4 | `PlayerRestriction` has no Win/GainLife member | **Accepted**; the specific records are the spelling. |
+| P8 | a smoke scenario cannot answer the question a search asks; an Aura has nothing to enchant | **Wave 6 (P9)**: an "answer with the first legal option" step, and an enchant target placed from the Aura's `Enchant` filter. |
+| C3 | `VerificationDto.WithoutScenarios`; coverage keys stay enum names; filtered coverage answers the whole DTO | **Wave 6 (P9)** for the field; the other two are confirmed as they are. |
+| coordinator | the first full verify run over the 87 agreed pilot cards, on P8's base: 55 verified, 6 failed, 24 without a scenario, 2 crashed | **Recorded**; re-run on the wave-5 tip and committed with the card files. |

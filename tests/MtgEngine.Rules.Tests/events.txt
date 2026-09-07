@@ -26,6 +26,7 @@ ManualActionTaken
 ObjectCeasedToExist
 ObjectChanged
 ObjectCreated
+ObjectDesignated
 ObjectDrawn
 ObjectLeftBy
 ObjectMoved
@@ -39,6 +40,7 @@ PriorityPassed
 RngAdvanced
 SpellCast
 StackObjectResolved
+StackTargetsChanged
 StepBegan
 TriggerFired
 TurnBegan

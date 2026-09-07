@@ -21,7 +21,8 @@ public sealed record CastSpell(
     int? X = null,
     ImmutableList<string>? CostChoices = null,
     KeywordKind? AlternativeCost = null,
-    ImmutableList<KeywordKind>? OptionalCosts = null) : Command(Player);
+    ImmutableList<KeywordKind>? OptionalCosts = null,
+    ImmutableList<ObjectId>? CostObjects = null) : Command(Player);
 
 [RuleRef("602")]
 public sealed record ActivateAbility(
@@ -32,10 +33,12 @@ public sealed record ActivateAbility(
     ImmutableList<PlayerId>? TargetPlayers = null,
     ImmutableList<int>? Modes = null,
     int? X = null,
-    ImmutableList<string>? CostChoices = null) : Command(Player);
+    ImmutableList<string>? CostChoices = null,
+    ImmutableList<ObjectId>? CostObjects = null) : Command(Player);
 
 [RuleRef("305")]
-public sealed record PlayLand(PlayerId Player, ObjectId Card) : Command(Player);
+/// <summary>CR 305.1; <paramref name="FaceIndex"/> is the land face of a modal double-faced card being played, CR 712.12.</summary>
+public sealed record PlayLand(PlayerId Player, ObjectId Card, int? FaceIndex = null) : Command(Player);
 
 [RuleRef("508")]
 public sealed record DeclareAttackers(PlayerId Player, ImmutableList<AttackDeclaration> Attacks) : Command(Player);
