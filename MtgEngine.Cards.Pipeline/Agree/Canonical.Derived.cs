@@ -25,6 +25,7 @@ public static partial class Canonical
     {
         StripOwnedByInOwnLibrarySearch(obj, kind, context);
         StripCountOfOne(obj, kind);
+        Retranslated(obj, kind);
         FillLandOnBasic(obj, kind);
         DeriveSelfOnly(obj, kind);
         MergeSearchAndShuffle(obj, kind);
@@ -275,7 +276,10 @@ public static partial class Canonical
             if (!SamePlayer(search["who"], shuffle["who"]))
                 continue;
 
-            search["shuffleAfter"] = true;
+            // Removed rather than written true: true is the record's own default, and the third
+            // pass strikes written-out defaults, so writing it here would leave the merged spelling
+            // carrying a property the unmerged one had already lost.
+            search.Remove("shuffleAfter");
             steps.RemoveAt(i + 1);
         }
     }
