@@ -21,7 +21,7 @@ if [ "$BRANCH" != "card-engine" ]; then
   echo "merge-ready: run on card-engine, not $BRANCH" >&2
   exit 64
 fi
-if [ -n "$(git status --porcelain)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "merge-ready: the main checkout has uncommitted changes; commit or discard them first" >&2
   exit 65
 fi
