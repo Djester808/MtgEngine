@@ -26,15 +26,17 @@ public static class JsonDiff
     public static string? Between(JsonNode? left, JsonNode? right) => Find(left, right, string.Empty);
 
     /// <summary>
-    /// A definition as the agreement stage compares it: the serialized tree with every
-    /// <c>text</c> and <c>oracleText</c> property removed, because two models quoting the same
-    /// card differently have not disagreed about what it does.
+    /// A definition as the agreement stage compares it: the canonical spelling
+    /// (<see cref="Agree.Canonical"/>) with every <c>text</c> and <c>oracleText</c> property
+    /// removed, because two models quoting the same card differently have not disagreed about
+    /// what it does, and neither have two models writing the same default two ways.
     /// </summary>
     public static JsonNode Canonical(CardDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
         var node = JsonNode.Parse(CardFileSerializer.WriteDefinition(definition))
             ?? throw new InvalidOperationException("A definition serialized to JSON null.");
+        node = Agree.Canonical.Of(node);
         Strip(node);
         return node;
     }
