@@ -70,7 +70,12 @@ public sealed partial class CombatReplacementTests
 
         var events = Answer(t, real);
 
-        Assert.IsType<ChoiceAnswered>(Assert.Single(events));
+        // The answer, and nothing else the hit did — no damage, no gain — followed by the priority
+        // the finished batch opens the combat damage step with, CR 510.3.
+        Assert.Collection(
+            events,
+            e => Assert.IsType<ChoiceAnswered>(e),
+            e => Assert.Equal(new PriorityGranted(t.A), e));
         Assert.Null(t.State.Pending);
         Assert.Equal(20, t.Life(t.A));
         Assert.Equal(20, t.Life(t.B));
