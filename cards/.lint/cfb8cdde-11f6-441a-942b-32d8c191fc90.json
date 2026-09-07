@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: An amount equal to devotion to a previously chosen color cannot be expressed; Devotion requires literal colors.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

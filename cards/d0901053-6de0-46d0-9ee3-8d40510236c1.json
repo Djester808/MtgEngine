@@ -90,9 +90,9 @@
                   "Creature"
                 ],
                 "also": {
-                  "kind": "AttachedTo",
-                  "to": {
-                    "kind": "Self"
+                  "kind": "IsOneOf",
+                  "of": {
+                    "kind": "Attached"
                   }
                 }
               },
@@ -206,9 +206,9 @@
                   "Creature"
                 ],
                 "also": {
-                  "kind": "AttachedTo",
-                  "to": {
-                    "kind": "Self"
+                  "kind": "IsOneOf",
+                  "of": {
+                    "kind": "Attached"
                   }
                 }
               },
@@ -360,9 +360,9 @@
                       "Creature"
                     ],
                     "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Attached"
                       }
                     }
                   },
@@ -476,9 +476,9 @@
                       "Creature"
                     ],
                     "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Attached"
                       }
                     }
                   },
@@ -615,9 +615,9 @@
                   "kind": "DealsDamage",
                   "source": {
                     "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Attached"
                       }
                     }
                   },
@@ -728,9 +728,9 @@
                   "kind": "DealsDamage",
                   "source": {
                     "also": {
-                      "kind": "AttachedTo",
-                      "to": {
-                        "kind": "Self"
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Attached"
                       }
                     }
                   },

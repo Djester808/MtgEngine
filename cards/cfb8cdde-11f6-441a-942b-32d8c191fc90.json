@@ -56,16 +56,32 @@
                   "key": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "An amount equal to devotion to a previously chosen color cannot be expressed; Devotion requires literal colors.",
-                  "text": "Add an amount of mana of that color equal to your devotion to that color."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "chosenColorKey": "k1",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "Devotion",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "colors": [],
+                    "chosenColorKey": "k1"
+                  }
                 }
               ]
             },
             "timing": "Any",
             "where": "Battlefield",
             "anyPlayerMayActivate": false,
-            "text": "{T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color."
+            "text": "{T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)"
           }
         ],
         "oracleText": "Nyx Lotus enters tapped.\n{T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)",
@@ -104,16 +120,32 @@
                   "key": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "An amount equal to devotion to a previously chosen color cannot be expressed; Devotion requires literal colors.",
-                  "text": "Add an amount of mana of that color equal to your devotion to that color."
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "chosenColorKey": "k1",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "Devotion",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "colors": [],
+                    "chosenColorKey": "k1"
+                  }
                 }
               ]
             },
             "timing": "Any",
             "where": "Battlefield",
             "anyPlayerMayActivate": false,
-            "text": "{T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color."
+            "text": "{T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)"
           }
         ]
       }
@@ -124,9 +156,9 @@
     "kind": "TranslatedProvenance",
     "models": [
       "claude-opus-5",
-      "claude-sonnet-5"
+      "claude-fable-5-1"
     ],
-    "promptVersion": "pilot-55304d1efc47",
+    "promptVersion": "pilot-f0e1d635d3a8",
     "agreed": true
   },
   "scryfallKeywords": [],
@@ -350,11 +382,11 @@
     }
   ],
   "verification": {
-    "engineHash": "engine:0813f37cabbabed6",
-    "runId": "verify-20260907T143954-ae6f55",
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T223442-b69992",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T14:39:54.407414+00:00"
+    "at": "2026-09-07T22:34:42.5802555+00:00"
   },
   "keywordList": [],
   "scenarioList": [
