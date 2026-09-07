@@ -98,28 +98,40 @@ public sealed partial class EffectInterpreter(
         if (entry.Modes.Count > 0)
             chosen = chosen.SetItem("modes", string.Join(",", entry.Modes.Select(m => m.ToString(CultureInfo.InvariantCulture))));
 
+        // CR 603.3d: what a triggered ability triggered on travels with its stack object, under
+        // the trigger system's key and as the context's Triggering; anything else the stack
+        // object remembers rides along.
+        var remembered = (entry.Remembered ?? ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty).SetItem("triggering", triggering);
+        var triggeringPlayer = entry.RememberedPlayers is { } players && players.TryGetValue("triggering", out var those) && those.Count > 0
+            ? those[0]
+            : (PlayerId?)null;
+
         return new EffectContext(
             entry.Source ?? obj.Id,
             controller,
             entry.Targets,
             entry.TargetPlayers,
             entry.X,
-            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem("triggering", triggering),
+            remembered,
             chosen,
             ImmutableDictionary<string, int>.Empty,
             triggering,
-            null);
+            triggeringPlayer,
+            entry.RememberedPlayers);
     }
 
     /// <summary>
-    /// What the trigger was about. Until <c>StackEntry</c> can carry it (seam request E9), a
-    /// triggered ability's subject is its own source, which is right for the "when this enters"
-    /// shape and honestly empty for the rest.
+    /// What the trigger was about: what the stack object carries (CR 603.3d), or, for an ability
+    /// stacked without it, its own source, which is right for the "when this enters" shape.
     /// </summary>
-    private static ImmutableList<ObjectId> TriggeringOf(GameState state, StackEntry entry) =>
-        entry.AbilityIndex is not null && entry.Source is { } source && state.Objects.ContainsKey(source)
+    private static ImmutableList<ObjectId> TriggeringOf(GameState state, StackEntry entry)
+    {
+        if (entry.Triggering is { } carried)
+            return carried;
+        return entry.AbilityIndex is not null && entry.Source is { } source && state.Objects.ContainsKey(source)
             ? [source]
             : [];
+    }
 
     /// <summary>
     /// The targets that are still legal, CR 608.2b. Each chosen target is re-checked against the

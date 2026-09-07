@@ -187,7 +187,21 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     [RuleRef("603.3")]
     private static Ev.ObjectCreated Create(GameState state, Firing firing)
     {
-        var entry = new StackEntry(firing.Source, firing.AbilityIndex, [], [], [], null, IsCopy: false);
+        // The stack object carries what it triggered on, so the interpreter builds its context
+        // from the object alone (CR 603.3d) rather than from the log.
+        var entry = new StackEntry(
+            firing.Source,
+            firing.AbilityIndex,
+            [],
+            [],
+            [],
+            null,
+            IsCopy: false,
+            Remembered: ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem(Triggering, firing.Subject.Objects),
+            RememberedPlayers: firing.Subject.Player is { } player
+                ? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty.SetItem(Triggering, [player])
+                : null,
+            Triggering: firing.Subject.Objects);
         if (firing.Source is { } source && state.Objects.TryGetValue(source, out var obj))
             return StackZone.CreateAbilityOnStack(state, obj, firing.Controller, entry);
 

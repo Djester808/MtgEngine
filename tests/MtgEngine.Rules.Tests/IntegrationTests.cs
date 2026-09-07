@@ -216,14 +216,10 @@ public sealed class IntegrationTests
         // The fold: the whole log, replayed from nothing, is the state the engine is holding.
         Assert.Equal(Describe(table.State), Describe(GameReducer.Replay(table.Log)));
 
-        // The store: written and read back, a log folds to the same game. EventLogSerializer
-        // cannot yet write AttackersDeclared or BlockersDeclared — their
-        // ImmutableDictionary<ObjectId, …> has no dictionary-key converter and System.Text.Json
-        // refuses the whole array — so this covers the log up to the first declaration, which is
-        // every zone change, draw, mana ability, cast, resolution and turn in the game.
-        // seam-requests/EINT.md asks for the converter; this becomes the whole log once it lands.
-        var storable = table.Log.TakeWhile(e => e is not (AttackersDeclared or BlockersDeclared)).ToList();
-        Assert.NotEmpty(storable);
+        // The store: written and read back, the whole log — combat declarations included, which
+        // are keyed by object id — folds to the same game.
+        var storable = table.Log;
+        Assert.Contains(storable, e => e is AttackersDeclared);
 
         var json = EventLogSerializer.Write(storable);
         var read = EventLogSerializer.Read(json);

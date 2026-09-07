@@ -93,7 +93,11 @@ public sealed partial class LayerSystem : ICharacteristics
     [RuleRef("613.1")]
     private static Draft Printed(GameState state, GameObject obj)
     {
-        var face = obj.Face;
+        // CR 712.8: which face is read depends on the zone and the layout, and CR 708.2a gives a
+        // face-down permanent a face of its own; both are the face rules' answer.
+        var face = obj.FaceDown
+            ? Faces.FaceRules.FaceDown
+            : obj.Definition.Faces[Faces.FaceRules.ActiveFace(obj.Definition, obj.Zone.Zone, obj.FaceIndex)];
         var draft = new Draft
         {
             Name = face.Name,

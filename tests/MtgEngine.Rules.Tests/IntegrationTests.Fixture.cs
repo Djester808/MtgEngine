@@ -24,7 +24,7 @@ internal sealed class IntegrationTable
 
     internal IntegrationTable(int startingLife = 2, ulong seed = 7)
     {
-        _game = new Game(Composed(), new IntegrationDefinitions());
+        _game = new Game(Subsystems.Wave1(), new IntegrationDefinitions());
         var created = _game.Create(new GameSetup(
             [new PlayerStart("One", Deck(), []), new PlayerStart("Two", Deck(), [])],
             Seed: seed,
@@ -41,18 +41,6 @@ internal sealed class IntegrationTable
     internal GameState State { get; private set; }
 
     internal List<GameEvent> Log { get; } = [];
-
-    /// <summary>
-    /// The wave-1 subsystems, with the turn system given the combat system. <c>Subsystems.Wave1()</c>
-    /// builds it without one, so CR 703.4m's turn-based action has nobody to call and no combat
-    /// damage is ever dealt; <c>seam-requests/EINT.md</c> asks for the one-line wiring change and
-    /// this rewrap is a no-op once it lands.
-    /// </summary>
-    internal static Subsystems Composed()
-    {
-        var wave1 = Subsystems.Wave1();
-        return wave1 with { Turn = new TurnSystem(wave1.Zones, wave1.Casting, wave1.Combat) };
-    }
 
     /// <summary>A land whose only ability is "{T}: Add {G}", spelled exactly as the template stage spells it.</summary>
     [RuleRef("605")]

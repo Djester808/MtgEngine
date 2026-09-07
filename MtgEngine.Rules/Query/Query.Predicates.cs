@@ -48,6 +48,7 @@ public sealed partial class Query
             ManaValueParity parity => parity.Odd == (ManaCosts.Value(_layers.Of(state, candidate).ManaCost, obj) % 2 == 1), // CR 202.3
             HasSummoningSickness sick => sick.Value == obj.SummoningSick, // CR 302.6
             IsTransformed => obj.FaceIndex > 0, // CR 701.28a: transformed means its back face is up
+            IsThisObject => ctx.Source is { } self && self == candidate, // CR 109.5: "this" is the object the ability is on
 
             // CR 707.10: only a spell on the stack records that it is a copy; a permanent has no
             // such flag in state yet, and guessing would be a lie. See seam-requests/E0.md.

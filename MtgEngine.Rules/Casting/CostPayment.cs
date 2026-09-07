@@ -90,6 +90,9 @@ internal static class CostPayment
             case SacrificeSelf:
                 return Sacrifice(state, source, zones);
 
+            case DiscardSelfCost:
+                return Discard(state, source, zones);
+
             case PayLife life:
                 return LoseLife(state, player, query.Evaluate(state, life.Amount, Context(source.Id, player, x)));
 
@@ -125,6 +128,21 @@ internal static class CostPayment
             throw new RefusedException("Only a permanent on the battlefield can be sacrificed.", "701.17a");
 
         var left = new ObjectLeftBy(source.Id, "sacrificed", null);
+        var moved = zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
+        return new Outcome(moved.State, moved.Events.Insert(0, left));
+    }
+
+    /// <summary>
+    /// "Discard this card" as a cost, CR 701.9a: from its owner's hand to their graveyard. It is
+    /// the cost of cycling (CR 702.29a), so the source is in a hand, not on the battlefield.
+    /// </summary>
+    [RuleRef("701.9a")]
+    private static Outcome Discard(GameState state, GameObject source, IZoneSystem zones)
+    {
+        if (source.Zone.Zone != CardZone.Hand)
+            throw new RefusedException("Only a card in a hand can be discarded.", "701.9a");
+
+        var left = new ObjectLeftBy(source.Id, "discarded", null);
         var moved = zones.Move(left.Apply(state), source.Id, ZoneKey.Of(CardZone.Graveyard, source.Owner));
         return new Outcome(moved.State, moved.Events.Insert(0, left));
     }
