@@ -76,12 +76,16 @@ public sealed class ScenarioStageTestsRoads
 
     [Fact]
     [RuleRef("601.2c")]
-    public void A_fight_between_unkeyed_targets_gets_no_scenario_until_the_engine_fills_slots()
+    public void A_fight_between_unkeyed_targets_plays_each_creature_from_its_own_slot()
     {
-        // An unkeyed Target reads every announced target rather than the slot it named, so the
-        // first creature would fight itself and the scenario would report the engine's gap as the
-        // card's (seam-requests/P16.md). Drop this test with the key requirement when the seam lands.
-        Assert.Null(SmokeScenario.Of(File("unkeyed brawl", new SpellAbility(Brawl(keyed: false)), CardType.Instant)));
+        // CR 601.2c with 608.2b: an unkeyed target reads the slot it announced (E9n, wave 17), so
+        // the pair needs no keys and the scenario plays the way the keyed one does.
+        var file = File("unkeyed brawl", new SpellAbility(Brawl(keyed: false)), CardType.Instant);
+
+        var scenario = SmokeScenario.Of(file);
+
+        Assert.NotNull(scenario);
+        Passes(scenario, file);
     }
 
     /// <summary>"Target creature you control fights target creature you don't control", with or without keys on the pair.</summary>

@@ -172,6 +172,8 @@ internal static class SmokeFillers
             Supertypes: filter.Supertypes,
             Subtypes: filter.Subtypes,
             NotSubtypes: filter.NotSubtypes,
+            Colors: filter.Colors,
+            AnyColor: filter.AnyColor,
             ControlledBy: filter.ControlledBy,
             Permanent: filter.Permanent,
             Spell: filter.Spell,
@@ -197,6 +199,14 @@ internal static class SmokeFillers
         if (filter.Subtypes is { Count: > 0 } wanted && !wanted.Any(subtype => HasSubtype(line, subtype)))
             return false;
         if (filter.NotSubtypes is { Count: > 0 } unwanted && unwanted.Any(subtype => HasSubtype(line, subtype)))
+            return false;
+
+        // CR 202.2: a filler's colour is what it prints; "green creature" reads it, and a filler
+        // that prints none is colourless and answers no colour.
+        var colour = ScenarioFiller.ColorOf(card) ?? Color.Colorless;
+        if (filter.Colors is { } every && (colour & every) != every)
+            return false;
+        if (filter.AnyColor is { } anyColour && (colour & anyColour) == 0)
             return false;
         return filter.Permanent is not { } permanent || permanent == IsPermanent(line.Types);
     }

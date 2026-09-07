@@ -201,7 +201,7 @@ public static partial class SmokeScenario
             // today: the engine hands an unkeyed Target every announced target rather than its own
             // slot, so the first creature would fight itself (seam-requests/P16.md); a keyed one is
             // remembered as announced and reads its own.
-            case Fight { A: Target { Key: not null } first, B: Target { Key: not null } second } when Fightable(first) && Fightable(second):
+            case Fight { A: Target first, B: Target second } when Fightable(first) && Fightable(second):
                 {
                     board.TargetLimit = 2;
                     var winner = board.Aimed(Mine(first), ScenarioFiller.CostlyCreature);

@@ -47,6 +47,14 @@ public static class ScenarioFiller
     /// <inheritdoc cref="Plains"/>
     public const string Forest = "Scenario Filler Forest";
 
+    /// <summary>
+    /// A green 1/1 for {G}, CR 202.2: the one coloured filler, so a search that says "green creature
+    /// card" finds one. Its colour is printed as an indicator too (CR 202.2b), so a generator reads
+    /// it off <see cref="ColorOf"/> without parsing the cost; the two agree.
+    /// </summary>
+    [RuleRef("202.2")]
+    public const string GreenCreature = "Scenario Filler Green Creature";
+
     /// <summary>A vanilla 2/2: something a removal spell or a counter can be aimed at.</summary>
     public const string Creature = "Scenario Filler Creature";
 
@@ -88,6 +96,7 @@ public static class ScenarioFiller
         Swamp => SwampDefinition,
         Mountain => MountainDefinition,
         Forest => ForestDefinition,
+        GreenCreature => GreenCreatureDefinition,
         Creature => CreatureDefinition,
         Artifact => ArtifactDefinition,
         Enchantment => EnchantmentDefinition,
@@ -100,7 +109,11 @@ public static class ScenarioFiller
 
     /// <summary>Every filler, so a generator can ask which of them a filter describes.</summary>
     public static IReadOnlyList<string> Names =>
-        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest];
+        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest, GreenCreature];
+
+    /// <summary>The printed colour of one filler, CR 202.2b: the indicator it carries, none for a colourless filler, null for a real card.</summary>
+    [RuleRef("202.2b")]
+    public static Color? ColorOf(string? name) => For(name) is { } definition ? definition.Faces[0].ColorIndicator ?? Color.Colorless : null;
 
     /// <summary>The printed type line of one filler, so a generator need not repeat what is written here.</summary>
     public static TypeLine? TypesOf(string? name) => For(name)?.Faces[0].Types;
@@ -152,6 +165,12 @@ public static class ScenarioFiller
     private static CardDefinition MountainDefinition { get; } = BasicOfType(Mountain, "scenario-filler-mountain", "Mountain");
 
     private static CardDefinition ForestDefinition { get; } = BasicOfType(Forest, "scenario-filler-forest", "Forest");
+
+    private static CardDefinition GreenCreatureDefinition { get; } = new(
+        "scenario-filler-green-creature",
+        GreenCreature,
+        Layout.Normal,
+        [new Face(GreenCreature, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: "{G}", Power: new PrintedStat("1"), Toughness: new PrintedStat("1"), ColorIndicator: Color.Green)]);
 
     /// <summary>A basic land of one basic land type, CR 305.6: the supertype and the subtype, nothing printed besides.</summary>
     [RuleRef("305.6")]
