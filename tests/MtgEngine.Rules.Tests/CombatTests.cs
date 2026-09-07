@@ -459,4 +459,61 @@ public sealed class CombatTests
 
         Assert.Equal("509.1", Assert.Throws<RefusedException>(() => t.Block(t.B, new BlockDeclaration(blocker, new ObjectId(99)))).Rule);
     }
+
+    /// <summary>
+    /// CR 508.1a asked as a question rather than answered by a refusal, so that a view offering
+    /// attackers and a declaration checking them are one reading of the rule.
+    /// </summary>
+    [Fact]
+    [RuleRef("508.1a")]
+    public void Could_attack_answers_the_same_rule_the_declaration_enforces()
+    {
+        var t = new CombatTable();
+        var ready = t.Creature(t.A, 2, 2);
+        var tapped = t.Creature(t.A, 2, 2, tapped: true);
+        var sick = t.Creature(t.A, 2, 2, summoningSick: true);
+        var hasty = t.Creature(t.A, 2, 2, [KeywordKind.Haste], summoningSick: true);
+        var wall = t.Creature(t.A, 0, 4, [KeywordKind.Defender]);
+        var land = t.Creature(t.A, 0, 0, types: CardType.Land);
+        var forbidden = t.Creature(t.A, 2, 2, statics: [new StaticAbility(new CantAttack())]);
+
+        Assert.True(t.Subject.CouldAttack(t.State, ready));
+        Assert.False(t.Subject.CouldAttack(t.State, tapped));
+        Assert.False(t.Subject.CouldAttack(t.State, sick));
+        Assert.True(t.Subject.CouldAttack(t.State, hasty));
+        Assert.False(t.Subject.CouldAttack(t.State, wall));
+        Assert.False(t.Subject.CouldAttack(t.State, land));
+        Assert.False(t.Subject.CouldAttack(t.State, forbidden));
+        Assert.False(t.Subject.CouldAttack(t.State, new ObjectId(99)));
+    }
+
+    /// <summary>
+    /// CR 509.1a: what stops a creature blocking at all. Which attacker it may block is the
+    /// declaration's, because that needs the attacker; this is the question a view can ask.
+    /// </summary>
+    [Fact]
+    [RuleRef("509.1a")]
+    public void Could_block_answers_what_stops_a_creature_blocking_at_all()
+    {
+        var t = new CombatTable();
+        var ready = t.Creature(t.B, 2, 2);
+        var tapped = t.Creature(t.B, 2, 2, tapped: true);
+        var sick = t.Creature(t.B, 2, 2, summoningSick: true);
+        var land = t.Creature(t.B, 0, 0, types: CardType.Land);
+        var forbidden = t.Creature(t.B, 2, 2, statics: [new StaticAbility(new CantBlock())]);
+        var picky = t.Creature(t.B, 2, 2, statics: [new StaticAbility(new CantBlock(new ObjectFilter()))]);
+
+        Assert.True(t.Subject.CouldBlock(t.State, ready));
+        Assert.False(t.Subject.CouldBlock(t.State, tapped));
+
+        // CR 302.6 is about attacking and activating, never about blocking.
+        Assert.True(t.Subject.CouldBlock(t.State, sick));
+        Assert.False(t.Subject.CouldBlock(t.State, land));
+        Assert.False(t.Subject.CouldBlock(t.State, forbidden));
+
+        // "can't block creatures with flying" cannot be answered without an attacker, so it is
+        // not answered here: the declaration refuses it, CR 509.1b.
+        Assert.True(t.Subject.CouldBlock(t.State, picky));
+        Assert.False(t.Subject.CouldBlock(t.State, new ObjectId(99)));
+    }
 }

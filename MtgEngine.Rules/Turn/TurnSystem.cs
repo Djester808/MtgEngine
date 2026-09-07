@@ -26,9 +26,17 @@ namespace MtgEngine.Rules.Turn;
 /// combat system. A game composed without one steps through the combat steps and deals no
 /// damage, which is wrong at a table and honest in a unit test.
 /// </para>
+/// <para>
+/// <paramref name="characteristics"/> is optional for the same reason, and two rules read it:
+/// CR 502.3's untap, which untaps the permanents the active player controls *now* rather than
+/// the ones they were dealt, and CR 510.4's first-strike combat damage step, which exists only
+/// when a creature in combat has first or double strike. Without it a turn is walked from the
+/// stored controller and both damage steps are walked always — the wave-1 behaviour, wrong in a
+/// game and honest in a unit test.
+/// </para>
 /// </summary>
 [RuleRef("500")]
-public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, ICombatSystem? combat = null) : ITurnSystem
+public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting, ICombatSystem? combat = null, ICharacteristics? characteristics = null) : ITurnSystem
 {
     /// <summary>The steps of a turn in order, CR 500.1. Main phases have no steps and stand for themselves.</summary>
     [RuleRef("500.1")]
@@ -142,7 +150,7 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, IComba
         // CR 500.5 and CR 703.4q: as a step ends, unspent mana empties.
         EmptyManaPools(log);
 
-        var next = Order[Order.IndexOf(state.Turn.Step) + 1];
+        var next = NextStep(log.State);
         log.Add(new StepBegan(next));
         if (next == Step.Draw)
             DrawStep(log);
@@ -190,7 +198,7 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, IComba
     /// began is no longer summoning sick.
     /// </summary>
     [RuleRef("502.3")]
-    private static void UntapStep(Log log)
+    private void UntapStep(Log log)
     {
         var active = log.State.Turn.ActivePlayer;
         foreach (var permanent in Permanents(log.State, active))
@@ -217,11 +225,42 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, IComba
     }
 
     /// <summary>
+    /// The step that follows this one, CR 500.1, with CR 510.4's exception: the first-strike
+    /// combat damage step is not a step of every turn — it exists only when a creature with first
+    /// or double strike is in combat as the combat damage step would begin. Skipping it matters
+    /// beyond the log: each step is a round of priority nobody should be given.
+    /// </summary>
+    [RuleRef("510.4")]
+    private Step NextStep(GameState state)
+    {
+        var next = Order[Order.IndexOf(state.Turn.Step) + 1];
+        return next == Step.FirstStrikeCombatDamage && !HasFirstStrikeInCombat(state) ? Step.CombatDamage : next;
+    }
+
+    /// <summary>
+    /// CR 510.4: whether any attacking or blocking creature has first strike or double strike.
+    /// With no layer system to ask, the honest answer is the wave-1 one — walk the step whenever
+    /// there is a combat at all — because a keyword granted by an effect cannot be seen from here.
+    /// </summary>
+    [RuleRef("510.4")]
+    private bool HasFirstStrikeInCombat(GameState state)
+    {
+        if (state.Combat is not { AttackersDeclared: true } fight)
+            return false;
+        if (characteristics is null)
+            return true;
+
+        return fight.Attackers.Keys
+            .Concat(fight.Blockers.Values.SelectMany(blockers => blockers))
+            .Where(state.Objects.ContainsKey)
+            .Select(id => characteristics.Of(state, id))
+            .Any(c => c.Has(KeywordKind.FirstStrike) || c.Has(KeywordKind.DoubleStrike));
+    }
+
+    /// <summary>
     /// CR 510.1 and CR 703.4m: combat damage is assigned and dealt as a turn-based action at the
-    /// beginning of a combat damage step, before any player receives priority. CR 510.4 gives the
-    /// first-strike step to creatures with first or double strike; the combat system decides who
-    /// assigns in which of the two, so both steps are walked and the second is where an ordinary
-    /// creature deals.
+    /// beginning of a combat damage step, before any player receives priority. The combat system
+    /// decides who assigns in which of the two steps; which steps there are is CR 510.4's, above.
     /// </summary>
     [RuleRef("703.4m")]
     private void CombatDamageStep(Log log, Step next)
@@ -344,16 +383,22 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting, IComba
     }
 
     /// <summary>
-    /// The permanents a player controls, CR 110.1. Control is a characteristic the layer
-    /// system computes, CR 613, and this seam is given only the zone and casting systems, so
-    /// the stored controller is what is available here; a control-change effect is CR 613's to
-    /// report once that subsystem lands.
+    /// The permanents a player controls, CR 110.1. Control is a characteristic the layer system
+    /// computes, CR 613, so it is asked for rather than read off the object: a permanent that
+    /// changed controller untaps in its new controller's untap step and not its old one's.
+    /// Without the layer system the stored controller is all there is, which is the honest
+    /// fallback and never right in a game where control changed.
     /// </summary>
     [RuleRef("110.1")]
-    private static List<GameObject> Permanents(GameState state, PlayerId controller) =>
+    private List<GameObject> Permanents(GameState state, PlayerId controller) =>
         [.. state.Objects.Values
-            .Where(o => o.Zone.Zone == Zone.Battlefield && o.InitialController == controller)
+            .Where(o => o.Zone.Zone == Zone.Battlefield && ControllerOf(state, o) == controller)
             .OrderBy(o => o.Id.Value)];
+
+    /// <summary>Who controls this permanent now, CR 613.1: the computed controller when there is a layer system to ask.</summary>
+    [RuleRef("613.1")]
+    private PlayerId ControllerOf(GameState state, GameObject permanent) =>
+        characteristics is null ? permanent.InitialController : characteristics.ControllerOf(state, permanent.Id);
 
     /// <summary>The objects in one of a player's own zones, whether the zone is keyed by player or shared.</summary>
     private static List<GameObject> ObjectsIn(GameState state, Zone zone, PlayerId player) =>

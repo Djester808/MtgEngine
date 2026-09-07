@@ -243,6 +243,44 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
         }
     }
 
+    /// <summary>
+    /// Whether this creature could be declared as an attacker now, ignoring whom it would attack,
+    /// CR 508.1a. Public so that the view's list of eligible attackers and the declaration's own
+    /// legality are one reading of the rule: a restriction added here is offered by neither.
+    /// </summary>
+    [RuleRef("508.1a")]
+    public bool CouldAttack(GameState state, ObjectId creature)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (!OnBattlefield(state, creature))
+            return false;
+
+        var candidate = _characteristics.Of(state, creature);
+        return candidate.Types.HasFlag(CardType.Creature) && CouldAttack(state, creature, candidate);
+    }
+
+    /// <summary>
+    /// Whether this creature could be declared as a blocker now, ignoring which attacker it would
+    /// block, CR 509.1a. The per-attacker restrictions — the evasion keywords, "can't block that
+    /// creature" — are the declaration's, because they need the attacker; what is here is what
+    /// stops a creature blocking at all.
+    /// </summary>
+    [RuleRef("509.1a")]
+    public bool CouldBlock(GameState state, ObjectId creature)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (!OnBattlefield(state, creature))
+            return false;
+
+        var candidate = _characteristics.Of(state, creature);
+        if (!candidate.Types.HasFlag(CardType.Creature) || state.Objects[creature].Tapped)
+            return false;
+
+        // CR 509.1b: an unconditional "can't block" stops it; one about a particular attacker
+        // cannot be answered without knowing which attacker, so it is left to the declaration.
+        return !Statics<CantBlock>(candidate).Any(r => r.Attackers is null);
+    }
+
     /// <summary>Whether this creature is able to attack at all, ignoring who it would attack, CR 508.1a.</summary>
     [RuleRef("508.1a")]
     private bool CouldAttack(GameState state, ObjectId id, Characteristics candidate)

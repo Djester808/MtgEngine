@@ -71,8 +71,13 @@ internal static class TurnFixture
     internal static List<Step> StepsIn(IEnumerable<GameEvent> events) =>
         [.. events.OfType<StepBegan>().Select(e => e.Step)];
 
-    /// <summary>Every step of a turn, CR 500.1, in the order the engine has to walk them.</summary>
-    internal static List<Step> WholeTurn { get; } =
+    /// <summary>
+    /// The steps of a turn in which nobody attacks, CR 500.1: every step but the first-strike
+    /// combat damage step, which exists only when a creature in combat has first or double
+    /// strike, CR 510.4.
+    /// </summary>
+    [RuleRef("510.4")]
+    internal static List<Step> TurnWithNoCombat { get; } =
     [
         Step.Untap,
         Step.Upkeep,
@@ -81,13 +86,46 @@ internal static class TurnFixture
         Step.BeginningOfCombat,
         Step.DeclareAttackers,
         Step.DeclareBlockers,
-        Step.FirstStrikeCombatDamage,
         Step.CombatDamage,
         Step.EndOfCombat,
         Step.PostcombatMain,
         Step.End,
         Step.Cleanup,
     ];
+
+    /// <summary>
+    /// A combat in progress: these creatures are attacking the other player, and the blocks are
+    /// whatever the test declares. Enough of CR 506.1 for the turn system, which asks only
+    /// whether anyone is in combat and what they are, never how the declaration was made.
+    /// </summary>
+    [RuleRef("506.1")]
+    internal static GameState InCombat(this GameState state, PlayerId attacker, params ObjectId[] attackers) =>
+        state with
+        {
+            Combat = new CombatState(
+                attacker,
+                attackers.ToImmutableDictionary(a => a, _ => new CombatTarget(new PlayerId((attacker.Value + 1) % state.Players.Count), null)),
+                ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty,
+                AttackersDeclared: true,
+                BlockersDeclared: false),
+        };
+
+    /// <summary>A creature as the layer system computes it: whatever the test says it is, CR 613.</summary>
+    [RuleRef("613")]
+    internal static Characteristics Creature(PlayerId controller, params KeywordKind[] keywords) =>
+        new(
+            "Test Permanent",
+            CardType.Creature,
+            Supertype.None,
+            [],
+            Color.Colorless,
+            1,
+            1,
+            null,
+            null,
+            null,
+            [.. keywords.Select(k => (Ability)new KeywordAbility(k))],
+            controller);
 
     /// <summary>
     /// Play a game forward by passing priority with whoever holds it, until the turn number
