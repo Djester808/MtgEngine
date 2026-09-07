@@ -330,19 +330,30 @@ public sealed class ChoiceResumptionTests
         Assert.Empty(interpreter.Resumed);
     }
 
+    /// <summary>
+    /// A question a card asked, with no interpreter to finish it, is refused and not thrown.
+    /// <see cref="Game.Apply"/> turns a <see cref="RefusedException"/> into a refusal naming the
+    /// rule and leaves the state alone: the question still stands and the table is told why.
+    /// Anything else leaves the engine's front door, and a table that reached a "you may" would
+    /// get a bare 500 instead of a game that is still waiting on it.
+    /// </summary>
     [Fact]
     [RuleRef("101.4")]
-    public void An_unbuilt_interpreter_names_the_agent_that_owes_the_resumption()
+    public void An_unbuilt_interpreter_refuses_the_answer_rather_than_leaving_the_front_door()
     {
         var board = new ChoiceResumptionBoard();
         var card = board.Put("a", Zone.Battlefield);
-        var choice = board.Ask(ChoiceKinds.Targets, ChoiceResumptionBoard.Options(card));
+        var choice = board.Ask(ChoiceKinds.May, ChoiceResumptionBoard.Options(card));
         var alone = new ChoiceSystem(zones, turn);
 
-        var missing = Assert.Throws<NotImplementedException>(() =>
+        var refused = Assert.Throws<RefusedException>(() =>
             alone.Answer(board.State, new AnswerChoice(First, choice.Id, ChoiceResumptionBoard.Answer(card))));
 
-        Assert.Contains("E9", missing.Message, StringComparison.Ordinal);
+        Assert.Equal("101.4", refused.Rule);
+        Assert.Contains(ChoiceKinds.May, refused.Reason, StringComparison.Ordinal);
+
+        // CR 101.4: the question is still the one that is open, so the state was not moved on.
+        Assert.Equal(choice.Id, board.State.Pending!.Id);
     }
 
     private static ImmutableList<ChoiceOption> Declaration() =>
