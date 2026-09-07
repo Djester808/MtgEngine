@@ -78,7 +78,10 @@ public static class VerifyCommand
         // CR 101.4: a generated scenario cannot name an option id, so the runner answers the
         // questions it did not ask with the first legal option. A scenario that answers its own
         // questions still does (seam-requests/P8.md § 2).
-        var stage = new VerifyStage(new ScenarioRunner(new Game(Subsystems.Wave2(), directory), autoAnswer: true), writer, engineHash);
+        // CR 101.4: who answers is the scenario's own opt-in (ScenarioSetup.AutoAnswer) and no
+        // longer the command's, so a card file's hand-written scenario keeps its own answers while
+        // the generated one beside it is answered first-legal.
+        var stage = new VerifyStage(new ScenarioRunner(new Game(Subsystems.Wave2(), directory)), writer, engineHash);
         var at = DateTimeOffset.UtcNow;
 
         var outcomes = new List<VerifyOutcome>();
@@ -156,19 +159,32 @@ public static class VerifyCommand
     }
 
     /// <summary>
-    /// The scenarios a card is verified by: the ones it carries — rulings, reports, hand-written
-    /// checks — plus the smoke scenario generated from its own definition, which is added only
-    /// when the card does not already carry one with that id, so a run is idempotent.
+    /// The scenarios a card is verified by: the ones a person or a ruling put there, kept exactly
+    /// as they are, plus the smoke scenario generated from the card's own definition, generated
+    /// afresh every run.
     /// </summary>
+    /// <remarks>
+    /// A stored scenario whose source is this generator is this generator's own output, and a
+    /// previous run wrote it into the file. Keeping it would freeze the generator at whatever it
+    /// said the day the card was first verified: every later improvement — an Aura cast at what
+    /// its filter describes, a printed cost naming the body it eats, an opt-in to being answered —
+    /// would be invisible to exactly the cards that already have a scenario, and the run would
+    /// report the old shape as the card's behaviour. `cards/` is generated (CARD_ENGINE_PLAN.md),
+    /// so the generator, and not the file, is the authority on its own scenarios.
+    /// </remarks>
     public static CardFile WithScenarios(CardFile file)
     {
         ArgumentNullException.ThrowIfNull(file);
-        var scenarios = new List<Scenario>(file.ScenarioList);
+        var scenarios = file.ScenarioList.Where(NotGenerated).ToList();
         var smoke = SmokeScenario.Of(file);
-        if (smoke is not null && !scenarios.Any(s => string.Equals(s.Id, smoke.Id, StringComparison.Ordinal)))
+        if (smoke is not null)
             scenarios.Add(smoke);
 
-        return scenarios.Count == file.ScenarioList.Count ? file : file with { Scenarios = scenarios };
+        return scenarios.Count == 0 && file.ScenarioList.Count == 0 ? file : file with { Scenarios = scenarios };
+
+        static bool NotGenerated(Scenario scenario) =>
+            scenario.Source is not GeneratedSource generated
+            || !string.Equals(generated.Generator, SmokeScenario.Generator, StringComparison.Ordinal);
     }
 
     private static string Line(VerifyOutcome outcome)

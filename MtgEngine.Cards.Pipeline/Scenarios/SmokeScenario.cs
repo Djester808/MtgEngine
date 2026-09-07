@@ -56,14 +56,22 @@ public static class SmokeScenario
             return board.Build(id, $"playing {file.Name} puts it onto the battlefield", new PlayLandStep(Caster, file.Name), spellGoesToTheGraveyard: false, usedTheStack: false);
         }
 
+        if (!Costs(board, face))
+            return null;
+        board.Printed(face.ManaCost);
+
         var permanent = Permanent(face.Types.Types);
         if (permanent)
         {
             if (!Enchant(board, face))
                 return null;
 
-            // CR 110.1: a permanent spell resolves onto the battlefield, and that alone is worth asserting.
-            board.Expect(new InZone(file.Name, Zone.Battlefield));
+            // CR 303.4f: an Aura enters attached to what it was cast at, and the attachment is what
+            // the scenario means; being on the battlefield is true of an unattached one only for as
+            // long as CR 704.5m takes to bury it. Everything else asserts the zone (CR 110.1).
+            board.Expect(board.Enchanted is { } host
+                ? new AttachedToIs(file.Name, host)
+                : new InZone(file.Name, Zone.Battlefield));
         }
         else if (!Read(board, face))
         {
@@ -74,7 +82,7 @@ public static class SmokeScenario
             return null;
 
         var x = face.ManaCost is { Length: > 0 } cost && cost.Contains("{X}", StringComparison.Ordinal) ? AnnouncedX : (int?)null;
-        var cast = new CastStep(Caster, file.Name, board.TargetNames(), x, board.Modes());
+        var cast = new CastStep(Caster, file.Name, board.TargetNames(), x, board.Modes(), CostObjects: board.CostObjects());
         var title = x is null
             ? $"casting {file.Name} does what its definition says"
             : FormattableString.Invariant($"casting {file.Name} with X={x} does what its definition says");
@@ -200,8 +208,15 @@ public static class SmokeScenario
                 board.Arrives(1);
                 break;
 
-            // CR 106.4: mana goes into a pool, and a pool is not a zone a scenario can count. The
-            // expectation is the event the engine logs for it (seam-requests/P9.md § 2).
+            // CR 106.4: mana goes into a pool, and the pool is what the play leaves behind. With the
+            // caster's pool stocked at exactly the printed cost, the cast empties it and what is
+            // there afterwards is precisely what the card produced — so the scenario can name the
+            // mana rather than settle for the event, which is logged just as loudly by a card that
+            // produced the wrong colour.
+            case AddMana { Mana.Fixed: { Length: > 0 } produced, Who: null or You, N: null } when board.PaysExactly():
+                board.Expect(new ManaPoolIs(Caster, produced));
+                break;
+
             case AddMana { Who: null or You }:
                 board.Expect(new EventLogged(nameof(ManaChanged)));
                 break;
@@ -285,7 +300,50 @@ public static class SmokeScenario
         if (card is null)
             return false;
 
-        board.Aimed(filter.ControlledBy is null or You, card);
+        board.Enchants(filter.ControlledBy is null or You, card);
+        return true;
+    }
+
+    /// <summary>
+    /// CR 601.2c: an additional cost that eats an object is chosen as the spell is cast, and the
+    /// engine refuses a cast that names nothing for it ("There are not enough permanents to
+    /// sacrifice", CR 601.2h). So the board places the body the cost will eat and the step names
+    /// it. A cost the board has no card for gets no scenario, rather than one that reports the
+    /// generator's own gap as the card failing.
+    /// </summary>
+    /// <returns>False when a printed cost cannot be paid from what the board can place.</returns>
+    [RuleRef("601.2c")]
+    private static bool Costs(SmokeBoard board, Face face)
+    {
+        foreach (var cost in face.AdditionalCosts ?? [])
+        {
+            switch (cost)
+            {
+                // CR 701.10: the cost sacrifices one creature of the caster's, and a filler creature is one.
+                case SacrificeCost { Count: null or Fixed { N: 1 } } sacrifice
+                    when Simple(sacrifice.What) && sacrifice.What.Types is CardType.Creature && sacrifice.What.ControlledBy is null or You:
+                    board.Sacrificed(ScenarioFiller.Creature);
+                    break;
+
+                // CR 701.8: the cost discards one card, any card, and the hand is filler.
+                case DiscardCost { Count: null or Fixed { N: 1 }, What: null, Random: false }:
+                    board.Discarded();
+                    break;
+
+                // A cost that eats an object the board cannot place is the CR 601.2h refusal
+                // itself: no body, no cast. The card gets no scenario rather than one that
+                // reports the generator's gap as the card failing.
+                case SacrificeCost or DiscardCost:
+                    return false;
+
+                // Everything else — life, mana, counters on the spell's own source — is paid
+                // without naming an object, so the engine settles it as it did before there was
+                // anywhere to name one.
+                default:
+                    break;
+            }
+        }
+
         return true;
     }
 

@@ -105,6 +105,12 @@ internal static class ScenarioExpectations
                     return (count == e.Count, count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
 
+            case ManaPoolIs e:
+                return Pool(run, e);
+
+            case AttachedToIs e:
+                return Attached(run, e);
+
             case EventLogged e:
                 return Logged(run, e);
 
@@ -140,6 +146,79 @@ internal static class ScenarioExpectations
             return (true, actual);
         var wanted = expectation.Subtypes.ToHashSet(StringComparer.OrdinalIgnoreCase);
         return (wanted.SetEquals(c.Subtypes), actual);
+    }
+
+    /// <summary>
+    /// CR 106.4: a mana pool is a bag of symbols and not a sequence, so the comparison is a count
+    /// per colour and the order the mana arrived in says nothing. Restricted mana (CR 106.6a)
+    /// counts as the colour it is: an expectation that wants to see the restriction is a second
+    /// record, not a spelling of this one.
+    /// </summary>
+    [RuleRef("106.4")]
+    private static (bool, string?) Pool(ScenarioRun run, ManaPoolIs expectation)
+    {
+        var pool = Bag(run.State.Player(run.Player(expectation.Player)).Mana);
+        var wanted = Bag(ScenarioRun.ParseMana(expectation.Mana));
+        return (pool == wanted, Symbols(pool));
+    }
+
+    private static (int W, int U, int B, int R, int G, int C) Bag(ManaPool pool)
+    {
+        var (w, u, b, r, g, c) = (pool.White, pool.Blue, pool.Black, pool.Red, pool.Green, pool.Colorless);
+        foreach (var block in pool.Restricted)
+        {
+            switch (block.Color)
+            {
+                case Cards.Color.White:
+                    w += block.Amount;
+                    break;
+                case Cards.Color.Blue:
+                    u += block.Amount;
+                    break;
+                case Cards.Color.Black:
+                    b += block.Amount;
+                    break;
+                case Cards.Color.Red:
+                    r += block.Amount;
+                    break;
+                case Cards.Color.Green:
+                    g += block.Amount;
+                    break;
+                default:
+                    c += block.Amount;
+                    break;
+            }
+        }
+
+        return (w, u, b, r, g, c);
+    }
+
+    private static string Symbols((int W, int U, int B, int R, int G, int C) bag)
+    {
+        var text = string.Concat(
+            Repeat("W", bag.W), Repeat("U", bag.U), Repeat("B", bag.B),
+            Repeat("R", bag.R), Repeat("G", bag.G), Repeat("C", bag.C));
+        return text.Length == 0 ? "an empty pool" : text;
+
+        static string Repeat(string symbol, int n) => n <= 0 ? string.Empty : string.Concat(Enumerable.Repeat("{" + symbol + "}", n));
+    }
+
+    /// <summary>
+    /// CR 301.5 and 303.4f: an Aura, Equipment or Fortification is attached to something, and the
+    /// something is an object still in the game. Being on the battlefield is not the same claim —
+    /// CR 704.5m puts an unattached Aura into its owner's graveyard — so an unattached permanent
+    /// fails here and says so rather than reporting a zone that is about to change.
+    /// </summary>
+    [RuleRef("303.4f")]
+    private static (bool, string?) Attached(ScenarioRun run, AttachedToIs expectation)
+    {
+        var obj = Object(run, expectation.Card);
+        if (obj.AttachedTo is not { } attached)
+            return (false, $"not attached, in {obj.Zone.Zone}");
+        var host = run.State.Objects.TryGetValue(attached, out var found)
+            ? found.Definition.Name
+            : "an object that has left the game";
+        return (attached == run.Object(expectation.To), $"attached to {host}");
     }
 
     private static (bool, string?) Logged(ScenarioRun run, EventLogged expectation)
