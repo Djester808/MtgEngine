@@ -43,9 +43,7 @@ public sealed partial class Query
     /// <summary>
     /// "if it dealt damage to you this turn", CR 120.3: a question about one source and one
     /// receiver, which the two totals cannot answer between them. The pair map is what answers it:
-    /// the candidate is the source and the player reference the receiver, so the refusal
-    /// <see cref="NoDamagePairs"/> this arm used to throw is no longer reachable — it is deleted
-    /// with the rest of the guard when its file's owner next touches it (seam-requests/E6b.md).
+    /// the candidate is the source and the player reference the receiver.
     /// </summary>
     [RuleRef("120.3")]
     private bool DealtDamage(GameState state, DealtDamageThisTurn dealt, ObjectId candidate, EffectContext ctx)

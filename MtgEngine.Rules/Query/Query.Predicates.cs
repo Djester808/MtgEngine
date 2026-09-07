@@ -86,9 +86,6 @@ public sealed partial class Query
         };
     }
 
-    private const string NoDamagePairs =
-        "the turn's history totals damage per source and per receiver, not per pair, so \"dealt damage to that player this turn\" has nothing to read; see seam-requests/E0c.md";
-
     /// <summary>
     /// CR 701.15a: goading names the goader, because a goaded creature must attack a player other
     /// than that one, so one creature can be goaded by several players at once. With no player
