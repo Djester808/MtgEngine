@@ -7,10 +7,13 @@ BlockersDeclared
 ChoiceAnswered
 ChoiceRequested
 CombatEnded
+ContinuousEffectCreated
 CountersChanged
 DamageDealt
+DelayedTriggerCreated
 DrawFromEmptyLibraryAttempted
 EndOfTurnEffectsEnded
+ExtraTurnGranted
 ExtraTurnTaken
 GameEnded
 GameStarted
@@ -35,5 +38,6 @@ RngAdvanced
 SpellCast
 StackObjectResolved
 StepBegan
+TriggerFired
 TurnBegan
 ZoneReordered
