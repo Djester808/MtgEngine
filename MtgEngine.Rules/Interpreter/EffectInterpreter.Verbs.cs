@@ -170,17 +170,30 @@ public sealed partial class EffectInterpreter
                     return run;
                 }
 
-            // CR 104.2a and 104.3b: an effect can say a player wins or loses outright.
+            // CR 104.2a and 104.3b: an effect can say a player wins or loses outright — unless a
+            // continuous effect says that player can't. CR 101.2 gives the prohibition the last
+            // word, so the instruction is not merely undone afterwards: nothing happens at all,
+            // and no event is emitted for a game that did not end and a player who did not lose.
             case Cards.WinGame win:
                 {
-                    var winners = PlayersOrYou(run, win.Who);
-                    return Emit(run, new GameEnded(new GameOutcome(winners, Draw: false, "effect")));
+                    var winners = PlayersOrYou(run, win.Who)
+                        .Where(p => !characteristics.PlayerRestrictions(run.State, p).CantWin)
+                        .ToImmutableList();
+                    return winners.Count == 0
+                        ? run
+                        : Emit(run, new GameEnded(new GameOutcome(winners, Draw: false, "effect")));
                 }
 
             case Cards.LoseGame loseGame:
                 {
                     foreach (var player in PlayersOrYou(run, loseGame.Who))
+                    {
+                        // CR 104.3b with 101.2 and 704.5a-c: a player who can't lose does not lose.
+                        if (characteristics.PlayerRestrictions(run.State, player).CantLose)
+                            continue;
                         run = Emit(run, new PlayerLost(player, "effect"));
+                    }
+
                     return run;
                 }
 

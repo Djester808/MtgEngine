@@ -133,17 +133,29 @@ public sealed partial class EffectInterpreter
                 }
 
             case ChooseValue choose:
-                return run.Context.Chosen.TryGetValue(choose.Key, out var value)
-                    ? Kept(run, choose.Key, value)
-                    : Ask(
+                {
+                    if (run.Context.Chosen.TryGetValue(choose.Key, out var value))
+                        return Kept(run, choose.Key, value);
+
+                    var offered = ValueOptions(run.State, choose);
+
+                    // CR 601.2b with 101.4: a question nobody can answer stops the game for ever,
+                    // so a kind of value with no set to draw from is refused here rather than asked.
+                    if (offered.Count == 0)
+                        throw new RefusedException(
+                            $"a choice of {choose.What} has nothing to choose from: the effect names no options and the game defines no set for it",
+                            "601.2b");
+
+                    return Ask(
                         run,
                         FirstPlayer(run, choose.Who),
                         "value",
                         "Choose " + choose.What.ToString(),
-                        [.. (choose.Options ?? []).Select(o => new ChoiceOption(o, o))],
+                        offered,
                         1,
                         1,
                         choose.Key);
+                }
 
             case Remember remember:
                 return Recall(run, remember.Key, Objects(run, remember.What));
@@ -174,6 +186,51 @@ public sealed partial class EffectInterpreter
                 return null;
         }
     }
+
+    /// <summary>
+    /// What a "choose a colour" offers, CR 601.2b: the choice is made from a set the game defines,
+    /// so the question carries that set and any answer in it is a legal answer. A card that narrows
+    /// the set writes it on the effect (<see cref="ChooseValue.Options"/>) and that wins; otherwise
+    /// the set is rules data — the five colours of CR 105.1, the creature types of CR 205.3m, the
+    /// basic land types of CR 205.3i, the card types of CR 205.2a — read off the same tables the
+    /// rest of the engine reads, never a list written here. The option's id is the word the answer
+    /// is stored as, which is the word every reader of a chosen value parses: a colour goes back
+    /// through <c>Enum.TryParse&lt;Color&gt;</c>, a type through the subtype tables.
+    /// <para>
+    /// A kind with no closed set — a card name, a word, a number the card gave no range for — has
+    /// no options unless the effect wrote them, and the caller refuses rather than asking a
+    /// question with an empty list, which CR 101.4 would hold the game on for ever.
+    /// </para>
+    /// </summary>
+    [RuleRef("601.2b")]
+    private static ImmutableList<ChoiceOption> ValueOptions(GameState state, ChooseValue choose)
+    {
+        if (choose.Options is { Count: > 0 } narrowed)
+            return Offer(narrowed);
+
+        return choose.What switch
+        {
+            // CR 105.1: the five colours, in the order the rules name them.
+            ChooseWhat.Color => Offer(Enum.GetNames<Color>().Where(c => c != nameof(Color.Colorless)), sorted: false),
+            ChooseWhat.CreatureType => Offer(CreatureTypes.All),
+            ChooseWhat.BasicLandType => Offer(LandTypes.Basic),
+            ChooseWhat.CardType => Offer(Enum.GetNames<CardType>().Where(t => t != nameof(CardType.None))),
+            ChooseWhat.Keyword => Offer(Enum.GetNames<KeywordKind>()),
+
+            // CR 700.3: "odd or even" is a choice between the two words themselves.
+            ChooseWhat.OddOrEven => Offer(["Odd", "Even"], sorted: false),
+
+            // CR 601.2b: a player is chosen from the players in the game; the seat is the id so the
+            // answer is the same number every other player-shaped answer carries.
+            ChooseWhat.Player => [.. state.Players.Select(p => new ChoiceOption(p.Id.Value.ToString(CultureInfo.InvariantCulture), p.Name))],
+            _ => [],
+        };
+    }
+
+    private static ImmutableList<ChoiceOption> Offer(IEnumerable<string> words, bool sorted = true) =>
+    [
+        .. (sorted ? words.Order(StringComparer.Ordinal) : words).Select(w => new ChoiceOption(w, w)),
+    ];
 
     /// <summary>
     /// Keep the value the card chose, CR 608.2d. The choice a resolution makes lives in that

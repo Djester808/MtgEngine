@@ -14,10 +14,17 @@ namespace MtgEngine.Rules.Tests;
 internal sealed class InterpreterFakeCharacteristics : ICharacteristics
 {
     private readonly Dictionary<ObjectId, Characteristics> _of = [];
+    private readonly Dictionary<PlayerId, PlayerLimits> _limits = [];
 
     public string Name => "fake characteristics";
 
     public void Set(ObjectId id, Characteristics what) => _of[id] = what;
+
+    /// <summary>What a continuous effect currently forbids this player, CR 613.10.</summary>
+    public void Restrict(PlayerId player, PlayerLimits limits) => _limits[player] = limits;
+
+    public PlayerLimits PlayerRestrictions(GameState state, PlayerId player) =>
+        _limits.TryGetValue(player, out var limits) ? limits : PlayerLimits.None;
 
     public Characteristics Of(GameState state, ObjectId id) =>
         _of.TryGetValue(id, out var what) ? what : Plain(state, id);
