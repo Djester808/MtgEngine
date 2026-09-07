@@ -47,6 +47,22 @@ public static class ChoiceKinds
 
     /// <summary>The option id that keeps the opening hand, CR 103.5.</summary>
     public const string Keep = "keep";
+
+    /// <summary>
+    /// CR 510.2 and 616.1: which combat damage step a replacement-order question halted —
+    /// <see cref="FirstStrikeDamage"/> or <see cref="RegularDamage"/>. A mark on the question and
+    /// not a continuation, so the answer alone says where the batch has to pick up.
+    /// </summary>
+    public const string CombatDamageStep = "combat-damage-step";
+
+    /// <summary>CR 510.2: the index, in that step's batch, of the hit the question was asked about.</summary>
+    public const string CombatDamageIndex = "combat-damage-index";
+
+    /// <summary>CR 510.4: the first-strike combat damage step.</summary>
+    public const string FirstStrikeDamage = "first";
+
+    /// <summary>CR 510.4: the regular combat damage step.</summary>
+    public const string RegularDamage = "regular";
 }
 
 /// <summary>

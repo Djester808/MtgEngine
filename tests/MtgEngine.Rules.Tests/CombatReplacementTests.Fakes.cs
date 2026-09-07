@@ -23,6 +23,8 @@ internal sealed class CombatReplacementFake : IReplacementSystem
     /// <summary>What happens instead. Null means the event stands exactly as it was proposed.</summary>
     public Func<GameState, GameEvent, Outcome>? Instead { get; init; }
 
+    public List<Resumption> Resumed { get; } = [];
+
     public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected)
     {
         Offered.Add(proposed);
@@ -30,6 +32,31 @@ internal sealed class CombatReplacementFake : IReplacementSystem
         return Instead is { } instead
             ? instead(state, proposed)
             : new Outcome(proposed.Apply(state), [proposed]);
+    }
+
+    /// <summary>
+    /// CR 616.1 — the answer finishes the one event the question was about. The real system applies
+    /// the chosen effect and offers the result to the rest; the answer this fake takes is "the one
+    /// that changes nothing", so the event happens as it was proposed.
+    /// </summary>
+    public Outcome Resume(GameState state, Resumption resumption)
+    {
+        ArgumentNullException.ThrowIfNull(resumption);
+        Resumed.Add(resumption);
+        var proposed = resumption.Context.Event
+            ?? throw new InvalidOperationException("the question arrived without the event it was about.");
+        return new Outcome(proposed.Apply(state), [proposed]);
+    }
+
+    /// <summary>CR 616.1 — halts on the hits whose index is in <paramref name="on"/>, and lets the rest stand.</summary>
+    public static CombatReplacementFake HaltingOn(params int[] on)
+    {
+        var offered = -1;
+        var halts = new HashSet<int>(on);
+        return new CombatReplacementFake
+        {
+            Instead = (state, proposed) => halts.Contains(++offered) ? Asks(state, proposed) : Stands(state, proposed),
+        };
     }
 
     /// <summary>The event as proposed, applied. What "nothing replaces it" looks like.</summary>
@@ -67,6 +94,20 @@ internal sealed class CombatReplacementFake : IReplacementSystem
 
         return new Outcome(choice.Apply(state), [choice]);
     }
+}
+
+/// <summary>
+/// The interpreter's <see cref="IResumable"/>, only as far as CR 616.1 needs it: a
+/// replacement-order answer goes to the replacement system unchanged, which is what
+/// <c>EffectInterpreter.Resume</c> does with that kind. It is here so a test can drive the real
+/// route — choice system, replacement system, then the rest of the combat damage batch — without
+/// the interpreter, which is E9's.
+/// </summary>
+internal sealed class CombatReplacementResumable(IReplacementSystem replacements) : IResumable
+{
+    public string Name => "combat replacement resumption";
+
+    public Outcome Resume(GameState state, Resumption resumption) => replacements.Resume(state, resumption);
 }
 
 /// <summary>
