@@ -3,7 +3,6 @@ using MtgEngine.Rules.Casting;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
-using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.Stack;
 using MtgEngine.Rules.State;
 using CardZone = MtgEngine.Cards.Zone;
@@ -218,23 +217,6 @@ public sealed class CastingInstructedTests
     }
 
     [Fact]
-    [RuleRef("605.1a")]
-    public void An_any_colour_ability_that_does_more_carries_its_announced_colours_onto_the_stack()
-    {
-        // CR 605.1a: an ability that adds mana and does more is not resolved on the spot here, it
-        // uses the stack; CR 608.2d: the colour its controller announced travels on the entry
-        // under the mana key, so the resolution adds what was chosen rather than asking again.
-        var table = new CastingTable();
-        var prism = table.Add(CastingInstructedCards.AnyColorPrismThatGainsLife(), CastingTable.A, CardZone.Battlefield, summoningSick: false);
-
-        var activated = casting.Activate(table.State, new ActivateAbility(CastingTable.A, prism, 0, ManaColors: "U"));
-
-        var top = StackZone.Top(activated.State)!.Value;
-        Assert.Equal("U", activated.State.Objects[top].Stack!.Chosen![ManaSymbols.AnnouncedColorsKey]);
-        Assert.Equal(0, activated.State.Player(CastingTable.A).Mana.Total);
-    }
-
-    [Fact]
     [RuleRef("115.6")]
     public void A_player_an_opponents_spells_cannot_target_is_refused_at_announcement()
     {
@@ -413,20 +395,6 @@ internal static class CastingInstructedCards
                 new TypeLine(CardType.Artifact),
                 "{1}",
                 Abilities: [new ActivatedAbility([new TapSelf()], new Cards.AddMana(new ManaProduction(AnyColor: true)))]),
-        ]);
-
-    /// <summary>"{T}: Add one mana of any color. You gain 1 life", CR 605.1a: a mana ability that does more.</summary>
-    public static CardDefinition AnyColorPrismThatGainsLife() => new(
-        "CASTING INSTRUCTED LIFE PRISM",
-        "Casting Instructed Life Prism",
-        Layout.Normal,
-        [
-            new Face(
-                "Casting Instructed Life Prism",
-                FaceRole.Main,
-                new TypeLine(CardType.Artifact),
-                "{1}",
-                Abilities: [new ActivatedAbility([new TapSelf()], new Sequence([new Cards.AddMana(new ManaProduction(AnyColor: true)), new GainLife(new Fixed(1))]))]),
         ]);
 
     private static CardDefinition Aura(string oracleId, string name, KeywordAbility enchant) => new(

@@ -3,7 +3,6 @@ using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Faces;
-using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.Stack;
 using MtgEngine.Rules.State;
 using AbilityActivated = MtgEngine.Rules.Events.AbilityActivated;
@@ -93,14 +92,11 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         // "when that mana is spent" trigger can tell this payment from any other.
         var spent = SpentOn(paid.Events, source.Id);
         var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
+
+        // CR 605.3a: activating a mana ability does not use the stack, so it resolves here, and
+        // the event's stack object stays null to say so.
         if (IsManaAbility(ability, command))
-        {
-            // CR 605.3a: activating a mana ability does not use the stack, so it resolves here,
-            // and the event's stack object stays null to say so.
-            var mana = ManaFrom((AddMana)ability.Do, state, command, chars.Controller);
-            ImmutableList<GameEvent> immediate = [.. spent, activated, mana];
-            return new Outcome(GameReducer.Apply(state, immediate), immediate);
-        }
+            return ResolveManaAbility(state, ability, command, chars.Controller, spent, activated);
 
         var onStack = StackZone.CreateAbilityOnStack(
             paid.State,
@@ -250,18 +246,6 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         return events.Count == 0 ? Outcome.Unchanged(state) : new Outcome(GameReducer.Apply(state, events), events);
     }
 
-    /// <summary>
-    /// CR 605.1a: an activated ability is a mana ability when it needs no target, could add mana,
-    /// is not a loyalty ability, and neither its cost nor its effect moves a card to or from a
-    /// library. In this vocabulary that is an <see cref="AddMana"/> effect with no target taken.
-    /// </summary>
-    [RuleRef("605.1a")]
-    private static bool IsManaAbility(ActivatedAbility ability, ActivateAbility command) =>
-        ability.Do is AddMana
-        && command.Targets is null or { Count: 0 }
-        && command.TargetPlayers is null or { Count: 0 }
-        && !ability.Costs.Any(c => c is LoyaltyCost);
-
     /// <summary>CR 303.4: an Aura is an enchantment with the Aura subtype, CR 205.3h.</summary>
     [RuleRef("303.4")]
     private static bool IsAura(Characteristics chars) =>
@@ -316,57 +300,6 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     [RuleRef("608.3")]
     private static bool IsPermanentSpell(CardType types) =>
         (types & (CardType.Artifact | CardType.Creature | CardType.Enchantment | CardType.Land | CardType.Planeswalker | CardType.Battle)) != 0;
-
-    /// <summary>What an "add mana" instruction adds, CR 106.1: printed mana, or a colour chosen with the activation.</summary>
-    [RuleRef("106.1")]
-    private ManaChanged ManaFrom(AddMana add, GameState state, ActivateAbility command, PlayerId controller)
-    {
-        var who = add.Who is null
-            ? controller
-            : query.Players(state, add.Who, CostPayment.Context(command.Source, controller, command.X)).FirstOrDefault(controller);
-        var times = add.N is null ? 1 : query.Evaluate(state, add.N, CostPayment.Context(command.Source, controller, command.X));
-        // CR 608.2d: each mana added is its own choice, so the nth one reads the nth letter of
-        // the activation's colours rather than repeating the first.
-        var total = ManaPool.Empty;
-        for (var i = 0; i < Math.Max(0, times); i++)
-            total = ManaSymbols.Add(total, OneProduction(add.Mana, command, i));
-
-        // CR 106.6a: "spend this mana only on ..." adds a restricted block rather than ordinary
-        // mana, so only a cost the filter matches can be paid with it; CR 106.6: either way the
-        // mana remembers the permanent that produced it and the key the card gave it.
-        return new ManaChanged(who, ManaSources.Added(total, add.SpendOnlyOn, command.Source, add.Key), "mana ability");
-    }
-
-    private static ManaPool OneProduction(ManaProduction production, ActivateAbility command, int index)
-    {
-        if (production.Fixed is { Length: > 0 })
-            return ManaSymbols.Produced(production.Fixed);
-
-        // CR 608.2d: a choice the effect offers is announced as it is applied — here, with the
-        // activation, so no payment is ever suspended (CR 601.2h). ManaColors is the channel the
-        // command has for it, one letter per mana; CostChoices stays readable behind it for an
-        // activation that names its colour there.
-        if (production.AnyColor || production.ChosenColor || production.OneOf is not null)
-        {
-            var chosen = ManaSymbols.ColorAt(command.ManaColors, index)
-                ?? command.CostChoices?.Select(ManaSymbols.ColorFromChoice).FirstOrDefault(c => c is not null)
-                ?? (production.OneOf is { } only && ManaSymbols.IsSingleColor(only) ? (Color?)only : null);
-            return chosen is null
-                ? throw new RefusedException("The colour of mana to add was not chosen.", "608.2d")
-                : ManaSymbols.OfColor(chosen.Value);
-        }
-
-        throw new RefusedException("That kind of mana production is not supported yet.", "106.1");
-    }
-
-    /// <summary>
-    /// CR 608.2d with 605.1a: an ability that adds mana of any colour and does more uses the stack,
-    /// and the colours its activation announced travel on the entry under the mana key, one
-    /// letter per mana, so the resolution adds what was chosen. Nothing announced, nothing carried.
-    /// </summary>
-    [RuleRef("608.2d")]
-    private static ImmutableDictionary<string, string>? AnnouncedColors(string? colors) =>
-        string.IsNullOrEmpty(colors) ? null : ImmutableDictionary<string, string>.Empty.Add(ManaSymbols.AnnouncedColorsKey, colors);
 
     private static void RequireSorcerySpeed(GameState state, PlayerId player, string rule)
     {
