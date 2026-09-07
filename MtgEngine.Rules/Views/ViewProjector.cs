@@ -121,7 +121,11 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             [.. chars.Abilities.OfType<KeywordAbility>().Select(k => k.Keyword.ToString())],
             TypeNames(chars.Types),
             chars.Subtypes,
-            _enforced(obj.Definition.OracleId));
+            _enforced(obj.Definition.OracleId),
+
+            // CR 205.3d: a changeling on the table is every creature type, and none of those
+            // names is in its subtype list, so the flag travels with the list or the view lies.
+            chars.EveryCreatureType);
     }
 
     /// <summary>
@@ -130,7 +134,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     /// to look, so the oracle id is withheld as well — it names the card as surely as the name
     /// does. A face-down card that is not a permanent, exiled face down under CR 701.19a, is
     /// not a 2/2 either. The enforcement flag stays true to the store: it says whether the
-    /// table plays that object's rules, and thousands of cards share each answer.
+    /// table plays that object's rules, and thousands of cards share each answer. "Every creature
+    /// type" is withheld with everything else: a face-down permanent has no subtypes at all, and
+    /// saying it had them all would name the changeling underneath.
     /// </summary>
     [RuleRef("708.2")]
     private ObjectView FaceDown(GameState state, GameObject obj)

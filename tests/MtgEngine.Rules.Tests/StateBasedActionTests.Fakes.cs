@@ -104,6 +104,13 @@ internal sealed class Board
 /// Layer 7d and nothing else: printed power and toughness moved by +1/+1 and -1/-1 counters,
 /// CR 613.4c. That is the whole reason a check has to repeat — the toughness a state-based
 /// action reads is computed, so removing counters changes it.
+/// <para>
+/// Layer 4 gets the one arm 704.5m and 704.5n care about: a self-applied
+/// <see cref="AddTypes"/> with <c>AllCreatureTypes</c> (changeling, CR 702.72a and 205.3d) sets
+/// the flag, and a self-applied <see cref="RemoveTypes"/> with it takes both the flag and the
+/// printed creature types away (CR 205.3m). The real layer system does this for real; here it
+/// keeps the state-based actions reading a computed characteristic and not a printed one.
+/// </para>
 /// </summary>
 internal sealed class FakeCharacteristics : ICharacteristics
 {
@@ -114,11 +121,17 @@ internal sealed class FakeCharacteristics : ICharacteristics
         var obj = state.Objects[id];
         var face = obj.Face;
         var shift = obj.Counters.GetValueOrDefault(Counters.PlusOnePlusOne) - obj.Counters.GetValueOrDefault(Counters.MinusOneMinusOne);
+        var effects = face.AbilityList.OfType<StaticAbility>().Where(s => s.To is Self).Select(s => s.Effect).ToList();
+        var lost = effects.OfType<RemoveTypes>().Any(r => r.AllCreatureTypes);
+        var every = !lost && effects.OfType<AddTypes>().Any(a => a.AllCreatureTypes);
+        var subtypes = lost
+            ? face.Types.SubtypeList.Where(s => !CreatureTypes.IsCreatureType(s))
+            : face.Types.SubtypeList;
         return new Characteristics(
             face.Name,
             face.Types.Types,
             face.Types.Supertypes,
-            [.. face.Types.SubtypeList],
+            [.. subtypes],
             Color.Colorless,
             face.Power?.Number is { } power ? power + shift : null,
             face.Toughness?.Number is { } toughness ? toughness + shift : null,
@@ -126,7 +139,8 @@ internal sealed class FakeCharacteristics : ICharacteristics
             face.Defense,
             face.ManaCost,
             [.. face.AbilityList],
-            obj.InitialController);
+            obj.InitialController,
+            every);
     }
 
     public PlayerId ControllerOf(GameState state, ObjectId id) => state.Objects[id].InitialController;
@@ -177,8 +191,11 @@ internal sealed class FakeQuery(ICharacteristics characteristics) : IQuery
             return false;
         if (filter.NotTypes is { } notTypes && (chars.Types & notTypes) != 0)
             return false;
+        // CR 205.3d: an object that is every creature type carries none of the names, so the
+        // flag is read beside the list, as the real query layer does.
         return filter.Subtypes is not { Count: > 0 } subtypes
-            || subtypes.Any(s => chars.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase));
+            || subtypes.Any(s => chars.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)
+                || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(s)));
     }
 
     public bool Holds(GameState state, Condition condition, EffectContext context) => throw new NotSupportedException();

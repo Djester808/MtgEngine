@@ -160,8 +160,18 @@ public sealed partial class StateBasedActions
         return null;
     }
 
+    /// <summary>
+    /// CR 205.3: does this object have that subtype? An object that is every creature type
+    /// (CR 205.3d, what changeling grants under CR 702.72a) has every creature type of CR 205.3m
+    /// without any of them appearing in its list, so the flag is read beside the list here as it
+    /// is everywhere else. It grants only creature types: a changeling is not thereby an Aura,
+    /// an Equipment or a Fortification, which is what keeps 704.5m and 704.5n asking the right
+    /// question of it.
+    /// </summary>
+    [RuleRef("205.3d")]
     private static bool Has(Characteristics chars, string subtype) =>
-        chars.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase));
+        chars.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase))
+        || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
 
     /// <summary>Whether an Aura is attached to something it may legally enchant, CR 702.5b.</summary>
     [RuleRef("704.5m")]

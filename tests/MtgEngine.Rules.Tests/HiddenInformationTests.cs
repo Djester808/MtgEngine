@@ -22,6 +22,8 @@ public sealed class HiddenInformationTests
     private const string TheirsOracle = "oracle-theirs";
     private const string MineName = "quiet fixture of the first seat";
     private const string TheirsName = "quiet fixture of the second seat";
+    private const string ChangelingOracle = "oracle-changeling";
+    private const string ChangelingName = "quiet fixture that is anything";
 
     private static PlayerId Me => new(0);
 
@@ -143,14 +145,57 @@ public sealed class HiddenInformationTests
         Assert.DoesNotContain(TheirsName, JsonSerializer.Serialize(onlooker), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// CR 205.3d: a changeling is every creature type (CR 702.72a) and carries none of the names
+    /// in its subtype list, so a view that showed only the list would say it was a Shapeshifter
+    /// and nothing else. The flag is what a client asking "is this a Goblin" has to read.
+    /// </summary>
+    [Fact]
+    [RuleRef("205.3d")]
+    public void A_changeling_on_the_battlefield_is_shown_as_every_creature_type()
+    {
+        var state = Start(mine: ChangelingOracle);
+        var (board, id) = MoveFromHand(state, Me, ZoneKey.Shared(Zone.Battlefield));
+
+        var shown = Assert.Single(Project(board, Them).Battlefield, o => o.Id == id);
+
+        Assert.True(shown.EveryCreatureType);
+        Assert.DoesNotContain("Goblin", shown.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // An ordinary creature is not every creature type, so the flag says something.
+        var (ordinary, plain) = MoveFromHand(Start(), Me, ZoneKey.Shared(Zone.Battlefield));
+        Assert.False(Assert.Single(Project(ordinary, Them).Battlefield, o => o.Id == plain).EveryCreatureType);
+    }
+
+    /// <summary>
+    /// CR 708.2 and 708.4: a face-down permanent has no subtypes at all, and "every creature
+    /// type" is a subtype answer — saying it would name the changeling underneath as surely as
+    /// the card's name would.
+    /// </summary>
+    [Fact]
+    [RuleRef("708.2")]
+    public void A_face_down_changeling_says_nothing_about_its_creature_types()
+    {
+        var state = Start(mine: ChangelingOracle);
+        var (board, id) = MoveFromHand(state, Me, ZoneKey.Shared(Zone.Battlefield));
+        var hidden = board with { Objects = board.Objects.SetItem(id, board.Objects[id] with { FaceDown = true }) };
+
+        var shown = Assert.Single(Project(hidden, Me).Battlefield, o => o.Id == id);
+
+        Assert.True(shown.FaceDown);
+        Assert.False(shown.EveryCreatureType);
+        Assert.Empty(shown.Subtypes);
+        Assert.Equal(string.Empty, shown.Name);
+    }
+
     private static GameView Project(GameState state, PlayerId viewer) =>
         new ViewProjector(new LayerSystem(), oracle => oracle == MineOracle).Project(state, viewer);
 
-    private static GameState Start(int openingHand = 7)
+    private static GameState Start(int openingHand = 7, string mine = MineOracle)
     {
         var game = new Game(Subsystems.Wave1(), new HiddenInformationDefinitions());
         var setup = new GameSetup(
-            [new PlayerStart("One", Deck(MineOracle), []), new PlayerStart("Two", Deck(TheirsOracle), [])],
+            [new PlayerStart("One", Deck(mine), []), new PlayerStart("Two", Deck(TheirsOracle), [])],
             Seed: 11,
             OpeningHandSize: openingHand);
         return game.Create(setup).State;
@@ -172,11 +217,22 @@ public sealed class HiddenInformationTests
 
         private static readonly CardDefinition Theirs = Card(TheirsOracle, TheirsName, 2, 3, [new KeywordAbility(KeywordKind.Flying)]);
 
+        /// <summary>CR 702.72a, written as the vocabulary writes it: <see cref="AddTypes"/> on itself.</summary>
+        private static readonly CardDefinition Shifter = Card(
+            ChangelingOracle,
+            ChangelingName,
+            2,
+            2,
+            [new StaticAbility(new AddTypes(AllCreatureTypes: true), To: new Self(), CharacteristicDefining: true)]);
+
         public CardDefinition? ByName(string name) =>
-            name == MineName ? Mine : name == TheirsName ? Theirs : null;
+            name == MineName ? Mine : name == TheirsName ? Theirs : name == ChangelingName ? Shifter : null;
 
         public CardDefinition? ByOracleId(string oracleId) =>
-            oracleId == MineOracle ? Mine : oracleId == TheirsOracle ? Theirs : null;
+            oracleId == MineOracle ? Mine
+            : oracleId == TheirsOracle ? Theirs
+            : oracleId == ChangelingOracle ? Shifter
+            : null;
 
         private static CardDefinition Card(string oracleId, string name, int power, int toughness, Ability[] abilities) =>
             new(
