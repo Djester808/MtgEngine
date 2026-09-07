@@ -388,6 +388,20 @@ function main() {
     ]);
   }
 
+  // The wall clock, too: a call cap does not bound a builder whose calls are long, and the
+  // plan's box is thirty minutes. Past `maxMinutes` (default 35) only the exits remain.
+  const minutes = (Date.now() - Date.parse(manifest.launchedAt || '')) / 60000;
+  const maxMinutes = Number(manifest.maxMinutes) > 0 ? Number(manifest.maxMinutes) : 35;
+  if (Number.isFinite(minutes) && minutes > maxMinutes && !escapesTimeBox) {
+    deny([
+      `Blocked: time box exceeded: ${Math.round(minutes)} minutes since launch, the box is ${maxMinutes}.`,
+      'Commit what is green, write ready/' + id + ' or seam-requests/' + id + '.md, and report.',
+      '',
+      'Still allowed: git commit / status / add / diff, and writing',
+      `  ready/${id}, seam-requests/${id}.md, .agent/report.json`,
+    ]);
+  }
+
   if (WRITE_TOOLS.has(tool)) {
     if (!rel || isExit) process.exit(0);
     if (owned(owns, rel)) process.exit(0);
