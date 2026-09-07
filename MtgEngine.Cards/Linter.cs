@@ -109,8 +109,16 @@ public static class Linter
         [KeywordKind.Affinity] = "Of",
         [KeywordKind.Champion] = "Of",
         [KeywordKind.Offering] = "Of",
-        [KeywordKind.Enchant] = "Of",
         [KeywordKind.Splice] = "Of",
+
+        // Enchant is deliberately absent, and this is the decision rather than an oversight
+        // (seam-requests/E5d.md §2, declined in the wave-9 table). CR 702.5b: the ability names
+        // what the Aura can enchant, and both halves of KeywordAbility are optional because both
+        // readings are printed. Both Of and OfPlayer set is "enchant creature or player"; neither
+        // set is "enchant anything" (CR 303.4a's most general form), which is a real card and not
+        // a dropped filter, so no rule here — and no pair rule below — may refuse either shape.
+        // A translation that loses a filter is indistinguishable from a card that means it, and
+        // the linter does not guess.
     };
 
     public static LintReport Check(CardFile file)
@@ -121,6 +129,7 @@ public static class Linter
         CheckFaces(file, findings);
         CheckScryfallKeywords(file, findings);
         CheckStatus(file, findings);
+        CheckScenarios(file, findings);
 
         var faceIndex = 0;
         foreach (var face in file.Definition.Faces)
@@ -202,6 +211,42 @@ public static class Linter
         if (file.Status == ImplementationStatus.Excluded && file.Source is not ExcludedProvenance)
             findings.Add(new(LintSeverity.Error, "L013", "An Excluded file must say why in its provenance.", "status"));
     }
+
+    /// <summary>
+    /// The steps of a scenario, whose values the runner reads straight through: a step that names
+    /// nonsense is a test that refuses instead of a test that fails, and the difference is invisible
+    /// in a coverage count.
+    /// </summary>
+    private static void CheckScenarios(CardFile file, List<LintFinding> findings)
+    {
+        var scenarioIndex = 0;
+        foreach (var scenario in file.ScenarioList)
+        {
+            var stepIndex = 0;
+            foreach (var step in scenario.Steps)
+            {
+                // CR 608.2d: an activation that adds "one mana of any color" is told which colour
+                // each mana is as the ability resolves. The step spells that as one letter per mana
+                // in the order added; null adds nothing and is what every other step means.
+                if (step is ActivateStep { ManaColors: { } colors }
+                    && (colors.Length == 0 || colors.Any(c => !ManaColorLetters.Contains(c))))
+                {
+                    findings.Add(new(
+                        LintSeverity.Error,
+                        "L017",
+                        $"ActivateStep.ManaColors is '{colors}'; it must be one letter per mana from WUBRG (CR 608.2d), or null to choose none.",
+                        $"scenarios[{scenarioIndex}].steps[{stepIndex}].manaColors"));
+                }
+
+                stepIndex++;
+            }
+
+            scenarioIndex++;
+        }
+    }
+
+    /// <summary>The five colours of CR 105.1, in the runner's pool spelling: one letter each.</summary>
+    private const string ManaColorLetters = "WUBRG";
 
     private static void CheckAbility(Ability ability, string path, List<LintFinding> findings)
     {

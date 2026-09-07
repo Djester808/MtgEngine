@@ -10,7 +10,7 @@ namespace MtgEngine.Cards.Tests;
 /// be in the name table, in the schema the translator is constrained to, and lint clean, or a
 /// translated card carrying it is lost silently.
 /// </summary>
-public sealed class VocabularyAdditionsTests
+public sealed partial class VocabularyAdditionsTests
 {
     // "Whenever this creature attacks, draw a card." — the shape undying, persist, afflict and
     // mentor all need, and the shape every "Whenever this creature…" card is translated into.
