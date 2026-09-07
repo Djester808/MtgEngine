@@ -18,4 +18,9 @@
   <ItemGroup>
     <Using Include="System.Collections.Immutable" />
   </ItemGroup>
+
+  <!-- The test project may read the engine's internal records (a cast plan, a cost context), so a rule can be asserted where it is decided rather than only through its effects. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="MtgEngine.Rules.Tests" />
+  </ItemGroup>
 </Project>
