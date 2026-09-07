@@ -23,9 +23,17 @@ public sealed partial class ChoiceSystem
         ChoiceKinds.LegendRule => LegendRule(state, choice, chosen),
         ChoiceKinds.Mulligan => Mulligan(state, choice, chosen).Then(s => Next(s, choice.Player)),
         ChoiceKinds.MulliganBottom => Bottom(state, chosen).Then(s => Next(s, choice.Player)),
-        _ => Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context)))
-            .Then(after => RestOfTheBatch(after, choice)),
+        _ => AndTheRest(Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))), choice),
     };
+
+    /// <summary>
+    /// CR 510.2 with 702.15b: the rest of a halted combat damage batch, told what the halted hit
+    /// finished with. The events are the ones the answer produced, so a hit whose amount the
+    /// replacement system decided can still gain its lifelink for the damage actually dealt.
+    /// </summary>
+    [RuleRef("702.15b")]
+    private Outcome AndTheRest(Outcome resumed, PendingChoice choice) =>
+        resumed.Then(after => RestOfTheBatch(after, choice, resumed.Events));
 
     /// <summary>
     /// CR 510.2 with 616.1: a replacement-order question raised inside the combat damage step
@@ -36,7 +44,7 @@ public sealed partial class ChoiceSystem
     /// already open means the game is waiting again and nothing else happens (CR 101.4).
     /// </summary>
     [RuleRef("510.2")]
-    private Outcome RestOfTheBatch(GameState state, PendingChoice choice)
+    private Outcome RestOfTheBatch(GameState state, PendingChoice choice, ImmutableList<GameEvent> dealt)
     {
         if (combat is null
             || state.Pending is not null
@@ -46,7 +54,7 @@ public sealed partial class ChoiceSystem
 
         var firstStrike = choice.Context.Extra.TryGetValue(ChoiceKinds.CombatDamageStep, out var step)
             && string.Equals(step, ChoiceKinds.FirstStrikeDamage, StringComparison.Ordinal);
-        return combat.ResumeCombatDamage(state, firstStrike, from);
+        return combat.ResumeCombatDamage(state, firstStrike, from, dealt);
     }
 
     /// <summary>

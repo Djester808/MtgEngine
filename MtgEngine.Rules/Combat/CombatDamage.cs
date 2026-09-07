@@ -43,6 +43,35 @@ public sealed partial class CombatSystem
     }
 
     /// <summary>
+    /// CR 510.2 with 702.15b — the same resumption, told what the halted hit finally dealt. The
+    /// amount a hit deals is decided inside <see cref="IReplacementSystem.Resume"/>, so the index
+    /// alone cannot say what that hit's lifelink gains; <paramref name="dealt"/> is the events the
+    /// replacement system finished it with, and the gain follows the damage actually dealt rather
+    /// than the damage that was assigned. A hit prevented outright hands back no damage and so
+    /// gains nothing, and a halt that stopped on the gain itself hands back the gain rather than
+    /// any damage, so it is not gained twice. Deathtouch needs nothing here: CR 702.2b rides on
+    /// the <see cref="DamageDealt"/> the replacement system applied.
+    /// </summary>
+    [RuleRef("702.15b")]
+    public Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from, ImmutableList<GameEvent> dealt)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(dealt);
+
+        var batch = Batch(state, firstStrike);
+        var index = Math.Max(0, from);
+        var gained = index < batch.Count
+            ? Lifelink(state, batch[index], dealt, firstStrike, index)
+            : Outcome.Unchanged(state);
+
+        // A gain of its own can be replaced, and a second question means the game is waiting again
+        // on the same hit (CR 101.4): the rest of the batch is still owed and is not dealt yet.
+        return gained.State.Pending is not null
+            ? gained
+            : gained.Then(s => Deal(s, batch, firstStrike, index + 1));
+    }
+
+    /// <summary>
     /// CR 510.1 and 510.2 — every hit of this step, in the order it is offered. Attackers first, in
     /// object order, then blockers by the attacker they blocked; each hit carries what its source
     /// was while assigning it, because CR 510.2 computes the whole batch against the board the step
@@ -89,7 +118,8 @@ public sealed partial class CombatSystem
     /// CR 616.1 also stops the game when the affected player must say which of several effects
     /// applies first. The question stands and nothing else happens until it is answered (CR 101.4),
     /// so the halt marks the question with this step and the index of the hit it stopped on and
-    /// <see cref="ResumeCombatDamage"/> deals the rest once the answer has finished that one event.
+    /// <see cref="ResumeCombatDamage(GameState, bool, int)"/> deals the rest once the answer has
+    /// finished that one event.
     /// </para>
     /// </summary>
     [RuleRef("510.2")]
@@ -107,27 +137,40 @@ public sealed partial class CombatSystem
             if (working.Pending is not null)
                 return Halted(working, events, firstStrike, index);
 
-            // CR 702.15b — lifelink gains its controller as much life as the source actually dealt,
-            // so a hit a prevention shield stopped gains nothing and a doubled hit gains double. It
-            // follows each hit rather than each creature, because a creature that hits twice (lethal
-            // to a blocker and the rest elsewhere, CR 510.1c and 702.2b) may be stopped between the
-            // two, and the gain has to belong to the hit it came from for the resumption to be exact.
-            var dealt = happened.Events.OfType<DamageDealt>().Where(d => d.Source == hit.Source).Sum(d => d.Amount);
-            if (dealt <= 0 || !hit.Characteristics.Has(KeywordKind.Lifelink))
-                continue;
-
-            var gain = new LifeChanged(hit.Characteristics.Controller, dealt, "lifelink");
-            var gained = Offer(working, gain, hit.Characteristics.Controller);
+            var gained = Lifelink(working, hit, happened.Events, firstStrike, index);
             working = gained.State;
             events = events.AddRange(gained.Events);
 
             // A halt on the life gain marks the same index: the gain is the event the replacement
             // system resumes, and the hit that earned it has already been dealt.
             if (working.Pending is not null)
-                return Halted(working, events, firstStrike, index);
+                return new Outcome(working, events);
         }
 
         return new Outcome(working, events);
+    }
+
+    /// <summary>
+    /// CR 702.15b — lifelink gains its controller as much life as the source actually dealt, so a
+    /// hit a prevention shield stopped gains nothing and a doubled hit gains double. It follows
+    /// each hit rather than each creature, because a creature that hits twice (lethal to a blocker
+    /// and the rest elsewhere, CR 510.1c and 702.2b) may be stopped between the two, and the gain
+    /// has to belong to the hit it came from for the resumption to be exact. <paramref name="dealt"/>
+    /// is what happened for this hit: the events the batch got back, or the ones the replacement
+    /// system finished a halted hit with.
+    /// </summary>
+    [RuleRef("702.15b")]
+    private Outcome Lifelink(GameState state, Hit hit, ImmutableList<GameEvent> dealt, bool firstStrike, int index)
+    {
+        var amount = dealt.OfType<DamageDealt>().Where(d => d.Source == hit.Source).Sum(d => d.Amount);
+        if (amount <= 0 || !hit.Characteristics.Has(KeywordKind.Lifelink))
+            return Outcome.Unchanged(state);
+
+        var gain = new LifeChanged(hit.Characteristics.Controller, amount, "lifelink");
+        var gained = Offer(state, gain, hit.Characteristics.Controller);
+        return gained.State.Pending is not null
+            ? Halted(gained.State, gained.Events, firstStrike, index)
+            : gained;
     }
 
     /// <summary>
