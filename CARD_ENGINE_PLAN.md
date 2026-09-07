@@ -228,7 +228,13 @@ at the worktree root, written by the coordinator before launch:
   "anchor": "CombatTests", "maxToolCalls": 120, "launchedAt": "2026-09-07T14:00:00Z" }
 ```
 
-No manifest means the coordinator's own checkout, and the hook allows. With one:
+The coordinator cannot write that file before launch, because the harness picks the worktree's
+path and cuts it from the commit the session started on, which may be behind the integration
+branch. So the coordinator registers the manifest ahead of time with
+`node tools/ledger.js register <id> ...`, and the agent's first two commands are
+`git merge --ff-only card-engine` and `node tools/ledger.js claim <id>`. A linked worktree with
+no manifest is refused everything except reading, that fast-forward and the claim. No manifest
+in the main checkout means the coordinator's own session, and the hook allows. With one:
 
 | Call | Verdict |
 |---|---|
