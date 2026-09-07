@@ -42,6 +42,18 @@ public sealed partial class Query
             // the vocabulary; seam-requests/E5c.md asks for it.
             AttachedTo to => obj.AttachedTo is { } host && Resolve(state, to.To, ctx).Contains(host),
 
+            // CR 301.5c from the other end of the link: "equipped creature" inside a filter is the
+            // creature this source is attached to, which only the Attached *selector* names, so
+            // IsOneOf is a selector said inside a filter — the gap seam-requests/E0g.md recorded,
+            // closed by V9. The selector is read in the context the filter is read in.
+            IsOneOf one => OneOf(state, one.Of, candidate, ctx),
+
+            // CR 603.10: "that creature" said inside a filter, naming a key an earlier step
+            // remembered. A key nothing wrote names nothing, so the filter admits nothing rather
+            // than guessing — a Remembered selector reads the same way, and IsOneOf(Remembered) is
+            // the same question asked through the general form.
+            IsRemembered remembered => ctx.Remembered.GetValueOrDefault(remembered.Key, []).Contains(candidate),
+
             // CR 301.5 with CR 303.4f: attached means attached to an object or to a player, so
             // an "enchant player" Aura on its player answers this as any other Aura does.
             IsAttached attached => attached.Value == (obj.AttachedTo is not null || obj.AttachedToPlayer is not null),
@@ -112,6 +124,21 @@ public sealed partial class Query
         by is null
             ? obj.Designations.Any(d => d.StartsWith(Designations.GoadedPrefix, StringComparison.Ordinal))
             : Players(state, by, ctx).Any(p => obj.Designations.Contains(Designations.GoadedBy(p)));
+
+    /// <summary>
+    /// CR 301.5c: the candidate is one of the objects a selector names, the selector being said
+    /// inside a filter. "Whenever equipped creature dies" describes the creature this Equipment is
+    /// attached to, which the <see cref="Attached"/> selector names from the Equipment's side and
+    /// no predicate of its own can say; "whenever that creature attacks" in a delayed trigger is
+    /// the firing's <see cref="Triggering"/> object the same way. The selector is resolved in the
+    /// context the filter is evaluated in — the ability's source for <see cref="Attached"/>, the
+    /// firing's objects for <see cref="Triggering"/>, the resolution's memory for
+    /// <see cref="Remembered"/> — so a selector that names nothing there admits nothing: an
+    /// unattached Equipment, a filter read off any resolution with a remembered key.
+    /// </summary>
+    [RuleRef("301.5c")]
+    private bool OneOf(GameState state, Selector of, ObjectId candidate, EffectContext ctx) =>
+        Resolve(state, of, ctx).Contains(candidate);
 
     /// <summary>
     /// CR 702.32b: kicker's cost may be paid more than once when it is repeatable, and casting
