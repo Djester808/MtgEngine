@@ -149,6 +149,22 @@ internal sealed class FakeCharacteristics : ICharacteristics
     }
 
     public PlayerId ControllerOf(GameState state, ObjectId id) => state.Objects[id].InitialController;
+
+    /// <summary>
+    /// CR 613.10, as a table a test writes rather than a computation over the battlefield: which
+    /// continuous effects put a limit on a player is the layer system's question, and a
+    /// state-based action's question is only what the limit then forbids. A player with no entry
+    /// is unrestricted, and <see cref="Ends"/> is how a test takes a limit away mid-game.
+    /// </summary>
+    [RuleRef("613.10")]
+    public PlayerLimits PlayerRestrictions(GameState state, PlayerId player) =>
+        Limits.TryGetValue(player, out var limits) ? limits : PlayerLimits.None;
+
+    /// <summary>The limits in force, by player. Written by a test before the check that reads them.</summary>
+    public Dictionary<PlayerId, PlayerLimits> Limits { get; } = [];
+
+    /// <summary>Every limit on this player ends, the way the effect that granted it leaving the battlefield would end it.</summary>
+    public void Ends(PlayerId player) => Limits.Remove(player);
 }
 
 /// <summary>Only <see cref="Move"/>: the state-based actions never draw, shuffle or make a token.</summary>
@@ -214,6 +230,26 @@ internal sealed class FakeQuery(ICharacteristics characteristics) : IQuery
         IsYourTurn wanted => wanted.Value == (context.Controller == state.Turn.ActivePlayer),
         _ => throw new NotSupportedException(),
     };
+
+    /// <summary>
+    /// The seam of CR 702.5b, which the state-based actions ask rather than answer since wave 10.
+    /// "You" and "opponent" are read from the context's controller (CR 601.2c); <c>Also</c> is
+    /// asked <em>as the candidate</em>, because the only <c>PlayerRef</c> a condition has for the
+    /// player being filtered is <c>You</c>. The real one is the query system's; this is the fake
+    /// that proves the rule delegates, and <see cref="PlayersAsked"/> records that it was asked.
+    /// </summary>
+    public bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId candidate, EffectContext context)
+    {
+        PlayersAsked.Add((filter, candidate));
+        if (filter.IsYou is { } you && you != (candidate == context.Controller))
+            return false;
+        if (filter.Opponent is { } opponent && opponent != (candidate != context.Controller))
+            return false;
+        return filter.Also is null || Holds(state, filter.Also, context with { Controller = candidate });
+    }
+
+    /// <summary>Every filter this fake was asked about, in order, so a test can prove the call happened at all.</summary>
+    public List<(PlayerFilter Filter, PlayerId Candidate)> PlayersAsked { get; } = [];
 
     public int Evaluate(GameState state, Amount amount, EffectContext context) => throw new NotSupportedException();
 

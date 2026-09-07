@@ -212,6 +212,36 @@ public sealed class HiddenInformationTests
         Assert.Null(Assert.Single(Project(board, Them).Battlefield, o => o.Id == id).AttachedToPlayer);
     }
 
+    /// <summary>
+    /// CR 702.16j with 400.2: protection from everything is a continuous effect on a player, and
+    /// what is on the battlefield is public, so both viewers are shown it beside the life total —
+    /// it is what tells a client why damage to that seat never lands. The unprotected seat carries
+    /// the flag false in the same view, so the field says something rather than being decoration.
+    /// <para>
+    /// The board is built by hand and the projection runs through the real
+    /// <see cref="LayerSystem"/>, so the flag is computed from a static ability exactly as a game
+    /// would compute it. The definition is invented; no card name reaches the engine.
+    /// </para>
+    /// </summary>
+    [Fact]
+    [RuleRef("702.16j")]
+    public void Protection_from_everything_is_shown_beside_the_protected_players_life()
+    {
+        var board = new Board();
+        board.Put(Board.Definition(
+            "quiet aegis of the first seat",
+            CardType.Enchantment,
+            abilities: [new StaticAbility(new PlayerProtectionFromEverything(), Players: new You())]));
+
+        foreach (var viewer in new[] { Me, Them })
+        {
+            var view = Project(board.State, viewer);
+
+            Assert.True(view.Players[0].ProtectionFromEverything);
+            Assert.False(view.Players[1].ProtectionFromEverything);
+        }
+    }
+
     private static GameView Project(GameState state, PlayerId viewer) =>
         new ViewProjector(new LayerSystem(), oracle => oracle == MineOracle).Project(state, viewer);
 

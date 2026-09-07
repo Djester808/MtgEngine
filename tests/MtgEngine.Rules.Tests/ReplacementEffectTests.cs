@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 /// filter sees what the layers made. Every definition is invented: no card name reaches the
 /// engine or its tests.
 /// </summary>
-public sealed class ReplacementEffectTests
+public sealed partial class ReplacementEffectTests
 {
     private readonly ReplacementEffectFakeInterpreter _interpreter = new();
 

@@ -215,32 +215,23 @@ public sealed partial class StateBasedActions
     [RuleRef("702.5b")]
     private bool EnchantsAPlayer(GameState state, KeywordAbility? enchant, PlayerId player, Characteristics chars)
     {
+        // CR 702.16d with 702.16j: a player with protection from everything can't be enchanted by
+        // any Aura, their own included — protection from everything is protection from each
+        // object (702.16b), so no Aura is a legal one and 704.5m buries every one attached here.
+        // This is read before the enchant ability because it holds even where there is none.
+        if (LimitsOn(state, player).ProtectionFromEverything)
+            return false;
+
         if (enchant is null)
             return true;
 
+        // CR 702.5b through the query, not through a copy of it. This rule had a private
+        // PlayerMatches until wave 10; E5d's seam request named it as one of two copies that
+        // disagreed about `Also`, and the seam that settles it is IQuery.PlayerMatches, which
+        // asks the condition from the candidate's point of view — this arm's reading, kept.
         return enchant.OfPlayer is { } who
-            ? PlayerMatches(state, who, player, chars)
+            ? query.PlayerMatches(state, who, player, ContextOf(chars))
             : enchant.Of is null;
-    }
-
-    /// <summary>
-    /// Whether a player answers a <see cref="PlayerFilter"/>, CR 702.5b with 601.2c: "opponent"
-    /// and "you" are read from the Aura's controller, and <c>Also</c> is asked <em>as the
-    /// candidate</em> — the only <c>PlayerRef</c> a condition can use to mean the player being
-    /// filtered is <c>You</c>, so the context is rebound to them. <c>TriggerMatching</c> has a
-    /// private twin of this that asks <c>Also</c> of the ambient controller instead; one of the
-    /// two readings is wrong and the seam that would settle it is asked for in
-    /// <c>seam-requests/E5d.md</c>.
-    /// </summary>
-    [RuleRef("702.5b")]
-    private bool PlayerMatches(GameState state, PlayerFilter filter, PlayerId player, Characteristics chars)
-    {
-        if (filter.IsYou is { } you && you != (player == chars.Controller))
-            return false;
-        if (filter.Opponent is { } opponent && opponent != (player != chars.Controller))
-            return false;
-        return filter.Also is null
-            || query.Holds(state, filter.Also, ContextOf(chars) with { Controller = player });
     }
 
     /// <summary>CR 800.4a: a player who has left the game is no longer a player.</summary>

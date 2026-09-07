@@ -33,7 +33,7 @@ public sealed partial class ReplacementSystem
     {
         // CR 120.3 for "can't be dealt damage", CR 702.16j for protection from everything:
         // all damage that would be dealt to such a player is prevented.
-        DamageDealt { ToPlayer: { } player } => _layers.PlayerRestrictions(state, player).CantBeDealtDamage,
+        DamageDealt { ToPlayer: { } player } => Undealable(_layers.PlayerRestrictions(state, player)),
 
         LifeChanged life => Unchangeable(_layers.PlayerRestrictions(state, life.Player), life.Delta),
 
@@ -43,11 +43,35 @@ public sealed partial class ReplacementSystem
     };
 
     /// <summary>
-    /// CR 119.3 with CR 101.2: a life total that can't change can't change in either direction,
-    /// so a loss is dropped as readily as a gain. "Can't gain life" is the weaker one — it stops
-    /// only an increase, and life loss still happens.
+    /// CR 119.7 and 119.8 with CR 101.2: a life total that can't change can't change in either
+    /// direction, so a loss is dropped as readily as a gain — 119.7 forbids the increase and
+    /// 119.8 the decrease. "Can't gain life" is the weaker one, 119.7 alone: it stops only an
+    /// increase, and life loss still happens.
+    /// <para>
+    /// No rule is quoted as "life total can't change" because the comprehensive rules do not
+    /// contain that sentence — it is card text, and 119.7 and 119.8 are the two halves the rules
+    /// give it. That is why this is one predicate over both and not a rule reference each.
+    /// </para>
     /// </summary>
-    [RuleRef("119.3")]
+    [RuleRef("119.7")]
     private static bool Unchangeable(PlayerLimits limits, int delta) =>
         limits.LifeTotalCantChange || (delta > 0 && limits.CantGainLifeNow);
+
+    /// <summary>
+    /// Whether damage to this player never happens. Two of the three are about the damage itself:
+    /// CR 120.3's "can't be dealt damage" and CR 702.16j's protection from everything, which
+    /// <see cref="PlayerLimits.CantBeDealtDamage"/> already joins. The third is about its effect:
+    /// damage to a player causes that player to lose that much life (CR 119.2), and a life total
+    /// that can't change can't take the loss (CR 119.8 with 101.2).
+    /// <para>
+    /// Dropping the damage is a wider stroke than the rules take — CR 119.8 stops the life loss,
+    /// not the dealing, so a "whenever a source deals damage" trigger should still see it — but
+    /// <c>DamageDealt</c> carries the life loss in its own fold, so the two cannot be separated
+    /// from here. <c>seam-requests/E5e.md</c> asks for the split; until it lands, "can't" wins
+    /// (CR 101.2) and the whole event is dropped rather than a forbidden life change let through.
+    /// </para>
+    /// </summary>
+    [RuleRef("119.2")]
+    private static bool Undealable(PlayerLimits limits) =>
+        limits.CantBeDealtDamage || limits.LifeTotalCantChange;
 }
