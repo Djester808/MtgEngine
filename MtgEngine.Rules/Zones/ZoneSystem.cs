@@ -1,6 +1,7 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Faces;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Zones;
@@ -16,7 +17,7 @@ namespace MtgEngine.Rules.Zones;
 /// </para>
 /// </summary>
 [RuleRef("400")]
-public sealed class ZoneSystem : IZoneSystem
+public sealed partial class ZoneSystem : IZoneSystem
 {
     public string Name => "zones";
 
@@ -79,29 +80,82 @@ public sealed class ZoneSystem : IZoneSystem
     /// and any stack entry are gone.
     /// </summary>
     [RuleRef("400.7")]
-    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null)
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null) =>
+        Move(state, what, to, where, tapped, controller, null);
+
+    /// <summary>
+    /// The same move, showing a chosen face, CR 712.12: a modal double-faced card's land face is
+    /// played rather than cast, and only the move can say which face the new object has, because
+    /// the move is what builds it (CR 400.7). A null index keeps the face the object had.
+    /// </summary>
+    [RuleRef("712.12")]
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (!state.Objects.TryGetValue(what, out var moving))
+        if (Proposal(state, state, what, to, where, tapped, controller, faceIndex) is not { } proposed)
             return Outcome.Unchanged(state);
+
+        var tape = new Tape(state);
+        // CR 614.1c and 616.1: the move is proposed, not performed. What actually happens is what
+        // the replacement and prevention effects in force hand back — a tapped permanent, one with
+        // counters, a different zone, nothing at all, or a question that stops the game.
+        tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
+        return tape.Done();
+    }
+
+    /// <summary>
+    /// Several objects change zones at once, CR 400.7 and 704.5m. Every move is read against the
+    /// one board — the state before any of them happened — so an effect watching one object leave
+    /// still sees the others; ids and timestamps come from the running state, so no two of them
+    /// collide. A move whose replacement stops to ask (CR 616.1) stops the rest of the batch.
+    /// </summary>
+    [RuleRef("400.7")]
+    public Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(moves);
+
+        var tape = new Tape(state);
+        foreach (var m in moves)
+        {
+            if (Proposal(state, tape.State, m.What, m.To, m.Where, m.Tapped, m.Controller, null) is not { } proposed)
+                continue;
+
+            tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
+            if (tape.State.Pending is not null)
+                break;
+        }
+
+        return tape.Done();
+    }
+
+    /// <summary>
+    /// The move as it would happen with nothing to change it, or none when the rules keep the
+    /// object where it is. <paramref name="board"/> is the board the move is read against — for a
+    /// batch, the one board of CR 400.7 — and <paramref name="counters"/> is where the new
+    /// object's id and timestamp come from, which for a batch is the running state.
+    /// </summary>
+    [RuleRef("400.7")]
+    private static ObjectMoved? Proposal(GameState board, GameState counters, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex)
+    {
+        if (!board.Objects.TryGetValue(what, out var moving))
+            return null;
 
         // CR 400.4a: an instant or sorcery card that would enter the battlefield stays where it is.
         if (to.Zone == Cards.Zone.Battlefield && (PrintedTypes(moving) & (CardType.Instant | CardType.Sorcery)) != 0)
-            return Outcome.Unchanged(state);
+            return null;
 
         // CR 400.4b: a conspiracy, phenomenon, plane, scheme or vanguard card never leaves the command zone.
         const CardType StaysInCommand = CardType.Conspiracy | CardType.Phenomenon | CardType.Plane | CardType.Scheme | CardType.Vanguard;
         if (moving.Zone.Zone == Cards.Zone.Command && to.Zone != Cards.Zone.Command && (PrintedTypes(moving) & StaysInCommand) != 0)
-            return Outcome.Unchanged(state);
+            return null;
 
         // CR 400.3: an object headed for a library, graveyard or hand that is not its owner's goes
         // to its owner's instead; and the shared zones take no player in their key, CR 400.1.
         var destination = KeyFor(to.Zone, moving.Owner);
 
-        var tape = new Tape(state);
         // CR 603.10: the object as it last existed travels with the move, for the abilities that look back.
-        tape.Add(new ObjectMoved(what, Reborn(state, moving, destination, tapped, controller), PositionIn(state, destination, where), Departed: moving));
-        return tape.Done();
+        return new ObjectMoved(what, Reborn(counters, moving, destination, tapped, controller, faceIndex), PositionIn(board, destination, where), Departed: moving);
     }
 
     /// <summary>
@@ -131,10 +185,20 @@ public sealed class ZoneSystem : IZoneSystem
             // of the hand, which is unordered anyway, CR 400.5.
             var top = cards[0];
             var drawn = tape.State.Objects[top];
-            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null);
-            tape.Add(new ObjectMoved(top, reborn, -1, Departed: drawn));
-            // CR 121.1: the draw is its own event, distinct from a card put into a hand, CR 121.2.
-            tape.Add(new ObjectDrawn(player, reborn.Id));
+            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null, faceIndex: null);
+
+            // CR 121.1 and 614.1c: drawing is one action, so the draw itself is what is offered.
+            // A draw replaced away moves no card at all and leaves the library as it was; a draw
+            // that stands moves the top card first and is then recorded, CR 121.2.
+            var happened = Offer(tape.State, new ObjectDrawn(player, reborn.Id), player);
+            if (happened.Any(e => e is ObjectDrawn d && d.Object == reborn.Id))
+                tape.Add(new ObjectMoved(top, reborn, -1, Departed: drawn));
+
+            tape.AddAll(happened);
+
+            // CR 616.1: nothing else happens until the affected player says which effect applies.
+            if (tape.State.Pending is not null)
+                break;
         }
 
         return tape.Done();
@@ -175,21 +239,57 @@ public sealed class ZoneSystem : IZoneSystem
         ArgumentNullException.ThrowIfNull(token);
 
         var battlefield = ZoneKey.Shared(Cards.Zone.Battlefield);
-        var id = new ObjectId(state.NextObjectId);
         // CR 111.2: the token's owner is the player who controls the effect that created it.
-        var created = new GameObject(id, DefinitionOf(token), 0, controller, controller, battlefield, state.NextTimestamp)
+        var created = new GameObject(new ObjectId(state.NextObjectId), DefinitionOf(token), 0, controller, controller, battlefield, state.NextTimestamp)
         {
             IsToken = true,
             Tapped = tapped,
         };
 
+        return Arrive(state, created, attacking);
+    }
+
+    /// <summary>
+    /// A token that is a copy of something, CR 707.2 and 111.4: it has the copiable values of what
+    /// it copies and nothing else — no counters, no damage, no status but the tap the effect gave
+    /// it — so it arrives through the same door as every other token rather than being built
+    /// somewhere else and put on the battlefield by hand.
+    /// </summary>
+    [RuleRef("707.2")]
+    public Outcome CreateToken(GameState state, CopiableValues values, PlayerId controller, bool tapped, bool attacking)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(values);
+
+        var battlefield = ZoneKey.Shared(Cards.Zone.Battlefield);
+        var created = CopyRules.NewCopy(values, new ObjectId(state.NextObjectId), controller, controller, battlefield, state.NextTimestamp) with
+        {
+            Tapped = tapped,
+        };
+
+        return Arrive(state, created, attacking);
+    }
+
+    /// <summary>
+    /// A new object arriving on the battlefield, CR 111.1. The creation is proposed like every
+    /// other event (CR 614.1c), so "if you would create a token, create two instead" and the rest
+    /// of CR 614 reach a token; a creation replaced away creates nothing to attack with.
+    /// </summary>
+    [RuleRef("111.1")]
+    private Outcome Arrive(GameState state, GameObject created, bool attacking)
+    {
         var tape = new Tape(state);
-        tape.Add(new ObjectCreated(created, -1));
+        var happened = Offer(state, new ObjectCreated(created, -1), created.InitialController);
+        tape.AddAll(happened);
 
         // CR 506.3c: an effect can put a token onto the battlefield attacking. It joins the combat
         // already happening; with no combat there is nothing to attack and the flag is moot.
-        if (attacking && tape.State.Combat is { } combat)
-            tape.Add(new AttackersDeclared(combat.AttackingPlayer, combat.Attackers.SetItem(id, DefenderIn(tape.State, combat))));
+        if (attacking
+            && happened.Any(e => e is ObjectCreated c && c.Object.Id == created.Id)
+            && tape.State.Combat is { } combat)
+        {
+            tape.Add(new AttackersDeclared(combat.AttackingPlayer, combat.Attackers.SetItem(created.Id, DefenderIn(tape.State, combat))));
+        }
 
         return tape.Done();
     }
@@ -216,8 +316,8 @@ public sealed class ZoneSystem : IZoneSystem
     /// status, phasing, and anything the stack was holding for it.
     /// </summary>
     [RuleRef("400.7")]
-    private static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller) =>
-        new(new ObjectId(state.NextObjectId), moving.Definition, moving.FaceIndex, moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
+    private static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex) =>
+        new(new ObjectId(state.NextObjectId), moving.Definition, FaceFor(moving, faceIndex), moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
             IsCommander = moving.IsCommander,
@@ -233,6 +333,21 @@ public sealed class ZoneSystem : IZoneSystem
     /// controller to speak of, CR 108.4; on the battlefield the mover says, and says nothing when
     /// the object simply carries on under the same control.
     /// </summary>
+    /// <summary>
+    /// Which face the new object shows, CR 712.12. A null index means the face the object already
+    /// had, which is what every zone change other than a chosen modal face wants; an index that
+    /// names no face on the card is a bug at the seam, not a rules situation.
+    /// </summary>
+    [RuleRef("712.12")]
+    private static int FaceFor(GameObject moving, int? faceIndex)
+    {
+        if (faceIndex is not { } index)
+            return moving.FaceIndex;
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, moving.Definition.Faces.Count);
+        return index;
+    }
+
     [RuleRef("108.4")]
     private static PlayerId ControllerFor(ZoneKey destination, GameObject moving, PlayerId? controller) =>
         IsOwnerZone(destination.Zone) ? moving.Owner : controller ?? moving.InitialController;
