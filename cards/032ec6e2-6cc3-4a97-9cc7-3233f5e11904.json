@@ -1,0 +1,118 @@
+{
+  "oracleId": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904",
+  "name": "Reclamation Sage",
+  "oracleHash": "sha256:736999c5ec4d8c28bdb9b4784f54983ad4620db19292dced211490efc55fcc39",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904",
+    "name": "Reclamation Sage",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Reclamation Sage",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Elf",
+            "Shaman"
+          ],
+          "subtypeList": [
+            "Elf",
+            "Shaman"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, you may destroy target artifact or enchantment."
+          }
+        ],
+        "oracleText": "When this creature enters, you may destroy target artifact or enchantment.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, you may destroy target artifact or enchantment."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

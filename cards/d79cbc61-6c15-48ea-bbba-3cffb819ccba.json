@@ -1,0 +1,537 @@
+{
+  "oracleId": "d79cbc61-6c15-48ea-bbba-3cffb819ccba",
+  "name": "Sword of the Animist",
+  "oracleHash": "sha256:184d000fc091f3f71c02d2bae8e64090925b92964df47576706ec106eb36352d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d79cbc61-6c15-48ea-bbba-3cffb819ccba",
+    "name": "Sword of the Animist",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sword of the Animist",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Equipment"
+          ],
+          "subtypeList": [
+            "Equipment"
+          ]
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ]
+                },
+                "to": "Battlefield",
+                "who": {
+                  "kind": "You"
+                },
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": true,
+                "shuffleAfter": true
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{2}",
+            "text": "Equip {2}"
+          }
+        ],
+        "oracleText": "Equipped creature gets \u002B1/\u002B1.\nWhenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nEquip {2}",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ]
+                },
+                "to": "Battlefield",
+                "who": {
+                  "kind": "You"
+                },
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": true,
+                "shuffleAfter": true
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{2}",
+            "text": "Equip {2}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Equip"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "d79cbc61-6c15-48ea-bbba-3cffb819ccba",
+        "name": "Sword of the Animist",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sword of the Animist",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "text": "Equip {2}"
+              }
+            ],
+            "oracleText": "Equipped creature gets \u002B1/\u002B1.\nWhenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nEquip {2}",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "text": "Equip {2}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "d79cbc61-6c15-48ea-bbba-3cffb819ccba",
+        "name": "Sword of the Animist",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sword of the Animist",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "text": "Equip {2}"
+              }
+            ],
+            "oracleText": "Equipped creature gets \u002B1/\u002B1.\nWhenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nEquip {2}",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "text": "Equip {2}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Equip"
+  ],
+  "scenarioList": []
+}

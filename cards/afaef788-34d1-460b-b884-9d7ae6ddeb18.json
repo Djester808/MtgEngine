@@ -1,0 +1,336 @@
+{
+  "oracleId": "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+  "name": "Toxic Deluge",
+  "oracleHash": "sha256:cd099260b7e7c5755a6bc1e829901385c0f97d081cae7ae862567352ec5c336a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+    "name": "Toxic Deluge",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Toxic Deluge",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "ModifyPt",
+                "power": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "X"
+                  },
+                  "factor": -1
+                },
+                "toughness": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "X"
+                  },
+                  "factor": -1
+                }
+              },
+              "to": {
+                "kind": "Each",
+                "filter": {
+                  "in": "Battlefield",
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "All creatures get -X/-X until end of turn."
+          }
+        ],
+        "additionalCosts": [
+          {
+            "kind": "PayLife",
+            "amount": {
+              "kind": "X"
+            }
+          }
+        ],
+        "oracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "ModifyPt",
+                "power": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "X"
+                  },
+                  "factor": -1
+                },
+                "toughness": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "X"
+                  },
+                  "factor": -1
+                }
+              },
+              "to": {
+                "kind": "Each",
+                "filter": {
+                  "in": "Battlefield",
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "All creatures get -X/-X until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+        "name": "Toxic Deluge",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Toxic Deluge",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ModifyPt",
+                    "power": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    },
+                    "toughness": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    }
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "All creatures get -X/-X until end of turn."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "X"
+                }
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ModifyPt",
+                    "power": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    },
+                    "toughness": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    }
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "All creatures get -X/-X until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+        "name": "Toxic Deluge",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Toxic Deluge",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ModifyPt",
+                    "power": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    },
+                    "toughness": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    }
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "All creatures get -X/-X until end of turn."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "X"
+                }
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ModifyPt",
+                    "power": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    },
+                    "toughness": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": -1
+                    }
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "All creatures get -X/-X until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

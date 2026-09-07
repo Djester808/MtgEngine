@@ -1,0 +1,81 @@
+{
+  "oracleId": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31",
+  "name": "Silence",
+  "oracleHash": "sha256:cd9d1f522791042b2d0f475b8753158ac8d6dc70219119c65f3263182ad1954e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31",
+    "name": "Silence",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Silence",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "CantCastSpells",
+                "who": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "Your opponents can\u0027t cast spells this turn."
+          }
+        ],
+        "oracleText": "Your opponents can\u0027t cast spells this turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "CantCastSpells",
+                "who": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "Your opponents can\u0027t cast spells this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

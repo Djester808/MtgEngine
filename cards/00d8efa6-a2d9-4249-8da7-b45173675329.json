@@ -1,0 +1,579 @@
+{
+  "oracleId": "00d8efa6-a2d9-4249-8da7-b45173675329",
+  "name": "Utopia Sprawl",
+  "oracleHash": "sha256:2e73d979253e73e49033fe7559be287f73d4995c5ca1842e392fa04f6de0f6c7",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "00d8efa6-a2d9-4249-8da7-b45173675329",
+    "name": "Utopia Sprawl",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Utopia Sprawl",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Aura"
+          ],
+          "subtypeList": [
+            "Aura"
+          ]
+        },
+        "manaCost": "{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "in": "Battlefield",
+              "subtypes": [
+                "Forest"
+              ]
+            },
+            "text": "Enchant Forest"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "Color",
+              "key": "color",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this Aura enters, choose a color."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "BecomesTapped",
+              "what": {
+                "subtypes": [
+                  "Forest"
+                ],
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": true,
+                "chosenColorKey": "color",
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Attached"
+                }
+              },
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+          }
+        ],
+        "oracleText": "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "in": "Battlefield",
+              "subtypes": [
+                "Forest"
+              ]
+            },
+            "text": "Enchant Forest"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "Color",
+              "key": "color",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this Aura enters, choose a color."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "BecomesTapped",
+              "what": {
+                "subtypes": [
+                  "Forest"
+                ],
+                "also": {
+                  "kind": "AttachedTo",
+                  "to": {
+                    "kind": "Self"
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": true,
+                "chosenColorKey": "color",
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Attached"
+                }
+              },
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Enchant"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "00d8efa6-a2d9-4249-8da7-b45173675329",
+        "name": "Utopia Sprawl",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Utopia Sprawl",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "in": "Battlefield",
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "BecomesTapped",
+                  "what": {
+                    "subtypes": [
+                      "Forest"
+                    ],
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "color",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Attached"
+                    }
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ],
+            "oracleText": "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "in": "Battlefield",
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "BecomesTapped",
+                  "what": {
+                    "subtypes": [
+                      "Forest"
+                    ],
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "color",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Attached"
+                    }
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "00d8efa6-a2d9-4249-8da7-b45173675329",
+        "name": "Utopia Sprawl",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Utopia Sprawl",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AbilityActivated",
+                  "source": {
+                    "subtypes": [
+                      "Forest"
+                    ],
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  },
+                  "ability": "Mana"
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "color",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ],
+            "oracleText": "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "text": "Enchant Forest"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this Aura enters, choose a color."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AbilityActivated",
+                  "source": {
+                    "subtypes": [
+                      "Forest"
+                    ],
+                    "also": {
+                      "kind": "AttachedTo",
+                      "to": {
+                        "kind": "Self"
+                      }
+                    }
+                  },
+                  "ability": "Mana"
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "color",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Enchant"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,132 @@
+{
+  "oracleId": "7c3944fa-7c86-4979-85a9-86196aa94594",
+  "name": "Song of the Dryads",
+  "oracleHash": "sha256:187753f70de49920bb3144113e390470d7900826ddeb8635d9c9158c759e5fc9",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7c3944fa-7c86-4979-85a9-86196aa94594",
+    "name": "Song of the Dryads",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Song of the Dryads",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Aura"
+          ],
+          "subtypeList": [
+            "Aura"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "permanent": true
+            },
+            "text": "Enchant permanent"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetTypes",
+              "types": [
+                "Land"
+              ],
+              "subtypes": [
+                "Forest"
+              ],
+              "keepSubtypes": false
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted permanent is a colorless Forest land."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetColors",
+              "colors": []
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted permanent is a colorless Forest land."
+          }
+        ],
+        "oracleText": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "permanent": true
+            },
+            "text": "Enchant permanent"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetTypes",
+              "types": [
+                "Land"
+              ],
+              "subtypes": [
+                "Forest"
+              ],
+              "keepSubtypes": false
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted permanent is a colorless Forest land."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetColors",
+              "colors": []
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted permanent is a colorless Forest land."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Enchant"
+  ],
+  "keywordList": [
+    "Enchant"
+  ],
+  "scenarioList": []
+}

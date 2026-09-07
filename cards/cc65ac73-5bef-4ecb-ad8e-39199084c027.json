@@ -1,0 +1,117 @@
+{
+  "oracleId": "cc65ac73-5bef-4ecb-ad8e-39199084c027",
+  "name": "Cathars\u0027 Crusade",
+  "oracleHash": "sha256:dd1be73940e8a42ce65213c9ebed5d2df152a66e217bf6930fab00e91785aaf1",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cc65ac73-5bef-4ecb-ad8e-39199084c027",
+    "name": "Cathars\u0027 Crusade",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cathars\u0027 Crusade",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{W}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control enters, put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ],
+        "oracleText": "Whenever a creature you control enters, put a \u002B1/\u002B1 counter on each creature you control.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control enters, put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

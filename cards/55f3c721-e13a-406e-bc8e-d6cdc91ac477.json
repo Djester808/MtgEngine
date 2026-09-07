@@ -1,0 +1,392 @@
+{
+  "oracleId": "55f3c721-e13a-406e-bc8e-d6cdc91ac477",
+  "name": "Authority of the Consuls",
+  "oracleHash": "sha256:ec9a68d77e8ec3e9757e94fcefb321a4cf27399fb728eb68f70014dce54a4b00",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "55f3c721-e13a-406e-bc8e-d6cdc91ac477",
+    "name": "Authority of the Consuls",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Authority of the Consuls",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "underControlOf": {
+                "kind": "EachOpponent"
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Creatures your opponents control enter tapped."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+          }
+        ],
+        "oracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "underControlOf": {
+                "kind": "EachOpponent"
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Creatures your opponents control enter tapped."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "55f3c721-e13a-406e-bc8e-d6cdc91ac477",
+        "name": "Authority of the Consuls",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Authority of the Consuls",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Creatures your opponents control enter tapped."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+              }
+            ],
+            "oracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Creatures your opponents control enter tapped."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "55f3c721-e13a-406e-bc8e-d6cdc91ac477",
+        "name": "Authority of the Consuls",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Authority of the Consuls",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Creatures your opponents control enter tapped."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+              }
+            ],
+            "oracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Creatures your opponents control enter tapped."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls enters, you gain 1 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

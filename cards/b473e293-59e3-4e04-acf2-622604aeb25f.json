@@ -1,0 +1,423 @@
+{
+  "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
+  "name": "Path of Ancestry",
+  "oracleHash": "sha256:9388724edef3f471285dac5836fd502ecb9a412d1a6b876aef1aa8474baf442d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
+    "name": "Path of Ancestry",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Path of Ancestry",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": true,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
+                  "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+          }
+        ],
+        "oracleText": "This land enters tapped.\n{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": true,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
+                  "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Scry"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
+        "name": "Path of Ancestry",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Path of Ancestry",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": true,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
+                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+              }
+            ],
+            "oracleText": "This land enters tapped.\n{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": true,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Cannot express a delayed trigger conditioned on that specific mana being spent to cast a spell.",
+                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "b473e293-59e3-4e04-acf2-622604aeb25f",
+        "name": "Path of Ancestry",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Path of Ancestry",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": true,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No trigger exists for \u0027when that mana is spent to cast a spell\u0027, tracking the specific mana produced by this source and its use to cast a creature spell sharing a creature type with the commander.",
+                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+              }
+            ],
+            "oracleText": "This land enters tapped.\n{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": true,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No trigger exists for \u0027when that mana is spent to cast a spell\u0027, tracking the specific mana produced by this source and its use to cast a creature spell sharing a creature type with the commander.",
+                      "text": "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color in your commander\u0027s color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Scry"
+  ],
+  "scenarioList": []
+}

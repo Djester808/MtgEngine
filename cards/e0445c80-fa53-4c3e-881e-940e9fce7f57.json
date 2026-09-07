@@ -1,0 +1,815 @@
+{
+  "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
+  "name": "Braids, Arisen Nightmare",
+  "oracleHash": "sha256:98016e0fe28756770e5b5737e911c13c326aebfb5b8a494273134d7ab1dfcb22",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
+    "name": "Braids, Arisen Nightmare",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Braids, Arisen Nightmare",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Nightmare"
+          ],
+          "subtypeList": [
+            "Nightmare"
+          ]
+        },
+        "manaCost": "{1}{B}{B}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "in": "Battlefield",
+                      "anyTypes": [
+                        "Artifact",
+                        "Creature",
+                        "Enchantment",
+                        "Land",
+                        "Planeswalker"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "rememberAs": "sacrificed"
+                  },
+                  {
+                    "kind": "ForEachPlayer",
+                    "over": {
+                      "kind": "EachOpponent"
+                    },
+                    "do": {
+                      "kind": "VillainousChoice",
+                      "who": {
+                        "kind": "TriggeringPlayer"
+                      },
+                      "optionA": {
+                        "text": "sacrifice a permanent of their choice that shares a card type with it",
+                        "do": {
+                          "kind": "Sacrifice",
+                          "choice": {
+                            "in": "Battlefield",
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            },
+                            "permanent": true,
+                            "also": {
+                              "kind": "SharesTypeWith",
+                              "with": {
+                                "kind": "Remembered",
+                                "key": "sacrificed"
+                              },
+                              "creatureTypeOnly": false
+                            }
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          }
+                        }
+                      },
+                      "optionB": {
+                        "text": "that player loses 2 life and you draw a card",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "LoseLife",
+                              "n": {
+                                "kind": "Fixed",
+                                "n": 2
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              }
+                            },
+                            {
+                              "kind": "Draw",
+                              "n": {
+                                "kind": "Fixed",
+                                "n": 1
+                              },
+                              "who": {
+                                "kind": "You"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+          }
+        ],
+        "oracleText": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "in": "Battlefield",
+                      "anyTypes": [
+                        "Artifact",
+                        "Creature",
+                        "Enchantment",
+                        "Land",
+                        "Planeswalker"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "rememberAs": "sacrificed"
+                  },
+                  {
+                    "kind": "ForEachPlayer",
+                    "over": {
+                      "kind": "EachOpponent"
+                    },
+                    "do": {
+                      "kind": "VillainousChoice",
+                      "who": {
+                        "kind": "TriggeringPlayer"
+                      },
+                      "optionA": {
+                        "text": "sacrifice a permanent of their choice that shares a card type with it",
+                        "do": {
+                          "kind": "Sacrifice",
+                          "choice": {
+                            "in": "Battlefield",
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            },
+                            "permanent": true,
+                            "also": {
+                              "kind": "SharesTypeWith",
+                              "with": {
+                                "kind": "Remembered",
+                                "key": "sacrificed"
+                              },
+                              "creatureTypeOnly": false
+                            }
+                          },
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          }
+                        }
+                      },
+                      "optionB": {
+                        "text": "that player loses 2 life and you draw a card",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "LoseLife",
+                              "n": {
+                                "kind": "Fixed",
+                                "n": 2
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              }
+                            },
+                            {
+                              "kind": "Draw",
+                              "n": {
+                                "kind": "Fixed",
+                                "n": 1
+                              },
+                              "who": {
+                                "kind": "You"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
+        "name": "Braids, Arisen Nightmare",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Braids, Arisen Nightmare",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Nightmare"
+              ],
+              "subtypeList": [
+                "Nightmare"
+              ]
+            },
+            "manaCost": "{1}{B}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Sacrifice",
+                        "choice": {
+                          "in": "Battlefield",
+                          "anyTypes": [
+                            "Artifact",
+                            "Creature",
+                            "Enchantment",
+                            "Land",
+                            "Planeswalker"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "rememberAs": "sacrificed"
+                      },
+                      {
+                        "kind": "ForEachPlayer",
+                        "over": {
+                          "kind": "EachOpponent"
+                        },
+                        "do": {
+                          "kind": "VillainousChoice",
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          },
+                          "optionA": {
+                            "text": "sacrifice a permanent of their choice that shares a card type with it",
+                            "do": {
+                              "kind": "Sacrifice",
+                              "choice": {
+                                "in": "Battlefield",
+                                "controlledBy": {
+                                  "kind": "TriggeringPlayer"
+                                },
+                                "permanent": true,
+                                "also": {
+                                  "kind": "SharesTypeWith",
+                                  "with": {
+                                    "kind": "Remembered",
+                                    "key": "sacrificed"
+                                  },
+                                  "creatureTypeOnly": false
+                                }
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              }
+                            }
+                          },
+                          "optionB": {
+                            "text": "that player loses 2 life and you draw a card",
+                            "do": {
+                              "kind": "Sequence",
+                              "steps": [
+                                {
+                                  "kind": "LoseLife",
+                                  "n": {
+                                    "kind": "Fixed",
+                                    "n": 2
+                                  },
+                                  "who": {
+                                    "kind": "TriggeringPlayer"
+                                  }
+                                },
+                                {
+                                  "kind": "Draw",
+                                  "n": {
+                                    "kind": "Fixed",
+                                    "n": 1
+                                  },
+                                  "who": {
+                                    "kind": "You"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+              }
+            ],
+            "oracleText": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Sacrifice",
+                        "choice": {
+                          "in": "Battlefield",
+                          "anyTypes": [
+                            "Artifact",
+                            "Creature",
+                            "Enchantment",
+                            "Land",
+                            "Planeswalker"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "rememberAs": "sacrificed"
+                      },
+                      {
+                        "kind": "ForEachPlayer",
+                        "over": {
+                          "kind": "EachOpponent"
+                        },
+                        "do": {
+                          "kind": "VillainousChoice",
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          },
+                          "optionA": {
+                            "text": "sacrifice a permanent of their choice that shares a card type with it",
+                            "do": {
+                              "kind": "Sacrifice",
+                              "choice": {
+                                "in": "Battlefield",
+                                "controlledBy": {
+                                  "kind": "TriggeringPlayer"
+                                },
+                                "permanent": true,
+                                "also": {
+                                  "kind": "SharesTypeWith",
+                                  "with": {
+                                    "kind": "Remembered",
+                                    "key": "sacrificed"
+                                  },
+                                  "creatureTypeOnly": false
+                                }
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              }
+                            }
+                          },
+                          "optionB": {
+                            "text": "that player loses 2 life and you draw a card",
+                            "do": {
+                              "kind": "Sequence",
+                              "steps": [
+                                {
+                                  "kind": "LoseLife",
+                                  "n": {
+                                    "kind": "Fixed",
+                                    "n": 2
+                                  },
+                                  "who": {
+                                    "kind": "TriggeringPlayer"
+                                  }
+                                },
+                                {
+                                  "kind": "Draw",
+                                  "n": {
+                                    "kind": "Fixed",
+                                    "n": 1
+                                  },
+                                  "who": {
+                                    "kind": "You"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "e0445c80-fa53-4c3e-881e-940e9fce7f57",
+        "name": "Braids, Arisen Nightmare",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Braids, Arisen Nightmare",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Nightmare"
+              ],
+              "subtypeList": [
+                "Nightmare"
+              ]
+            },
+            "manaCost": "{1}{B}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Sacrifice",
+                        "choice": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Creature",
+                            "Enchantment",
+                            "Land",
+                            "Planeswalker"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "rememberAs": "sacrificed"
+                      },
+                      {
+                        "kind": "ForEachPlayer",
+                        "over": {
+                          "kind": "EachOpponent"
+                        },
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "May",
+                              "do": {
+                                "kind": "Sacrifice",
+                                "choice": {
+                                  "controlledBy": {
+                                    "kind": "TriggeringPlayer"
+                                  },
+                                  "permanent": true,
+                                  "also": {
+                                    "kind": "SharesTypeWith",
+                                    "with": {
+                                      "kind": "Remembered",
+                                      "key": "sacrificed"
+                                    },
+                                    "creatureTypeOnly": false
+                                  }
+                                },
+                                "who": {
+                                  "kind": "TriggeringPlayer"
+                                }
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              },
+                              "storeChoiceAs": "opp_sac_choice"
+                            },
+                            {
+                              "kind": "If",
+                              "test": {
+                                "kind": "NotCondition",
+                                "of": {
+                                  "kind": "ChoiceIs",
+                                  "key": "opp_sac_choice",
+                                  "value": "yes"
+                                }
+                              },
+                              "then": {
+                                "kind": "Sequence",
+                                "steps": [
+                                  {
+                                    "kind": "LoseLife",
+                                    "n": {
+                                      "kind": "Fixed",
+                                      "n": 2
+                                    },
+                                    "who": {
+                                      "kind": "TriggeringPlayer"
+                                    }
+                                  },
+                                  {
+                                    "kind": "Draw",
+                                    "n": {
+                                      "kind": "Fixed",
+                                      "n": 1
+                                    },
+                                    "who": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+              }
+            ],
+            "oracleText": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Sacrifice",
+                        "choice": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Creature",
+                            "Enchantment",
+                            "Land",
+                            "Planeswalker"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "rememberAs": "sacrificed"
+                      },
+                      {
+                        "kind": "ForEachPlayer",
+                        "over": {
+                          "kind": "EachOpponent"
+                        },
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "May",
+                              "do": {
+                                "kind": "Sacrifice",
+                                "choice": {
+                                  "controlledBy": {
+                                    "kind": "TriggeringPlayer"
+                                  },
+                                  "permanent": true,
+                                  "also": {
+                                    "kind": "SharesTypeWith",
+                                    "with": {
+                                      "kind": "Remembered",
+                                      "key": "sacrificed"
+                                    },
+                                    "creatureTypeOnly": false
+                                  }
+                                },
+                                "who": {
+                                  "kind": "TriggeringPlayer"
+                                }
+                              },
+                              "who": {
+                                "kind": "TriggeringPlayer"
+                              },
+                              "storeChoiceAs": "opp_sac_choice"
+                            },
+                            {
+                              "kind": "If",
+                              "test": {
+                                "kind": "NotCondition",
+                                "of": {
+                                  "kind": "ChoiceIs",
+                                  "key": "opp_sac_choice",
+                                  "value": "yes"
+                                }
+                              },
+                              "then": {
+                                "kind": "Sequence",
+                                "steps": [
+                                  {
+                                    "kind": "LoseLife",
+                                    "n": {
+                                      "kind": "Fixed",
+                                      "n": 2
+                                    },
+                                    "who": {
+                                      "kind": "TriggeringPlayer"
+                                    }
+                                  },
+                                  {
+                                    "kind": "Draw",
+                                    "n": {
+                                      "kind": "Fixed",
+                                      "n": 1
+                                    },
+                                    "who": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn\u0027t, that player loses 2 life and you draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,118 @@
+{
+  "oracleId": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+  "name": "Birds of Paradise",
+  "oracleHash": "sha256:c59d430350b655c6f9bbc5ac2978fc67564982083d70cd9475b66848ce589746",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+    "name": "Birds of Paradise",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Birds of Paradise",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Bird"
+          ],
+          "subtypeList": [
+            "Bird"
+          ]
+        },
+        "manaCost": "{G}",
+        "power": {
+          "text": "0",
+          "number": 0
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flying",
+            "text": "Flying"
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ],
+        "oracleText": "Flying\n{T}: Add one mana of any color.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flying",
+            "text": "Flying"
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Flying"
+  ],
+  "keywordList": [
+    "Flying"
+  ],
+  "scenarioList": []
+}

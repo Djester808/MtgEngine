@@ -1,0 +1,728 @@
+{
+  "oracleId": "3127ae9b-a7a7-43ec-89d7-688f8445b33d",
+  "name": "Garruk\u0027s Uprising",
+  "oracleHash": "sha256:75a512e9d7ceb7ef4521498fadfdaf94f235d38ae4bbad46b0e33bb70ab69036",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3127ae9b-a7a7-43ec-89d7-688f8445b33d",
+    "name": "Garruk\u0027s Uprising",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Garruk\u0027s Uprising",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "power": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                }
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Trample"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control have trample."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "power": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+          }
+        ],
+        "oracleText": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample. (Each of those creatures can deal excess combat damage to the player or planeswalker it\u0027s attacking.)\nWhenever a creature you control with power 4 or greater enters, draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "power": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                }
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Trample"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control have trample."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "power": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "3127ae9b-a7a7-43ec-89d7-688f8445b33d",
+        "name": "Garruk\u0027s Uprising",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Garruk\u0027s Uprising",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Trample"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have trample."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+              }
+            ],
+            "oracleText": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample. (Each of those creatures can deal excess combat damage to the player or planeswalker it\u0027s attacking.)\nWhenever a creature you control with power 4 or greater enters, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Trample"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have trample."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "3127ae9b-a7a7-43ec-89d7-688f8445b33d",
+        "name": "Garruk\u0027s Uprising",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Garruk\u0027s Uprising",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Trample",
+                  "of": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have trample."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+              }
+            ],
+            "oracleText": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card.\nCreatures you control have trample.\nWhenever a creature you control with power 4 or greater enters, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if you control a creature with power 4 or greater, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Trample",
+                  "of": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have trample."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control with power 4 or greater enters, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

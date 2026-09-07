@@ -1,0 +1,137 @@
+{
+  "oracleId": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27",
+  "name": "Heroic Intervention",
+  "oracleHash": "sha256:959e375069def6743dc1a6394b5afba77d20cab936d91b6bc87edaac51044dc3",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27",
+    "name": "Heroic Intervention",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Heroic Intervention",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "Permanents you control gain hexproof and indestructible until end of turn."
+          }
+        ],
+        "oracleText": "Permanents you control gain hexproof and indestructible until end of turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "Permanents you control gain hexproof and indestructible until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

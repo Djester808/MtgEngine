@@ -1,0 +1,188 @@
+{
+  "oracleId": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16",
+  "name": "Elesh Norn, Grand Cenobite",
+  "oracleHash": "sha256:c994b055b78b8d0ded31f2905e7c1586ae415ecf091e24e635de56728719820e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16",
+    "name": "Elesh Norn, Grand Cenobite",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Elesh Norn, Grand Cenobite",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Phyrexian",
+            "Praetor"
+          ],
+          "subtypeList": [
+            "Phyrexian",
+            "Praetor"
+          ]
+        },
+        "manaCost": "{5}{W}{W}",
+        "power": {
+          "text": "4",
+          "number": 4
+        },
+        "toughness": {
+          "text": "7",
+          "number": 7
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "text": "Vigilance"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "other": true
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Other creatures you control get \u002B2/\u002B2."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": -2
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": -2
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures your opponents control get -2/-2."
+          }
+        ],
+        "oracleText": "Vigilance\nOther creatures you control get \u002B2/\u002B2.\nCreatures your opponents control get -2/-2.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "text": "Vigilance"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "other": true
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Other creatures you control get \u002B2/\u002B2."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": -2
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": -2
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures your opponents control get -2/-2."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Vigilance"
+  ],
+  "keywordList": [
+    "Vigilance"
+  ],
+  "scenarioList": []
+}

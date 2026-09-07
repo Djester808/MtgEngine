@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Optional mana payment inside a resolving effect (\u0027you may pay {4}. If you do, ...\u0027) cannot be expressed; there is no pay-cost effect.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

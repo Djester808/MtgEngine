@@ -1,0 +1,2124 @@
+{
+  "oracleId": "fd949f82-fc10-4e37-8aa9-6c7569fe3c55",
+  "name": "Akroma\u0027s Will",
+  "oracleHash": "sha256:036aef4e4be499142ef63c7fa0f31e803f3145245d087046935629b637226318",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "fd949f82-fc10-4e37-8aa9-6c7569fe3c55",
+    "name": "Akroma\u0027s Will",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Akroma\u0027s Will",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Controls",
+                "who": {
+                  "kind": "You"
+                },
+                "what": {
+                  "isCommander": true
+                },
+                "count": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              },
+              "then": {
+                "kind": "ChooseMode",
+                "modes": [
+                  {
+                    "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Flying"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Vigilance"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "DoubleStrike"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Lifelink"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Indestructible"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Protection",
+                            "of": {
+                              "anyColor": [
+                                "White",
+                                "Blue",
+                                "Black",
+                                "Red",
+                                "Green"
+                              ]
+                            }
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "min": 1,
+                "max": 2,
+                "sameModeTwice": false
+              },
+              "else": {
+                "kind": "ChooseMode",
+                "modes": [
+                  {
+                    "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Flying"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Vigilance"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "DoubleStrike"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Lifelink"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Indestructible"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Protection",
+                            "of": {
+                              "anyColor": [
+                                "White",
+                                "Blue",
+                                "Black",
+                                "Red",
+                                "Green"
+                              ]
+                            }
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "min": 1,
+                "max": 1,
+                "sameModeTwice": false
+              }
+            },
+            "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+          }
+        ],
+        "oracleText": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Controls",
+                "who": {
+                  "kind": "You"
+                },
+                "what": {
+                  "isCommander": true
+                },
+                "count": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              },
+              "then": {
+                "kind": "ChooseMode",
+                "modes": [
+                  {
+                    "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Flying"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Vigilance"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "DoubleStrike"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Lifelink"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Indestructible"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Protection",
+                            "of": {
+                              "anyColor": [
+                                "White",
+                                "Blue",
+                                "Black",
+                                "Red",
+                                "Green"
+                              ]
+                            }
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "min": 1,
+                "max": 2,
+                "sameModeTwice": false
+              },
+              "else": {
+                "kind": "ChooseMode",
+                "modes": [
+                  {
+                    "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Flying"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Vigilance"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "DoubleStrike"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Lifelink"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Indestructible"
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Protection",
+                            "of": {
+                              "anyColor": [
+                                "White",
+                                "Blue",
+                                "Black",
+                                "Red",
+                                "Green"
+                              ]
+                            }
+                          },
+                          "to": {
+                            "kind": "Each",
+                            "filter": {
+                              "types": [
+                                "Creature"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            }
+                          },
+                          "until": {
+                            "kind": "UntilEndOfTurn"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "min": 1,
+                "max": 1,
+                "sameModeTwice": false
+              }
+            },
+            "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "fd949f82-fc10-4e37-8aa9-6c7569fe3c55",
+        "name": "Akroma\u0027s Will",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Akroma\u0027s Will",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Controls",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "what": {
+                      "isCommander": true
+                    },
+                    "count": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  },
+                  "then": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 2,
+                    "sameModeTwice": false
+                  },
+                  "else": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 1,
+                    "sameModeTwice": false
+                  }
+                },
+                "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+              }
+            ],
+            "oracleText": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Controls",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "what": {
+                      "isCommander": true
+                    },
+                    "count": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  },
+                  "then": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 2,
+                    "sameModeTwice": false
+                  },
+                  "else": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 1,
+                    "sameModeTwice": false
+                  }
+                },
+                "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "fd949f82-fc10-4e37-8aa9-6c7569fe3c55",
+        "name": "Akroma\u0027s Will",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Akroma\u0027s Will",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Lieutenant",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 2,
+                    "sameModeTwice": false
+                  },
+                  "else": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 1,
+                    "sameModeTwice": false
+                  }
+                },
+                "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+              }
+            ],
+            "oracleText": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Lieutenant",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 2,
+                    "sameModeTwice": false
+                  },
+                  "else": {
+                    "kind": "ChooseMode",
+                    "modes": [
+                      {
+                        "text": "Creatures you control gain flying, vigilance, and double strike until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Flying"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Vigilance"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "DoubleStrike"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Lifelink"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Indestructible"
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            },
+                            {
+                              "kind": "Apply",
+                              "what": {
+                                "kind": "GrantKeyword",
+                                "keyword": "Protection",
+                                "of": {
+                                  "anyColor": [
+                                    "White",
+                                    "Blue",
+                                    "Black",
+                                    "Red",
+                                    "Green"
+                                  ]
+                                }
+                              },
+                              "to": {
+                                "kind": "Each",
+                                "filter": {
+                                  "types": [
+                                    "Creature"
+                                  ],
+                                  "controlledBy": {
+                                    "kind": "You"
+                                  }
+                                }
+                              },
+                              "until": {
+                                "kind": "UntilEndOfTurn"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "min": 1,
+                    "max": 1,
+                    "sameModeTwice": false
+                  }
+                },
+                "text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n\u2022 Creatures you control gain flying, vigilance, and double strike until end of turn.\n\u2022 Creatures you control gain lifelink, indestructible, and protection from each color until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

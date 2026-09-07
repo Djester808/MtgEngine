@@ -1,0 +1,323 @@
+{
+  "oracleId": "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+  "name": "Everflowing Chalice",
+  "oracleHash": "sha256:1f86c535d878caa6cecedc00b6f4a92fd4536ad93945e465b7648c8e9729e0d1",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+    "name": "Everflowing Chalice",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Everflowing Chalice",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{0}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Kicker",
+            "cost": "{2}",
+            "detail": "Multikicker",
+            "text": "Multikicker {2}"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "No Amount expresses the number of times a spell was kicked (multikicker count).",
+              "text": "This artifact enters with a charge counter on it for each time it was kicked."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This artifact enters with a charge counter on it for each time it was kicked."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              },
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C} for each charge counter on this artifact."
+          }
+        ],
+        "oracleText": "Multikicker {2} (You may pay an additional {2} any number of times as you cast this spell.)\nThis artifact enters with a charge counter on it for each time it was kicked.\n{T}: Add {C} for each charge counter on this artifact.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Kicker",
+            "cost": "{2}",
+            "detail": "Multikicker",
+            "text": "Multikicker {2}"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "No Amount expresses the number of times a spell was kicked (multikicker count).",
+              "text": "This artifact enters with a charge counter on it for each time it was kicked."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This artifact enters with a charge counter on it for each time it was kicked."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              },
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C} for each charge counter on this artifact."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Multikicker"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+        "name": "Everflowing Chalice",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Everflowing Chalice",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{0}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}",
+                "detail": "Multikicker",
+                "text": "Multikicker {2}"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unsupported",
+                  "reason": "No Amount expresses the number of times a spell was kicked (multikicker count).",
+                  "text": "This artifact enters with a charge counter on it for each time it was kicked."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This artifact enters with a charge counter on it for each time it was kicked."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C} for each charge counter on this artifact."
+              }
+            ],
+            "oracleText": "Multikicker {2} (You may pay an additional {2} any number of times as you cast this spell.)\nThis artifact enters with a charge counter on it for each time it was kicked.\n{T}: Add {C} for each charge counter on this artifact.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}",
+                "detail": "Multikicker",
+                "text": "Multikicker {2}"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unsupported",
+                  "reason": "No Amount expresses the number of times a spell was kicked (multikicker count).",
+                  "text": "This artifact enters with a charge counter on it for each time it was kicked."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This artifact enters with a charge counter on it for each time it was kicked."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C} for each charge counter on this artifact."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Multikicker"
+  ],
+  "scenarioList": []
+}

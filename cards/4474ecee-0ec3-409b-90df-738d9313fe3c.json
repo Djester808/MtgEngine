@@ -1,0 +1,474 @@
+{
+  "oracleId": "4474ecee-0ec3-409b-90df-738d9313fe3c",
+  "name": "Urza\u0027s Cave",
+  "oracleHash": "sha256:81ce3635ce23c5fbadc1b909e42552a44f59053484634e3d034e90dc2a733eaf",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "4474ecee-0ec3-409b-90df-738d9313fe3c",
+    "name": "Urza\u0027s Cave",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Urza\u0027s Cave",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Urza\u0027s",
+            "Cave"
+          ],
+          "subtypeList": [
+            "Urza\u0027s",
+            "Cave"
+          ]
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "4474ecee-0ec3-409b-90df-738d9313fe3c",
+        "name": "Urza\u0027s Cave",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Urza\u0027s Cave",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Urza\u0027s",
+                "Cave"
+              ],
+              "subtypeList": [
+                "Urza\u0027s",
+                "Cave"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "4474ecee-0ec3-409b-90df-738d9313fe3c",
+        "name": "Urza\u0027s Cave",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Urza\u0027s Cave",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Urza\u0027s Cave"
+              ],
+              "subtypeList": [
+                "Urza\u0027s Cave"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

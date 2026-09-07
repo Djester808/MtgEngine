@@ -24,9 +24,9 @@
             "instead": {
               "kind": "WouldEnterBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ]
+                "also": {
+                  "kind": "IsThisObject"
+                }
               }
             },
             "with": {
@@ -55,6 +55,9 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
+              },
+              "who": {
+                "kind": "You"
               }
             },
             "timing": "Any",
@@ -77,29 +80,9 @@
               }
             ],
             "do": {
-              "kind": "Search",
-              "for": {
-                "in": "Library",
-                "types": [
-                  "Land"
-                ],
-                "supertypes": [
-                  "Basic"
-                ]
-              },
-              "to": "Battlefield",
-              "upTo": {
-                "kind": "Fixed",
-                "n": 2
-              },
-              "who": {
-                "kind": "You"
-              },
-              "from": "Library",
-              "where": "Default",
-              "reveal": false,
-              "tapped": true,
-              "shuffleAfter": true
+              "kind": "Unsupported",
+              "reason": "No way to express that the two searched basic land cards must share a land type with each other.",
+              "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -114,9 +97,9 @@
             "instead": {
               "kind": "WouldEnterBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ]
+                "also": {
+                  "kind": "IsThisObject"
+                }
               }
             },
             "with": {
@@ -145,6 +128,9 @@
                 "landCouldProduce": false,
                 "anyType": false,
                 "restriction": false
+              },
+              "who": {
+                "kind": "You"
               }
             },
             "timing": "Any",
@@ -167,29 +153,9 @@
               }
             ],
             "do": {
-              "kind": "Search",
-              "for": {
-                "in": "Library",
-                "types": [
-                  "Land"
-                ],
-                "supertypes": [
-                  "Basic"
-                ]
-              },
-              "to": "Battlefield",
-              "upTo": {
-                "kind": "Fixed",
-                "n": 2
-              },
-              "who": {
-                "kind": "You"
-              },
-              "from": "Library",
-              "where": "Default",
-              "reveal": false,
-              "tapped": true,
-              "shuffleAfter": true
+              "kind": "Unsupported",
+              "reason": "No way to express that the two searched basic land cards must share a land type with each other.",
+              "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
             },
             "timing": "Any",
             "where": "Battlefield",
@@ -206,7 +172,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-269e4b99b4fe",
+    "promptVersion": "pilot-55304d1efc47",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -234,9 +200,9 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ]
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
                   }
                 },
                 "with": {
@@ -265,6 +231,9 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -287,29 +256,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
+                  "kind": "Unsupported",
+                  "reason": "No way to express that the two searched basic land cards must share a land type with each other.",
+                  "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -324,9 +273,9 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ]
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
                   }
                 },
                 "with": {
@@ -355,6 +304,9 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
                   }
                 },
                 "timing": "Any",
@@ -377,29 +329,9 @@
                   }
                 ],
                 "do": {
-                  "kind": "Search",
-                  "for": {
-                    "in": "Library",
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": true,
-                  "shuffleAfter": true
+                  "kind": "Unsupported",
+                  "reason": "No way to express that the two searched basic land cards must share a land type with each other.",
+                  "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
                 },
                 "timing": "Any",
                 "where": "Battlefield",
@@ -433,7 +365,11 @@
                 "kind": "ReplacementAbility",
                 "instead": {
                   "kind": "WouldEnterBattlefield",
-                  "what": {}
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
                 },
                 "with": {
                   "kind": "EntersTapped"
@@ -484,7 +420,7 @@
                 ],
                 "do": {
                   "kind": "Unsupported",
-                  "reason": "No vocabulary construct expresses the requirement that the two searched basic land cards share a land type with each other.",
+                  "reason": "The vocabulary has no way to express the relational constraint that the two searched basic land cards must share a land type with each other; a plain filter would allow any two unrelated basic lands, which would misrepresent the card\u0027s restriction.",
                   "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
                 },
                 "timing": "Any",
@@ -499,7 +435,11 @@
                 "kind": "ReplacementAbility",
                 "instead": {
                   "kind": "WouldEnterBattlefield",
-                  "what": {}
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
                 },
                 "with": {
                   "kind": "EntersTapped"
@@ -550,7 +490,7 @@
                 ],
                 "do": {
                   "kind": "Unsupported",
-                  "reason": "No vocabulary construct expresses the requirement that the two searched basic land cards share a land type with each other.",
+                  "reason": "The vocabulary has no way to express the relational constraint that the two searched basic land cards must share a land type with each other; a plain filter would allow any two unrelated basic lands, which would misrepresent the card\u0027s restriction.",
                   "text": "Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle."
                 },
                 "timing": "Any",

@@ -1,0 +1,73 @@
+{
+  "oracleId": "cc187110-1148-4090-bbb8-e205694a39f5",
+  "name": "Counterspell",
+  "oracleHash": "sha256:6e7e3fa9bb231a1c1910cd956dc7e5c91bb22e9705b39ed61a2ebd23201950e4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cc187110-1148-4090-bbb8-e205694a39f5",
+    "name": "Counterspell",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Counterspell",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{U}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target spell."
+          }
+        ],
+        "oracleText": "Counter target spell.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target spell."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

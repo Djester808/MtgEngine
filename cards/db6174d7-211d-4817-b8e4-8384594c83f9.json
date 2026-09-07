@@ -1,0 +1,86 @@
+{
+  "oracleId": "db6174d7-211d-4817-b8e4-8384594c83f9",
+  "name": "Urborg, Tomb of Yawgmoth",
+  "oracleHash": "sha256:0841c98ca64399e622d389db3dfe739fe3d5a680cb43a302098ac8d17f1825fe",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "db6174d7-211d-4817-b8e4-8384594c83f9",
+    "name": "Urborg, Tomb of Yawgmoth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Urborg, Tomb of Yawgmoth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "subtypes": [
+                "Swamp"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Each land is a Swamp in addition to its other land types."
+          }
+        ],
+        "oracleText": "Each land is a Swamp in addition to its other land types.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "subtypes": [
+                "Swamp"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Each land is a Swamp in addition to its other land types."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

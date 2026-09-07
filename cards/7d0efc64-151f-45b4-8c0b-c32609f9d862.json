@@ -1,0 +1,571 @@
+{
+  "oracleId": "7d0efc64-151f-45b4-8c0b-c32609f9d862",
+  "name": "Knight of the White Orchid",
+  "oracleHash": "sha256:0a5bc9c8df59b348e0491bed26158149caff6239780d25ddbe8bb65d80496d8c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7d0efc64-151f-45b4-8c0b-c32609f9d862",
+    "name": "Knight of the White Orchid",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Knight of the White Orchid",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Knight"
+          ],
+          "subtypeList": [
+            "Human",
+            "Knight"
+          ]
+        },
+        "manaCost": "{W}{W}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "FirstStrike",
+            "text": "First strike"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "subtypes": [
+                    "Plains"
+                  ]
+                },
+                "to": "Battlefield",
+                "who": {
+                  "kind": "You"
+                },
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": false,
+                "shuffleAfter": true
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Gt",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+          }
+        ],
+        "oracleText": "First strike\nWhen this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "FirstStrike",
+            "text": "First strike"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "subtypes": [
+                    "Plains"
+                  ]
+                },
+                "to": "Battlefield",
+                "who": {
+                  "kind": "You"
+                },
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": false,
+                "shuffleAfter": true
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Gt",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "First strike"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "7d0efc64-151f-45b4-8c0b-c32609f9d862",
+        "name": "Knight of the White Orchid",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Knight of the White Orchid",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Knight"
+              ],
+              "subtypeList": [
+                "Human",
+                "Knight"
+              ]
+            },
+            "manaCost": "{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "FirstStrike",
+                "text": "First strike"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "subtypes": [
+                        "Plains"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Gt",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+              }
+            ],
+            "oracleText": "First strike\nWhen this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "FirstStrike",
+                "text": "First strike"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "subtypes": [
+                        "Plains"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Gt",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "7d0efc64-151f-45b4-8c0b-c32609f9d862",
+        "name": "Knight of the White Orchid",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Knight of the White Orchid",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Knight"
+              ],
+              "subtypeList": [
+                "Human",
+                "Knight"
+              ]
+            },
+            "manaCost": "{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "FirstStrike",
+                "text": "First strike"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "in": "Battlefield",
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library",
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "what": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Gt",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    }
+                  }
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+              }
+            ],
+            "oracleText": "First strike\nWhen this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "FirstStrike",
+                "text": "First strike"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "in": "Battlefield",
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library",
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "what": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Gt",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    }
+                  }
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "First strike"
+  ],
+  "scenarioList": []
+}

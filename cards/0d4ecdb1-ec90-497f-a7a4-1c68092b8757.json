@@ -1,0 +1,312 @@
+{
+  "oracleId": "0d4ecdb1-ec90-497f-a7a4-1c68092b8757",
+  "name": "Teferi\u0027s Protection",
+  "oracleHash": "sha256:e1f37af71d72884039dd826f862f2f0525d32c251d3155ad8ae95f52b15f782f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "0d4ecdb1-ec90-497f-a7a4-1c68092b8757",
+    "name": "Teferi\u0027s Protection",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Teferi\u0027s Protection",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No vocabulary for a player\u0027s life total being unable to change or for a player gaining protection from everything.",
+                  "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                },
+                {
+                  "kind": "PhaseOut",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Exile",
+              "what": {
+                "kind": "Self"
+              },
+              "faceDown": false
+            },
+            "text": "Exile Teferi\u0027s Protection."
+          }
+        ],
+        "oracleText": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out. (While they\u0027re phased out, they\u0027re treated as though they don\u0027t exist. They phase in before you untap during your untap step.)\nExile Teferi\u0027s Protection.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No vocabulary for a player\u0027s life total being unable to change or for a player gaining protection from everything.",
+                  "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                },
+                {
+                  "kind": "PhaseOut",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Exile",
+              "what": {
+                "kind": "Self"
+              },
+              "faceDown": false
+            },
+            "text": "Exile Teferi\u0027s Protection."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "0d4ecdb1-ec90-497f-a7a4-1c68092b8757",
+        "name": "Teferi\u0027s Protection",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Teferi\u0027s Protection",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No vocabulary for a player\u0027s life total being unable to change or for a player gaining protection from everything.",
+                      "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                    },
+                    {
+                      "kind": "PhaseOut",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "faceDown": false
+                },
+                "text": "Exile Teferi\u0027s Protection."
+              }
+            ],
+            "oracleText": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out. (While they\u0027re phased out, they\u0027re treated as though they don\u0027t exist. They phase in before you untap during your untap step.)\nExile Teferi\u0027s Protection.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No vocabulary for a player\u0027s life total being unable to change or for a player gaining protection from everything.",
+                      "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                    },
+                    {
+                      "kind": "PhaseOut",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "faceDown": false
+                },
+                "text": "Exile Teferi\u0027s Protection."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "0d4ecdb1-ec90-497f-a7a4-1c68092b8757",
+        "name": "Teferi\u0027s Protection",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Teferi\u0027s Protection",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No vocabulary primitive expresses a player\u0027s life total being locked from changing or a player gaining protection from everything; there is no player-scoped protection or life-lock effect kind.",
+                      "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                    },
+                    {
+                      "kind": "PhaseOut",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "faceDown": false
+                    }
+                  ]
+                },
+                "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out.\nExile Teferi\u0027s Protection."
+              }
+            ],
+            "oracleText": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out. (While they\u0027re phased out, they\u0027re treated as though they don\u0027t exist. They phase in before you untap during your untap step.)\nExile Teferi\u0027s Protection.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No vocabulary primitive expresses a player\u0027s life total being locked from changing or a player gaining protection from everything; there is no player-scoped protection or life-lock effect kind.",
+                      "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything."
+                    },
+                    {
+                      "kind": "PhaseOut",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "faceDown": false
+                    }
+                  ]
+                },
+                "text": "Until your next turn, your life total can\u0027t change and you gain protection from everything. All permanents you control phase out.\nExile Teferi\u0027s Protection."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

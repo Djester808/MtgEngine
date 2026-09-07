@@ -1,0 +1,357 @@
+{
+  "oracleId": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+  "name": "Flooded Strand",
+  "oracleHash": "sha256:25e050ae7cc382b2fca7c5e01d3b18855e6ba92e1a8c8ba0f1405d9c0e0857b6",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+    "name": "Flooded Strand",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Flooded Strand",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "in": "Library",
+                "types": [
+                  "Land"
+                ],
+                "subtypes": [
+                  "Plains",
+                  "Island"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+          }
+        ],
+        "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "in": "Library",
+                "types": [
+                  "Land"
+                ],
+                "subtypes": [
+                  "Plains",
+                  "Island"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+        "name": "Flooded Strand",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Flooded Strand",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library",
+                    "types": [
+                      "Land"
+                    ],
+                    "subtypes": [
+                      "Plains",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+              }
+            ],
+            "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library",
+                    "types": [
+                      "Land"
+                    ],
+                    "subtypes": [
+                      "Plains",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+        "name": "Flooded Strand",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Flooded Strand",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "anyTypes": [
+                      "Land"
+                    ],
+                    "subtypes": [
+                      "Plains",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+              }
+            ],
+            "oracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "anyTypes": [
+                      "Land"
+                    ],
+                    "subtypes": [
+                      "Plains",
+                      "Island"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

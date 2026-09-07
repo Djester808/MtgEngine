@@ -1,0 +1,444 @@
+{
+  "oracleId": "8b755881-a72d-4e21-a369-d2924eb4585a",
+  "name": "Cultivate",
+  "oracleHash": "sha256:f8952bf1d76fc6e53e288385c7844b5bfbe2ee3919b661ecb284ec286849729c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8b755881-a72d-4e21-a369-d2924eb4585a",
+    "name": "Cultivate",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cultivate",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": true,
+                  "shuffleAfter": false
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true
+                }
+              ]
+            },
+            "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": true,
+                  "shuffleAfter": false
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true
+                }
+              ]
+            },
+            "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8b755881-a72d-4e21-a369-d2924eb4585a",
+        "name": "Cultivate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cultivate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": true,
+                      "shuffleAfter": false
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Hand",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": true
+                    }
+                  ]
+                },
+                "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": true,
+                      "shuffleAfter": false
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Hand",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": true
+                    }
+                  ]
+                },
+                "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8b755881-a72d-4e21-a369-d2924eb4585a",
+        "name": "Cultivate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cultivate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": true,
+                      "shuffleAfter": false,
+                      "rememberAs": "battlefieldLand"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Hand",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": false,
+                      "rememberAs": "handLand"
+                    },
+                    {
+                      "kind": "Shuffle",
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": true,
+                      "shuffleAfter": false,
+                      "rememberAs": "battlefieldLand"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Hand",
+                      "upTo": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": false,
+                      "rememberAs": "handLand"
+                    },
+                    {
+                      "kind": "Shuffle",
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

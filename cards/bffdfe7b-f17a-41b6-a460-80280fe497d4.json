@@ -1,0 +1,491 @@
+{
+  "oracleId": "bffdfe7b-f17a-41b6-a460-80280fe497d4",
+  "name": "Collective Resistance",
+  "oracleHash": "sha256:f9110fd37f9e7f938e0d373ccbfe02b03160251610fd5157354a9414e844c13f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "bffdfe7b-f17a-41b6-a460-80280fe497d4",
+    "name": "Collective Resistance",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Collective Resistance",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Escalate",
+            "cost": "{G}",
+            "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "artifact",
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy target enchantment.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "enchantment",
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Target creature gains hexproof and indestructible until end of turn.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Hexproof"
+                        },
+                        "to": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 3,
+              "sameModeTwice": false
+            },
+            "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+          }
+        ],
+        "oracleText": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)\nChoose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Escalate",
+            "cost": "{G}",
+            "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "artifact",
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy target enchantment.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "enchantment",
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Target creature gains hexproof and indestructible until end of turn.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Hexproof"
+                        },
+                        "to": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Indestructible"
+                        },
+                        "to": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 3,
+              "sameModeTwice": false
+            },
+            "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Escalate"
+  ],
+  "candidates": [
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "bffdfe7b-f17a-41b6-a460-80280fe497d4",
+        "name": "Collective Resistance",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Collective Resistance",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Escalate",
+                "cost": "{G}",
+                "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy target artifact.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Artifact"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "artifact",
+                          "distinct": true
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy target enchantment.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "enchantment",
+                          "distinct": true
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Target creature gains hexproof and indestructible until end of turn.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Hexproof"
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ]
+                              },
+                              "upTo": false,
+                              "key": "creature",
+                              "distinct": true
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Indestructible"
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ]
+                              },
+                              "upTo": false,
+                              "key": "creature",
+                              "distinct": true
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "min": 1,
+                  "max": 3,
+                  "sameModeTwice": false
+                },
+                "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)\nChoose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Escalate",
+                "cost": "{G}",
+                "text": "Escalate {G} (Pay this cost for each mode chosen beyond the first.)"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy target artifact.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Artifact"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "artifact",
+                          "distinct": true
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy target enchantment.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "types": [
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "enchantment",
+                          "distinct": true
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Target creature gains hexproof and indestructible until end of turn.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Hexproof"
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ]
+                              },
+                              "upTo": false,
+                              "key": "creature",
+                              "distinct": true
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Indestructible"
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ]
+                              },
+                              "upTo": false,
+                              "key": "creature",
+                              "distinct": true
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "min": 1,
+                  "max": 3,
+                  "sameModeTwice": false
+                },
+                "text": "Choose one or more \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Target creature gains hexproof and indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Escalate"
+  ],
+  "scenarioList": []
+}

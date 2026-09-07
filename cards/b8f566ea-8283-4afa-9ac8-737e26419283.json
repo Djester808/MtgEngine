@@ -1,0 +1,117 @@
+{
+  "oracleId": "b8f566ea-8283-4afa-9ac8-737e26419283",
+  "name": "Explore",
+  "oracleHash": "sha256:0d11427057accc9850296edcc16be909faa72fc0cd8a53b7e57bb56097ee37dc",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b8f566ea-8283-4afa-9ac8-737e26419283",
+    "name": "Explore",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Explore",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "ExtraLandDrops",
+                "who": {
+                  "kind": "You"
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              },
+              "who": {
+                "kind": "You"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "You may play an additional land this turn."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "text": "Draw a card."
+          }
+        ],
+        "oracleText": "You may play an additional land this turn.\nDraw a card.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "ExtraLandDrops",
+                "who": {
+                  "kind": "You"
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              },
+              "who": {
+                "kind": "You"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "You may play an additional land this turn."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "text": "Draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

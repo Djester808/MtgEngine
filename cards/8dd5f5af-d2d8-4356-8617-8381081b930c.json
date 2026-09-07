@@ -1,0 +1,231 @@
+{
+  "oracleId": "8dd5f5af-d2d8-4356-8617-8381081b930c",
+  "name": "Yavimaya, Cradle of Growth",
+  "oracleHash": "sha256:5cdfb03e2bfc3aa3e3c5394934957ce0b0cd35653625bea423d4f5ad5f4357f8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8dd5f5af-d2d8-4356-8617-8381081b930c",
+    "name": "Yavimaya, Cradle of Growth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Yavimaya, Cradle of Growth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "subtypes": [
+                "Forest"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Battlefield",
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Each land is a Forest in addition to its other land types."
+          }
+        ],
+        "oracleText": "Each land is a Forest in addition to its other land types.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "subtypes": [
+                "Forest"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Battlefield",
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Each land is a Forest in addition to its other land types."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8dd5f5af-d2d8-4356-8617-8381081b930c",
+        "name": "Yavimaya, Cradle of Growth",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Yavimaya, Cradle of Growth",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AddTypes",
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "allCreatureTypes": false
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Each land is a Forest in addition to its other land types."
+              }
+            ],
+            "oracleText": "Each land is a Forest in addition to its other land types.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AddTypes",
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "allCreatureTypes": false
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Each land is a Forest in addition to its other land types."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8dd5f5af-d2d8-4356-8617-8381081b930c",
+        "name": "Yavimaya, Cradle of Growth",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Yavimaya, Cradle of Growth",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AddTypes",
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "allCreatureTypes": false
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Each land is a Forest in addition to its other land types."
+              }
+            ],
+            "oracleText": "Each land is a Forest in addition to its other land types.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AddTypes",
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "allCreatureTypes": false
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Each land is a Forest in addition to its other land types."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

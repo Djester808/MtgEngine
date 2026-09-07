@@ -1,0 +1,108 @@
+{
+  "oracleId": "463865bc-087e-477b-9e86-84e77f1ad931",
+  "name": "Seedborn Muse",
+  "oracleHash": "sha256:84ce2101743f49d48b84d11795a02ab4961689f77edb2452d93c817aea57153e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "463865bc-087e-477b-9e86-84e77f1ad931",
+    "name": "Seedborn Muse",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Seedborn Muse",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Spirit"
+          ],
+          "subtypeList": [
+            "Spirit"
+          ]
+        },
+        "manaCost": "{3}{G}{G}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Untap",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Untap",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "permanent": true
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Untap all permanents you control during each other player\u0027s untap step."
+          }
+        ],
+        "oracleText": "Untap all permanents you control during each other player\u0027s untap step.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Untap",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Untap",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "permanent": true
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Untap all permanents you control during each other player\u0027s untap step."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

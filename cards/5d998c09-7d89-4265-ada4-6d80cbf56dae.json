@@ -1,0 +1,266 @@
+{
+  "oracleId": "5d998c09-7d89-4265-ada4-6d80cbf56dae",
+  "name": "Blind Obedience",
+  "oracleHash": "sha256:b75222a123026b72da1676eb374f783c1dc5b8dd3907f0e36e24805573a4620a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5d998c09-7d89-4265-ada4-6d80cbf56dae",
+    "name": "Blind Obedience",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Blind Obedience",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{W}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Extort",
+            "text": "Extort"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "anyTypes": [
+                  "Artifact",
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Artifacts and creatures your opponents control enter tapped."
+          }
+        ],
+        "oracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Extort",
+            "text": "Extort"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "anyTypes": [
+                  "Artifact",
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Artifacts and creatures your opponents control enter tapped."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Extort"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5d998c09-7d89-4265-ada4-6d80cbf56dae",
+        "name": "Blind Obedience",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Blind Obedience",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Extort",
+                "text": "Extort"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Artifacts and creatures your opponents control enter tapped."
+              }
+            ],
+            "oracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Extort",
+                "text": "Extort"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Artifacts and creatures your opponents control enter tapped."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5d998c09-7d89-4265-ada4-6d80cbf56dae",
+        "name": "Blind Obedience",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Blind Obedience",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Extort",
+                "cost": "{W/B}",
+                "text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Artifacts and creatures your opponents control enter tapped."
+              }
+            ],
+            "oracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Extort",
+                "cost": "{W/B}",
+                "text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Artifacts and creatures your opponents control enter tapped."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Extort"
+  ],
+  "scenarioList": []
+}

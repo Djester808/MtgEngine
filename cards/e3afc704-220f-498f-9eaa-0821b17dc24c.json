@@ -1,0 +1,329 @@
+{
+  "oracleId": "e3afc704-220f-498f-9eaa-0821b17dc24c",
+  "name": "Sakura-Tribe Elder",
+  "oracleHash": "sha256:ebc9bf6761ff2927a7a630c76ff51a1f003bac65a43bc521bb2704e19a20fe5b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e3afc704-220f-498f-9eaa-0821b17dc24c",
+    "name": "Sakura-Tribe Elder",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sakura-Tribe Elder",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Snake",
+            "Shaman"
+          ],
+          "subtypeList": [
+            "Snake",
+            "Shaman"
+          ]
+        },
+        "manaCost": "{1}{G}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ]
+              },
+              "to": "Battlefield",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "e3afc704-220f-498f-9eaa-0821b17dc24c",
+        "name": "Sakura-Tribe Elder",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sakura-Tribe Elder",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Snake",
+                "Shaman"
+              ],
+              "subtypeList": [
+                "Snake",
+                "Shaman"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "e3afc704-220f-498f-9eaa-0821b17dc24c",
+        "name": "Sakura-Tribe Elder",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sakura-Tribe Elder",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Snake",
+                "Shaman"
+              ],
+              "subtypeList": [
+                "Snake",
+                "Shaman"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

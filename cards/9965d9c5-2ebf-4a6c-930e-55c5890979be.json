@@ -1,0 +1,350 @@
+{
+  "oracleId": "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+  "name": "Thought Vessel",
+  "oracleHash": "sha256:55cfe3fe96d4b3e139dec6d43129d019181df5fa00bbb339900c0e45681691ed",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+    "name": "Thought Vessel",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Thought Vessel",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          }
+        ],
+        "oracleText": "You have no maximum hand size.\n{T}: Add {C}.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+        "name": "Thought Vessel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Thought Vessel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              }
+            ],
+            "oracleText": "You have no maximum hand size.\n{T}: Add {C}.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+        "name": "Thought Vessel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Thought Vessel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              }
+            ],
+            "oracleText": "You have no maximum hand size.\n{T}: Add {C}.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

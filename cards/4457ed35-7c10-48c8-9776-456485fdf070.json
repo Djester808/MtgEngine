@@ -1,0 +1,266 @@
+{
+  "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+  "name": "Lightning Bolt",
+  "oracleHash": "sha256:1c8ec5180252d4d2258eec2c0312b6f3c86b101696246288422c2d46aaa5ff8b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Lightning Bolt",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Battle",
+                    "Creature",
+                    "Planeswalker"
+                  ],
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "toPlayer": {
+                "kind": "TargetPlayer",
+                "filter": {},
+                "upTo": false
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "text": "Lightning Bolt deals 3 damage to any target."
+          }
+        ],
+        "oracleText": "Lightning Bolt deals 3 damage to any target.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Battle",
+                    "Creature",
+                    "Planeswalker"
+                  ],
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "toPlayer": {
+                "kind": "TargetPlayer",
+                "filter": {},
+                "upTo": false
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "text": "Lightning Bolt deals 3 damage to any target."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+        "name": "Lightning Bolt",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Lightning Bolt",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Battle",
+                        "Creature",
+                        "Planeswalker"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Lightning Bolt deals 3 damage to any target."
+              }
+            ],
+            "oracleText": "Lightning Bolt deals 3 damage to any target.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Battle",
+                        "Creature",
+                        "Planeswalker"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Lightning Bolt deals 3 damage to any target."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "4457ed35-7c10-48c8-9776-456485fdf070",
+        "name": "Lightning Bolt",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Lightning Bolt",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {},
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Lightning Bolt deals 3 damage to any target."
+              }
+            ],
+            "oracleText": "Lightning Bolt deals 3 damage to any target.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {},
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Lightning Bolt deals 3 damage to any target."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

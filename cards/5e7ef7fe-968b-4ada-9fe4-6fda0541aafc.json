@@ -1,0 +1,522 @@
+{
+  "oracleId": "5e7ef7fe-968b-4ada-9fe4-6fda0541aafc",
+  "name": "The Earth Crystal",
+  "oracleHash": "sha256:18aaa96862a80533c7412bc2ecdc2cdd65aeee9049702584983114ddcaa39098",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5e7ef7fe-968b-4ada-9fe4-6fda0541aafc",
+    "name": "The Earth Crystal",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "The Earth Crystal",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}{G}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Green spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldPutCounters",
+              "on": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              },
+              "counter": "\u002B1/\u002B1"
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}{G}{G}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No vocabulary for distributing counters among a variable number of targets",
+              "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+          }
+        ],
+        "oracleText": "Green spells you cast cost {1} less to cast.\nIf one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead.\n{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Green spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldPutCounters",
+              "on": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              },
+              "counter": "\u002B1/\u002B1"
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}{G}{G}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No vocabulary for distributing counters among a variable number of targets",
+              "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5e7ef7fe-968b-4ada-9fe4-6fda0541aafc",
+        "name": "The Earth Crystal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "The Earth Crystal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{G}{G}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No vocabulary for distributing counters among a variable number of targets",
+                  "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+              }
+            ],
+            "oracleText": "Green spells you cast cost {1} less to cast.\nIf one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead.\n{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{G}{G}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No vocabulary for distributing counters among a variable number of targets",
+                  "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5e7ef7fe-968b-4ada-9fe4-6fda0541aafc",
+        "name": "The Earth Crystal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "The Earth Crystal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{G}{G}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No effect kind exists to distribute a fixed pool of \u002B1/\u002B1 counters as chosen among one or two target creatures; DealDividedDamage covers damage distribution but there is no counter equivalent.",
+                  "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+              }
+            ],
+            "oracleText": "Green spells you cast cost {1} less to cast.\nIf one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead.\n{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more \u002B1/\u002B1 counters would be put on a creature you control, twice that many \u002B1/\u002B1 counters are put on that creature instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{G}{G}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No effect kind exists to distribute a fixed pool of \u002B1/\u002B1 counters as chosen among one or two target creatures; DealDividedDamage covers damage distribution but there is no counter equivalent.",
+                  "text": "Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{G}{G}, {T}: Distribute two \u002B1/\u002B1 counters among one or two target creatures you control."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

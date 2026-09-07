@@ -1,0 +1,309 @@
+{
+  "oracleId": "5da7eea8-bb9e-47ce-a554-8a1ee058bd7a",
+  "name": "Beast Whisperer",
+  "oracleHash": "sha256:e3f02644e004439e9ac81c526a4972c401fcc9fb4d196477c2c6782402ed0ddb",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5da7eea8-bb9e-47ce-a554-8a1ee058bd7a",
+    "name": "Beast Whisperer",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Beast Whisperer",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Elf",
+            "Druid"
+          ],
+          "subtypeList": [
+            "Elf",
+            "Druid"
+          ]
+        },
+        "manaCost": "{2}{G}{G}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ],
+                "spell": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, draw a card."
+          }
+        ],
+        "oracleText": "Whenever you cast a creature spell, draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ],
+                "spell": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5da7eea8-bb9e-47ce-a554-8a1ee058bd7a",
+        "name": "Beast Whisperer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Beast Whisperer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elf",
+                "Druid"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Druid"
+              ]
+            },
+            "manaCost": "{2}{G}{G}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, draw a card."
+              }
+            ],
+            "oracleText": "Whenever you cast a creature spell, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5da7eea8-bb9e-47ce-a554-8a1ee058bd7a",
+        "name": "Beast Whisperer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Beast Whisperer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elf",
+                "Druid"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Druid"
+              ]
+            },
+            "manaCost": "{2}{G}{G}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, draw a card."
+              }
+            ],
+            "oracleText": "Whenever you cast a creature spell, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

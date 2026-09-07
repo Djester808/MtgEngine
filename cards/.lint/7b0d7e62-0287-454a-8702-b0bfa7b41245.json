@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L013",
+      "message": "A Disputed file must keep both readings in Candidates.",
+      "path": "status"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No condition expresses \u0027you attacked with two or more creatures this turn\u0027",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

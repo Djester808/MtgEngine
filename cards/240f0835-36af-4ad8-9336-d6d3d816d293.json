@@ -1,0 +1,740 @@
+{
+  "oracleId": "240f0835-36af-4ad8-9336-d6d3d816d293",
+  "name": "The Wind Crystal",
+  "oracleHash": "sha256:a25a0c1f832dff0ae04335015af93366f7a12a0581cc9a0320f58e9cd8c76ec8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "240f0835-36af-4ad8-9336-d6d3d816d293",
+    "name": "The Wind Crystal",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "The Wind Crystal",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}{W}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldGainLife",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you would gain life, you gain twice that much life instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}{W}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flying"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Lifelink"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+          }
+        ],
+        "oracleText": "White spells you cast cost {1} less to cast.\nIf you would gain life, you gain twice that much life instead.\n{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldGainLife",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you would gain life, you gain twice that much life instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}{W}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flying"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Lifelink"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "240f0835-36af-4ad8-9336-d6d3d816d293",
+        "name": "The Wind Crystal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "The Wind Crystal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}{W}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldGainLife",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you would gain life, you gain twice that much life instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{W}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Lifelink"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+              }
+            ],
+            "oracleText": "White spells you cast cost {1} less to cast.\nIf you would gain life, you gain twice that much life instead.\n{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldGainLife",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you would gain life, you gain twice that much life instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{W}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Lifelink"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "240f0835-36af-4ad8-9336-d6d3d816d293",
+        "name": "The Wind Crystal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "The Wind Crystal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}{W}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldGainLife",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you would gain life, you gain twice that much life instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{W}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Lifelink"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+              }
+            ],
+            "oracleText": "White spells you cast cost {1} less to cast.\nIf you would gain life, you gain twice that much life instead.\n{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldGainLife",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you would gain life, you gain twice that much life instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{4}{W}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Lifelink"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

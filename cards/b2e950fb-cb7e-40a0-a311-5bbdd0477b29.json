@@ -1,0 +1,527 @@
+{
+  "oracleId": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+  "name": "Sun Titan",
+  "oracleHash": "sha256:32a7770ffb6d7f59e2f6a859af88aef7ee5789a72a90cd539db49958813e3d1c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+    "name": "Sun Titan",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sun Titan",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Giant"
+          ],
+          "subtypeList": [
+            "Giant"
+          ]
+        },
+        "manaCost": "{4}{W}{W}",
+        "power": {
+          "text": "6",
+          "number": 6
+        },
+        "toughness": {
+          "text": "6",
+          "number": 6
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "text": "Vigilance"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                }
+              ]
+            },
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  },
+                  "manaValue": {
+                    "op": "Le",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Battlefield",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+          }
+        ],
+        "oracleText": "Vigilance\nWhenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "text": "Vigilance"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                }
+              ]
+            },
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  },
+                  "manaValue": {
+                    "op": "Le",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Battlefield",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Vigilance"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+        "name": "Sun Titan",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sun Titan",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Giant"
+              ],
+              "subtypeList": [
+                "Giant"
+              ]
+            },
+            "manaCost": "{4}{W}{W}",
+            "power": {
+              "text": "6",
+              "number": 6
+            },
+            "toughness": {
+              "text": "6",
+              "number": 6
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Attacks",
+                      "who": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+              }
+            ],
+            "oracleText": "Vigilance\nWhenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Attacks",
+                      "who": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+        "name": "Sun Titan",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sun Titan",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Giant"
+              ],
+              "subtypeList": [
+                "Giant"
+              ]
+            },
+            "manaCost": "{4}{W}{W}",
+            "power": {
+              "text": "6",
+              "number": 6
+            },
+            "toughness": {
+              "text": "6",
+              "number": 6
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Attacks",
+                      "who": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard",
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 3
+                          }
+                        },
+                        "permanent": true
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+              }
+            ],
+            "oracleText": "Vigilance\nWhenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Attacks",
+                      "who": {
+                        "also": {
+                          "kind": "IsThisObject"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard",
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 3
+                          }
+                        },
+                        "permanent": true
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Vigilance"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,1079 @@
+{
+  "oracleId": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+  "name": "Boseiju, Who Endures",
+  "oracleHash": "sha256:80e3f8726a6fcfee87b81d0ed8685deac80263a199a25c05ee3505e70e94196c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+    "name": "Boseiju, Who Endures",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Boseiju, Who Endures",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{G}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {G}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "DiscardSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment",
+                        "Land"
+                      ],
+                      "notSupertypes": [
+                        "Basic"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "key": "target1",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "upTo": false,
+                        "key": "target1",
+                        "distinct": true
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Enchantment",
+                          "Land"
+                        ],
+                        "notSupertypes": [
+                          "Basic"
+                        ],
+                        "controlledBy": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "upTo": false,
+                      "key": "target1",
+                      "distinct": true
+                    }
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Hand",
+            "anyPlayerMayActivate": false,
+            "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AbilityCostModifier",
+              "sources": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ability": "NonMana"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This ability costs {1} less to activate for each legendary creature you control."
+          }
+        ],
+        "oracleText": "{T}: Add {G}.\nChannel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{G}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {G}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "DiscardSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment",
+                        "Land"
+                      ],
+                      "notSupertypes": [
+                        "Basic"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "key": "target1",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "upTo": false,
+                        "key": "target1",
+                        "distinct": true
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Enchantment",
+                          "Land"
+                        ],
+                        "notSupertypes": [
+                          "Basic"
+                        ],
+                        "controlledBy": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "upTo": false,
+                      "key": "target1",
+                      "distinct": true
+                    }
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Hand",
+            "anyPlayerMayActivate": false,
+            "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AbilityCostModifier",
+              "sources": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ability": "NonMana"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This ability costs {1} less to activate for each legendary creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Channel"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+        "name": "Boseiju, Who Endures",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Boseiju, Who Endures",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{G}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {G}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Battlefield",
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "perm",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "ObjectFilter cannot express \u0027a land card with a basic land type\u0027 (any one of the basic land subtypes)",
+                        "text": "search their library for a land card with a basic land type, put it onto the battlefield, then shuffle"
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "perm"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "Any"
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ],
+            "oracleText": "{T}: Add {G}.\nChannel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{G}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {G}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Battlefield",
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "perm",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "ObjectFilter cannot express \u0027a land card with a basic land type\u0027 (any one of the basic land subtypes)",
+                        "text": "search their library for a land card with a basic land type, put it onto the battlefield, then shuffle"
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "perm"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "Any"
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+        "name": "Boseiju, Who Endures",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Boseiju, Who Endures",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{G}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {G}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "upTo": false,
+                        "key": "target1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Artifact",
+                                "Enchantment",
+                                "Land"
+                              ],
+                              "notSupertypes": [
+                                "Basic"
+                              ],
+                              "controlledBy": {
+                                "kind": "EachOpponent"
+                              }
+                            },
+                            "count": {
+                              "kind": "Fixed",
+                              "n": 1
+                            },
+                            "upTo": false,
+                            "key": "target1",
+                            "distinct": true
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": false,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment",
+                              "Land"
+                            ],
+                            "notSupertypes": [
+                              "Basic"
+                            ],
+                            "controlledBy": {
+                              "kind": "EachOpponent"
+                            }
+                          },
+                          "count": {
+                            "kind": "Fixed",
+                            "n": 1
+                          },
+                          "upTo": false,
+                          "key": "target1",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "NonMana"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ],
+            "oracleText": "{T}: Add {G}.\nChannel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{G}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {G}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment",
+                            "Land"
+                          ],
+                          "notSupertypes": [
+                            "Basic"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "upTo": false,
+                        "key": "target1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Artifact",
+                                "Enchantment",
+                                "Land"
+                              ],
+                              "notSupertypes": [
+                                "Basic"
+                              ],
+                              "controlledBy": {
+                                "kind": "EachOpponent"
+                              }
+                            },
+                            "count": {
+                              "kind": "Fixed",
+                              "n": 1
+                            },
+                            "upTo": false,
+                            "key": "target1",
+                            "distinct": true
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": false,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment",
+                              "Land"
+                            ],
+                            "notSupertypes": [
+                              "Basic"
+                            ],
+                            "controlledBy": {
+                              "kind": "EachOpponent"
+                            }
+                          },
+                          "count": {
+                            "kind": "Fixed",
+                            "n": 1
+                          },
+                          "upTo": false,
+                          "key": "target1",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "NonMana"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Channel"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L003",
+      "message": "\u0027hideaway\u0027 is referenced but nothing in this ability produces it.",
+      "path": "faces[0].abilities[3]"
+    }
+  ],
+  "hasErrors": true
+}

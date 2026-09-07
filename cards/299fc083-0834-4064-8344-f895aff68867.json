@@ -1,0 +1,194 @@
+{
+  "oracleId": "299fc083-0834-4064-8344-f895aff68867",
+  "name": "Entomb",
+  "oracleHash": "sha256:3e082b70b4048ec72ede4524c57f28e9e04bc4edc1554601a5af32b3fe470c73",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "299fc083-0834-4064-8344-f895aff68867",
+    "name": "Entomb",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Entomb",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {},
+              "to": "Graveyard",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for a card, put that card into your graveyard, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {},
+              "to": "Graveyard",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "299fc083-0834-4064-8344-f895aff68867",
+        "name": "Entomb",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Entomb",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Graveyard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for a card, put that card into your graveyard, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Graveyard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "299fc083-0834-4064-8344-f895aff68867",
+        "name": "Entomb",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Entomb",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Graveyard",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for a card, put that card into your graveyard, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Graveyard",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your graveyard, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

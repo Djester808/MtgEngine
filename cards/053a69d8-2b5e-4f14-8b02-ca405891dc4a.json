@@ -1,0 +1,624 @@
+{
+  "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+  "name": "Fell the Profane // Fell Mire",
+  "oracleHash": "sha256:58bfe64a522878a5817c201ab1db087da7e867e411071227fc7e4aae1126d76b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+    "name": "Fell the Profane // Fell Mire",
+    "layout": "ModalDfc",
+    "faces": [
+      {
+        "name": "Fell the Profane",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Creature",
+                    "Planeswalker"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target creature or planeswalker."
+          }
+        ],
+        "oracleText": "Destroy target creature or planeswalker.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Creature",
+                    "Planeswalker"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target creature or planeswalker."
+          }
+        ]
+      },
+      {
+        "name": "Fell Mire",
+        "role": "Back",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unless",
+              "do": {
+                "kind": "EntersTapped"
+              },
+              "paid": {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 3
+                }
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {B}."
+          }
+        ],
+        "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unless",
+              "do": {
+                "kind": "EntersTapped"
+              },
+              "paid": {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 3
+                }
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {B}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+        "name": "Fell the Profane // Fell Mire",
+        "layout": "ModalDfc",
+        "faces": [
+          {
+            "name": "Fell the Profane",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy target creature or planeswalker."
+              }
+            ],
+            "oracleText": "Destroy target creature or planeswalker.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy target creature or planeswalker."
+              }
+            ]
+          },
+          {
+            "name": "Fell Mire",
+            "role": "Back",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unless",
+                  "do": {
+                    "kind": "EntersTapped"
+                  },
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {B}."
+              }
+            ],
+            "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unless",
+                  "do": {
+                    "kind": "EntersTapped"
+                  },
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {B}."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+        "name": "Fell the Profane // Fell Mire",
+        "layout": "ModalDfc",
+        "faces": [
+          {
+            "name": "Fell the Profane",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy target creature or planeswalker."
+              }
+            ],
+            "oracleText": "Destroy target creature or planeswalker.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy target creature or planeswalker."
+              }
+            ]
+          },
+          {
+            "name": "Fell Mire",
+            "role": "Back",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "LoseLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "storeChoiceAs": "paidLife"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "NotCondition",
+                        "of": {
+                          "kind": "ChoiceIs",
+                          "key": "paidLife",
+                          "value": "yes"
+                        }
+                      },
+                      "then": {
+                        "kind": "EntersTapped"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {B}."
+              }
+            ],
+            "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "LoseLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "storeChoiceAs": "paidLife"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "NotCondition",
+                        "of": {
+                          "kind": "ChoiceIs",
+                          "key": "paidLife",
+                          "value": "yes"
+                        }
+                      },
+                      "then": {
+                        "kind": "EntersTapped"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {B}."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

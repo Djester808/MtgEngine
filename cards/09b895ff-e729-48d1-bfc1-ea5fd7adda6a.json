@@ -1,0 +1,618 @@
+{
+  "oracleId": "09b895ff-e729-48d1-bfc1-ea5fd7adda6a",
+  "name": "Caged Sun",
+  "oracleHash": "sha256:74622e9ab533570c6e8a847f8bf5069a1261927ca6c4f77e79ae34a9942aa100",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "09b895ff-e729-48d1-bfc1-ea5fd7adda6a",
+    "name": "Caged Sun",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Caged Sun",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{6}",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "Color",
+              "key": "color",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this artifact enters, choose a color."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "also": {
+                  "kind": "IsChosenColor",
+                  "key": "color"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldAddMana",
+              "who": {
+                "kind": "You"
+              },
+              "fromSource": {
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "Cannot express a mana-addition replacement restricted to mana of a previously chosen color, nor adding an additional mana of that same color.",
+              "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+          }
+        ],
+        "oracleText": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get \u002B1/\u002B1.\nWhenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "Color",
+              "key": "color",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this artifact enters, choose a color."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "also": {
+                  "kind": "IsChosenColor",
+                  "key": "color"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldAddMana",
+              "who": {
+                "kind": "You"
+              },
+              "fromSource": {
+                "types": [
+                  "Land"
+                ]
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "Cannot express a mana-addition replacement restricted to mana of a previously chosen color, nor adding an additional mana of that same color.",
+              "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "09b895ff-e729-48d1-bfc1-ea5fd7adda6a",
+        "name": "Caged Sun",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Caged Sun",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a color."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "color"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "fromSource": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "with": {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express a mana-addition replacement restricted to mana of a previously chosen color, nor adding an additional mana of that same color.",
+                  "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+              }
+            ],
+            "oracleText": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get \u002B1/\u002B1.\nWhenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "color",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a color."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "color"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "fromSource": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                },
+                "with": {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express a mana-addition replacement restricted to mana of a previously chosen color, nor adding an additional mana of that same color.",
+                  "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "09b895ff-e729-48d1-bfc1-ea5fd7adda6a",
+        "name": "Caged Sun",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Caged Sun",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "chosenColor"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this artifact enters, choose a color."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "chosenColor"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AbilityActivated",
+                  "source": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "ability": "Mana",
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "chosenColor",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "chosenColor"
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+              }
+            ],
+            "oracleText": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get \u002B1/\u002B1.\nWhenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "Color",
+                  "key": "chosenColor"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "As this artifact enters, choose a color."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "chosenColor"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control of the chosen color get \u002B1/\u002B1."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AbilityActivated",
+                  "source": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "ability": "Mana",
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": true,
+                    "chosenColorKey": "chosenColor",
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "also": {
+                      "kind": "IsChosenColor",
+                      "key": "chosenColor"
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land\u0027s ability causes you to add one or more mana of the chosen color, add an additional one mana of that color."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

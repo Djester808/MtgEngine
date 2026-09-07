@@ -1,0 +1,85 @@
+{
+  "oracleId": "2f092562-9e17-43cd-aeb8-d0567f99363e",
+  "name": "Go for the Throat",
+  "oracleHash": "sha256:a7e89cff45edd60bcb222798949ba5fe050df9d1fb033de09ab13b8fb6f416ff",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2f092562-9e17-43cd-aeb8-d0567f99363e",
+    "name": "Go for the Throat",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Go for the Throat",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "notTypes": [
+                    "Artifact"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target nonartifact creature."
+          }
+        ],
+        "oracleText": "Destroy target nonartifact creature.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "notTypes": [
+                    "Artifact"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target nonartifact creature."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

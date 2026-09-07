@@ -1,0 +1,518 @@
+{
+  "oracleId": "5f15125e-ae89-471e-b055-226a783bc7c1",
+  "name": "Aetherflux Reservoir",
+  "oracleHash": "sha256:a2084a492cd203941d6767aee73a70ca85b6f97bed1ded44ed7956b943d34547",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5f15125e-ae89-471e-b055-226a783bc7c1",
+    "name": "Aetherflux Reservoir",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Aetherflux Reservoir",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "spell": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "SpellsCastThisTurn",
+                "by": {
+                  "kind": "You"
+                }
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 50
+                }
+              }
+            ],
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 50
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Battle",
+                    "Creature",
+                    "Planeswalker"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "toPlayer": {
+                "kind": "TargetPlayer",
+                "filter": {},
+                "upTo": false
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Pay 50 life: This artifact deals 50 damage to any target."
+          }
+        ],
+        "oracleText": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "spell": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "SpellsCastThisTurn",
+                "by": {
+                  "kind": "You"
+                }
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 50
+                }
+              }
+            ],
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 50
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Battle",
+                    "Creature",
+                    "Planeswalker"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "toPlayer": {
+                "kind": "TargetPlayer",
+                "filter": {},
+                "upTo": false
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Pay 50 life: This artifact deals 50 damage to any target."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5f15125e-ae89-471e-b055-226a783bc7c1",
+        "name": "Aetherflux Reservoir",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Aetherflux Reservoir",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "SpellsCastThisTurn",
+                    "by": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 50
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 50
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Battle",
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Pay 50 life: This artifact deals 50 damage to any target."
+              }
+            ],
+            "oracleText": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "SpellsCastThisTurn",
+                    "by": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 50
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 50
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Battle",
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Pay 50 life: This artifact deals 50 damage to any target."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5f15125e-ae89-471e-b055-226a783bc7c1",
+        "name": "Aetherflux Reservoir",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Aetherflux Reservoir",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {},
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "SpellsCastThisTurn",
+                    "by": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 50
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 50
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "target",
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "target"
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Pay 50 life: This artifact deals 50 damage to any target."
+              }
+            ],
+            "oracleText": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {},
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "SpellsCastThisTurn",
+                    "by": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a spell, you gain 1 life for each spell you\u0027ve cast this turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 50
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 50
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "target",
+                    "distinct": true
+                  },
+                  "toPlayer": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "target"
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Pay 50 life: This artifact deals 50 damage to any target."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

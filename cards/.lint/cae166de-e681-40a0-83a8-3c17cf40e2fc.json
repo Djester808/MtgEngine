@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L013",
+      "message": "A Disputed file must keep both readings in Candidates.",
+      "path": "status"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Cannot express protection from each color that\u0027s not in your commander\u0027s color identity as a continuous effect",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

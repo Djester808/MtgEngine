@@ -1,0 +1,635 @@
+{
+  "oracleId": "388168b3-ec68-4af2-b88c-6a5ec88c15f6",
+  "name": "Ayara, First of Locthwain",
+  "oracleHash": "sha256:37dbc8b88afa68a87efcf9074eccbd634b02141f88ca26971b31c03c8c3ac79c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "388168b3-ec68-4af2-b88c-6a5ec88c15f6",
+    "name": "Ayara, First of Locthwain",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ayara, First of Locthwain",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elf",
+            "Noble"
+          ],
+          "subtypeList": [
+            "Elf",
+            "Noble"
+          ]
+        },
+        "manaCost": "{B}{B}{B}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Black"
+                ]
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "colors": [
+                    "Black"
+                  ],
+                  "other": true
+                }
+              }
+            ],
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice another black creature: Draw a card."
+          }
+        ],
+        "oracleText": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Black"
+                ]
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "colors": [
+                    "Black"
+                  ],
+                  "other": true
+                }
+              }
+            ],
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice another black creature: Draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "388168b3-ec68-4af2-b88c-6a5ec88c15f6",
+        "name": "Ayara, First of Locthwain",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ayara, First of Locthwain",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elf",
+                "Noble"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Noble"
+              ]
+            },
+            "manaCost": "{B}{B}{B}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "colors": [
+                        "Black"
+                      ],
+                      "other": true
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice another black creature: Draw a card."
+              }
+            ],
+            "oracleText": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "colors": [
+                        "Black"
+                      ],
+                      "other": true
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice another black creature: Draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "388168b3-ec68-4af2-b88c-6a5ec88c15f6",
+        "name": "Ayara, First of Locthwain",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ayara, First of Locthwain",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elf",
+                "Noble"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Noble"
+              ]
+            },
+            "manaCost": "{B}{B}{B}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "colors": [
+                        "Black"
+                      ],
+                      "other": true
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice another black creature: Draw a card."
+              }
+            ],
+            "oracleText": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "colors": [
+                        "Black"
+                      ],
+                      "other": true
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice another black creature: Draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

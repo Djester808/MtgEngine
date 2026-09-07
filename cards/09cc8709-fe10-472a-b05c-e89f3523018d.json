@@ -1,0 +1,630 @@
+{
+  "oracleId": "09cc8709-fe10-472a-b05c-e89f3523018d",
+  "name": "Austere Command",
+  "oracleHash": "sha256:5f6205efe94b6886ff8a437b47d32c37d883caf4e722a270a7d753bcd1a58411",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "09cc8709-fe10-472a-b05c-e89f3523018d",
+    "name": "Austere Command",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Austere Command",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy all artifacts.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Artifact"
+                        ]
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all enchantments.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Enchantment"
+                        ]
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all creatures with mana value 3 or less.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 3
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all creatures with mana value 4 or greater.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "manaValue": {
+                          "op": "Ge",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 4
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ],
+              "min": 2,
+              "max": 2,
+              "sameModeTwice": false
+            },
+            "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+          }
+        ],
+        "oracleText": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy all artifacts.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Artifact"
+                        ]
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all enchantments.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Enchantment"
+                        ]
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all creatures with mana value 3 or less.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 3
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy all creatures with mana value 4 or greater.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "in": "Battlefield",
+                        "types": [
+                          "Creature"
+                        ],
+                        "manaValue": {
+                          "op": "Ge",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 4
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ],
+              "min": 2,
+              "max": 2,
+              "sameModeTwice": false
+            },
+            "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "09cc8709-fe10-472a-b05c-e89f3523018d",
+        "name": "Austere Command",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Austere Command",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy all artifacts.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Artifact"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all enchantments.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Enchantment"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 3 or less.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 3
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 4 or greater.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Ge",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 4
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    }
+                  ],
+                  "min": 2,
+                  "max": 2,
+                  "sameModeTwice": false
+                },
+                "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+              }
+            ],
+            "oracleText": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy all artifacts.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Artifact"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all enchantments.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Enchantment"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 3 or less.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 3
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 4 or greater.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Ge",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 4
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    }
+                  ],
+                  "min": 2,
+                  "max": 2,
+                  "sameModeTwice": false
+                },
+                "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "09cc8709-fe10-472a-b05c-e89f3523018d",
+        "name": "Austere Command",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Austere Command",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy all artifacts.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Artifact"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all enchantments.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Enchantment"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 3 or less.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 3
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 4 or greater.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Ge",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 4
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    }
+                  ],
+                  "min": 2,
+                  "max": 2,
+                  "sameModeTwice": false
+                },
+                "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+              }
+            ],
+            "oracleText": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Destroy all artifacts.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Artifact"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all enchantments.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Enchantment"
+                            ]
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 3 or less.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 3
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    },
+                    {
+                      "text": "Destroy all creatures with mana value 4 or greater.",
+                      "do": {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "manaValue": {
+                              "op": "Ge",
+                              "value": {
+                                "kind": "Fixed",
+                                "n": 4
+                              }
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    }
+                  ],
+                  "min": 2,
+                  "max": 2,
+                  "sameModeTwice": false
+                },
+                "text": "Choose two \u2014\n\u2022 Destroy all artifacts.\n\u2022 Destroy all enchantments.\n\u2022 Destroy all creatures with mana value 3 or less.\n\u2022 Destroy all creatures with mana value 4 or greater."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,246 @@
+{
+  "oracleId": "d683024d-8fe7-4509-851b-7655fadc1de7",
+  "name": "Emerald Medallion",
+  "oracleHash": "sha256:8557e245ca35f3af76521704b4fd0a39acfdcf7d55b21f258b85b6912e0ca29c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d683024d-8fe7-4509-851b-7655fadc1de7",
+    "name": "Emerald Medallion",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Emerald Medallion",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Green spells you cast cost {1} less to cast."
+          }
+        ],
+        "oracleText": "Green spells you cast cost {1} less to cast.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Green spells you cast cost {1} less to cast."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "d683024d-8fe7-4509-851b-7655fadc1de7",
+        "name": "Emerald Medallion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Emerald Medallion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              }
+            ],
+            "oracleText": "Green spells you cast cost {1} less to cast.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "d683024d-8fe7-4509-851b-7655fadc1de7",
+        "name": "Emerald Medallion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Emerald Medallion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              }
+            ],
+            "oracleText": "Green spells you cast cost {1} less to cast.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Green spells you cast cost {1} less to cast."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

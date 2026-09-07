@@ -1,0 +1,234 @@
+{
+  "oracleId": "57c9ff89-dd30-467b-bb3e-499eeea8cb94",
+  "name": "Idyllic Tutor",
+  "oracleHash": "sha256:292ddc5052d9ed5d4e0b83508e71d56274baf77cd807caf28d07b94f8c19240f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "57c9ff89-dd30-467b-bb3e-499eeea8cb94",
+    "name": "Idyllic Tutor",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Idyllic Tutor",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Enchantment"
+                ]
+              },
+              "to": "Hand",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Enchantment"
+                ]
+              },
+              "to": "Hand",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "57c9ff89-dd30-467b-bb3e-499eeea8cb94",
+        "name": "Idyllic Tutor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Idyllic Tutor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Enchantment"
+                    ]
+                  },
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Enchantment"
+                    ]
+                  },
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "57c9ff89-dd30-467b-bb3e-499eeea8cb94",
+        "name": "Idyllic Tutor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Idyllic Tutor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "to": "Hand",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": true
+                    }
+                  ]
+                },
+                "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "to": "Hand",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": true,
+                      "tapped": false,
+                      "shuffleAfter": true
+                    }
+                  ]
+                },
+                "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

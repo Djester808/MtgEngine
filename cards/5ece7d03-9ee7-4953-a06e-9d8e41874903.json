@@ -1,0 +1,476 @@
+{
+  "oracleId": "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+  "name": "Scavenger Grounds",
+  "oracleHash": "sha256:0253f9945e1834b51f53ba4a304a65c80d477d2c8e912497b241eb2d3af23fc0",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+    "name": "Scavenger Grounds",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Scavenger Grounds",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Desert"
+          ],
+          "subtypeList": [
+            "Desert"
+          ]
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "subtypes": [
+                    "Desert"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            ],
+            "do": {
+              "kind": "Exile",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "in": "Graveyard"
+                }
+              },
+              "faceDown": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{2}, {T}, Sacrifice a Desert: Exile all graveyards.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "subtypes": [
+                    "Desert"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            ],
+            "do": {
+              "kind": "Exile",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "in": "Graveyard"
+                }
+              },
+              "faceDown": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+        "name": "Scavenger Grounds",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Scavenger Grounds",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Desert"
+              ],
+              "subtypeList": [
+                "Desert"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "subtypes": [
+                        "Desert"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard"
+                    }
+                  },
+                  "faceDown": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{2}, {T}, Sacrifice a Desert: Exile all graveyards.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "subtypes": [
+                        "Desert"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard"
+                    }
+                  },
+                  "faceDown": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+        "name": "Scavenger Grounds",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Scavenger Grounds",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Desert"
+              ],
+              "subtypeList": [
+                "Desert"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "subtypes": [
+                        "Desert"
+                      ]
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard"
+                    }
+                  },
+                  "faceDown": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{2}, {T}, Sacrifice a Desert: Exile all graveyards.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "subtypes": [
+                        "Desert"
+                      ]
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard"
+                    }
+                  },
+                  "faceDown": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}, Sacrifice a Desert: Exile all graveyards."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

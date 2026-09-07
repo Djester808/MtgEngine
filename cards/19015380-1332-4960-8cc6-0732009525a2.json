@@ -1,0 +1,248 @@
+{
+  "oracleId": "19015380-1332-4960-8cc6-0732009525a2",
+  "name": "Pearl Medallion",
+  "oracleHash": "sha256:c518095411646325cc51e5be55ca6a379c01203bf983f10597be3149b030616c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "19015380-1332-4960-8cc6-0732009525a2",
+    "name": "Pearl Medallion",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Pearl Medallion",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White spells you cast cost {1} less to cast."
+          }
+        ],
+        "oracleText": "White spells you cast cost {1} less to cast.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White spells you cast cost {1} less to cast."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "19015380-1332-4960-8cc6-0732009525a2",
+        "name": "Pearl Medallion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Pearl Medallion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              }
+            ],
+            "oracleText": "White spells you cast cost {1} less to cast.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "19015380-1332-4960-8cc6-0732009525a2",
+        "name": "Pearl Medallion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Pearl Medallion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              }
+            ],
+            "oracleText": "White spells you cast cost {1} less to cast.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White spells you cast cost {1} less to cast."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

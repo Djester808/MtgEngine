@@ -1,0 +1,470 @@
+{
+  "oracleId": "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+  "name": "Liquimetal Torque",
+  "oracleHash": "sha256:fc7022498ae2d95b40059b6886b417ec1a5c904e8bad58dc9ea0670842f97584",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+    "name": "Liquimetal Torque",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Liquimetal Torque",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "AddTypes",
+                "types": [
+                  "Artifact"
+                ],
+                "allCreatureTypes": false
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Battlefield",
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "AddTypes",
+                "types": [
+                  "Artifact"
+                ],
+                "allCreatureTypes": false
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Battlefield",
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+        "name": "Liquimetal Torque",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Liquimetal Torque",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Artifact"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Battlefield",
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Artifact"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Battlefield",
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+        "name": "Liquimetal Torque",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Liquimetal Torque",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Artifact"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "key": "target",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Artifact"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "key": "target",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

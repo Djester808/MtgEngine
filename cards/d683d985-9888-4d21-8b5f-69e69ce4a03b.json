@@ -1,0 +1,460 @@
+{
+  "oracleId": "d683d985-9888-4d21-8b5f-69e69ce4a03b",
+  "name": "Path to Exile",
+  "oracleHash": "sha256:6b1199153087c4c11214a1438b96ab470a832fb440b7fcc3394b895e39478e44",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d683d985-9888-4d21-8b5f-69e69ce4a03b",
+    "name": "Path to Exile",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Path to Exile",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "faceDown": false,
+                  "rememberAs": "creature"
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "creature"
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "creature"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "faceDown": false,
+                  "rememberAs": "creature"
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "creature"
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "creature"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "d683d985-9888-4d21-8b5f-69e69ce4a03b",
+        "name": "Path to Exile",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Path to Exile",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Battlefield",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "faceDown": false,
+                      "rememberAs": "creature"
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "creature"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "creature"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Battlefield",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "faceDown": false,
+                      "rememberAs": "creature"
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "creature"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "creature"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "d683d985-9888-4d21-8b5f-69e69ce4a03b",
+        "name": "Path to Exile",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Path to Exile",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "target",
+                        "distinct": true
+                      },
+                      "faceDown": false,
+                      "rememberAs": "exiled"
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "exiled"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "exiled"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "target",
+                        "distinct": true
+                      },
+                      "faceDown": false,
+                      "rememberAs": "exiled"
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 1
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "exiled"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "exiled"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

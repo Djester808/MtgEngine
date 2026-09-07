@@ -1,0 +1,440 @@
+{
+  "oracleId": "72deedab-7c17-4505-aeca-4bc8596d80a5",
+  "name": "Tribute to the World Tree",
+  "oracleHash": "sha256:95ef1841f2546f18dac8e968d2e0e0bf92f47ba0ee8c2b9c494c1e462959d334",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "72deedab-7c17-4505-aeca-4bc8596d80a5",
+    "name": "Tribute to the World Tree",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Tribute to the World Tree",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{G}{G}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Compare",
+                "left": {
+                  "kind": "PowerOf",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "op": "Ge",
+                "right": {
+                  "kind": "Fixed",
+                  "n": 3
+                }
+              },
+              "then": {
+                "kind": "Draw",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 1
+                },
+                "who": {
+                  "kind": "You"
+                }
+              },
+              "else": {
+                "kind": "PutCounters",
+                "on": {
+                  "kind": "Triggering",
+                  "role": "Subject"
+                },
+                "counter": "\u002B1/\u002B1",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+          }
+        ],
+        "oracleText": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Compare",
+                "left": {
+                  "kind": "PowerOf",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "op": "Ge",
+                "right": {
+                  "kind": "Fixed",
+                  "n": 3
+                }
+              },
+              "then": {
+                "kind": "Draw",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 1
+                },
+                "who": {
+                  "kind": "You"
+                }
+              },
+              "else": {
+                "kind": "PutCounters",
+                "on": {
+                  "kind": "Triggering",
+                  "role": "Subject"
+                },
+                "counter": "\u002B1/\u002B1",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "72deedab-7c17-4505-aeca-4bc8596d80a5",
+        "name": "Tribute to the World Tree",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tribute to the World Tree",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "else": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+              }
+            ],
+            "oracleText": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "else": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "72deedab-7c17-4505-aeca-4bc8596d80a5",
+        "name": "Tribute to the World Tree",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tribute to the World Tree",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "else": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+              }
+            ],
+            "oracleText": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "else": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature you control enters, draw a card if its power is 3 or greater. Otherwise, put two \u002B1/\u002B1 counters on it."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,275 @@
+{
+  "oracleId": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538",
+  "name": "The One Ring",
+  "oracleHash": "sha256:0720f1748bad4a6b2b1e3f5e729296ed1e3292994fd313e607607e4d9795dfd8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538",
+    "name": "The One Ring",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "The One Ring",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{4}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Indestructible",
+            "text": "Indestructible"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "GrantKeyword",
+                "keyword": "Protection",
+                "of": {}
+              },
+              "who": {
+                "kind": "You"
+              },
+              "until": {
+                "kind": "UntilYourNextTurn"
+              }
+            },
+            "if": {
+              "kind": "Matches",
+              "of": {
+                "kind": "Self"
+              },
+              "filter": {
+                "also": {
+                  "kind": "CastThisTurn"
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When The One Ring enters, if you cast it, you gain protection from everything until your next turn."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "burden"
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "burden",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "burden"
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring."
+          }
+        ],
+        "oracleText": "Indestructible\nWhen The One Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Indestructible",
+            "text": "Indestructible"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "GrantKeyword",
+                "keyword": "Protection",
+                "of": {}
+              },
+              "who": {
+                "kind": "You"
+              },
+              "until": {
+                "kind": "UntilYourNextTurn"
+              }
+            },
+            "if": {
+              "kind": "Matches",
+              "of": {
+                "kind": "Self"
+              },
+              "filter": {
+                "also": {
+                  "kind": "CastThisTurn"
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When The One Ring enters, if you cast it, you gain protection from everything until your next turn."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "burden"
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "burden",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "burden"
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Indestructible"
+  ],
+  "keywordList": [
+    "Indestructible"
+  ],
+  "scenarioList": []
+}

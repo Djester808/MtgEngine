@@ -1,0 +1,122 @@
+{
+  "oracleId": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f",
+  "name": "Reliquary Tower",
+  "oracleHash": "sha256:55cfe3fe96d4b3e139dec6d43129d019181df5fa00bbb339900c0e45681691ed",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f",
+    "name": "Reliquary Tower",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Reliquary Tower",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          }
+        ],
+        "oracleText": "You have no maximum hand size.\n{T}: Add {C}.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

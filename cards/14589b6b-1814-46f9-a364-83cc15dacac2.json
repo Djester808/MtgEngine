@@ -1,0 +1,208 @@
+{
+  "oracleId": "14589b6b-1814-46f9-a364-83cc15dacac2",
+  "name": "Diabolic Tutor",
+  "oracleHash": "sha256:e759f75c52513ff4702fecc196ac14e3c579969a34c8470c7f44ded97a3560bd",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "14589b6b-1814-46f9-a364-83cc15dacac2",
+    "name": "Diabolic Tutor",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Diabolic Tutor",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "in": "Library"
+              },
+              "to": "Hand",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for a card, put that card into your hand, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for a card, put that card into your hand, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "in": "Library"
+              },
+              "to": "Hand",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true
+            },
+            "text": "Search your library for a card, put that card into your hand, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "14589b6b-1814-46f9-a364-83cc15dacac2",
+        "name": "Diabolic Tutor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Diabolic Tutor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library"
+                  },
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for a card, put that card into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "in": "Library"
+                  },
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "14589b6b-1814-46f9-a364-83cc15dacac2",
+        "name": "Diabolic Tutor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Diabolic Tutor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your hand, then shuffle."
+              }
+            ],
+            "oracleText": "Search your library for a card, put that card into your hand, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Search",
+                  "for": {},
+                  "to": "Hand",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": false,
+                  "shuffleAfter": true
+                },
+                "text": "Search your library for a card, put that card into your hand, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

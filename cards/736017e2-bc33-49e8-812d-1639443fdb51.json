@@ -1,0 +1,576 @@
+{
+  "oracleId": "736017e2-bc33-49e8-812d-1639443fdb51",
+  "name": "Entish Restoration",
+  "oracleHash": "sha256:563f36d61a106b217f11e10a4dc42dc64da4b7a37fac59de22b51231fb37222b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "736017e2-bc33-49e8-812d-1639443fdb51",
+    "name": "Entish Restoration",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Entish Restoration",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Ferocious",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "upTo": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "else": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "upTo": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  }
+                }
+              ]
+            },
+            "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Ferocious",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "upTo": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "else": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "upTo": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  }
+                }
+              ]
+            },
+            "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "736017e2-bc33-49e8-812d-1639443fdb51",
+        "name": "Entish Restoration",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Entish Restoration",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "choice": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Ferocious",
+                        "who": {
+                          "kind": "You"
+                        }
+                      },
+                      "then": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "else": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      }
+                    }
+                  ]
+                },
+                "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "choice": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Ferocious",
+                        "who": {
+                          "kind": "You"
+                        }
+                      },
+                      "then": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "else": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      }
+                    }
+                  ]
+                },
+                "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "736017e2-bc33-49e8-812d-1639443fdb51",
+        "name": "Entish Restoration",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Entish Restoration",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "choice": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Ferocious",
+                        "who": {
+                          "kind": "You"
+                        }
+                      },
+                      "then": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "else": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      }
+                    }
+                  ]
+                },
+                "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "choice": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Ferocious",
+                        "who": {
+                          "kind": "You"
+                        }
+                      },
+                      "then": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "else": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "upTo": {
+                          "kind": "Fixed",
+                          "n": 2
+                        },
+                        "who": {
+                          "kind": "You"
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      }
+                    }
+                  ]
+                },
+                "text": "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

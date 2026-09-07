@@ -1,0 +1,256 @@
+{
+  "oracleId": "3c7f2b29-9f42-41ab-a2d4-7a450fb0242d",
+  "name": "Bubbling Muck",
+  "oracleHash": "sha256:c29c734c3a598cd6e3da71b33aa9c50b4503b8b5eb0d8c2c9296a9b9044eced4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3c7f2b29-9f42-41ab-a2d4-7a450fb0242d",
+    "name": "Bubbling Muck",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Bubbling Muck",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "ManaProducesAdditional",
+                "sources": {
+                  "in": "Battlefield",
+                  "types": [
+                    "Land"
+                  ],
+                  "subtypes": [
+                    "Swamp"
+                  ]
+                },
+                "mana": "{B}"
+              },
+              "who": {
+                "kind": "EachPlayer"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+          }
+        ],
+        "oracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ApplyToPlayer",
+              "what": {
+                "kind": "ManaProducesAdditional",
+                "sources": {
+                  "in": "Battlefield",
+                  "types": [
+                    "Land"
+                  ],
+                  "subtypes": [
+                    "Swamp"
+                  ]
+                },
+                "mana": "{B}"
+              },
+              "who": {
+                "kind": "EachPlayer"
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "3c7f2b29-9f42-41ab-a2d4-7a450fb0242d",
+        "name": "Bubbling Muck",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bubbling Muck",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "ManaProducesAdditional",
+                    "sources": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Land"
+                      ],
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    },
+                    "mana": "{B}"
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+              }
+            ],
+            "oracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "ManaProducesAdditional",
+                    "sources": {
+                      "in": "Battlefield",
+                      "types": [
+                        "Land"
+                      ],
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    },
+                    "mana": "{B}"
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "3c7f2b29-9f42-41ab-a2d4-7a450fb0242d",
+        "name": "Bubbling Muck",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bubbling Muck",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ManaProducesAdditional",
+                    "sources": {
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    },
+                    "mana": "{B}"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+              }
+            ],
+            "oracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "ManaProducesAdditional",
+                    "sources": {
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    },
+                    "mana": "{B}"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Swamp"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

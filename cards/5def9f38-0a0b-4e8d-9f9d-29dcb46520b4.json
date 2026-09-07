@@ -1,0 +1,296 @@
+{
+  "oracleId": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
+  "name": "Esper Sentinel",
+  "oracleHash": "sha256:f19481f3e67668cbbfc0cc174f434882bc1e6e433981959dc498bc1bd6981693",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
+    "name": "Esper Sentinel",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Esper Sentinel",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact",
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Soldier"
+          ],
+          "subtypeList": [
+            "Human",
+            "Soldier"
+          ]
+        },
+        "manaCost": "{W}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "notTypes": [
+                  "Creature"
+                ],
+                "spell": true
+              },
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "An \u0027unless that player pays {X}\u0027 cost where X is defined as this creature\u0027s power cannot be expressed: Cost records take printed mana only and cannot reference PowerOf(Self).",
+              "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+          }
+        ],
+        "oracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "notTypes": [
+                  "Creature"
+                ],
+                "spell": true
+              },
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "An \u0027unless that player pays {X}\u0027 cost where X is defined as this creature\u0027s power cannot be expressed: Cost records take printed mana only and cannot reference PowerOf(Self).",
+              "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
+        "name": "Esper Sentinel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Esper Sentinel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact",
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Soldier"
+              ],
+              "subtypeList": [
+                "Human",
+                "Soldier"
+              ]
+            },
+            "manaCost": "{W}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "notTypes": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "An \u0027unless that player pays {X}\u0027 cost where X is defined as this creature\u0027s power cannot be expressed: Cost records take printed mana only and cannot reference PowerOf(Self).",
+                  "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+              }
+            ],
+            "oracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "notTypes": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "An \u0027unless that player pays {X}\u0027 cost where X is defined as this creature\u0027s power cannot be expressed: Cost records take printed mana only and cannot reference PowerOf(Self).",
+                  "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
+        "name": "Esper Sentinel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Esper Sentinel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact",
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Soldier"
+              ],
+              "subtypeList": [
+                "Human",
+                "Soldier"
+              ]
+            },
+            "manaCost": "{W}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "notTypes": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "The Cost vocabulary has no way to express paying an amount of generic mana equal to a dynamic value (this creature\u0027s power); only fixed printed mana strings are supported by ManaCost.",
+                  "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power."
+                },
+                "if": {
+                  "kind": "FirstTimeThisTurn"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+              }
+            ],
+            "oracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "notTypes": [
+                      "Creature"
+                    ],
+                    "spell": true
+                  },
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "The Cost vocabulary has no way to express paying an amount of generic mana equal to a dynamic value (this creature\u0027s power); only fixed printed mana strings are supported by ManaCost.",
+                  "text": "draw a card unless that player pays {X}, where X is this creature\u0027s power."
+                },
+                "if": {
+                  "kind": "FirstTimeThisTurn"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,586 @@
+{
+  "oracleId": "69872a9a-fe54-4e58-940c-89395af71acd",
+  "name": "Finale of Devastation",
+  "oracleHash": "sha256:8084fcbf71cb4765a12d38462d6967c57cdad2f47b932a8719d8b6cfed6649a3",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "69872a9a-fe54-4e58-940c-89395af71acd",
+    "name": "Finale of Devastation",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Finale of Devastation",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{X}{G}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "Search cannot span both library and graveyard in one instruction",
+                  "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "X"
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  },
+                  "then": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "ModifyPt",
+                          "power": {
+                            "kind": "X"
+                          },
+                          "toughness": {
+                            "kind": "X"
+                          }
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Haste"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+          }
+        ],
+        "oracleText": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "Search cannot span both library and graveyard in one instruction",
+                  "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "X"
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  },
+                  "then": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "ModifyPt",
+                          "power": {
+                            "kind": "X"
+                          },
+                          "toughness": {
+                            "kind": "X"
+                          }
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Haste"
+                        },
+                        "to": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Battlefield",
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          }
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "69872a9a-fe54-4e58-940c-89395af71acd",
+        "name": "Finale of Devastation",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Finale of Devastation",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{X}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Search cannot span both library and graveyard in one instruction",
+                      "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "X"
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 10
+                        }
+                      },
+                      "then": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "ModifyPt",
+                              "power": {
+                                "kind": "X"
+                              },
+                              "toughness": {
+                                "kind": "X"
+                              }
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "in": "Battlefield",
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Haste"
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "in": "Battlefield",
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+              }
+            ],
+            "oracleText": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Search cannot span both library and graveyard in one instruction",
+                      "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "X"
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 10
+                        }
+                      },
+                      "then": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "ModifyPt",
+                              "power": {
+                                "kind": "X"
+                              },
+                              "toughness": {
+                                "kind": "X"
+                              }
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "in": "Battlefield",
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Haste"
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "in": "Battlefield",
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "69872a9a-fe54-4e58-940c-89395af71acd",
+        "name": "Finale of Devastation",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Finale of Devastation",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{X}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The Search effect only models a single Zone, but this card lets the player search their library and/or their graveyard for one creature card, shuffling only if the library was among the zones searched.",
+                      "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "X"
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 10
+                        }
+                      },
+                      "then": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "ModifyPt",
+                              "power": {
+                                "kind": "X"
+                              },
+                              "toughness": {
+                                "kind": "X"
+                              }
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Haste"
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+              }
+            ],
+            "oracleText": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The Search effect only models a single Zone, but this card lets the player search their library and/or their graveyard for one creature card, shuffling only if the library was among the zones searched.",
+                      "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle."
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "X"
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 10
+                        }
+                      },
+                      "then": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "ModifyPt",
+                              "power": {
+                                "kind": "X"
+                              },
+                              "toughness": {
+                                "kind": "X"
+                              }
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          },
+                          {
+                            "kind": "Apply",
+                            "what": {
+                              "kind": "GrantKeyword",
+                              "keyword": "Haste"
+                            },
+                            "to": {
+                              "kind": "Each",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "until": {
+                              "kind": "UntilEndOfTurn"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "text": "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get \u002BX/\u002BX and gain haste until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

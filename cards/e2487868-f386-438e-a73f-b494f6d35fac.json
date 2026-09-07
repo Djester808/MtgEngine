@@ -1,0 +1,532 @@
+{
+  "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
+  "name": "Genesis Wave",
+  "oracleHash": "sha256:50ecc72259d2cc8142f30b0f388a00d4da98f494fba2a32e8ebdfc431054c080",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
+    "name": "Genesis Wave",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Genesis Wave",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{X}{G}{G}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Reveal",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "You"
+                    },
+                    "count": {
+                      "kind": "X"
+                    },
+                    "zone": "Library"
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "rememberAs": "revealed"
+                },
+                {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Remembered",
+                    "key": "revealed"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Matches",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Battle",
+                          "Creature",
+                          "Enchantment",
+                          "Land",
+                          "Planeswalker"
+                        ],
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "X"
+                          }
+                        }
+                      }
+                    },
+                    "then": {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Move",
+                        "what": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "to": "Battlefield",
+                        "where": "Default",
+                        "tapped": false,
+                        "faceDown": false,
+                        "attacking": false,
+                        "transformed": false,
+                        "ownersChoiceOfOrder": true
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "revealed"
+                  },
+                  "to": "Graveyard",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+          }
+        ],
+        "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Reveal",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "You"
+                    },
+                    "count": {
+                      "kind": "X"
+                    },
+                    "zone": "Library"
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "rememberAs": "revealed"
+                },
+                {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Remembered",
+                    "key": "revealed"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Matches",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Battle",
+                          "Creature",
+                          "Enchantment",
+                          "Land",
+                          "Planeswalker"
+                        ],
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "X"
+                          }
+                        }
+                      }
+                    },
+                    "then": {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Move",
+                        "what": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "to": "Battlefield",
+                        "where": "Default",
+                        "tapped": false,
+                        "faceDown": false,
+                        "attacking": false,
+                        "transformed": false,
+                        "ownersChoiceOfOrder": true
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "revealed"
+                  },
+                  "to": "Graveyard",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
+        "name": "Genesis Wave",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Genesis Wave",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{X}{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "rememberAs": "revealed"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "cannot express choosing a subset of the remembered revealed cards to put onto the battlefield and then moving only the remainder to the graveyard",
+                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ],
+            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "rememberAs": "revealed"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "cannot express choosing a subset of the remembered revealed cards to put onto the battlefield and then moving only the remainder to the graveyard",
+                      "text": "You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
+        "name": "Genesis Wave",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Genesis Wave",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{X}{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "rememberAs": "revealed"
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "revealed"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Matches",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Battle",
+                              "Creature",
+                              "Enchantment",
+                              "Land",
+                              "Planeswalker"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "May",
+                          "do": {
+                            "kind": "Move",
+                            "what": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            },
+                            "to": "Battlefield",
+                            "where": "Default",
+                            "tapped": false,
+                            "faceDown": false,
+                            "attacking": false,
+                            "transformed": false,
+                            "ownersChoiceOfOrder": true
+                          },
+                          "who": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "revealed"
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ],
+            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "rememberAs": "revealed"
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "revealed"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Matches",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Battle",
+                              "Creature",
+                              "Enchantment",
+                              "Land",
+                              "Planeswalker"
+                            ],
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "May",
+                          "do": {
+                            "kind": "Move",
+                            "what": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            },
+                            "to": "Battlefield",
+                            "where": "Default",
+                            "tapped": false,
+                            "faceDown": false,
+                            "attacking": false,
+                            "transformed": false,
+                            "ownersChoiceOfOrder": true
+                          },
+                          "who": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "revealed"
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,111 @@
+{
+  "oracleId": "7324abaa-48da-439d-9339-b0ea5eea612e",
+  "name": "Unnatural Growth",
+  "oracleHash": "sha256:06cddae45f46cf48a3f5bb485184492471e4ae3a4a3bb3dedac17408977fd921",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7324abaa-48da-439d-9339-b0ea5eea612e",
+    "name": "Unnatural Growth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Unnatural Growth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}{G}{G}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "BeginningOfCombat",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Double",
+              "what": "PowerAndToughness",
+              "of": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each combat, double the power and toughness of each creature you control until end of turn."
+          }
+        ],
+        "oracleText": "At the beginning of each combat, double the power and toughness of each creature you control until end of turn.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "BeginningOfCombat",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Double",
+              "what": "PowerAndToughness",
+              "of": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each combat, double the power and toughness of each creature you control until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Double"
+  ],
+  "keywordList": [
+    "Double"
+  ],
+  "scenarioList": []
+}

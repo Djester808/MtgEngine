@@ -1,0 +1,685 @@
+{
+  "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+  "name": "Eiganjo, Seat of the Empire",
+  "oracleHash": "sha256:79dd3a3e6faa38f9c2a8022382d8687e491468bf8d3592a7c5e811112c63681e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+    "name": "Eiganjo, Seat of the Empire",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Eiganjo, Seat of the Empire",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{W}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {W}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}{W}"
+              },
+              {
+                "kind": "DiscardSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 4
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "attacking": true,
+                  "blocking": true
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 1
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AbilityCostModifier",
+              "sources": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ability": "NonMana"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+          }
+        ],
+        "oracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{W}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {W}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}{W}"
+              },
+              {
+                "kind": "DiscardSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 4
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "attacking": true,
+                  "blocking": true
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 1
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "source": {
+                "kind": "Self"
+              },
+              "cantBePrevented": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AbilityCostModifier",
+              "sources": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ability": "NonMana"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Channel"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+        "name": "Eiganjo, Seat of the Empire",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Eiganjo, Seat of the Empire",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}{W}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No way to describe a creature that is attacking or blocking (disjunction of attacking/blocking) in an ObjectFilter",
+                  "text": "It deals 4 damage to target attacking or blocking creature."
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "Any"
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ],
+            "oracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}{W}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "No way to describe a creature that is attacking or blocking (disjunction of attacking/blocking) in an ObjectFilter",
+                  "text": "It deals 4 damage to target attacking or blocking creature."
+                },
+                "timing": "Any",
+                "where": "Hand",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "Any"
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+        "name": "Eiganjo, Seat of the Empire",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Eiganjo, Seat of the Empire",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}{W}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "attacking": true,
+                      "blocking": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "NonMana"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ],
+            "oracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}{W}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "attacking": true,
+                      "blocking": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Self"
+                  },
+                  "cantBePrevented": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "AbilityCostModifier",
+                  "sources": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ability": "NonMana"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Channel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Channel"
+  ],
+  "scenarioList": []
+}

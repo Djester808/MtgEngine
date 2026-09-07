@@ -1,0 +1,75 @@
+{
+  "oracleId": "34515b16-c9a4-4f98-8c77-416a7a523407",
+  "name": "Wrath of God",
+  "oracleHash": "sha256:35902648b91a3be15e81176ad891c95767946d2b7268082001fc5c8d9eb50372",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "34515b16-c9a4-4f98-8c77-416a7a523407",
+    "name": "Wrath of God",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Wrath of God",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "cantBeRegenerated": true
+            },
+            "text": "Destroy all creatures. They can\u0027t be regenerated."
+          }
+        ],
+        "oracleText": "Destroy all creatures. They can\u0027t be regenerated.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "cantBeRegenerated": true
+            },
+            "text": "Destroy all creatures. They can\u0027t be regenerated."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

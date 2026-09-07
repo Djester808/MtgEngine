@@ -1,0 +1,165 @@
+{
+  "oracleId": "777b8ec4-a783-4297-96b7-4f200d0eb734",
+  "name": "Return to Nature",
+  "oracleHash": "sha256:dc7082cb4613c4c61dcdf9aa1ecda03f529e7ec0553765368e5b238a586a5ccd",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "777b8ec4-a783-4297-96b7-4f200d0eb734",
+    "name": "Return to Nature",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Return to Nature",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy target enchantment.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Exile target card from a graveyard.",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard"
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "faceDown": false
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Exile target card from a graveyard."
+          }
+        ],
+        "oracleText": "Choose one \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Exile target card from a graveyard.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Destroy target enchantment.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Enchantment"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Exile target card from a graveyard.",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "in": "Graveyard"
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "faceDown": false
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Destroy target artifact.\n\u2022 Destroy target enchantment.\n\u2022 Exile target card from a graveyard."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

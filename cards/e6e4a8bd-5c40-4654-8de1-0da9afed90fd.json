@@ -1,0 +1,256 @@
+{
+  "oracleId": "e6e4a8bd-5c40-4654-8de1-0da9afed90fd",
+  "name": "Regrowth",
+  "oracleHash": "sha256:4c76bdf975e7b7cd45832b825bae31af4ef7750d6af1a8d3b6d73634b72c7580",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e6e4a8bd-5c40-4654-8de1-0da9afed90fd",
+    "name": "Regrowth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Regrowth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target card from your graveyard to your hand."
+          }
+        ],
+        "oracleText": "Return target card from your graveyard to your hand.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target card from your graveyard to your hand."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "e6e4a8bd-5c40-4654-8de1-0da9afed90fd",
+        "name": "Regrowth",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Regrowth",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target card from your graveyard to your hand."
+              }
+            ],
+            "oracleText": "Return target card from your graveyard to your hand.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target card from your graveyard to your hand."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "e6e4a8bd-5c40-4654-8de1-0da9afed90fd",
+        "name": "Regrowth",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Regrowth",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target card from your graveyard to your hand."
+              }
+            ],
+            "oracleText": "Return target card from your graveyard to your hand.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 1
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target card from your graveyard to your hand."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,273 @@
+{
+  "oracleId": "cae166de-e681-40a0-83a8-3c17cf40e2fc",
+  "name": "Commander\u0027s Plate",
+  "oracleHash": "sha256:eccc11ef7e9245bd55bb8b139d9f698abdff12edb33ba8ca90dbb03f720898d0",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cae166de-e681-40a0-83a8-3c17cf40e2fc",
+    "name": "Commander\u0027s Plate",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Commander\u0027s Plate",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Equipment"
+          ],
+          "subtypeList": [
+            "Equipment"
+          ]
+        },
+        "manaCost": "{1}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "Cannot express protection from each color that\u0027s not in your commander\u0027s color identity as a continuous effect",
+              "text": "Equipped creature ... has protection from each color that\u0027s not in your commander\u0027s color identity."
+            },
+            "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{3}",
+            "of": {
+              "types": [
+                "Creature"
+              ],
+              "isCommander": true
+            },
+            "text": "Equip commander {3}"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{5}",
+            "text": "Equip {5}"
+          }
+        ],
+        "oracleText": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity.\nEquip commander {3}\nEquip {5}",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "Cannot express protection from each color that\u0027s not in your commander\u0027s color identity as a continuous effect",
+              "text": "Equipped creature ... has protection from each color that\u0027s not in your commander\u0027s color identity."
+            },
+            "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{3}",
+            "of": {
+              "types": [
+                "Creature"
+              ],
+              "isCommander": true
+            },
+            "text": "Equip commander {3}"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{5}",
+            "text": "Equip {5}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Equip"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "cae166de-e681-40a0-83a8-3c17cf40e2fc",
+        "name": "Commander\u0027s Plate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Commander\u0027s Plate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{1}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express protection from each color that\u0027s not in your commander\u0027s color identity as a continuous effect",
+                  "text": "Equipped creature ... has protection from each color that\u0027s not in your commander\u0027s color identity."
+                },
+                "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "isCommander": true
+                },
+                "text": "Equip commander {3}"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{5}",
+                "text": "Equip {5}"
+              }
+            ],
+            "oracleText": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity.\nEquip commander {3}\nEquip {5}",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "Cannot express protection from each color that\u0027s not in your commander\u0027s color identity as a continuous effect",
+                  "text": "Equipped creature ... has protection from each color that\u0027s not in your commander\u0027s color identity."
+                },
+                "text": "Equipped creature gets \u002B3/\u002B3 and has protection from each color that\u0027s not in your commander\u0027s color identity."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "isCommander": true
+                },
+                "text": "Equip commander {3}"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{5}",
+                "text": "Equip {5}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Equip"
+  ],
+  "scenarioList": []
+}

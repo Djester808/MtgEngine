@@ -1,0 +1,291 @@
+{
+  "oracleId": "bb2b324c-970a-4920-884e-c92ba49669f0",
+  "name": "Tamiyo\u0027s Safekeeping",
+  "oracleHash": "sha256:92d9a1c9ed6ec5252b3d47947f1b2f7e0e4c4f8a7b34ebcb839e1be99a826af0",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "bb2b324c-970a-4920-884e-c92ba49669f0",
+    "name": "Tamiyo\u0027s Safekeeping",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Tamiyo\u0027s Safekeeping",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "key": "perm",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "perm"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "text": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life."
+          }
+        ],
+        "oracleText": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "key": "perm",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "perm"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                }
+              ]
+            },
+            "text": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "bb2b324c-970a-4920-884e-c92ba49669f0",
+        "name": "Tamiyo\u0027s Safekeeping",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tamiyo\u0027s Safekeeping",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        },
+                        "upTo": false,
+                        "key": "perm",
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "perm"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life."
+              }
+            ],
+            "oracleText": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "permanent": true
+                        },
+                        "upTo": false,
+                        "key": "perm",
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "perm"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "You"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target permanent you control gains hexproof and indestructible until end of turn. You gain 2 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

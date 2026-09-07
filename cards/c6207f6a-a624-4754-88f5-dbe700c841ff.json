@@ -1,0 +1,296 @@
+{
+  "oracleId": "c6207f6a-a624-4754-88f5-dbe700c841ff",
+  "name": "Sign in Blood",
+  "oracleHash": "sha256:3f5a30580f494fb753f6eaecf5459da71874af81c58a46fb77b74643aabc12c5",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c6207f6a-a624-4754-88f5-dbe700c841ff",
+    "name": "Sign in Blood",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sign in Blood",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "player"
+                  }
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "RememberedPlayer",
+                    "key": "player"
+                  }
+                }
+              ]
+            },
+            "text": "Target player draws two cards and loses 2 life."
+          }
+        ],
+        "oracleText": "Target player draws two cards and loses 2 life.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TargetPlayer",
+                    "filter": {},
+                    "upTo": false,
+                    "key": "player"
+                  }
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "RememberedPlayer",
+                    "key": "player"
+                  }
+                }
+              ]
+            },
+            "text": "Target player draws two cards and loses 2 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "c6207f6a-a624-4754-88f5-dbe700c841ff",
+        "name": "Sign in Blood",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sign in Blood",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "TargetPlayer",
+                        "filter": {},
+                        "upTo": false,
+                        "key": "player"
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "RememberedPlayer",
+                        "key": "player"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target player draws two cards and loses 2 life."
+              }
+            ],
+            "oracleText": "Target player draws two cards and loses 2 life.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "TargetPlayer",
+                        "filter": {},
+                        "upTo": false,
+                        "key": "player"
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "RememberedPlayer",
+                        "key": "player"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target player draws two cards and loses 2 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "c6207f6a-a624-4754-88f5-dbe700c841ff",
+        "name": "Sign in Blood",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sign in Blood",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "TargetPlayer",
+                        "filter": {},
+                        "upTo": false,
+                        "key": "target"
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "ChosenPlayer",
+                        "key": "target"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target player draws two cards and loses 2 life."
+              }
+            ],
+            "oracleText": "Target player draws two cards and loses 2 life.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "TargetPlayer",
+                        "filter": {},
+                        "upTo": false,
+                        "key": "target"
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 2
+                      },
+                      "who": {
+                        "kind": "ChosenPlayer",
+                        "key": "target"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target player draws two cards and loses 2 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

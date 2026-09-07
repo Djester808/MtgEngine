@@ -1,0 +1,484 @@
+{
+  "oracleId": "2e467fab-e808-44d3-99bf-e3621baeb7cb",
+  "name": "Erode",
+  "oracleHash": "sha256:fb427ca9dbf0707beb8b8f9a66eee2ca044bfe598591ae18a66a517c3882c954",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2e467fab-e808-44d3-99bf-e3621baeb7cb",
+    "name": "Erode",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Erode",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "key": "it",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "it"
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "it"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ]
+                    },
+                    "upTo": false,
+                    "key": "it",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "it"
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": true,
+                    "shuffleAfter": true
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "it"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "2e467fab-e808-44d3-99bf-e3621baeb7cb",
+        "name": "Erode",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Erode",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Creature",
+                            "Planeswalker"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "it",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "it"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "it"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Creature",
+                            "Planeswalker"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "it",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "it"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "it"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "2e467fab-e808-44d3-99bf-e3621baeb7cb",
+        "name": "Erode",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Erode",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Creature",
+                            "Planeswalker"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "creature",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Creature",
+                                "Planeswalker"
+                              ]
+                            },
+                            "upTo": false,
+                            "key": "creature",
+                            "distinct": true
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Creature",
+                              "Planeswalker"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Creature",
+                            "Planeswalker"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "creature",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Creature",
+                                "Planeswalker"
+                              ]
+                            },
+                            "upTo": false,
+                            "key": "creature",
+                            "distinct": true
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Creature",
+                              "Planeswalker"
+                            ]
+                          },
+                          "upTo": false,
+                          "key": "creature",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy target creature or planeswalker. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

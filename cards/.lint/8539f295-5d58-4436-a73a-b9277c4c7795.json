@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L013",
+      "message": "A Disputed file must keep both readings in Candidates.",
+      "path": "status"
+    }
+  ],
+  "hasErrors": true
+}

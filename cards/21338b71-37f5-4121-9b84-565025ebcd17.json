@@ -1,0 +1,470 @@
+{
+  "oracleId": "21338b71-37f5-4121-9b84-565025ebcd17",
+  "name": "Black Market",
+  "oracleHash": "sha256:3066d712a7428dceeebf05d4a3c6da651b7f76382891df238d4026be3924645c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "21338b71-37f5-4121-9b84-565025ebcd17",
+    "name": "Black Market",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Black Market",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{B}{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Self"
+              },
+              "counter": "charge",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature dies, put a charge counter on this enchantment."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "PrecombatMain",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              },
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+          }
+        ],
+        "oracleText": "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Self"
+              },
+              "counter": "charge",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature dies, put a charge counter on this enchantment."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "PrecombatMain",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "who": {
+                "kind": "You"
+              },
+              "n": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "21338b71-37f5-4121-9b84-565025ebcd17",
+        "name": "Black Market",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Black Market",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "charge",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature dies, put a charge counter on this enchantment."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "PrecombatMain",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+              }
+            ],
+            "oracleText": "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "charge",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature dies, put a charge counter on this enchantment."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "PrecombatMain",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "21338b71-37f5-4121-9b84-565025ebcd17",
+        "name": "Black Market",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Black Market",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "charge",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature dies, put a charge counter on this enchantment."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "PrecombatMain",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+              }
+            ],
+            "oracleText": "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Self"
+                  },
+                  "counter": "charge",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature dies, put a charge counter on this enchantment."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "PrecombatMain",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{B}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "n": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

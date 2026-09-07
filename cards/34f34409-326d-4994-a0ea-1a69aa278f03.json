@@ -1,0 +1,465 @@
+{
+  "oracleId": "34f34409-326d-4994-a0ea-1a69aa278f03",
+  "name": "Sheoldred, the Apocalypse",
+  "oracleHash": "sha256:9b94bf655673f4135b06827f26d106aea852cb338d0e9bdfc9ecc9bc29dee437",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "34f34409-326d-4994-a0ea-1a69aa278f03",
+    "name": "Sheoldred, the Apocalypse",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sheoldred, the Apocalypse",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Phyrexian",
+            "Praetor"
+          ],
+          "subtypeList": [
+            "Phyrexian",
+            "Praetor"
+          ]
+        },
+        "manaCost": "{2}{B}{B}",
+        "power": {
+          "text": "4",
+          "number": 4
+        },
+        "toughness": {
+          "text": "5",
+          "number": 5
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Deathtouch",
+            "text": "Deathtouch"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "You"
+              },
+              "firstEachTurn": false
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you draw a card, you gain 2 life."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "firstEachTurn": false
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "TriggeringPlayer"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent draws a card, they lose 2 life."
+          }
+        ],
+        "oracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Deathtouch",
+            "text": "Deathtouch"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "You"
+              },
+              "firstEachTurn": false
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you draw a card, you gain 2 life."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "firstEachTurn": false
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "TriggeringPlayer"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent draws a card, they lose 2 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Deathtouch"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "34f34409-326d-4994-a0ea-1a69aa278f03",
+        "name": "Sheoldred, the Apocalypse",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sheoldred, the Apocalypse",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Phyrexian",
+                "Praetor"
+              ],
+              "subtypeList": [
+                "Phyrexian",
+                "Praetor"
+              ]
+            },
+            "manaCost": "{2}{B}{B}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "5",
+              "number": 5
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Deathtouch",
+                "text": "Deathtouch"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you draw a card, you gain 2 life."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent draws a card, they lose 2 life."
+              }
+            ],
+            "oracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Deathtouch",
+                "text": "Deathtouch"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you draw a card, you gain 2 life."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent draws a card, they lose 2 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "34f34409-326d-4994-a0ea-1a69aa278f03",
+        "name": "Sheoldred, the Apocalypse",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sheoldred, the Apocalypse",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Phyrexian",
+                "Praetor"
+              ],
+              "subtypeList": [
+                "Phyrexian",
+                "Praetor"
+              ]
+            },
+            "manaCost": "{2}{B}{B}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "5",
+              "number": 5
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Deathtouch",
+                "text": "Deathtouch"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you draw a card, you gain 2 life."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent draws a card, they lose 2 life."
+              }
+            ],
+            "oracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Deathtouch",
+                "text": "Deathtouch"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you draw a card, you gain 2 life."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Draws",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "firstEachTurn": false
+                },
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "TriggeringPlayer"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent draws a card, they lose 2 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Deathtouch"
+  ],
+  "scenarioList": []
+}

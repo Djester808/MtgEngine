@@ -1,0 +1,326 @@
+{
+  "oracleId": "8ae98ef8-8f52-4877-a08c-1fae5514184e",
+  "name": "Decanter of Endless Water",
+  "oracleHash": "sha256:dc3b167ae04dd78ee37eb1efb11a3e71f814aff7b23a66b5cfd56b6a3a97a1cf",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8ae98ef8-8f52-4877-a08c-1fae5514184e",
+    "name": "Decanter of Endless Water",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Decanter of Endless Water",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ],
+        "oracleText": "You have no maximum hand size.\n{T}: Add one mana of any color.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "NoMaxHandSize",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You have no maximum hand size."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8ae98ef8-8f52-4877-a08c-1fae5514184e",
+        "name": "Decanter of Endless Water",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Decanter of Endless Water",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color."
+              }
+            ],
+            "oracleText": "You have no maximum hand size.\n{T}: Add one mana of any color.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8ae98ef8-8f52-4877-a08c-1fae5514184e",
+        "name": "Decanter of Endless Water",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Decanter of Endless Water",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color."
+              }
+            ],
+            "oracleText": "You have no maximum hand size.\n{T}: Add one mana of any color.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "NoMaxHandSize",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You have no maximum hand size."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

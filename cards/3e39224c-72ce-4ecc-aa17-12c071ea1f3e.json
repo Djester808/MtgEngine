@@ -1,0 +1,95 @@
+{
+  "oracleId": "3e39224c-72ce-4ecc-aa17-12c071ea1f3e",
+  "name": "Krosan Grip",
+  "oracleHash": "sha256:c65b7b1a4ee6b270c979fbba4bb4db9035c04d35bc41359f4c1adf0b4f08456b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3e39224c-72ce-4ecc-aa17-12c071ea1f3e",
+    "name": "Krosan Grip",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Krosan Grip",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "SplitSecond",
+            "text": "Split second"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target artifact or enchantment."
+          }
+        ],
+        "oracleText": "Split second (As long as this spell is on the stack, players can\u0027t cast spells or activate abilities that aren\u0027t mana abilities.)\nDestroy target artifact or enchantment.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "SplitSecond",
+            "text": "Split second"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy target artifact or enchantment."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Split second"
+  ],
+  "keywordList": [
+    "Split second"
+  ],
+  "scenarioList": []
+}

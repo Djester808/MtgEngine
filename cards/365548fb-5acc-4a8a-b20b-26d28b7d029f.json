@@ -1,0 +1,220 @@
+{
+  "oracleId": "365548fb-5acc-4a8a-b20b-26d28b7d029f",
+  "name": "Village Rites",
+  "oracleHash": "sha256:c35fcea4edc49b0a5e42bbaec5073eb29a951b12fda9f6f99cf0bc35e4b68872",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "365548fb-5acc-4a8a-b20b-26d28b7d029f",
+    "name": "Village Rites",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Village Rites",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "text": "Draw two cards."
+          }
+        ],
+        "additionalCosts": [
+          {
+            "kind": "SacrificeCost",
+            "what": {
+              "types": [
+                "Creature"
+              ],
+              "controlledBy": {
+                "kind": "You"
+              }
+            },
+            "count": {
+              "kind": "Fixed",
+              "n": 1
+            }
+          }
+        ],
+        "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "text": "Draw two cards."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "365548fb-5acc-4a8a-b20b-26d28b7d029f",
+        "name": "Village Rites",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Village Rites",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "text": "Draw two cards."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "text": "Draw two cards."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "365548fb-5acc-4a8a-b20b-26d28b7d029f",
+        "name": "Village Rites",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Village Rites",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "text": "Draw two cards."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "text": "Draw two cards."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

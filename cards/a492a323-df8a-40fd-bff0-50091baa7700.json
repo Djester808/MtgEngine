@@ -1,0 +1,717 @@
+{
+  "oracleId": "a492a323-df8a-40fd-bff0-50091baa7700",
+  "name": "Kenrith\u0027s Transformation",
+  "oracleHash": "sha256:e036ee79e56974f4f40177083e069ec50143a554508b426d7a62895fd4769037",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "a492a323-df8a-40fd-bff0-50091baa7700",
+    "name": "Kenrith\u0027s Transformation",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Kenrith\u0027s Transformation",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Aura"
+          ],
+          "subtypeList": [
+            "Aura"
+          ]
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "types": [
+                "Creature"
+              ]
+            },
+            "text": "Enchant creature"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this Aura enters, draw a card."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LoseAllAbilities"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetColors",
+              "colors": [
+                "Green"
+              ]
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetTypes",
+              "types": [
+                "Creature"
+              ],
+              "subtypes": [
+                "Elk"
+              ],
+              "keepSubtypes": false
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          }
+        ],
+        "oracleText": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3. (It loses all other card types and creature types.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "types": [
+                "Creature"
+              ]
+            },
+            "text": "Enchant creature"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this Aura enters, draw a card."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LoseAllAbilities"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetColors",
+              "colors": [
+                "Green"
+              ]
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetTypes",
+              "types": [
+                "Creature"
+              ],
+              "subtypes": [
+                "Elk"
+              ],
+              "keepSubtypes": false
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Enchant"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "a492a323-df8a-40fd-bff0-50091baa7700",
+        "name": "Kenrith\u0027s Transformation",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kenrith\u0027s Transformation",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this Aura enters, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetColors",
+                  "colors": [
+                    "Green"
+                  ]
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Elk"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              }
+            ],
+            "oracleText": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3. (It loses all other card types and creature types.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this Aura enters, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetColors",
+                  "colors": [
+                    "Green"
+                  ]
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Elk"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "a492a323-df8a-40fd-bff0-50091baa7700",
+        "name": "Kenrith\u0027s Transformation",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kenrith\u0027s Transformation",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this Aura enters, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetColors",
+                  "colors": [
+                    "Green"
+                  ]
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Elk"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              }
+            ],
+            "oracleText": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this Aura enters, draw a card."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetColors",
+                  "colors": [
+                    "Green"
+                  ]
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Elk"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Enchant"
+  ],
+  "scenarioList": []
+}

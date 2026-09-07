@@ -1,0 +1,608 @@
+{
+  "oracleId": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+  "name": "Bolas\u0027s Citadel",
+  "oracleHash": "sha256:5649afe2f6ae7c7694d7752da63eea6090347eebc677fd1f1ab6c18e0411729e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+    "name": "Bolas\u0027s Citadel",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Bolas\u0027s Citadel",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{B}{B}{B}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayLookAtTopCard",
+              "who": {
+                "kind": "You"
+              },
+              "anyTime": true
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may look at the top card of your library any time."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayPlayFromZone",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "topOfLibraryOnly": true
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SpellsCostLifeInsteadOfMana",
+              "who": {
+                "kind": "You"
+              },
+              "colors": []
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "permanent": true
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 10
+                }
+              }
+            ],
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 10
+              },
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+          }
+        ],
+        "oracleText": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\n{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayLookAtTopCard",
+              "who": {
+                "kind": "You"
+              },
+              "anyTime": true
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may look at the top card of your library any time."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayPlayFromZone",
+              "who": {
+                "kind": "You"
+              },
+              "from": "Library",
+              "topOfLibraryOnly": true
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SpellsCostLifeInsteadOfMana",
+              "who": {
+                "kind": "You"
+              },
+              "colors": []
+            },
+            "players": {
+              "kind": "You"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "permanent": true
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 10
+                }
+              }
+            ],
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 10
+              },
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-55304d1efc47",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+        "name": "Bolas\u0027s Citadel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bolas\u0027s Citadel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SpellsCostLifeInsteadOfMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "colors": []
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ],
+            "oracleText": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\n{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SpellsCostLifeInsteadOfMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "colors": []
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+        "name": "Bolas\u0027s Citadel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bolas\u0027s Citadel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SpellsCostLifeInsteadOfMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "colors": []
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ],
+            "oracleText": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\n{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SpellsCostLifeInsteadOfMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "colors": []
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}
