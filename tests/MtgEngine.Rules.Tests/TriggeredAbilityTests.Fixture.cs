@@ -42,16 +42,31 @@ internal sealed class TriggeredAbilityBoard
     public static CardDefinition Creature(string name, Ability[]? abilities = null) =>
         Definition(name, CardType.Creature, abilities, 2, 2);
 
-    /// <summary>Puts an object into a zone and hands back the event that put it there, which is what a trigger sees.</summary>
-    public ObjectCreated Put(CardDefinition definition, int controller = 0, Zone zone = Zone.Battlefield, ObjectId? attachedTo = null, bool token = false)
+    /// <summary>
+    /// Puts an object into a zone and hands back the event that put it there, which is what a
+    /// trigger sees. An <paramref name="owner"/> other than the controller is a permanent someone
+    /// has taken control of, which is the only way the look-back's controller differs from the new
+    /// object's (CR 108.4: a card in a graveyard is its owner's).
+    /// </summary>
+    public ObjectCreated Put(
+        CardDefinition definition,
+        int controller = 0,
+        Zone zone = Zone.Battlefield,
+        ObjectId? attachedTo = null,
+        bool token = false,
+        int? owner = null,
+        string? counter = null)
     {
         var seat = new PlayerId(controller);
         var created = new ObjectCreated(
-            new GameObject(new ObjectId(State.NextObjectId), definition, 0, seat, seat, Key(zone, seat), State.NextTimestamp)
+            new GameObject(new ObjectId(State.NextObjectId), definition, 0, new PlayerId(owner ?? controller), seat, Key(zone, seat), State.NextTimestamp)
             {
                 SummoningSick = false,
                 AttachedTo = attachedTo,
                 IsToken = token,
+                Counters = counter is null
+                    ? ImmutableDictionary<string, int>.Empty
+                    : ImmutableDictionary<string, int>.Empty.SetItem(counter, 1),
             },
             -1);
         State = created.Apply(State);
@@ -60,19 +75,30 @@ internal sealed class TriggeredAbilityBoard
 
     public ObjectId Id(ObjectCreated created) => created.Object.Id;
 
-    /// <summary>The battlefield to the graveyard, CR 700.4: the object that left is gone from the state by the time triggers are collected.</summary>
-    public ObjectMoved Kill(ObjectId id)
+    /// <summary>
+    /// The battlefield to the graveyard, CR 700.4: the object that left is gone from the state by
+    /// the time triggers are collected. The card in the graveyard is a new object (CR 400.7) that
+    /// kept none of the permanent's counters, damage or control, exactly as
+    /// <c>ZoneSystem.Reborn</c> makes it, and the move carries the permanent as it last existed so
+    /// the look-back of CR 603.10 has something true to read. <paramref name="carryDeparted"/>
+    /// false is the older shape of the event, for the arm that still has to cope with it.
+    /// </summary>
+    public ObjectMoved Kill(ObjectId id, bool carryDeparted = true)
     {
         var obj = State.Objects[id];
-        var dead = obj with
+        var dead = new GameObject(
+            new ObjectId(State.NextObjectId),
+            obj.Definition,
+            obj.FaceIndex,
+            obj.Owner,
+            obj.Owner,
+            ZoneKey.Of(Zone.Graveyard, obj.Owner),
+            State.NextTimestamp)
         {
-            Id = new ObjectId(State.NextObjectId),
-            Zone = ZoneKey.Of(Zone.Graveyard, obj.Owner),
-            Timestamp = State.NextTimestamp,
-            AttachedTo = null,
-            Damage = 0,
+            IsToken = obj.IsToken,
+            IsCommander = obj.IsCommander,
         };
-        var moved = new ObjectMoved(id, dead, -1);
+        var moved = new ObjectMoved(id, dead, -1, carryDeparted ? obj : null);
         State = moved.Apply(State);
         return moved;
     }

@@ -87,24 +87,17 @@ public sealed class QueryBacklogTests
 
     /// <summary>
     /// Morbid is "a creature died" and revolt is "a permanent you controlled left the battlefield"
-    /// (CR 603.10). Both need the departed object, which the history does not keep yet, so each
-    /// assertion below is written against <see cref="TurnFacts.KeepsDepartedObjects"/>: it passes
-    /// today on the unqualified count and passes on the rule itself once the seam lands. The
-    /// waiting assertions are the two <c>Assert.Equal(qualified, ...)</c> lines — today they assert
-    /// the wrong-but-honest yes, and after the seam they assert the no the rule wants.
+    /// (CR 603.10). Both read the departed object the history now keeps, so both are qualified: a
+    /// sacrificed land is not morbid and an opponent's dead creature does not enable your revolt.
     /// </summary>
     [Fact]
     [RuleRef("603.10")]
-    public void Morbid_is_a_creature_and_revolt_is_a_permanent_you_controlled_once_the_history_keeps_them()
+    public void Morbid_is_a_creature_and_revolt_is_a_permanent_you_controlled()
     {
-        var qualified = TurnFacts.KeepsDepartedObjects;
-
         var land = new Board();
         var sacrificed = land.Put(Board.Definition("qb soil", CardType.Land));
         _ = Move(land, sacrificed, Zone.Graveyard);
-
-        // A land dying is not morbid. Until the object is kept, "something died" is all the state says.
-        Assert.Equal(!qualified, Holds(land, new Morbid()));
+        Assert.False(Holds(land, new Morbid()));
 
         var creature = new Board();
         var doomed = creature.Put(Board.Creature(2, 2));
@@ -115,18 +108,18 @@ public sealed class QueryBacklogTests
         var theirs = new Board();
         var opponents = theirs.Put(Board.Creature(2, 2), owner: 1);
         _ = Move(theirs, opponents, Zone.Graveyard);
-        Assert.Equal(!qualified, Holds(theirs, new Revolt(new You())));
+        Assert.False(Holds(theirs, new Revolt(new You())));
         Assert.True(Holds(theirs, new Revolt(new EachOpponent())));
     }
 
     /// <summary>
-    /// A question about one source and one receiver, CR 120.3. The history totals damage per source
-    /// and per receiver and never per pair, so both spellings refuse today; with the map they answer
-    /// the sum of that pair. Every assertion here is against <see cref="TurnFacts.KeepsDamagePairs"/>.
+    /// A question about one source and one receiver, CR 120.3, which the two totals cannot answer
+    /// between them: the pair map answers both spellings, and a source that dealt its damage to
+    /// someone else answers no rather than borrowing another source's total.
     /// </summary>
     [Fact]
     [RuleRef("120.3")]
-    public void Damage_from_one_source_to_one_player_is_refused_until_the_history_keeps_the_pair()
+    public void Damage_from_one_source_to_one_player_is_read_from_the_pair_map()
     {
         var board = new Board();
         var source = board.Put(Board.Creature(3, 3));
@@ -137,17 +130,9 @@ public sealed class QueryBacklogTests
         var predicate = new DealtDamageThisTurn(new EachOpponent());
         var amount = new DamageDealtThisTurn(new Each(ObjectFilter.Creature), new EachOpponent());
 
-        if (TurnFacts.KeepsDamagePairs)
-        {
-            Assert.True(Holds(board, predicate, source));
-            Assert.False(Holds(board, predicate, other));
-            Assert.Equal(2, Value(board, amount));
-        }
-        else
-        {
-            Assert.Throws<RefusedException>(() => Holds(board, predicate, source));
-            Assert.Throws<RefusedException>(() => Value(board, amount));
-        }
+        Assert.True(Holds(board, predicate, source));
+        Assert.False(Holds(board, predicate, other));
+        Assert.Equal(2, Value(board, amount));
 
         // The unpaired questions are answered from the totals either way.
         Assert.True(Holds(board, new DealtDamageThisTurn(), source));
@@ -155,20 +140,17 @@ public sealed class QueryBacklogTests
     }
 
     /// <summary>
-    /// "The first time this ability resolves each turn", CR 603.4. Nothing tallies resolutions, so
-    /// the condition refuses; with the tally in place a source that has not resolved answers yes.
+    /// "The first time this ability resolves each turn", CR 603.4: the tally counts resolutions
+    /// that have finished, so a source whose ability has not resolved this turn answers yes.
     /// </summary>
     [Fact]
     [RuleRef("603.4")]
-    public void The_first_time_this_turn_is_refused_until_the_history_counts_resolutions()
+    public void The_first_time_this_turn_reads_the_turns_resolution_tally()
     {
         var board = new Board();
         var source = board.Put(Board.Creature(1, 1));
 
-        if (TurnFacts.CountsResolutions)
-            Assert.True(Holds(board, new FirstTimeThisTurn(), source));
-        else
-            Assert.Throws<RefusedException>(() => Holds(board, new FirstTimeThisTurn(), source));
+        Assert.True(Holds(board, new FirstTimeThisTurn(), source));
     }
 
     [Fact]
@@ -368,31 +350,28 @@ public sealed class QueryBacklogTests
         Assert.False(Holds(board, new GiftPromised(), source: spell));
     }
 
+    /// <summary>
+    /// The three questions this class was written around are all answered from the turn's history
+    /// now. A question the state genuinely cannot answer still refuses by name rather than
+    /// guessing: nothing records that a permanent is a copy, CR 707.10.
+    /// </summary>
     [Fact]
-    [RuleRef("603.4")]
-    public void A_question_the_state_still_cannot_answer_refuses_instead_of_throwing()
+    [RuleRef("707.10")]
+    public void A_question_the_state_still_cannot_answer_refuses_by_name()
     {
         var board = new Board();
-        _ = board.Put(Board.Creature(1, 1));
+        var permanent = board.Put(Board.Creature(1, 1));
 
-        if (!TurnFacts.CountsResolutions)
-        {
-            var refused = Assert.Throws<RefusedException>(() => Holds(board, new FirstTimeThisTurn()));
-            Assert.Contains(nameof(FirstTimeThisTurn), refused.Reason, StringComparison.Ordinal);
-            Assert.Equal("603.4", refused.Rule);
-        }
+        var refused = Assert.Throws<RefusedException>(() => Holds(board, new IsCopy(), permanent));
+        Assert.Contains(nameof(IsCopy), refused.Reason, StringComparison.Ordinal);
 
-        // The pair of source and receiver is not recorded, so this refuses rather than guessing.
-        if (!TurnFacts.KeepsDamagePairs)
-        {
-            Assert.Throws<RefusedException>(
-                () => Value(board, new DamageDealtThisTurn(new Each(ObjectFilter.Creature), new You())));
-        }
+        // And the questions that used to refuse are answered: no source has dealt damage to anyone.
+        Assert.Equal(0, Value(board, new DamageDealtThisTurn(new Each(ObjectFilter.Creature), new You())));
     }
 
     [Fact]
     [RuleRef("101.4")]
-    public void A_game_holding_a_card_the_query_cannot_answer_refuses_the_command()
+    public void A_game_whose_trigger_asks_about_this_turn_plays_the_land_the_command_names()
     {
         var game = new Game(Subsystems.Wave2(), new QueryBacklogDefinitions());
         var deck = Enumerable.Repeat(QueryBacklogDefinitions.SoilId, 12).ToImmutableList();
@@ -413,18 +392,9 @@ public sealed class QueryBacklogTests
         var land = state.In(ZoneKey.Of(Zone.Hand, state.Turn.ActivePlayer))[0];
         var result = game.Apply(state, new PlayLand(state.Turn.ActivePlayer, land));
 
-        // The trigger's intervening "if" asks a question nothing answers (CR 603.4). The table is
-        // told which primitive is missing; the game does not die with the command half applied.
-        // Once the history counts resolutions the question has an answer and the land is played.
-        if (TurnFacts.CountsResolutions)
-        {
-            Assert.IsType<Applied>(result);
-        }
-        else
-        {
-            var refusal = Assert.IsType<Refused>(result);
-            Assert.Contains(nameof(FirstTimeThisTurn), refusal.Reason, StringComparison.Ordinal);
-        }
+        // The trigger's intervening "if" asks "the first time this turn" (CR 603.4). The turn's
+        // resolution tally answers it, so the land is played rather than the command refused.
+        Assert.IsType<Applied>(result);
     }
 
     private static ImmutableList<Face> Costed(string manaCost) =>

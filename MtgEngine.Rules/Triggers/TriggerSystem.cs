@@ -41,7 +41,71 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
             fired.AddRange(FromDelayed(lookback, since[i], window));
         }
 
-        return fired.Count == 0 ? Outcome.Unchanged(state) : PutOnStack(state, Apnap(state, fired.ToImmutable()));
+        var kept = OncePerTurn(state, fired.ToImmutable());
+        return kept.Count == 0 ? Outcome.Unchanged(state) : PutOnStack(state, Apnap(state, kept));
+    }
+
+    /// <summary>
+    /// "This ability triggers only once each turn", CR 603.2h: an ability so worded triggers only
+    /// while its controller has not already taken the action this turn. The rule is about
+    /// triggering, not about resolving, so a trigger that is on the stack and has not resolved yet
+    /// counts; and nothing in the state records a firing on its own. So a firing is already spent
+    /// when either the turn's resolution tally has counted one for that ability
+    /// (<see cref="TurnHistory.AbilitiesResolvedThisTurn"/>, keyed the way
+    /// <c>StackObjectResolved</c> folds it) or a stack object of that source and index is waiting.
+    /// Within one batch of events the ability fires for the first event only, because the stack
+    /// object for it does not exist until the whole batch has been collected.
+    ///
+    /// The one firing this misses is a trigger that fired and then left the stack without
+    /// resolving — countered, or its source's ability removed. Counting that would need the
+    /// history to record firings as well as resolutions, which is a field on a record this
+    /// subsystem does not own; the two readings it does have are exact for every other case.
+    /// </summary>
+    [RuleRef("603.2h")]
+    private static ImmutableList<Firing> OncePerTurn(GameState state, ImmutableList<Firing> fired)
+    {
+        var kept = ImmutableList.CreateBuilder<Firing>();
+        var already = new HashSet<(ObjectId? Source, int Index)>();
+        foreach (var firing in fired)
+        {
+            if (firing.Ability.OncePerTurn
+                && (!already.Add((firing.Source, firing.AbilityIndex)) || Spent(state, firing.Source, firing.AbilityIndex)))
+            {
+                continue;
+            }
+
+            kept.Add(firing);
+        }
+
+        return kept.ToImmutable();
+    }
+
+    /// <summary>
+    /// Whether this ability has already triggered this turn: it resolved (CR 608.2, the tally the
+    /// resolution folds) or it is on the stack waiting to (CR 603.3). An ability with no source
+    /// object — a delayed trigger, CR 603.7 — has no key in either, and is spent by its own
+    /// <see cref="DelayedTriggerState"/> instead.
+    /// </summary>
+    [RuleRef("603.2h")]
+    private static bool Spent(GameState state, ObjectId? source, int index)
+    {
+        if (source is not { } id)
+            return false;
+        if (state.History.AbilitiesResolvedThisTurn.GetValueOrDefault((id, index)) > 0)
+            return true;
+
+        foreach (var onStack in state.In(ZoneKey.Shared(Zone.Stack)))
+        {
+            if (state.Objects.TryGetValue(onStack, out var obj)
+                && obj.Stack is { } entry
+                && (entry.Source ?? obj.Id) == id
+                && (entry.AbilityIndex ?? -1) == index)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>What triggered, and everything needed to make its stack object.</summary>
@@ -52,6 +116,13 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     /// object left. The batch says what left — <see cref="TurnHistory.LeftBattlefield"/> is folded
     /// by the move itself — so the object is put back on the battlefield for the length of the
     /// match and nothing else about the state is touched.
+    ///
+    /// The object put back is the one the move carries: <see cref="Ev.ObjectMoved.Departed"/> is
+    /// the permanent as it last existed, with its counters, its damage and the player who
+    /// controlled it. The new object in the graveyard is a different object (CR 400.7) that kept
+    /// none of that, so rebuilding from it answers "a 2/2 its owner controlled" where the rule
+    /// asks about the 3/3 someone had stolen. That rebuild is kept only for a move that carries
+    /// no departed object, which is a fake in a test rather than anything the zone system emits.
     /// </summary>
     [RuleRef("603.10")]
     private static GameState LookBack(GameState state, GameEvent happened)
@@ -62,7 +133,7 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
             return state;
 
         var battlefield = ZoneKey.Shared(Zone.Battlefield);
-        var departed = moved.To with { Id = moved.From, Zone = battlefield, Stack = null };
+        var departed = (moved.Departed ?? moved.To) with { Id = moved.From, Zone = battlefield, Stack = null };
         return state with
         {
             Objects = state.Objects.SetItem(moved.From, departed),
