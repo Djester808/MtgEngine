@@ -227,3 +227,25 @@ Requests from `seam-requests/E6c.md`, `E4d.md`, `E5d.md`, `E3g.md`, `E0d.md`, `E
 | P12 | `ActivateStep.ManaColors` and the command's colours for "add one mana of any color" (CR 608.2d) | **Now**: `ActivateStep.ManaColors` and `ActivateAbility.ManaColors`; E3h reads the command, P13 generates the step. |
 | P12 | a way to hand `VerifyCommand` a runner so its crash path keeps a test | **P13** (the construction is P-series). |
 | coordinator | verify on the wave-9 tip | **83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed** (`efe1146`). The four carry `Unsupported` markers from translations that predate V3–V6 (gift, a chosen colour's devotion, a two-zone search, two lands sharing a type); all four are re-translation items and wait on credits. |
+
+# Seam decisions after wave 10
+
+Requests from `seam-requests/V7.md`, `E0e.md`, `E5e.md`, `E6d.md`, `E4e.md`, `E9i.md`, `E3h.md`,
+`P13.md`, `EINT4.md`. Wave 10 ran from the seam commit `2e0c855`; the join `44c0ac2` flipped the
+priority assertion E4e closed.
+
+| From | Request | Decision |
+|---|---|---|
+| V7 | `Enchant` was in the linter's required-parameter table, so "enchant player" and "enchant anything" were `L005` errors against the wave-9 decision | **Accepted**: the rule is removed; `L017` lints an activation's colours. |
+| V7 | a colour-set reference (`ColorSetRef`) would move `IrVersion`; one pilot card wants it | **Deferred** until a second card does. |
+| E0e | `CantBeTargeted`, `CantBeEnchanted` and `CantWin` are computed and read by nobody; the interpreter's "you lose the game" does not ask `CantLose`; the player half of `MatchesAnyTarget` has no caller | **Wave 11**: casting reads `CantBeTargeted` at target choice (601.2c) and resolution (608.2b) and `CantBeEnchanted` for an Aura; the interpreter asks `CantLose` (CR 104.3b) and `CantWin`. |
+| E0e | `CantDrawMoreThan` cannot be a `PlayerLimits` flag because the layers hold no `IQuery` for its amount | **Accepted**; the draw reader evaluates the amount when a card needs it. |
+| E5e | `DamageDealt.Apply` folds the life loss itself, so a frozen life total drops the whole damage event; asks for the life loss as its own `LifeChanged` | **Wave 11 seam**: `DamageDealt` emits the life change as a sibling `LifeChanged` so damage still triggers and lifelink still gains. |
+| E5e | `PlayerLimits.LifeTotalCantChange` cites CR 119.3, which says the opposite | **Now-ish**: E0e's file; corrected to 119.7/119.8 in the wave-11 seam commit. |
+| E6d | `IQuery.PlayerMatches` is load-bearing for triggers | **Landed with E0e in the same batch**; the sequencing note is moot. |
+| E4e | `ITurnSystem.OpenStep(state)` so the choice system stops duplicating `GrantPriority` | **Wave 11 seam** (default `Unchanged`). |
+| E4e | a question raised by answering a question lost the batch's marks | **Fixed in Choices** (no seam). |
+| E9i | `AddMana` with `SpendOnlyOn` now makes a restricted block (CR 106.6b) where wave 9 made plain mana | **Accepted** as the rule. |
+| E9i | CR 704.5e for a copy that ceases to exist; the zone system's `CopyInPlace` still throws | **Wave 11**: a zone builder implements `CopyInPlace`; the state-based action lands with it. |
+| E3h | `EffectInterpreter.Retarget.cs` had to move to `CastInstructed` or a free may-cast is refused | **Landed with E9i in the same batch**. |
+| coordinator | the wave-10 join | Rules 702 green on the joined tip before P13 and EINT4. |
