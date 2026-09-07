@@ -18,6 +18,8 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<CollectionCardEvent> CollectionCardEvents => Set<CollectionCardEvent>();
     public DbSet<LifeMatch> LifeMatches => Set<LifeMatch>();
     public DbSet<LifeMatchSeat> LifeMatchSeats => Set<LifeMatchSeat>();
+    public DbSet<PersistedGame> PersistedGames => Set<PersistedGame>();
+    public DbSet<GameReport> GameReports => Set<GameReport>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -331,6 +333,32 @@ public sealed class MtgEngineDbContext : DbContext
 
             // The read this table exists for: one player's record.
             entity.HasIndex(e => e.UserId);
+        });
+
+        // PersistedGame — the event log, and nothing folded from it.
+        modelBuilder.Entity<PersistedGame>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Format).IsRequired().HasMaxLength(32);
+            entity.Property(e => e.SeatsJson).IsRequired();
+            entity.Property(e => e.LogJson).IsRequired();
+
+            // The sweep's read: which tables are still going.
+            entity.HasIndex(e => new { e.Finished, e.UpdatedAt });
+        });
+
+        // GameReport — a card that did not play as printed, from a log position.
+        modelBuilder.Entity<GameReport>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.GameId).IsRequired();
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.OracleId).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Note).HasMaxLength(500);
+
+            // The pipeline's read: every report about one card, oldest first.
+            entity.HasIndex(e => new { e.OracleId, e.CreatedAt });
+            entity.HasIndex(e => e.GameId);
         });
     }
 }
