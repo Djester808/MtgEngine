@@ -39,7 +39,7 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     public Outcome PlayLand(GameState state, PlayLand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var card = InHand(state, command.Card, command.Player, "305.1");
+        var card = Playable(state, command.Card, command.Player, "305.1");
         var face = LandFace(state, card, command.FaceIndex);
         RequireSorcerySpeed(state, command.Player, "305.1");
 
@@ -176,9 +176,10 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         if (chars is not null && IsPermanentSpell(chars.Types))
         {
             ObjectId? attach = null;
+            PlayerId? attachPlayer = null;
             if (IsAura(chars))
             {
-                var (to, illegal) = AuraAttachment(state, obj, chars);
+                var (to, toPlayer, illegal) = AuraAttachment(state, obj, chars);
 
                 // CR 608.2b: a spell all of whose targets are illegal as it resolves does not
                 // resolve; it is removed from the stack and put where CR 608.2m sends it.
@@ -189,13 +190,14 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
                 }
 
                 attach = to;
+                attachPlayer = toPlayer;
             }
 
             var moved = zones.Move(state, top, ZoneKey.Of(CardZone.Battlefield, controller), controller: controller);
 
-            // CR 303.4f: an Aura enters attached to what it was cast at, so the attachment is
-            // part of the permanent's arrival rather than something a later action does.
-            var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true, AttachedTo: attach);
+            // CR 303.4f: an Aura enters attached to the object or the player it was cast at (the
+            // two exclude each other), so the attachment is part of the permanent's arrival.
+            var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true, AttachedTo: attach, AttachedToPlayer: attachPlayer);
             ImmutableList<GameEvent> events = [.. moved.Events, sick, resolved];
             return new Outcome(GameReducer.Apply(moved.State, [sick, resolved]), events);
         }
@@ -315,29 +317,31 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     /// that no longer matches the enchant ability's filter (CR 702.5b), is illegal, and a spell
     /// all of whose targets are illegal does not resolve.
     /// <para>
-    /// An Aura cast at a player is the case this cannot do: <see cref="GameObject"/> has nowhere to
-    /// keep a player attachment (seam-requests/E3e.md, and the wave-1 decision that deferred
-    /// <c>AttachedToPlayer</c>). Its target is not illegal, so it is not countered here; it enters
-    /// attached to nothing and CR 704.5m buries it, which is what it did before this rule.
+    /// An Aura cast at a player enters attached to that player, the other half of CR 303.4f, kept
+    /// on <see cref="GameObject.AttachedToPlayer"/>. A player is not an object, so there is no
+    /// CR 608.2b re-check of the enchant filter against one; whether such an Aura may stay is
+    /// CR 704.5m's, in the state-based actions.
     /// </para>
     /// </summary>
     [RuleRef("303.4f")]
-    private (ObjectId? To, bool Illegal) AuraAttachment(GameState state, GameObject spell, Characteristics chars)
+    private (ObjectId? To, PlayerId? ToPlayer, bool Illegal) AuraAttachment(GameState state, GameObject spell, Characteristics chars)
     {
-        if (spell.Stack is not { Targets.Count: > 0 } entry)
-            return (null, false);
+        if (spell.Stack is not { } entry)
+            return (null, null, false);
+        if (entry.Targets.Count == 0)
+            return (null, entry.TargetPlayers.Count > 0 ? entry.TargetPlayers[0] : null, false);
 
         var host = entry.Targets[0];
         if (!state.Objects.TryGetValue(host, out var target) || target.Zone.Zone != CardZone.Battlefield)
-            return (null, true);
+            return (null, null, true);
 
         // CR 702.5b: "enchant [object]" is what a legal object is for this Aura. With no enchant
         // ability there is nothing to be illegal about, so the attachment stands.
         var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
         var context = CostPayment.Context(spell.Id, chars.Controller, entry.X);
         return enchant?.Of is { } filter && !query.Matches(state, filter, host, context)
-            ? (null, true)
-            : (host, false);
+            ? (null, null, true)
+            : (host, null, false);
     }
 
     /// <summary>CR 608.3: a permanent spell becomes a permanent as it resolves.</summary>
@@ -473,11 +477,18 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         return obj.Owner == player ? obj : throw new RefusedException("That card is not yours to cast.", "601.3");
     }
 
-    private static GameObject InHand(GameState state, ObjectId id, PlayerId player, string rule)
+    /// <summary>
+    /// Where a land may be played from, CR 305.1: its owner's hand, or the zone a
+    /// <see cref="MayPlayFromZone"/> names — CR 601.3a's permission, read by the same code
+    /// (<see cref="CastPlan.Permission"/>) so a land and a spell cannot disagree about it.
+    /// </summary>
+    [RuleRef("305.1")]
+    private GameObject Playable(GameState state, ObjectId id, PlayerId player, string rule)
     {
         ArgumentNullException.ThrowIfNull(state);
         var obj = Object(state, id);
         return obj.Zone == ZoneKey.Of(CardZone.Hand, player)
+            || (obj.Owner == player && CastPlan.Permission(state, obj, player, query) is not null)
             ? obj
             : throw new RefusedException("That card is not in your hand.", rule);
     }
