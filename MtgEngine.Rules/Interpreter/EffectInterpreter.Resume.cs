@@ -17,6 +17,13 @@ namespace MtgEngine.Rules.Interpreter;
 public sealed partial class EffectInterpreter : IResumable
 {
     /// <summary>
+    /// The prefix an answer already given rides under in a later question's context, CR 608.2. It
+    /// is not a <see cref="ChoiceKinds"/> kind: it names a key inside one question's own extras,
+    /// the way a loop's mark does, and never a kind of question anyone is asked.
+    /// </summary>
+    private const string AnsweredPrefix = "answered:";
+
+    /// <summary>
     /// Continue whatever the question interrupted. The kinds a rule asked about are finished by
     /// the subsystem that owns the rule; every other kind came from an effect, and is found again
     /// by its source, its ability index and its path inside that ability's effect tree.
@@ -73,6 +80,7 @@ public sealed partial class EffectInterpreter : IResumable
                 path,
                 resumption,
                 path,
+                Answers(resumption),
                 OffStack: true),
             effect);
         return new Outcome(run.State, run.Events);
@@ -185,7 +193,7 @@ public sealed partial class EffectInterpreter : IResumable
 
         var path = resumption.Context.EffectPath;
         var run = Execute(
-            new EffectRun(state, context, [], false, "0", entry.AbilityIndex, path, resumption, path),
+            new EffectRun(state, context, [], false, "0", entry.AbilityIndex, path, resumption, path, Answers(resumption)),
             effect);
         return run.Halted
             ? new Outcome(run.State, run.Events)
@@ -208,13 +216,36 @@ public sealed partial class EffectInterpreter : IResumable
                 TargetPlayers = [.. resumption.Chosen.Select(o => o.Player).OfType<PlayerId>()],
             };
 
-        if (resumption.Context.Extra.TryGetValue("storeAs", out var key))
-            context = context with
-            {
-                Chosen = context.Chosen.SetItem(key, string.Join(",", resumption.Chosen.Select(o => o.Id))),
-            };
+        // CR 608.2: every answer this resolution has already given, not only the one just made.
+        foreach (var (key, value) in Answers(resumption))
+            context = context with { Chosen = context.Chosen.SetItem(key[AnsweredPrefix.Length..], value) };
 
         return context;
+    }
+
+    /// <summary>
+    /// Every answer the walk being resumed has already been given, under the keys the arms that
+    /// asked read them back by (CR 608.2). A resolution that asks twice — "its controller may
+    /// search", and then which card — is resumed from the second question, which carries only the
+    /// second answer; without the first the walk reaches the "you may" node again, asks it a second
+    /// time, and the resolution never finishes, so the spell stays on the stack for ever. The
+    /// answers ride on the question's own <see cref="ChoiceContext"/>, the way a loop's marks do,
+    /// so there is still no continuation anywhere and a game rebuilt from its log resumes the same
+    /// way (CR 101.4).
+    /// </summary>
+    [RuleRef("608.2")]
+    private static ImmutableDictionary<string, string> Answers(Resumption resumption)
+    {
+        var answers = ImmutableDictionary<string, string>.Empty;
+        foreach (var (key, value) in resumption.Context.Extra)
+        {
+            if (key.StartsWith(AnsweredPrefix, StringComparison.Ordinal))
+                answers = answers.SetItem(key, value);
+        }
+
+        return resumption.Context.Extra.TryGetValue("storeAs", out var stored)
+            ? answers.SetItem(AnsweredPrefix + stored, string.Join(",", resumption.Chosen.Select(o => o.Id)))
+            : answers;
     }
 
     /// <summary>
