@@ -4,7 +4,7 @@ using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 using Chars = MtgEngine.Rules.Engine.Characteristics;
 
-namespace MtgEngine.Rules.Characteristics;
+namespace MtgEngine.Rules.Layers;
 
 /// <summary>
 /// The layer system, CR 613. Characteristics are computed on every call and never stored

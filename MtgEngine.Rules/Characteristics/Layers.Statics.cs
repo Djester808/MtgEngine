@@ -2,7 +2,7 @@ using System.Numerics;
 using MtgEngine.Cards;
 using MtgEngine.Rules.State;
 
-namespace MtgEngine.Rules.Characteristics;
+namespace MtgEngine.Rules.Layers;
 
 /// <summary>
 /// The half of the layer system that reads the board: the continuous effects of static

@@ -1,6 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
-using MtgEngine.Rules.Characteristics;
+using MtgEngine.Rules.Layers;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
