@@ -1,0 +1,231 @@
+using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
+using MtgEngine.Rules.State;
+
+namespace MtgEngine.Rules.Replacement;
+
+/// <summary>
+/// Replacement and prevention, CR 614 and CR 615. An event is proposed rather than applied:
+/// every effect in force that watches for it is offered the event, one of them modifies it,
+/// and the result is offered again to the rest. No effect ever sees the same event twice
+/// (CR 616.1), self-replacement goes first (CR 614.15), and when more than one still applies
+/// the affected player is asked which (CR 616.1) and nothing else happens until they answer.
+/// </summary>
+[RuleRef("614")]
+public sealed partial class ReplacementSystem(IQuery query, ICharacteristics characteristics, IInterpreter interpreter) : IReplacementSystem
+{
+    /// <summary>No effect applies twice, so the loop ends on its own; this only bounds a bug.</summary>
+    private const int MaxRounds = 64;
+
+    private readonly IQuery _query = query;
+    private readonly ICharacteristics _layers = characteristics;
+    private readonly IInterpreter _interpreter = interpreter;
+
+    public string Name => "replacement and prevention";
+
+    /// <summary>
+    /// CR 616.1: apply one applicable effect, then look again. The returned outcome holds the
+    /// events that actually happen, folded into the state; an event replaced away is simply
+    /// absent from it.
+    /// </summary>
+    [RuleRef("616.1")]
+    public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(proposed);
+
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var working = state;
+        var extra = ImmutableList<GameEvent>.Empty;
+        GameEvent? current = proposed;
+
+        for (var round = 0; round < MaxRounds && current is not null; round++)
+        {
+            var candidates = Applicable(working, current, used);
+            if (candidates.Count == 0)
+                break;
+
+            // CR 614.15: a self-replacement effect is applied before any other that would apply.
+            var selfFirst = candidates.FindAll(c => c.SelfReplacement);
+            var tier = selfFirst.Count > 0 ? selfFirst : candidates;
+
+            if (tier.Count > 1)
+            {
+                // CR 616.1: the affected player chooses one to apply; the rest wait for the answer.
+                var ask = Ask(working, current, affected, tier);
+                return new Outcome(ask.Apply(working), [ask]);
+            }
+
+            used.Add(tier[0].Key);
+            var applied = Apply(working, current, tier[0]);
+            working = applied.State;
+            extra = extra.AddRange(applied.Extra);
+            current = applied.Event;
+        }
+
+        return current is null
+            ? new Outcome(working, extra)
+            : new Outcome(current.Apply(working), extra.Add(current));
+    }
+
+    /// <summary>One effect that could apply to this event: an ability in force, or a prevention shield.</summary>
+    private sealed record Candidate(
+        string Key,
+        string Label,
+        ObjectId? Source,
+        PlayerId Controller,
+        bool SelfReplacement,
+        ReplacementAbility? Ability,
+        PreventDamage? Shield);
+
+    /// <summary>What applying one effect produced: the event as it now stands, or none at all.</summary>
+    private sealed record Applied(GameEvent? Event, GameState State, ImmutableList<GameEvent> Extra);
+
+    /// <summary>
+    /// Every effect that would apply to this event and has not applied to it already. Abilities
+    /// come from characteristics on the battlefield (CR 613, so a granted replacement counts) and
+    /// from the printed face elsewhere; shields come from the active effects a prevention effect
+    /// left behind (CR 615.1).
+    /// </summary>
+    [RuleRef("614.1")]
+    private List<Candidate> Applicable(GameState state, GameEvent proposed, HashSet<string> used)
+    {
+        var probe = Probe(state, proposed);
+        var found = new List<Candidate>();
+
+        foreach (var obj in probe.Objects.Values)
+        {
+            var abilities = AbilitiesOf(probe, obj);
+            for (var i = 0; i < abilities.Count; i++)
+            {
+                if (abilities[i] is not ReplacementAbility ability || ability.Where != obj.Zone.Zone)
+                    continue;
+
+                var key = $"o{obj.Id.Value}:a{i}";
+                if (used.Contains(key))
+                    continue;
+
+                // CR 614.15: an effect that names only its own source replaces nothing else.
+                var about = IsAbout(proposed, obj.Id);
+                if (ability.SelfOnly && !about)
+                    continue;
+
+                var controller = ControllerOf(probe, obj);
+                var context = Context(obj.Id, controller, proposed);
+                if (!Matches(probe, ability.Instead, proposed, context))
+                    continue;
+                if (ability.If is { } condition && !_query.Holds(probe, condition, context))
+                    continue;
+
+                found.Add(new Candidate(key, ability.Text ?? ability.Instead.GetType().Name, obj.Id, controller, ability.SelfOnly && about, ability, null));
+            }
+        }
+
+        if (proposed is DamageDealt damage)
+        {
+            foreach (var active in state.ActiveEffects)
+            {
+                if (active.Effect is not PreventDamage shield)
+                    continue;
+                var key = $"e{active.Id}";
+                if (used.Contains(key) || !Shields(probe, active, shield, damage))
+                    continue;
+                found.Add(new Candidate(key, "prevention shield", active.Source, active.Controller, SelfReplacement: false, null, shield));
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// CR 614.12: an effect that watches an object entering reads that object as it would exist
+    /// on the battlefield, so matching runs against a state where it already does. The old object
+    /// is left where it is, so an effect watching something leave still sees it.
+    /// </summary>
+    [RuleRef("614.12")]
+    private static GameState Probe(GameState state, GameEvent proposed) =>
+        proposed is ObjectMoved moved && !state.Objects.ContainsKey(moved.To.Id)
+            ? new ObjectCreated(moved.To, moved.Position).Apply(state)
+            : state;
+
+    private ImmutableList<Ability> AbilitiesOf(GameState state, GameObject obj) =>
+        obj.Zone.Zone == Zone.Battlefield ? _layers.Of(state, obj.Id).Abilities : [.. obj.Face.AbilityList];
+
+    private PlayerId ControllerOf(GameState state, GameObject obj) =>
+        obj.Zone.Zone == Zone.Battlefield ? _layers.ControllerOf(state, obj.Id) : obj.InitialController;
+
+    /// <summary>CR 616.1: the affected player, or the affected object's controller, chooses.</summary>
+    [RuleRef("616.1")]
+    private static ChoiceRequested Ask(GameState state, GameEvent current, PlayerId affected, List<Candidate> tier)
+    {
+        var context = new ChoiceContext(
+            null,
+            null,
+            "replacement",
+            ImmutableDictionary<string, string>.Empty
+                .Add("event", current.GetType().Name)
+                .Add("candidates", string.Join(",", tier.Select(c => c.Key))));
+
+        return new ChoiceRequested(new PendingChoice(
+            new ChoiceId(state.NextChoiceId),
+            affected,
+            "replacement-order",
+            "Choose which replacement or prevention effect to apply first",
+            [.. tier.Select(c => new ChoiceOption(c.Key, c.Label, c.Source))],
+            1,
+            1,
+            context));
+    }
+
+    private static EffectContext Context(ObjectId? source, PlayerId controller, GameEvent proposed) =>
+        new(
+            source,
+            controller,
+            [],
+            [],
+            null,
+            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty,
+            ImmutableDictionary<string, string>.Empty,
+            ImmutableDictionary<string, int>.Empty,
+            Triggering(proposed),
+            AffectedPlayer(proposed));
+
+    /// <summary>Whether the event is about this object, which is what CR 614.15 turns on.</summary>
+    private static bool IsAbout(GameEvent proposed, ObjectId id) => proposed switch
+    {
+        ObjectMoved m => m.From == id || m.To.Id == id,
+        ObjectCreated c => c.Object.Id == id,
+        DamageDealt d => d.ToObject == id || d.Source == id,
+        CountersChanged c => c.Id == id,
+        ObjectChanged o => o.Id == id,
+        ObjectDrawn draw => draw.Object == id,
+        ObjectLeftBy left => left.Object == id,
+        _ => false,
+    };
+
+    /// <summary>The object the event was about, bound as the replacement's triggering object.</summary>
+    private static ImmutableList<ObjectId> Triggering(GameEvent proposed) => proposed switch
+    {
+        // Arriving, the new object is the one the effect talks about; leaving, the old one still is.
+        ObjectMoved m => ImmutableList.Create(m.To.Zone.Zone == Zone.Battlefield ? m.To.Id : m.From),
+        ObjectCreated c => [c.Object.Id],
+        DamageDealt { ToObject: { } hit } => [hit],
+        CountersChanged c => [c.Id],
+        ObjectChanged o => [o.Id],
+        ObjectDrawn draw => [draw.Object],
+        ObjectLeftBy left => [left.Object],
+        _ => [],
+    };
+
+    private static PlayerId? AffectedPlayer(GameEvent proposed) => proposed switch
+    {
+        DamageDealt d => d.ToPlayer,
+        LifeChanged l => l.Player,
+        ObjectDrawn draw => draw.Player,
+        PlayerCountersChanged p => p.Player,
+        PlayerLost p => p.Player,
+        ManaChanged m => m.Player,
+        _ => null,
+    };
+}
