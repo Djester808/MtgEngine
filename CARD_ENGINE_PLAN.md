@@ -9,7 +9,7 @@ Nothing from the deleted engine is restored. Where this plan names a decision th
 also made (state as a fold of the event log, computed characteristics, the game stops and
 asks), it is because the decision was right, not because the code was.
 
-## Status — where the programme stands (2026-09-07, 13:30 UTC)
+## Status — where the programme stands (2026-09-07, 16:10 UTC)
 
 The sections below are the design as it was written before anything ran. This is what has
 happened since, so the plan reads as a record and not only as an intention; the per-wave
@@ -20,18 +20,21 @@ decisions, every builder's seam request and its answer, are in `seam-requests/DE
 | 0 — the contract | vocabulary, engine skeleton, seams, hooks, gate | merged and gated 2026-09-06 |
 | 1 — subsystems and the pipeline | E0 E1 E2 E3 E4 E5 E7, P1 P2 P3, C1 | merged, gated, seam commit `0f47563`; a two-player game of lands and vanilla creatures plays to a win through `Game.Apply` (EINT) |
 | 2 — the interpreter meets the game | E6 E8 E9 E12 E13 E14 E15, A1, V1, P5 | merged, gated, seam commit `4e97e3f`; `Subsystems.Wave2()` composes every real subsystem; the wave-2 exit test plays triggers, a burn spell, the legend rule and an answered "may" (EINT2) |
-| 3 onward — rounds | the plan's rolling rounds ran as numbered waves 3–7: E9b E8b E3b E2b V2 P4 P6 (wave 3); E1b E9c V3 P7 E14b P6b (4); E7b E0b V4 E3c E9d P8 C3 (5); E8c E0c E9e E3d P9 (6); E4b E3e E9f E6b V5 P10 (7) | each merged and gated with its own seam commit; wave 7 closed with an Aura attaching on resolution (CR 303.4f), combat damage offered to the replacement system hit by hit, a card's sacrifice cost named by the scenario, and the this-turn history a trigger condition reads |
+| 3 onward — rounds | the plan's rolling rounds ran as numbered waves 3–9: E9b E8b E3b E2b V2 P4 P6 (wave 3); E1b E9c V3 P7 E14b P6b (4); E7b E0b V4 E3c E9d P8 C3 (5); E8c E0c E9e E3d P9 (6); E4b E3e E9f E6b V5 P10 (7); E4c E3f E9g E5c V6 P11 and C4 on the client (8); E3g E9h E0d E6c E4d E5d P12 EINT3 (9, running) | each merged and gated with its own seam commit. Wave 8, on the user's "don't stop till done": a halted combat damage batch resumes, the casting system reads a lasting permission and attaches an Aura to a player, the may-cast asks for its cost objects, the vocabulary gained what the pilot still could not say, and the scenario-less cards got fillers, a stocked library and activations; the client's three screens were rendered live for the first time and fixed. |
 
-Measured, as of the wave-7 tip:
+Measured, as of the wave-8 tip (gated with wave 9's first two merges, `dbeede4`):
 
-- **Gate**: 566 engine, 125 vocabulary, 159 pipeline and 633 API tests green; every merge on
+- **Gate**: 616 engine, 143 vocabulary, 165 pipeline and 633 API tests green; every merge on
   `card-engine` was gated; `master` is untouched at `01af6ee`.
 - **Pilot**: 200 deck faces through both translators; 167 and 166 lint clean; 87 agree after
   two canonical passes (54% of both-clean pairs) — see the decision point below.
-- **Verify**: of the 87 agreed cards, **70 verified** through real games, 0 failed, 16 have
-  no smoke scenario yet (they need an artifact or enchantment filler and a stocked library,
-  P11), 1 crashed on its own `Unsupported` marker. The wave-8 seams are listed in
-  `seam-requests/DECISIONS.md`.
+- **Verify**: of the 87 agreed cards, **82 verified** through real games, 1 failed (a question
+  with nothing legal to answer), 3 without a smoke scenario (two mana-value-filtered searches
+  and a two-zone search, P12), 1 crashed on its own `Unsupported` marker (P12 reports it as
+  unsupported instead). The wave-8 seams are listed in `seam-requests/DECISIONS.md`.
+- **Client**: the board, the dispute queue with its admission badges, and the coverage
+  dashboard were rendered live at 375, 412 and 1280 and fixed (C4, three commits on
+  `card-engine-c1`); the deck-list badge still wants two seeded decks and a capture.
 - **Verify**: of the 87 agreed cards, 66 are `Verified` through real games with the engine
   hash in each card file; 4 fail for named causes, 16 have no smoke scenario yet, 1 crashes on
   its own `Unsupported` marker.
@@ -467,6 +470,9 @@ As it went (all 2026-09-06/07, UTC):
 | 07 10:45 | wave 6 merged and gated (527); verify: 66 of 87 |
 | 07 11:00 | wave 7 launched: E4b E3e E9f E6b V5, then P10 on their tip |
 | 07 13:00 | wave 7 merged and gated (558); P10 merged; verify: 70 of 87, 0 failed |
+| 07 13:50 | wave 8 launched on "don't stop till done"; V6 and the client verifier beside it |
+| 07 14:45 | wave 8 merged; verify: 82 of 87, 1 failed; the wave-9 seam commit; wave 9 launched |
+| 07 16:05 | wave 8 gated with wave 9's first merges (616); the client's three screens rendered and fixed |
 
 Builders finished in 15–35 minutes rather than a day, because each box was one folder, one
 anchor and 150 tool calls with a wall clock enforced by a hook; the cost moved to the
