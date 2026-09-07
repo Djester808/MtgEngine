@@ -203,7 +203,17 @@ internal sealed class FakeQuery(ICharacteristics characteristics) : IQuery
                 || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(s)));
     }
 
-    public bool Holds(GameState state, Condition condition, EffectContext context) => throw new NotSupportedException();
+    /// <summary>
+    /// One arm, <see cref="IsYourTurn"/> (CR 500.1 with 102.1): it is the cheapest condition that
+    /// tells the two seats apart, so it is what proves which player a
+    /// <see cref="PlayerFilter.Also"/> is asked about. Anything else still throws — a fake that
+    /// answered every condition would stop being evidence.
+    /// </summary>
+    public bool Holds(GameState state, Condition condition, EffectContext context) => condition switch
+    {
+        IsYourTurn wanted => wanted.Value == (context.Controller == state.Turn.ActivePlayer),
+        _ => throw new NotSupportedException(),
+    };
 
     public int Evaluate(GameState state, Amount amount, EffectContext context) => throw new NotSupportedException();
 
