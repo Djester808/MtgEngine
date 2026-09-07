@@ -140,12 +140,7 @@ public sealed partial class EffectInterpreter
                     foreach (var player in PlayersOrYou(run, mana.Who))
                     {
                         for (var i = 0; i < times; i++)
-                        {
-                            var delta = mana.Key is { } key && run.Context.Source is { } source
-                                ? pool with { Provenance = Provenance(pool, key, source, ref produced) }
-                                : pool;
-                            run = Emit(run, new ManaChanged(player, delta, "addMana"));
-                        }
+                            run = Emit(run, new ManaChanged(player, ManaDelta(pool, mana, run.Context.Source, ref produced), "addMana"));
                     }
 
                     return run;
@@ -262,40 +257,35 @@ public sealed partial class EffectInterpreter
     /// choice and is wave 3's.
     /// </summary>
     /// <summary>
-    /// Where each mana came from, CR 106.6a. Mana is not an object, so an instruction that wants to
-    /// watch the mana it made says so with a key, and the key rides on the pool beside the
-    /// restriction. One block per single mana, each with its own key: CR 106.6a creates a separate
-    /// delayed ability for each mana produced, so two mana where the card printed one must be told
-    /// apart when one of them is spent.
+    /// The delta one "add mana" instruction makes, CR 106.6. <c>ManaSources</c> is the one place
+    /// that turns produced mana into "a restricted block when the card said what it may be spent on
+    /// (CR 106.6b), plus provenance naming the permanent that produced it", so mana the interpreter
+    /// adds and mana a mana ability adds cannot remember different things. A keyed instruction is
+    /// the one shape that wants more than a block per colour: CR 106.6a creates a separate delayed
+    /// ability for each mana produced, so its mana is asked for one at a time under
+    /// <c>"key#n"</c> — through the same helper, so there is no second spelling of a block.
     /// </summary>
-    [RuleRef("106.6a")]
-    private static ImmutableList<Mana.ManaProvenance> Provenance(ManaPool pool, string key, ObjectId source, ref int produced)
+    [RuleRef("106.6")]
+    private static ManaPool ManaDelta(ManaPool pool, AddMana mana, ObjectId? source, ref int produced)
     {
+        var added = Mana.ManaSources.Added(pool, mana.SpendOnlyOn, source, mana.Key);
+        if (mana.Key is not { } key || source is not { } from)
+            return added;
+
         var blocks = ImmutableList.CreateBuilder<Mana.ManaProvenance>();
-        foreach (var (colour, amount) in Colours(pool))
+        foreach (var (colour, amount) in Mana.ManaSymbols.Amounts(pool))
         {
             for (var i = 0; i < amount; i++)
-                blocks.Add(new Mana.ManaProvenance(colour, 1, source, ManaKey(key, produced++)));
+                blocks.AddRange(Mana.ManaSources.Produced(Mana.ManaSymbols.OfColor(colour), from, ManaKey(key, produced++)));
         }
 
-        return blocks.ToImmutable();
+        return added with { Provenance = blocks.ToImmutable() };
     }
 
     /// <summary>The key one mana of a keyed instruction carries, CR 106.6a: the card's key and which mana it is.</summary>
     [RuleRef("106.6a")]
     internal static string ManaKey(string key, int index) =>
         key + "#" + index.ToString(CultureInfo.InvariantCulture);
-
-    /// <summary>The pool read one colour at a time, so a block can be written per mana.</summary>
-    private static IEnumerable<(Color Colour, int Amount)> Colours(ManaPool pool) =>
-    [
-        (Color.White, pool.White),
-        (Color.Blue, pool.Blue),
-        (Color.Black, pool.Black),
-        (Color.Red, pool.Red),
-        (Color.Green, pool.Green),
-        (Color.Colorless, pool.Colorless),
-    ];
 
     private ManaPool PoolFor(EffectRun run, AddMana mana)
     {

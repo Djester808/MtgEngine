@@ -100,11 +100,21 @@ public sealed partial class EffectInterpreter(
     /// <summary>
     /// The context a resolution runs in: what was chosen on casting, plus the triggering objects
     /// under the reserved key "triggering" so a card can say "that creature" either way.
+    /// CR 608.2d: a value an earlier resolution chose is kept on the object that chose it, so "the
+    /// chosen color" is already in the context here and is not asked for a second time. What the
+    /// firing itself chose rides on the stack entry and is the later word of the two, so it wins
+    /// where both name a key.
     /// </summary>
+    [RuleRef("608.2d")]
     private static EffectContext ContextFor(GameState state, GameObject obj, StackEntry entry, PlayerId controller)
     {
         var triggering = TriggeringOf(state, entry);
-        var chosen = ImmutableDictionary<string, string>.Empty;
+        var source = entry.Source ?? obj.Id;
+        var chosen = state.Objects.TryGetValue(source, out var chose)
+            ? ImmutableDictionary<string, string>.Empty.SetItems(chose.Chosen)
+            : ImmutableDictionary<string, string>.Empty;
+        if (entry.Chosen is { } carried)
+            chosen = chosen.SetItems(carried);
         if (entry.Modes.Count > 0)
             chosen = chosen.SetItem("modes", string.Join(",", entry.Modes.Select(m => m.ToString(CultureInfo.InvariantCulture))));
 
@@ -117,7 +127,7 @@ public sealed partial class EffectInterpreter(
             : (PlayerId?)null;
 
         return new EffectContext(
-            entry.Source ?? obj.Id,
+            source,
             controller,
             entry.Targets,
             entry.TargetPlayers,

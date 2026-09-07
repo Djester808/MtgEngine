@@ -271,7 +271,7 @@ public sealed class InterpreterDesignationTests
         // casting system's announcement, not the interpreter's.
         Assert.Equal("may-cast", table.Pending.Kind);
         table.Answer("yes");
-        var command = Assert.Single(casting.Cast);
+        var command = Assert.Single(casting.Instructed);
         Assert.Equal(card, command.Card);
         Assert.Equal(table.A, command.Player);
     }
@@ -288,7 +288,7 @@ public sealed class InterpreterDesignationTests
         table.Answer("no");
 
         // CR 601: nobody has to take a permission.
-        Assert.Empty(casting.Cast);
+        Assert.Empty(casting.Instructed);
     }
 
     [Fact]
@@ -323,7 +323,7 @@ public sealed class InterpreterDesignationTests
         // CR 601.2h and 118.9: the mana cost is not paid, and the same flag is the permission to
         // cast the card from the graveyard it is in (CR 601.3a). CastPlan.For turns it into the
         // "free" entry on the stack, so "if it was cast that way" can be asked when it resolves.
-        var command = Assert.Single(casting.Cast);
+        var command = Assert.Single(casting.Instructed);
         Assert.True(command.WithoutPayingManaCost);
         Assert.Equal(card, command.Card);
     }
@@ -343,7 +343,7 @@ public sealed class InterpreterDesignationTests
 
         // CR 601.2h: the flag is not the default. A card the effect did not make free is announced
         // for its printed mana cost, whatever the zone permission turns out to be.
-        Assert.False(Assert.Single(casting.Cast).WithoutPayingManaCost);
+        Assert.False(Assert.Single(casting.Instructed).WithoutPayingManaCost);
     }
 
     [Fact]
@@ -376,7 +376,7 @@ public sealed class InterpreterDesignationTests
         // CR 601.2b: the additional cost is paid whatever the mana cost does, and whether this
         // command can pay it is the casting system's word — a cost that needs no object is cast,
         // and the printed face is not read here to guess otherwise.
-        Assert.True(Assert.Single(casting.Cast).WithoutPayingManaCost);
+        Assert.True(Assert.Single(casting.Instructed).WithoutPayingManaCost);
     }
 
     [Fact]
@@ -396,7 +396,7 @@ public sealed class InterpreterDesignationTests
         // resolution, so nothing is offered now and nothing is cast now; it is a continuous
         // effect over the card, in the zone it is in.
         Assert.Null(table.State.Pending);
-        Assert.Empty(casting.Cast);
+        Assert.Empty(casting.Instructed);
         var active = Assert.Single(table.State.ActiveEffects);
         var permission = Assert.IsType<MayPlayFromZone>(active.Effect);
         Assert.Equal(Zone.Exile, permission.From);
@@ -476,11 +476,21 @@ internal sealed class InterpreterDesignationCasting : ICastingSystem
     /// <summary>What <see cref="Check"/> answers: null means the command is legal, CR 601.2.</summary>
     public Refusal? Refusal { get; set; }
 
+    /// <summary>Commands announced through the ordinary door, CR 601 — a player's own cast.</summary>
     public List<CastSpell> Cast { get; } = [];
+
+    /// <summary>Commands announced through CR 608.2g's instructed cast, which is the one the interpreter uses.</summary>
+    public List<CastSpell> Instructed { get; } = [];
 
     Outcome ICastingSystem.Cast(GameState state, CastSpell command)
     {
         Cast.Add(command);
+        return Outcome.Unchanged(state);
+    }
+
+    Outcome ICastingSystem.CastInstructed(GameState state, CastSpell command)
+    {
+        Instructed.Add(command);
         return Outcome.Unchanged(state);
     }
 

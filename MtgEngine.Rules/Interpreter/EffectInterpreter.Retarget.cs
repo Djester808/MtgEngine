@@ -206,7 +206,12 @@ public sealed partial class EffectInterpreter
             WithoutPayingManaCost: may.WithoutPayingManaCost);
         if (Casting!.Check(run.State, command) is { } refusal)
             return CostQuestion(run, who, command, refusal, costObjects);
-        return Merge(run, Casting.Cast(run.State, command));
+
+        // CR 608.2g: this is a cast a resolving effect instructed, so it happens during that
+        // resolution and CR 117.1a's timing does not apply to it — a player who could not cast the
+        // card of their own accord still casts it here. A command a player announced goes through
+        // the ordinary door; only the interpreter uses this one.
+        return Merge(run, Casting.CastInstructed(run.State, command));
     }
 
     /// <summary>

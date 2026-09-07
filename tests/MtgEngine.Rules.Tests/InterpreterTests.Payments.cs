@@ -151,7 +151,7 @@ public sealed partial class InterpreterTests
         Assert.Equal([discarded], table.Pending.Options.Select(o => o.Object));
         table.Answer(discarded.Value.ToString(CultureInfo.InvariantCulture));
 
-        Assert.Equal([sacrificed, discarded], Assert.Single(casting.Cast).CostObjects);
+        Assert.Equal([sacrificed, discarded], Assert.Single(casting.Instructed).CostObjects);
     }
 
     /* ---------------------------------------------------------------------------------------- *
