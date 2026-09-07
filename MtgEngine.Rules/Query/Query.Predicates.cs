@@ -31,9 +31,15 @@ public sealed partial class Query
                 .Any(other => other != candidate
                     && string.Equals(_layers.Of(state, other).Name, _layers.Of(state, candidate).Name, StringComparison.Ordinal)), // CR 201.2
 
-            // CR 301.5c. The record names objects, so an Aura on a player (CR 303.4f) matches
-            // nothing here however the selector is written — the player half of "attached to" has
-            // no spelling in the vocabulary; seam-requests/E5c.md asks for it.
+            // CR 301.5c, in the direction the vocabulary's own doc comment names: "attached to the
+            // given object: Auras attached to it". The candidate is the attachment and To is the
+            // host, so the question is whether the candidate's host is among the objects To names.
+            // The other direction — "the object this is attached to", the equipped creature — is
+            // the Attached *selector*, and it has no predicate spelling; a filter that wants it
+            // cannot be written, which is the gap seam-requests/E0g.md records.
+            // The record names objects, so an Aura on a player (CR 303.4f) matches nothing here
+            // however the selector is written — the player half of "attached to" has no spelling in
+            // the vocabulary; seam-requests/E5c.md asks for it.
             AttachedTo to => obj.AttachedTo is { } host && Resolve(state, to.To, ctx).Contains(host),
 
             // CR 301.5 with CR 303.4f: attached means attached to an object or to a player, so

@@ -429,6 +429,17 @@ public sealed partial class QueryTests
         public World Remember(string key, params ObjectId[] objects) =>
             this with { Context = Context with { Remembered = Context.Remembered.SetItem(key, [.. objects]) } };
 
+        /// <summary>CR 608.2h: the player half of the same memory, as the stack entry carries it.</summary>
+        public World RememberPlayer(string key, params PlayerId[] players) =>
+            this with
+            {
+                Context = Context with
+                {
+                    RememberedPlayers = (Context.RememberedPlayers
+                        ?? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty).SetItem(key, [.. players]),
+                },
+            };
+
         /// <summary>A value an earlier step of the same effect chose and stored under a key.</summary>
         public World Choose(string key, string value) =>
             this with { Context = Context with { Chosen = Context.Chosen.SetItem(key, value) } };
