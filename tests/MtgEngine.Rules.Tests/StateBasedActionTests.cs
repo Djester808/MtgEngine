@@ -526,12 +526,86 @@ public sealed class StateBasedActionTests
         Assert.Equal(Zone.Battlefield, outcome.State.Objects[host].Zone.Zone);
     }
 
+    /// <summary>
+    /// CR 303.4f: an Aura enters attached to the object <em>or player</em> it was cast at, and
+    /// CR 704.5m asks the same question of both halves. "Enchant player" is spelled as an enchant
+    /// ability that names no object filter (see <c>StateBasedActions.EnchantsAPlayer</c>), so this
+    /// one stays where an Aura that names a creature would be buried.
+    /// </summary>
+    [Fact]
+    [RuleRef("704.5m")]
+    public void An_aura_that_enchants_a_player_stays_on_that_player()
+    {
+        var board = new Board();
+        board.Put(PlayerAura(), attachedToPlayer: 1);
+
+        Assert.Empty(sba.Check(board.State).Events);
+    }
+
+    /// <summary>
+    /// CR 704.5m: the other direction. An enchant ability that names an object filter is a
+    /// restriction to objects, so the player is not something it may enchant and the Aura goes.
+    /// This is the arm that keeps the new state field from making every Aura legal on anyone.
+    /// </summary>
+    [Fact]
+    [RuleRef("704.5m")]
+    public void An_aura_that_enchants_a_creature_is_buried_when_it_is_attached_to_a_player()
+    {
+        var board = new Board();
+        board.Put(Aura(), attachedToPlayer: 1);
+
+        var outcome = sba.Check(board.State);
+
+        Assert.Equal("put into graveyard", Assert.Single(outcome.Events.OfType<ObjectLeftBy>()).Verb);
+        Assert.Equal(Zone.Graveyard, Zoned(outcome.State, "sba binding"));
+    }
+
+    /// <summary>
+    /// CR 800.4a with 704.5m: a player who has left the game is no longer a player, so the Aura
+    /// on them is attached to nothing and is put into its owner's graveyard. Three seats, because
+    /// with two the game would already be over and 704.3 performs nothing once it is (104.2a).
+    /// </summary>
+    [Fact]
+    [RuleRef("800.4a")]
+    public void An_aura_on_a_player_who_left_the_game_is_put_into_its_owners_graveyard()
+    {
+        var board = new Board(players: 3);
+        board.Put(PlayerAura(), attachedToPlayer: 1);
+        board.Lost(1);
+
+        var outcome = sba.Check(board.State);
+
+        Assert.Equal(Zone.Graveyard, Zoned(outcome.State, "sba curse"));
+    }
+
+    /// <summary>
+    /// CR 704.5m's third case, and the one E3e's request said could not be half landed: attached
+    /// to neither an object nor a player, an Aura still goes, whatever it may enchant.
+    /// </summary>
+    [Fact]
+    [RuleRef("704.5m")]
+    public void An_aura_that_enchants_a_player_but_is_attached_to_nothing_still_goes()
+    {
+        var board = new Board();
+        board.Put(PlayerAura());
+
+        Assert.Equal(Zone.Graveyard, Zoned(sba.Check(board.State).State, "sba curse"));
+    }
+
     private static CardDefinition Aura(ObjectFilter? enchants = null) =>
         Board.Definition(
             "sba binding",
             CardType.Enchantment,
             subtypes: ["Aura"],
             abilities: [new KeywordAbility(KeywordKind.Enchant, Of: enchants ?? new ObjectFilter(Types: CardType.Creature))]);
+
+    /// <summary>"Enchant player": an enchant ability that restricts nothing about an object.</summary>
+    private static CardDefinition PlayerAura() =>
+        Board.Definition(
+            "sba curse",
+            CardType.Enchantment,
+            subtypes: ["Aura"],
+            abilities: [new KeywordAbility(KeywordKind.Enchant)]);
 
     /// <summary>CR 702.72a: written as the vocabulary writes it, an <see cref="AddTypes"/> on itself.</summary>
     private static CardDefinition Changeling() =>

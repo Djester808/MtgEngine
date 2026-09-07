@@ -173,20 +173,46 @@ public sealed partial class StateBasedActions
         chars.Subtypes.Any(s => string.Equals(s, subtype, StringComparison.OrdinalIgnoreCase))
         || (chars.EveryCreatureType && CreatureTypes.IsCreatureType(subtype));
 
-    /// <summary>Whether an Aura is attached to something it may legally enchant, CR 702.5b.</summary>
+    /// <summary>
+    /// Whether an Aura is attached to something it may legally enchant, CR 702.5b. An Aura is
+    /// attached to an object <em>or a player</em> (CR 303.4f), so the question is asked of
+    /// whichever half it holds; attached to neither, it is illegal and 704.5m buries it.
+    /// </summary>
     [RuleRef("704.5m")]
     private bool AttachedLegally(GameState state, GameObject aura, Characteristics chars)
     {
+        // "Enchant [object or player]" is what legal means for an Aura. With no enchant ability
+        // there is nothing to be illegal about, so the attachment stands either way.
+        var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
+
+        // CR 303.4f with CR 800.4: a player who has left the game is not a player any more, so
+        // the Aura on them is attached to nothing and 704.5m buries it on the next check.
+        if (aura.AttachedToPlayer is { } player)
+            return EnchantsAPlayer(enchant) && InGame(state, player);
+
         if (aura.AttachedTo is not { } host)
             return false;
         if (!state.Objects.TryGetValue(host, out var target) || target.Zone.Zone != Zone.Battlefield)
             return false;
 
-        // "Enchant [object]" is what legal means for an Aura. With no enchant ability there is
-        // nothing to be illegal about, so the attachment stands.
-        var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
         return enchant?.Of is not { } filter || query.Matches(state, filter, host, ContextOf(chars));
     }
+
+    /// <summary>
+    /// Whether this Aura's enchant ability admits a player, CR 702.5b. The vocabulary spells the
+    /// enchant restriction as an object filter, so an enchant ability that names one is a
+    /// restriction to objects and refuses a player; "enchant player" is the ability that names no
+    /// filter, as is an Aura with no enchant ability at all. A record that says "player" outright
+    /// is asked for in <c>seam-requests/E5c.md</c>; until it lands this is the reading, and it is
+    /// the conservative one — it never calls an object-restricted Aura legal on a player.
+    /// </summary>
+    [RuleRef("702.5b")]
+    private static bool EnchantsAPlayer(KeywordAbility? enchant) => enchant?.Of is null;
+
+    /// <summary>CR 800.4a: a player who has left the game is no longer a player.</summary>
+    [RuleRef("800.4a")]
+    private static bool InGame(GameState state, PlayerId player) =>
+        state.Players.FirstOrDefault(p => p.Id == player) is { HasLost: false };
 
     /// <summary>Equipment attaches to a creature (CR 301.5c), a Fortification to a land (CR 301.6b).</summary>
     [RuleRef("704.5n")]

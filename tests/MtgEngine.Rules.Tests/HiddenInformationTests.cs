@@ -188,6 +188,30 @@ public sealed class HiddenInformationTests
         Assert.Equal(string.Empty, shown.Name);
     }
 
+    /// <summary>
+    /// CR 303.4f and 400.2: an Aura attached to a player is on the table, so the attachment is
+    /// public. Both viewers are shown it — the player it enchants and the one who does not
+    /// control it — and it is the player half that is asserted here, because a projector that
+    /// carried only <c>AttachedTo</c> would show the same Aura attached to nothing at all.
+    /// </summary>
+    [Fact]
+    [RuleRef("303.4f")]
+    public void An_aura_attached_to_a_player_shows_that_attachment_to_both_players()
+    {
+        var (board, id) = MoveFromHand(Start(), Me, ZoneKey.Shared(Zone.Battlefield));
+        var attached = new ObjectChanged(id, AttachedToPlayer: Them).Apply(board);
+
+        foreach (var viewer in new[] { Me, Them })
+        {
+            var shown = Assert.Single(Project(attached, viewer).Battlefield, o => o.Id == id);
+            Assert.Equal(Them, shown.AttachedToPlayer);
+            Assert.Null(shown.AttachedTo);
+        }
+
+        // And it is not shown when there is none: the field says something.
+        Assert.Null(Assert.Single(Project(board, Them).Battlefield, o => o.Id == id).AttachedToPlayer);
+    }
+
     private static GameView Project(GameState state, PlayerId viewer) =>
         new ViewProjector(new LayerSystem(), oracle => oracle == MineOracle).Project(state, viewer);
 

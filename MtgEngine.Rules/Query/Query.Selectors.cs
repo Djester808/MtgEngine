@@ -39,6 +39,11 @@ public sealed partial class Query
                 : throw Unanswerable(nameof(Choose), "the choice has not been made and recorded yet (CR 608.2)"),
             Remembered remembered => context.Remembered.GetValueOrDefault(remembered.Key, []),
 
+            // "Enchanted creature", "equipped creature": the object this source is attached to,
+            // CR 301.5c. An Aura attached to a player (CR 303.4f) is attached to no object, so
+            // this rightly answers none — the player is reached through a PlayerRef, and the
+            // vocabulary has no record for "enchanted player" yet; seam-requests/E5c.md asks for
+            // one. See Players below, where the same gap is named.
             Attached => context.Source is { } source && state.Objects.TryGetValue(source, out var self)
                 && self.AttachedTo is { } host && state.Objects.ContainsKey(host)
                 ? [host] : [], // CR 301.5c
@@ -101,6 +106,10 @@ public sealed partial class Query
 
             // CR 724.2: there is at most one monarch, and the state keeps who it is.
             Cards.Monarch => state.Monarch is { } monarch ? [monarch] : [],
+            // CR 303.4f: "enchanted player" — the player this source is attached to — has no
+            // record in the vocabulary, so a card that says it cannot be written at all. The state
+            // and the view carry the attachment; the arm is one line the day the record lands.
+            // seam-requests/E5c.md.
             ChoosePlayer => throw Unanswerable(nameof(ChoosePlayer), NoPlayerMemory),
             ChosenPlayer => throw Unanswerable(nameof(ChosenPlayer), NoPlayerMemory),
             RememberedPlayer => throw Unanswerable(nameof(RememberedPlayer), NoPlayerMemory),
