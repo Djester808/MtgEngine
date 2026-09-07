@@ -67,7 +67,16 @@ public sealed record ObjectView(
     /// every set — so a client that asks "is this a Goblin" reads this flag beside the list, as
     /// the engine's own readers do.
     /// </summary>
-    bool EveryCreatureType = false);
+    bool EveryCreatureType = false,
+
+    /// <summary>
+    /// CR 707: this object is a copy. A copy of a spell sits on the stack under the same name and
+    /// with the same characteristics as the spell it copies (CR 707.10), so nothing else in the
+    /// view tells the two apart, and a client that drew only the name would show one spell twice.
+    /// It is public — the stack is a public zone (CR 400.2) — and it is what makes CR 704.5e
+    /// legible at the table: this is the object that ceases to exist when it leaves.
+    /// </summary>
+    bool IsCopy = false);
 
 /// <summary>What a player may do now. The client enables controls from this and reasons about nothing.</summary>
 public sealed record LegalActions(

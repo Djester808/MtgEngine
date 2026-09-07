@@ -50,15 +50,9 @@ public sealed partial class StateBasedActions
 
             var zone = obj.Zone.Zone;
 
-            // 704.5d If a token is in a zone other than the battlefield, it ceases to exist.
-            if (obj.IsToken && zone != Zone.Battlefield)
-            {
-                verdicts.Add(new Verdict(id, Action.Cease, Ceased));
-                continue;
-            }
-
-            // 704.5e If a copy of a spell is in a zone other than the stack, it ceases to exist.
-            if (obj.Stack is { IsCopy: true } && zone != Zone.Stack)
+            // 704.5d and 704.5e: a token and a copy leave the game the same way, so they are one
+            // path here and one question in Ceases.
+            if (Ceases(obj, zone))
             {
                 verdicts.Add(new Verdict(id, Action.Cease, Ceased));
                 continue;
@@ -113,6 +107,30 @@ public sealed partial class StateBasedActions
 
         return new Outcome(state, events.ToImmutable());
     }
+
+    /// <summary>
+    /// Whether this object ceases to exist now: CR 704.5d for a token and CR 704.5e for a copy,
+    /// asked together because they perform the same action — the object is not a card, so there
+    /// is nothing for the zone it reached to hold. Each has its own set of zones it may be in:
+    /// <list type="bullet">
+    /// <item>704.5d — a token exists only on the battlefield.</item>
+    /// <item>704.5e — a copy of a spell exists only on the stack; a copy of a card exists on the
+    /// stack or the battlefield. The wider set is the one asked, because a copy this engine can
+    /// reach on the battlefield is a copy of a card or of a permanent: CR 400.7 gives a spell
+    /// that resolves a new object and the zone system does not carry the stack entry onto it, so
+    /// a resolved copy of a permanent spell arrives as the token CR 707.10a makes it and 704.5d
+    /// is the arm that then reads it.</item>
+    /// </list>
+    /// A copy of a card is marked the only way the state marks any copy, <c>StackEntry.IsCopy</c>
+    /// — what CR 707.12's copy-in-place sets on the copy it makes in the original's zone. If a
+    /// zone system marks it some other way, this is the reader that has to learn about it
+    /// (seam-requests/E5f.md).
+    /// </summary>
+    [RuleRef("704.5e")]
+    private static bool Ceases(GameObject obj, Zone zone) =>
+        obj.IsToken
+            ? zone != Zone.Battlefield
+            : obj.Stack is { IsCopy: true } && zone is not (Zone.Stack or Zone.Battlefield);
 
     /// <summary>
     /// Whether this permanent leaves the battlefield now, and by which verb. The order is the

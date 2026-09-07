@@ -131,7 +131,12 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
 
             // CR 205.3d: a changeling on the table is every creature type, and none of those
             // names is in its subtype list, so the flag travels with the list or the view lies.
-            chars.EveryCreatureType);
+            chars.EveryCreatureType,
+
+            // CR 707.10: a copy has the copied object's name and characteristics, so the view has
+            // to say which one it is looking at. Read off the stack entry because that is where
+            // the state marks a copy.
+            obj.Stack is { IsCopy: true });
     }
 
     /// <summary>
@@ -142,7 +147,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     /// not a 2/2 either. The enforcement flag stays true to the store: it says whether the
     /// table plays that object's rules, and thousands of cards share each answer. "Every creature
     /// type" is withheld with everything else: a face-down permanent has no subtypes at all, and
-    /// saying it had them all would name the changeling underneath.
+    /// saying it had them all would name the changeling underneath. "Is a copy" is withheld with
+    /// it, for the same reason and deliberately: CR 707.10 makes a copy the thing it copies, so
+    /// the flag is an answer about which card is underneath.
     /// </summary>
     [RuleRef("708.2")]
     private ObjectView FaceDown(GameState state, GameObject obj)
