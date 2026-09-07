@@ -64,6 +64,47 @@ public sealed class SerializationTests
     }
 
     [Fact]
+    public void A_misspelled_property_is_a_parse_error_that_names_the_member()
+    {
+        const string json = """{"kind": "Draw", "nn": {"kind": "Fixed", "n": 1}}""";
+        var error = Assert.ThrowsAny<JsonException>(() => JsonSerializer.Deserialize<Effect>(json, CardFileSerializer.Options));
+        Assert.Contains("'nn'", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_unsupported_marker_in_a_filter_slot_is_a_parse_error_not_an_empty_filter()
+    {
+        // An ObjectFilter has no discriminator, so before the parser was strict a marker dropped
+        // into one read as an empty filter — "destroy each permanent" — and linted clean.
+        const string json = """{"kind": "Destroy", "what": {"kind": "Each", "filter": {"kind": "Unsupported", "reason": "no primitive"}}}""";
+        var error = Assert.ThrowsAny<JsonException>(() => JsonSerializer.Deserialize<Effect>(json, CardFileSerializer.Options));
+        Assert.Contains("'kind'", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_card_file_on_disk_still_reads()
+    {
+        // Top-level files only: cards/schema and cards/.lint are not card files.
+        var files = Directory.GetFiles(Repo.Path("cards"), "*.json");
+        Assert.NotEmpty(files);
+
+        var failures = new List<string>();
+        foreach (var path in files)
+        {
+            try
+            {
+                CardFileSerializer.Read(File.ReadAllText(path));
+            }
+            catch (JsonException ex)
+            {
+                failures.Add(Path.GetFileName(path) + ": " + ex.Message);
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
+    }
+
+    [Fact]
     public void The_definition_schema_describes_effects_as_a_choice_of_kinds()
     {
         var schema = CardFileSerializer.DefinitionSchema().ToJsonString();

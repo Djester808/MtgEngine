@@ -26,6 +26,7 @@ public static partial class Canonical
         StripOwnedByInOwnLibrarySearch(obj, kind, context);
         StripCountOfOne(obj, kind);
         Retranslated(obj, kind);
+        RewriteEquippedCreatureInTriggerFilter(obj, kind);
         FillLandOnBasic(obj, kind);
         DeriveSelfOnly(obj, kind);
         MergeSearchAndShuffle(obj, kind);
