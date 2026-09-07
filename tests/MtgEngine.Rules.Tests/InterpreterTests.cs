@@ -1,4 +1,7 @@
+using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Commands;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -239,4 +242,177 @@ public sealed class InterpreterTests
 
         Assert.Contains(nameof(Investigate), missing.Message, StringComparison.Ordinal);
     }
+
+    /* ---------------------------------------------------------------------------------------- *
+     * CR 601 — "you may cast that card": the free lasting permission, and the costs it still pays.
+     * ---------------------------------------------------------------------------------------- */
+
+    [Fact]
+    public void A_lasting_permission_to_cast_for_free_carries_that_on_the_effect()
+    {
+        var table = new InterpreterTable();
+        table.Subject.Casting = new InterpreterTestsCasting();
+        var card = table.Card(table.A, Zone.Exile);
+
+        table.Resolve(table.OnStack(
+            table.A,
+            new MayCast(new Remembered("it"), WithoutPayingManaCost: true, Until: new UntilEndOfTurn()),
+            Remembering(card)));
+
+        // CR 118.9: "you may cast it this turn without paying its mana cost" is one permission with
+        // two halves — where it may be cast from and what it costs — and the effect says both, so
+        // the player takes it later without the permission having forgotten the free half.
+        var active = Assert.Single(table.State.ActiveEffects);
+        var permission = Assert.IsType<MayPlayFromZone>(active.Effect);
+        Assert.True(permission.WithoutPayingManaCost);
+        Assert.Equal(Zone.Exile, permission.From);
+        Assert.Equal([card], active.AppliesTo);
+    }
+
+    [Fact]
+    public void A_may_cast_whose_additional_cost_needs_no_object_is_cast()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterTestsCasting();
+        table.Subject.Casting = casting;
+        var card = table.Put(table.A, ZoneKey.Of(Zone.Graveyard, table.A), WithCost(new PayLife(new Fixed(2))));
+
+        table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it")), Remembering(card)));
+        table.Answer("yes");
+
+        // CR 601.2b: an additional cost is paid whether or not the mana cost is, and whether this
+        // command can pay it is the casting system's word. A cost that names no object is announced
+        // and cast; the printed face is not read here to refuse it in advance.
+        Assert.Equal(card, Assert.Single(casting.Cast).Card);
+    }
+
+    [Fact]
+    public void A_sacrifice_cost_is_asked_for_and_the_answer_pays_it()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterTestsCasting { WantsCostObjects = true };
+        table.Subject.Casting = casting;
+        var mine = table.Permanent(table.A);
+        table.Permanent(table.A);
+        table.Permanent(table.B);
+        var card = table.Put(
+            table.A,
+            ZoneKey.Of(Zone.Graveyard, table.A),
+            WithCost(new SacrificeCost(ObjectFilter.Creature)));
+
+        table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it")), Remembering(card)));
+        table.Answer("yes");
+
+        // CR 601.2c: the objects an additional cost consumes are chosen as the spell is announced,
+        // so the yes is followed by a second question of the creatures that could be sacrificed —
+        // the two this player controls, never the opponent's (CR 701.17a).
+        Assert.Equal("cast-cost", table.Pending.Kind);
+        Assert.Equal(2, table.Pending.Options.Count);
+        Assert.Equal(1, table.Pending.Min);
+
+        table.Answer(mine.Value.ToString(CultureInfo.InvariantCulture));
+
+        var command = Assert.Single(casting.Cast);
+        Assert.Equal([mine], command.CostObjects);
+    }
+
+    [Fact]
+    public void The_cast_cost_question_is_answered_by_its_resumption_alone()
+    {
+        var table = new InterpreterTable();
+        var casting = new InterpreterTestsCasting { WantsCostObjects = true };
+        table.Subject.Casting = casting;
+        var mine = table.Permanent(table.A);
+        var card = table.Put(
+            table.A,
+            ZoneKey.Of(Zone.Graveyard, table.A),
+            WithCost(new SacrificeCost(ObjectFilter.Creature)));
+        var spell = table.OnStack(table.A, new MayCast(new Remembered("it")), Remembering(card));
+        table.Resolve(spell);
+        table.Answer("yes");
+        var pending = table.Pending;
+
+        // CR 101.4: there is no captured continuation. The question carries the path back into the
+        // effect tree, so the answer alone puts the walk where it stopped — a game rebuilt from its
+        // log resumes the same way.
+        var resumed = table.Subject.Resume(
+            table.State,
+            new Resumption(pending.Kind, pending.Player, [new ChoiceOption(mine.Value.ToString(CultureInfo.InvariantCulture), "one", mine)], pending.Context));
+
+        Assert.Equal([mine], Assert.Single(casting.Cast).CostObjects);
+        Assert.Contains(resumed.Events, e => e is StackObjectResolved);
+    }
+
+    [Fact]
+    public void A_refusal_the_casting_system_gives_is_relayed_with_its_own_rule()
+    {
+        var table = new InterpreterTable();
+        table.Subject.Casting = new InterpreterTestsCasting
+        {
+            Refusal = new Refusal("There is nothing to sacrifice.", "601.2h"),
+        };
+        var card = table.Put(
+            table.A,
+            ZoneKey.Of(Zone.Graveyard, table.A),
+            WithCost(new SacrificeCost(ObjectFilter.Creature)));
+
+        table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it")), Remembering(card)));
+        var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
+
+        // The casting system decides whether a spell can be announced, and a refusal that is not
+        // "nobody chose the objects" (CR 601.2c) is relayed as it stands rather than turned into a
+        // question nobody can answer.
+        Assert.Equal("601.2h", refused.Rule);
+        Assert.Equal("There is nothing to sacrifice.", refused.Message);
+    }
+
+    /// <summary>A sorcery whose printed face carries one additional cost, CR 601.2b.</summary>
+    private static CardDefinition WithCost(Cost cost) => new(
+        "00000000-0000-0000-0000-00000000e9a0",
+        "engine test object",
+        Layout.Normal,
+        [new Face("engine test object", FaceRole.Main, new TypeLine(CardType.Sorcery), AdditionalCosts: [cost])]);
+
+    /// <summary>A stack entry that remembers the card a resolution named, the way a trigger's would.</summary>
+    private static StackEntry Remembering(ObjectId what) =>
+        new(null, null, [], [], [], null, false)
+        {
+            Remembered = ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem("it", [what]),
+        };
+}
+
+/// <summary>
+/// A casting system that announces nothing and writes down what it was asked to cast, CR 601.2.
+/// <see cref="WantsCostObjects"/> is the half the interpreter's cast-cost question exists for: the
+/// real casting system refuses naming CR 601.2c when a cost that consumes objects was announced
+/// without them, and accepts once the command names them.
+/// </summary>
+internal sealed class InterpreterTestsCasting : ICastingSystem
+{
+    public string Name => "fake casting";
+
+    /// <summary>What <see cref="Check"/> answers regardless: null means the command is legal.</summary>
+    public Refusal? Refusal { get; set; }
+
+    /// <summary>CR 601.2c: refuse until the command names the objects the additional cost wants.</summary>
+    public bool WantsCostObjects { get; set; }
+
+    public List<CastSpell> Cast { get; } = [];
+
+    Outcome ICastingSystem.Cast(GameState state, CastSpell command)
+    {
+        Cast.Add(command);
+        return Outcome.Unchanged(state);
+    }
+
+    public Outcome Activate(GameState state, ActivateAbility command) => Outcome.Unchanged(state);
+
+    public Outcome PlayLand(GameState state, PlayLand command) => Outcome.Unchanged(state);
+
+    public Outcome ResolveTop(GameState state) => Outcome.Unchanged(state);
+
+    public Refusal? Check(GameState state, Command command) =>
+        Refusal ?? (WantsCostObjects && command is CastSpell { CostObjects: null or { IsEmpty: true } }
+            ? new Refusal("Which of the permanents to sacrifice pay the cost was not chosen.", "601.2c")
+            : null);
 }
