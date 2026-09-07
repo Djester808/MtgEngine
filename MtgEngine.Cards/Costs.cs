@@ -10,6 +10,7 @@ namespace MtgEngine.Cards;
 [RuleRef("118")]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(ManaCost), nameof(ManaCost))]
+[JsonDerivedType(typeof(PayManaCost), nameof(PayManaCost))]
 [JsonDerivedType(typeof(TapSelf), nameof(TapSelf))]
 [JsonDerivedType(typeof(UntapSelf), nameof(UntapSelf))]
 [JsonDerivedType(typeof(TapOther), nameof(TapOther))]
@@ -38,6 +39,17 @@ public abstract record Cost;
 /// <summary>Mana as printed: "{2}{W}", "{X}{R}", "{G/U}", "{2/B}", "{C}", "{S}".</summary>
 [RuleRef("107.4")]
 public sealed record ManaCost(string Mana) : Cost;
+
+/// <summary>
+/// Generic mana whose amount is counted from the game rather than printed, CR 118.8: "unless that
+/// player pays {X}, where X is this creature's power". <paramref name="Generic"/> is the number of
+/// generic mana to pay, evaluated when the cost is announced (CR 601.2h); <paramref name="Colored"/>
+/// is any printed coloured part paid alongside it ("{R} plus {X}"), written as printed.
+/// Use ManaCost for everything a card prints as a fixed symbol string, including "{X}" spelled with
+/// the spell's own X — this record is only for an amount the game has to count.
+/// </summary>
+[RuleRef("118.8")]
+public sealed record PayManaCost(Amount Generic, string? Colored = null) : Cost;
 
 [RuleRef("118.1")]
 public sealed record TapSelf : Cost;

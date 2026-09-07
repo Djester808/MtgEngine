@@ -88,6 +88,8 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(CantActivateAbilities), nameof(CantActivateAbilities))]
 [JsonDerivedType(typeof(CantGainLife), nameof(CantGainLife))]
 [JsonDerivedType(typeof(CantLoseGame), nameof(CantLoseGame))]
+[JsonDerivedType(typeof(PlayerCant), nameof(PlayerCant))]
+[JsonDerivedType(typeof(PlayerProtectionFromEverything), nameof(PlayerProtectionFromEverything))]
 [JsonDerivedType(typeof(CantWinGame), nameof(CantWinGame))]
 [JsonDerivedType(typeof(CantSearchLibraries), nameof(CantSearchLibraries))]
 [JsonDerivedType(typeof(CantDrawMoreThan), nameof(CantDrawMoreThan))]
@@ -210,6 +212,50 @@ public sealed record CantLoseGame(PlayerRef Who) : ContinuousEffect;
 public sealed record CantWinGame(PlayerRef Who) : ContinuousEffect;
 
 public sealed record CantSearchLibraries(PlayerRef Who) : ContinuousEffect;
+
+/// <summary>
+/// The things a player can be stopped from doing or having done to them, CR 614.1 read as a
+/// prohibition. A [Flags] set so "can't lose the game and can't be targeted" is one effect.
+/// </summary>
+[Flags]
+public enum PlayerRestriction
+{
+    None = 0,
+
+    /// <summary>"Your life total can't change" — no gain, no loss, no setting, CR 119.1.</summary>
+    LifeTotalChanges = 1 << 0,
+
+    /// <summary>"You can't lose the game", the player half of CantLoseGame, CR 104.3.</summary>
+    Lose = 1 << 1,
+
+    /// <summary>"You can't be the target of spells or abilities your opponents control", CR 115.6.</summary>
+    BeTargeted = 1 << 2,
+
+    /// <summary>"You can't be dealt damage", the prevention-shaped prohibition, CR 120.3.</summary>
+    BeDealtDamage = 1 << 3,
+}
+
+/// <summary>
+/// A prohibition that applies to a player rather than to an object: "your life total can't change",
+/// "you can't lose the game", "you can't be the target of spells", "prevent all damage that would be
+/// dealt to you". Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a
+/// duration; the Selector-shaped To is not used for these. Several restrictions can be set at once
+/// because <see cref="PlayerRestriction"/> is a flag set. CantLoseGame, CantWinGame and CantGainLife
+/// stay as they are — they were already spelled that way in card files and mean exactly what they
+/// say; use this record for the restrictions they do not cover.
+/// </summary>
+[RuleRef("614.1")]
+public sealed record PlayerCant(PlayerRestriction What) : ContinuousEffect;
+
+/// <summary>
+/// "You have protection from everything", CR 702.16j: the player can't be targeted by spells or
+/// abilities their opponents control, all damage that would be dealt to them is prevented, and they
+/// can't be enchanted. Protection on an object is the KeywordAbility Protection with its Of filter;
+/// this is the player-scoped form, which the keyword cannot carry because a player is not an object.
+/// Apply it through a StaticAbility with Players set, or ApplyToPlayer for a duration.
+/// </summary>
+[RuleRef("702.16j")]
+public sealed record PlayerProtectionFromEverything : ContinuousEffect;
 
 public sealed record CantDrawMoreThan(PlayerRef Who, Amount PerTurn) : ContinuousEffect;
 

@@ -60,7 +60,18 @@ public sealed record Sacrifice(Selector? What = null, ObjectFilter? Choice = nul
 [RuleRef("701.22")]
 public sealed record Scry(Amount N, PlayerRef? Who = null) : Effect;
 
-/// <summary>"Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."</summary>
+/// <summary>
+/// "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+/// One zone goes in <paramref name="From"/>. A card that searches several at once — "search your
+/// graveyard, hand, and library for a card named ..." — puts every zone in <paramref name="Zones"/>
+/// in printed order and leaves <paramref name="From"/> alone; the whole search is one action over
+/// the union, so a single card is found across all of them (CR 701.23a).
+/// Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones
+/// are not, so a multi-zone search with <paramref name="ShuffleAfter"/> set shuffles only the
+/// libraries among <paramref name="Zones"/>. Set <paramref name="ShuffleOnlyIfFound"/> for the
+/// printed rider "if you do, shuffle" / "shuffle only if you searched your library this way", where
+/// no shuffle happens when the search found nothing there.
+/// </summary>
 [RuleRef("701.23")]
 public sealed record Search(
     ObjectFilter For,
@@ -72,7 +83,9 @@ public sealed record Search(
     bool Reveal = false,
     bool Tapped = false,
     bool ShuffleAfter = true,
-    string? RememberAs = null) : Effect;
+    string? RememberAs = null,
+    IReadOnlyList<Zone>? Zones = null,
+    bool ShuffleOnlyIfFound = false) : Effect;
 
 [RuleRef("701.24")]
 public sealed record Shuffle(PlayerRef? Who = null, Selector? IntoLibrary = null) : Effect;
@@ -91,6 +104,28 @@ public sealed record Transform(Selector What) : Effect;
 
 [RuleRef("701.28")]
 public sealed record Convert(Selector What) : Effect;
+
+/// <summary>
+/// "Flip it", CR 710.2: a flip permanent is turned upside down and its alternative (FaceRole.Flipped)
+/// face's name, types, abilities and power/toughness apply. This is not transform (CR 701.27a),
+/// which turns a double-faced card over to its back face, and not FlipCoin, which is CR 705.
+/// A flip is one way only — CR 710.4 has no action that unflips — so a card that "returns it to its
+/// unflipped state" is a different mechanic and goes to a primitive request. Use this record
+/// whenever the printed text says the permanent flips, whatever the layout says.
+/// </summary>
+[RuleRef("710")]
+public sealed record Flip(Selector What) : Effect;
+
+/// <summary>
+/// Prepare, CR 702.180: the object gains the Prepared designation, which lasts until something takes
+/// it away and is not a counter and not an ability. Ask about it with the IsPrepared predicate.
+/// </summary>
+[RuleRef("702.180")]
+public sealed record Prepare(Selector What) : Effect;
+
+/// <summary>Unprepare, CR 702.180: the object loses the Prepared designation. Nothing happens if it was not prepared.</summary>
+[RuleRef("702.180")]
+public sealed record Unprepare(Selector What) : Effect;
 
 [RuleRef("701.29")]
 public sealed record Fateseal(Amount N, PlayerRef Player, PlayerRef? Who = null) : Effect;

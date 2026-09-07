@@ -26,6 +26,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(ChosenNumber), nameof(ChosenNumber))]
 [JsonDerivedType(typeof(Stored), nameof(Stored))]
 [JsonDerivedType(typeof(ManaSpentOnThis), nameof(ManaSpentOnThis))]
+[JsonDerivedType(typeof(TimesKicked), nameof(TimesKicked))]
 [JsonDerivedType(typeof(SpellsCastThisTurn), nameof(SpellsCastThisTurn))]
 [JsonDerivedType(typeof(DamageDealtThisTurn), nameof(DamageDealtThisTurn))]
 [JsonDerivedType(typeof(TurnNumber), nameof(TurnNumber))]
@@ -69,9 +70,17 @@ public sealed record CountersOn(Selector On, string? Counter = null) : Amount;
 /// <summary>Poison, energy, experience and other counters a player has.</summary>
 public sealed record CountersOnPlayer(PlayerRef Who, string Counter) : Amount;
 
-/// <summary>Devotion to one or more colors, CR 700.5.</summary>
+/// <summary>
+/// Devotion to one or more colors, CR 700.5: the number of mana symbols of those colors among the
+/// mana costs of permanents that player controls. Normally the colors are printed and go in
+/// <paramref name="Colors"/> ("your devotion to black"). When the card instead reads "your devotion
+/// to the chosen color", leave <paramref name="Colors"/> at Colorless and set
+/// <paramref name="ChosenColorKey"/> to the key an earlier ChooseValue(ChooseWhat.Color, key) step
+/// stored the colour under; the colour is then read from that choice when the amount is counted.
+/// Never emit a fixed colour for a chosen one — the two are different cards.
+/// </summary>
 [RuleRef("700.5")]
-public sealed record Devotion(PlayerRef Who, Color Colors) : Amount;
+public sealed record Devotion(PlayerRef Who, Color Colors = Color.Colorless, string? ChosenColorKey = null) : Amount;
 
 /// <summary>The number of basic land types among lands a player controls.</summary>
 public sealed record Domain(PlayerRef Who) : Amount;
@@ -91,6 +100,16 @@ public sealed record Stored(string Key) : Amount;
 /// <summary>Mana spent to cast this spell, CR 601.2h.</summary>
 [RuleRef("601.2h")]
 public sealed record ManaSpentOnThis(Color? OfColor = null) : Amount;
+
+/// <summary>
+/// How many times this spell was kicked, CR 702.32b: multikicker's cost may be paid any number of
+/// times as the spell is cast, and "for each time it was kicked" counts those payments. Use this
+/// for multikicker and for replicate-shaped repeated optional costs; a card with plain kicker
+/// (CR 702.32a, paid once or not at all) asks WasKickedCondition instead, which is a yes or no.
+/// The KeywordAbility this counts must carry Repeatable, or nothing ever pays it twice.
+/// </summary>
+[RuleRef("702.32b")]
+public sealed record TimesKicked : Amount;
 
 public sealed record SpellsCastThisTurn(PlayerRef By, ObjectFilter? Matching = null) : Amount;
 

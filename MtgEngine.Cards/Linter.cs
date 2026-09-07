@@ -214,7 +214,8 @@ public static class Linter
         {
             var present = parameter switch
             {
-                "Cost" => kw.Cost is not null,
+                // Escape and its neighbours put a non-mana cost in Costs and leave Cost null (CR 702.138a).
+                "Cost" => kw.Cost is not null || kw.Costs is { Count: > 0 },
                 "N" => kw.N is not null,
                 "Of" => kw.Of is not null,
                 _ => true,
@@ -222,6 +223,10 @@ public static class Linter
             if (!present)
                 findings.Add(new(LintSeverity.Error, "L005", $"{kw.Keyword} needs its {parameter}.", path));
         }
+
+        // One cost, one spelling: a keyword with both would be paid twice or read twice (CR 601.2h).
+        if (ability is KeywordAbility { Cost: not null, Costs.Count: > 0 } two)
+            findings.Add(new(LintSeverity.Error, "L005", $"{two.Keyword} has both a printed Cost string and a Costs list; keep one.", path));
 
         var produced = new HashSet<string>(StringComparer.Ordinal);
         foreach (var node in nodes)

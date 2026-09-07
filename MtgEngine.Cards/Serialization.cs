@@ -38,6 +38,7 @@ public static class CardFileSerializer
         options.Converters.Add(new FlagsArrayConverter<Color>());
         options.Converters.Add(new FlagsArrayConverter<CardType>());
         options.Converters.Add(new FlagsArrayConverter<Supertype>());
+        options.Converters.Add(new FlagsArrayConverter<PlayerRestriction>());
         options.Converters.Add(new JsonStringEnumConverter());
         return options;
     }

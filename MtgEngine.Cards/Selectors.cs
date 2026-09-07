@@ -73,6 +73,11 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// A description of objects. Every field is optional and every set field must hold. This is
 /// the noun phrase of the game: "another nontoken creature you control with power 4 or greater"
 /// is one filter. Anything the fields cannot say goes in <see cref="Also"/>.
+/// Because the set fields are joined with "and", the fixed fields cannot say "or": "attacking or
+/// blocking creature" is not Attacking plus Blocking, which would match nothing. That one disjunction
+/// is common enough to have its own field — InCombat, true for a creature that is an attacking or a
+/// blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is
+/// written with AnyOf in <see cref="Also"/>.
 /// </summary>
 public sealed record ObjectFilter(
     Zone? In = null,
@@ -99,6 +104,7 @@ public sealed record ObjectFilter(
     bool? Attacking = null,
     bool? Blocking = null,
     bool? Blocked = null,
+    bool? InCombat = null,
     bool? Token = null,
     bool? Other = null,
     bool? FaceDown = null,
@@ -142,6 +148,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(IsGoaded), nameof(IsGoaded))]
 [JsonDerivedType(typeof(IsRingBearer), nameof(IsRingBearer))]
 [JsonDerivedType(typeof(IsHarnessed), nameof(IsHarnessed))]
+[JsonDerivedType(typeof(IsPrepared), nameof(IsPrepared))]
 [JsonDerivedType(typeof(IsTransformed), nameof(IsTransformed))]
 [JsonDerivedType(typeof(IsCopy), nameof(IsCopy))]
 [JsonDerivedType(typeof(IsThisObject), nameof(IsThisObject))]
@@ -154,6 +161,19 @@ public abstract record Predicate;
 
 public sealed record SharesColorWith(Selector With) : Predicate;
 
+/// <summary>
+/// Shares a card type — or, with <paramref name="CreatureTypeOnly"/>, a creature type — with the
+/// object <paramref name="With"/> names. This is how a relation between two objects the same effect
+/// touched is written, and it is the answer to the shape translators reach for a new record for:
+/// "search your library for two basic land cards that share a land type" is a Sequence whose first
+/// step searches and remembers the first card, and whose second step searches for one that shares a
+/// type with it —
+/// <c>Sequence([Search(basicLand, Battlefield, RememberAs: "first"),
+/// Search(new ObjectFilter(Types: CardType.Land, Supertypes: Supertype.Basic,
+/// Also: new SharesTypeWith(new Remembered("first"), CreatureTypeOnly: false)), Zone.Battlefield)])</c>.
+/// Remember plus this predicate expresses every "that share a ..." and "with the same ..." relation;
+/// SharesColorWith and SharesNameWith are the same pattern for colour and name.
+/// </summary>
 public sealed record SharesTypeWith(Selector With, bool CreatureTypeOnly = false) : Predicate;
 
 public sealed record SharesNameWith(Selector With) : Predicate;
@@ -206,6 +226,14 @@ public sealed record IsRingBearer : Predicate;
 
 [RuleRef("701.64")]
 public sealed record IsHarnessed : Predicate;
+
+/// <summary>
+/// Carries the Prepared designation, CR 702.180: "prepared creatures you control", "if it's
+/// prepared". The designation is put on by the Prepare effect and taken off by Unprepare; it is not
+/// a counter, so WithCounter does not see it.
+/// </summary>
+[RuleRef("702.180")]
+public sealed record IsPrepared : Predicate;
 
 public sealed record IsTransformed : Predicate;
 

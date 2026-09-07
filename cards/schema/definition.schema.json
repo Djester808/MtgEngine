@@ -365,6 +365,9 @@
           "$ref": "#/$defs/PayLife"
         },
         {
+          "$ref": "#/$defs/PayManaCost"
+        },
+        {
           "$ref": "#/$defs/PutCountersCost"
         },
         {
@@ -406,6 +409,9 @@
           "$ref": "#/$defs/And"
         },
         {
+          "$ref": "#/$defs/AttackedThisTurn"
+        },
+        {
           "$ref": "#/$defs/CastFromZone"
         },
         {
@@ -443,6 +449,9 @@
         },
         {
           "$ref": "#/$defs/Formidable"
+        },
+        {
+          "$ref": "#/$defs/GiftPromised"
         },
         {
           "$ref": "#/$defs/HasKeyword"
@@ -667,6 +676,27 @@
         "anyPlayerMayActivate": {
           "type": "boolean"
         },
+        "payOnlyWith": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "White",
+                  "Blue",
+                  "Black",
+                  "Red",
+                  "Green"
+                ]
+              },
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "anyOf": [
             {
@@ -684,7 +714,7 @@
         "costs",
         "do"
       ],
-      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a ; mana abilities are recognised by the engine, CR 605."
+      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a ; mana abilities are recognised by the engine, CR 605. is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. A restriction that names a source rather than a colour \u2014 \u0022mana produced by artifacts\u0022 \u2014 is not this field; it goes to a primitive request, because paying with the wrong mana is a different game action, not a rounding error."
     },
     "KeywordAbility": {
       "type": "object",
@@ -941,6 +971,22 @@
             }
           ]
         },
+        "costs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Cost"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeatable": {
+          "type": "boolean"
+        },
         "text": {
           "anyOf": [
             {
@@ -957,7 +1003,7 @@
         "kind",
         "keyword"
       ],
-      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail."
+      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in as Cost records instead, mana included as a ManaCost entry, and leaves null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice."
     },
     "ReplacementAbility": {
       "type": "object",
@@ -1456,6 +1502,33 @@
       ],
       "description": "CR 119.4"
     },
+    "PayManaCost": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PayManaCost"
+        },
+        "generic": {
+          "$ref": "#/$defs/Amount"
+        },
+        "colored": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "generic"
+      ],
+      "description": "Generic mana whose amount is counted from the game rather than printed, CR 118.8: \u0022unless that player pays {X}, where X is this creature\u0027s power\u0022. is the number of generic mana to pay, evaluated when the cost is announced (CR 601.2h); is any printed coloured part paid alongside it (\u0022{R} plus {X}\u0022), written as printed. Use ManaCost for everything a card prints as a fixed symbol string, including \u0022{X}\u0022 spelled with the spell\u0027s own X \u2014 this record is only for an amount the game has to count."
+    },
     "PutCountersCost": {
       "type": "object",
       "properties": {
@@ -1751,6 +1824,27 @@
         "of"
       ]
     },
+    "AttackedThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AttackedThisTurn"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "min": {
+          "$ref": "#/$defs/Amount"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who",
+        "min"
+      ],
+      "description": "\u0022if you attacked with two or more creatures this turn\u0022: how many creatures a player declared as attackers this turn, compared against , CR 506.2 and 508.1. Counted over the whole turn and every combat phase in it, not just the current one, and a creature that was declared an attacker still counts after it has left combat or died. Raid is the same question with a minimum of one and is kept because the ability word is printed; use this record whenever the card names a number, and prefer it over Raid when the number is anything but one."
+    },
     "CastFromZone": {
       "type": "object",
       "properties": {
@@ -2003,6 +2097,29 @@
         "who"
       ],
       "description": "Creatures you control have total power 8 or greater."
+    },
+    "GiftPromised": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "GiftPromised"
+        },
+        "who": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022if the gift was promised\u0022, CR 702.174b: the caster of a spell with gift chose, as they cast it, to promise the gift to an opponent, and the spell\u0027s \u0022if the gift was promised\u0022 clauses now apply. Promising is a choice made on casting, so this is answered from the spell\u0027s record of that choice, not from anything on the battlefield. names the player the gift was promised to when the card asks about them; leave it null for the plain \u0022if the gift was promised\u0022 reading."
     },
     "HasKeyword": {
       "type": "object",
@@ -2913,6 +3030,9 @@
           "$ref": "#/$defs/Bolster"
         },
         {
+          "$ref": "#/$defs/ChangeTarget"
+        },
+        {
           "$ref": "#/$defs/ChooseMode"
         },
         {
@@ -2967,6 +3087,9 @@
           "$ref": "#/$defs/Discover"
         },
         {
+          "$ref": "#/$defs/DistributeCounters"
+        },
+        {
           "$ref": "#/$defs/DoNothing"
         },
         {
@@ -3016,6 +3139,9 @@
         },
         {
           "$ref": "#/$defs/Fight"
+        },
+        {
+          "$ref": "#/$defs/Flip"
         },
         {
           "$ref": "#/$defs/FlipCoin"
@@ -3099,6 +3225,9 @@
           "$ref": "#/$defs/OpenAttraction"
         },
         {
+          "$ref": "#/$defs/PayCost"
+        },
+        {
           "$ref": "#/$defs/PhaseOut"
         },
         {
@@ -3106,6 +3235,9 @@
         },
         {
           "$ref": "#/$defs/Populate"
+        },
+        {
+          "$ref": "#/$defs/Prepare"
         },
         {
           "$ref": "#/$defs/PreventThatDamage"
@@ -3219,6 +3351,9 @@
           "$ref": "#/$defs/Unless"
         },
         {
+          "$ref": "#/$defs/Unprepare"
+        },
+        {
           "$ref": "#/$defs/Unsupported"
         },
         {
@@ -3312,6 +3447,9 @@
         },
         {
           "$ref": "#/$defs/Times"
+        },
+        {
+          "$ref": "#/$defs/TimesKicked"
         },
         {
           "$ref": "#/$defs/TotalAmong"
@@ -3705,6 +3843,16 @@
             }
           ]
         },
+        "inCombat": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "token": {
           "anyOf": [
             {
@@ -4033,7 +4181,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in ."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in . Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in ."
     },
     "ReplacedEvent": {
       "anyOf": [
@@ -4260,6 +4408,12 @@
         },
         {
           "$ref": "#/$defs/PlayWithHandRevealed"
+        },
+        {
+          "$ref": "#/$defs/PlayerCant"
+        },
+        {
+          "$ref": "#/$defs/PlayerProtectionFromEverything"
         },
         {
           "$ref": "#/$defs/PreventDamage"
@@ -4654,6 +4808,16 @@
               "type": "null"
             }
           ]
+        },
+        "spendOnlyOn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -4661,7 +4825,7 @@
         "kind",
         "mana"
       ],
-      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022."
+      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022. Set for a restricted mana: \u0022add {C}. Spend this mana only to cast artifact spells\u0022 (CR 106.6a) \u2014 the filter describes what the mana may be spent on, and mana with a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say \u0022only to cast creature spells\u0022 as ObjectFilter(Spell: true, Types: CardType.Creature) and \u0022only to activate abilities\u0022 with an ability filter; a restriction the filter cannot express goes to a primitive request rather than being dropped, because unrestricted mana is a different card."
     },
     "Airbend": {
       "type": "object",
@@ -4933,6 +5097,46 @@
         "n"
       ],
       "description": "CR 701.39"
+    },
+    "ChangeTarget": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ChangeTarget"
+        },
+        "what": {
+          "$ref": "#/$defs/Selector"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Selector"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allTargets": {
+          "type": "boolean"
+        },
+        "who": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "\u0022Change the target of target spell with a single target\u0022, CR 115.7: the spell or ability keeps resolving but points somewhere else. selects the spell or ability on the stack; names the new target when the card names it (\u0022change its target to this creature\u0022) and is left null when the card lets a player choose. Set for \u0022you may choose new targets for it\u0022 (CR 114.6), which is the weaker action: it may leave the targets as they are, while a change must alter at least one (CR 115.7b). Legality is rechecked on resolution, so an illegal change is simply not made."
     },
     "ChooseMode": {
       "type": "object",
@@ -5586,6 +5790,35 @@
       ],
       "description": "CR 701.57"
     },
+    "DistributeCounters": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DistributeCounters"
+        },
+        "n": {
+          "$ref": "#/$defs/Amount"
+        },
+        "counter": {
+          "type": "string"
+        },
+        "among": {
+          "$ref": "#/$defs/Selector"
+        },
+        "maxTargets": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "n",
+        "counter",
+        "among",
+        "maxTargets"
+      ],
+      "description": "\u0022Distribute three \u002B1/\u002B1 counters among one, two, or three target creatures\u0022, CR 601.2d: the division is announced as the spell is cast, every named target gets at least one counter, and no more than targets may be chosen. is the total distributed, the kind, and the target selector, whose own Count is the number of targets and is normally left null so MaxTargets rules it. This is the counter twin of DealDividedDamage; do not spell a division as ForEach over targets, which would give every target the whole amount."
+    },
     "DoNothing": {
       "type": "object",
       "properties": {
@@ -6076,6 +6309,23 @@
         "b"
       ],
       "description": "CR 701.14"
+    },
+    "Flip": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Flip"
+        },
+        "what": {
+          "$ref": "#/$defs/Selector"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "\u0022Flip it\u0022, CR 710.2: a flip permanent is turned upside down and its alternative (FaceRole.Flipped) face\u0027s name, types, abilities and power/toughness apply. This is not transform (CR 701.27a), which turns a double-faced card over to its back face, and not FlipCoin, which is CR 705. A flip is one way only \u2014 CR 710.4 has no action that unflips \u2014 so a card that \u0022returns it to its unflipped state\u0022 is a different mechanic and goes to a primitive request. Use this record whenever the printed text says the permanent flips, whatever the layout says."
     },
     "FlipCoin": {
       "type": "object",
@@ -6929,6 +7179,33 @@
       ],
       "description": "CR 701.51"
     },
+    "PayCost": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PayCost"
+        },
+        "cost": {
+          "$ref": "#/$defs/Cost"
+        },
+        "who": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "cost"
+      ],
+      "description": "\u0022You may pay {4}. If you do, ...\u0022 \u2014 a cost paid inside a resolving effect, CR 118.12. The cost is paid where it stands rather than as part of casting or activating, so it composes: wrap it in May with a StoreChoiceAs key for \u0022you may pay\u0022, and follow it with If(ChoiceIs(key, \u0022yes\u0022), ...) for the \u0022if you do\u0022 half. Use Unless for \u0022unless that player pays\u0022, where the cost belongs to someone else and the effect is what happens when it goes unpaid. Any Cost record works here, including PayManaCost for an amount counted from the game."
+    },
     "PhaseOut": {
       "type": "object",
       "properties": {
@@ -6991,6 +7268,23 @@
         "kind"
       ],
       "description": "CR 701.36"
+    },
+    "Prepare": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Prepare"
+        },
+        "what": {
+          "$ref": "#/$defs/Selector"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "Prepare, CR 702.180: the object gains the Prepared designation, which lasts until something takes it away and is not a counter and not an ability. Ask about it with the IsPrepared predicate."
     },
     "PreventThatDamage": {
       "type": "object",
@@ -7618,6 +7912,32 @@
               "type": "null"
             }
           ]
+        },
+        "zones": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Library",
+                  "Hand",
+                  "Battlefield",
+                  "Graveyard",
+                  "Stack",
+                  "Exile",
+                  "Command",
+                  "OutsideTheGame"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shuffleOnlyIfFound": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -7626,7 +7946,7 @@
         "for",
         "to"
       ],
-      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022"
+      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in . A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in in printed order and leaves alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with set shuffles only the libraries among . Set for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there."
     },
     "Sequence": {
       "type": "object",
@@ -8048,6 +8368,23 @@
       ],
       "description": "\u0022Counter target spell unless its controller pays {3}.\u0022"
     },
+    "Unprepare": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Unprepare"
+        },
+        "what": {
+          "$ref": "#/$defs/Selector"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "Unprepare, CR 702.180: the object loses the Prepared designation. Nothing happens if it was not prepared."
+    },
     "Unsupported": {
       "type": "object",
       "properties": {
@@ -8402,15 +8739,24 @@
             ]
           },
           "uniqueItems": true
+        },
+        "chosenColorKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "required": [
         "kind",
-        "who",
-        "colors"
+        "who"
       ],
-      "description": "Devotion to one or more colors, CR 700.5."
+      "description": "Devotion to one or more colors, CR 700.5: the number of mana symbols of those colors among the mana costs of permanents that player controls. Normally the colors are printed and go in (\u0022your devotion to black\u0022). When the card instead reads \u0022your devotion to the chosen color\u0022, leave at Colorless and set to the key an earlier ChooseValue(ChooseWhat.Color, key) step stored the colour under; the colour is then read from that choice when the amount is counted. Never emit a fixed colour for a chosen one \u2014 the two are different cards."
     },
     "Difference": {
       "type": "object",
@@ -8729,6 +9075,19 @@
         "factor"
       ]
     },
+    "TimesKicked": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TimesKicked"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "How many times this spell was kicked, CR 702.32b: multikicker\u0027s cost may be paid any number of times as the spell is cast, and \u0022for each time it was kicked\u0022 counts those payments. Use this for multikicker and for replicate-shaped repeated optional costs; a card with plain kicker (CR 702.32a, paid once or not at all) asks WasKickedCondition instead, which is a yes or no. The KeywordAbility this counts must carry Repeatable, or nothing ever pays it twice."
+    },
     "TotalAmong": {
       "type": "object",
       "properties": {
@@ -8843,6 +9202,9 @@
         },
         {
           "$ref": "#/$defs/IsHarnessed"
+        },
+        {
+          "$ref": "#/$defs/IsPrepared"
         },
         {
           "$ref": "#/$defs/IsRingBearer"
@@ -11003,6 +11365,46 @@
         "who"
       ],
       "description": "CR 613"
+    },
+    "PlayerCant": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PlayerCant"
+        },
+        "what": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "LifeTotalChanges",
+              "Lose",
+              "BeTargeted",
+              "BeDealtDamage"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "A prohibition that applies to a player rather than to an object: \u0022your life total can\u0027t change\u0022, \u0022you can\u0027t lose the game\u0022, \u0022you can\u0027t be the target of spells\u0022, \u0022prevent all damage that would be dealt to you\u0022. Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a duration; the Selector-shaped To is not used for these. Several restrictions can be set at once because is a flag set. CantLoseGame, CantWinGame and CantGainLife stay as they are \u2014 they were already spelled that way in card files and mean exactly what they say; use this record for the restrictions they do not cover."
+    },
+    "PlayerProtectionFromEverything": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PlayerProtectionFromEverything"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022You have protection from everything\u0022, CR 702.16j: the player can\u0027t be targeted by spells or abilities their opponents control, all damage that would be dealt to them is prevented, and they can\u0027t be enchanted. Protection on an object is the KeywordAbility Protection with its Of filter; this is the player-scoped form, which the keyword cannot carry because a player is not an object. Apply it through a StaticAbility with Players set, or ApplyToPlayer for a duration."
     },
     "PreventDamage": {
       "type": "object",
@@ -13849,6 +14251,19 @@
       ],
       "description": "CR 701.64"
     },
+    "IsPrepared": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IsPrepared"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "Carries the Prepared designation, CR 702.180: \u0022prepared creatures you control\u0022, \u0022if it\u0027s prepared\u0022. The designation is put on by the Prepare effect and taken off by Unprepare; it is not a counter, so WithCounter does not see it."
+    },
     "IsRingBearer": {
       "type": "object",
       "properties": {
@@ -14009,7 +14424,8 @@
       "required": [
         "kind",
         "with"
-      ]
+      ],
+      "description": "Shares a card type \u2014 or, with , a creature type \u2014 with the object names. This is how a relation between two objects the same effect touched is written, and it is the answer to the shape translators reach for a new record for: \u0022search your library for two basic land cards that share a land type\u0022 is a Sequence whose first step searches and remembers the first card, and whose second step searches for one that shares a type with it \u2014 Sequence([Search(basicLand, Battlefield, RememberAs: \u0022first\u0022), Search(new ObjectFilter(Types: CardType.Land, Supertypes: Supertype.Basic, Also: new SharesTypeWith(new Remembered(\u0022first\u0022), CreatureTypeOnly: false)), Zone.Battlefield)]). Remember plus this predicate expresses every \u0022that share a ...\u0022 and \u0022with the same ...\u0022 relation; SharesColorWith and SharesNameWith are the same pattern for colour and name."
     },
     "TargetedBy": {
       "type": "object",
