@@ -104,10 +104,17 @@ public sealed class ZoneChangeTests
         Assert.DoesNotContain(top, outcome.State.Objects.Keys);
 
         // CR 400.7: the drawn card is a new object with a new id, and it is the one in hand.
-        var moved = Assert.IsType<ObjectMoved>(Assert.Single(outcome.Events));
+        Assert.Equal(2, outcome.Events.Count);
+        var moved = Assert.IsType<ObjectMoved>(outcome.Events[0]);
         Assert.Equal(top, moved.From);
         Assert.NotEqual(top, moved.To.Id);
         Assert.Contains(moved.To.Id, outcome.State.In(ZoneKey.Of(Zone.Hand, player)));
+
+        // CR 121.1: the draw is named after the move, so a "whenever you draw" trigger has an event to see.
+        var drawn = Assert.IsType<ObjectDrawn>(outcome.Events[1]);
+        Assert.Equal(player, drawn.Player);
+        Assert.Equal(moved.To.Id, drawn.Object);
+        Assert.Equal(state.Player(player).ObjectsDrawnThisTurn + 1, outcome.State.Player(player).ObjectsDrawnThisTurn);
         AssertLogFolds(state, outcome);
     }
 

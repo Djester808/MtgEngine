@@ -171,7 +171,15 @@ public sealed partial class CombatSystem
     }
 
     private DamageDealt Damage(GameState state, ObjectId source, ObjectId? toObject, PlayerId? toPlayer, int amount) =>
-        new(source, toObject, toPlayer, amount, Combat: true, FromCommander: toPlayer is not null && IsCommander(state, source));
+        new(
+            source,
+            toObject,
+            toPlayer,
+            amount,
+            Combat: true,
+            FromCommander: toPlayer is not null && IsCommander(state, source),
+            // CR 702.2b: the recipient remembers that a deathtouch source dealt it damage, for 704.5h.
+            Deathtouch: toObject is not null && _characteristics.Of(state, source).Has(KeywordKind.Deathtouch));
 
     /// <summary>CR 903.10a — combat damage to a player from a commander is tracked per commander; whether an object is one is the query layer's answer.</summary>
     [RuleRef("903.10a")]

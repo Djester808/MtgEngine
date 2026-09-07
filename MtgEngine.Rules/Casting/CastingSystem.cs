@@ -115,10 +115,11 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             RequireSorcerySpeed(state, command.Player, "602.2a");
 
         var paid = CostPayment.Pay(state, source, chars, ability.Costs, command.Player, command.X, zones, query);
-        var activated = new AbilityActivated(source.Id, source.Id, command.AbilityIndex, command.Player);
+        var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
         if (IsManaAbility(ability, command))
         {
-            // CR 605.3a: activating a mana ability does not use the stack, so it resolves here.
+            // CR 605.3a: activating a mana ability does not use the stack, so it resolves here,
+            // and the event's stack object stays null to say so.
             var mana = ManaFrom((AddMana)ability.Do, state, command, chars.Controller);
             ImmutableList<GameEvent> immediate = [.. paid.Events, activated, mana];
             return new Outcome(GameReducer.Apply(state, immediate), immediate);

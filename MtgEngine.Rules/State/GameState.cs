@@ -38,6 +38,18 @@ public sealed record GameState
 
     public GameOutcome? Outcome { get; init; }
 
+    /// <summary>The format the game was created in, so a variant rule such as CR 903.10a can ask.</summary>
+    public string Format { get; init; } = "commander";
+
+    [RuleRef("724")]
+    public PlayerId? Monarch { get; init; }
+
+    [RuleRef("725")]
+    public PlayerId? Initiative { get; init; }
+
+    /// <summary>What happened this turn, for the conditions that ask; reset when a turn begins.</summary>
+    public TurnHistory History { get; init; } = TurnHistory.Empty;
+
     public PlayerState Player(PlayerId id) => Players[id.Value];
 
     public ImmutableList<ObjectId> In(ZoneKey zone) => Zones.TryGetValue(zone, out var list) ? list : [];
@@ -102,6 +114,30 @@ public sealed record ChoiceOption(string Id, string Label, ObjectId? Object = nu
 
 /// <summary>A locator for where the answer goes, so resumption is a branch per kind and never a captured continuation.</summary>
 public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? EffectPath, ImmutableDictionary<string, string> Extra);
+
+/// <summary>
+/// The facts about this turn that conditions ask for: morbid, revolt, raid, "entered this
+/// turn", damage dealt this turn. Folded by the events that make each fact; cleared by
+/// <c>TurnBegan</c>. The query layer only reads it.
+/// </summary>
+public sealed record TurnHistory(
+    ImmutableList<ObjectId> EnteredBattlefield,
+    ImmutableList<ObjectId> Died,
+    ImmutableList<ObjectId> LeftBattlefield,
+    ImmutableList<SpellCastRecord> SpellsCast,
+    ImmutableList<ObjectId> AttackedWith,
+    ImmutableDictionary<ObjectId, int> DamageDealtBy,
+    ImmutableDictionary<ObjectId, int> DamageReceivedBy,
+    ImmutableDictionary<PlayerId, int> DamageReceivedByPlayer)
+{
+    public static TurnHistory Empty { get; } = new(
+        [], [], [], [], [],
+        ImmutableDictionary<ObjectId, int>.Empty,
+        ImmutableDictionary<ObjectId, int>.Empty,
+        ImmutableDictionary<PlayerId, int>.Empty);
+}
+
+public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From);
 
 /// <summary>A deterministic generator. The seed is in the log; the counter advances with every draw.</summary>
 public readonly record struct RngState(ulong Seed, int Counter);

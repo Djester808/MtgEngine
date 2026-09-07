@@ -38,12 +38,27 @@ public interface IZoneSystem : ISubsystem
 
     Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null);
 
+    /// <summary>
+    /// Several objects change zones at once, CR 400.7 and 704.5m: one board for all of them, so
+    /// leaves-the-battlefield triggers see the board as it was before any left. The default is
+    /// the loop, which is right for everything until the trigger system needs the simultaneity.
+    /// </summary>
+    Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves)
+    {
+        var outcome = Outcome.Unchanged(state);
+        foreach (var m in moves)
+            outcome = outcome.Then(s => Move(s, m.What, m.To, m.Where, m.Tapped, m.Controller));
+        return outcome;
+    }
+
     Outcome Draw(GameState state, PlayerId player, int count);
 
     Outcome Shuffle(GameState state, PlayerId player);
 
     Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking);
 }
+
+public sealed record MoveRequest(ObjectId What, ZoneKey To, Placement Where = Placement.Default, bool Tapped = false, PlayerId? Controller = null);
 
 /// <summary>Turn structure and priority, CR 500 and 117: steps, untap, draw, cleanup, passing, N players.</summary>
 [RuleRef("500")]
@@ -156,7 +171,8 @@ public sealed record EffectContext(
     ImmutableDictionary<string, string> Chosen,
     ImmutableDictionary<string, int> Stored,
     ImmutableList<ObjectId> Triggering,
-    PlayerId? TriggeringPlayer);
+    PlayerId? TriggeringPlayer,
+    ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null);
 
 /// <summary>
 /// The read-only query layer every subsystem shares: does this object match a filter, is this
@@ -196,4 +212,4 @@ public interface ILegalActions : ISubsystem
 }
 
 /// <summary>How a game is created.</summary>
-public sealed record GameSetup(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife = 20, string Format = "commander", int OpeningHandSize = 7);
+public sealed record GameSetup(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife = 20, string Format = "commander", int OpeningHandSize = 7, int StartingPlayer = 0);

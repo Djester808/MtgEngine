@@ -133,9 +133,10 @@ public sealed partial class StateBasedActions
             if (obj.Damage >= toughness && !chars.Has(KeywordKind.Indestructible))
                 return new Verdict(id, Action.Graveyard, Destroyed);
 
-            // 704.5h — a creature dealt damage by a source with deathtouch is destroyed — is
-            // not here: the state does not record which source dealt the damage it holds. See
-            // seam-requests/E5.md.
+            // 704.5h A creature dealt damage by a source with deathtouch since the last check is
+            // destroyed, whatever the amount; 702.12b indestructible ignores this too.
+            if (obj.DealtDeathtouchDamage && obj.Damage > 0 && !chars.Has(KeywordKind.Indestructible))
+                return new Verdict(id, Action.Graveyard, Destroyed);
         }
 
         // 704.5i A planeswalker with loyalty 0 is put into its owner's graveyard. Loyalty is

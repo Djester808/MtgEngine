@@ -80,6 +80,15 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
             var lost = new PlayerLost(player.Id, reason);
             events.Add(lost);
             state = lost.Apply(state);
+
+            // 704.5b is "since the last time state-based actions were checked": the flag is
+            // consumed with the loss, so a replaced loss (CR 614) does not repeat every check.
+            if (player.DrewFromEmptyLibrary)
+            {
+                var cleared = new PlayerFlagCleared(player.Id, "drewFromEmptyLibrary");
+                events.Add(cleared);
+                state = cleared.Apply(state);
+            }
         }
 
         if (Ending(state) is { } ended)
@@ -91,7 +100,20 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
         // Losing a player changed no object, so the permanents are still judged from `before`.
         var permanents = Permanents(state);
         events.AddRange(permanents.Events);
-        return new Outcome(permanents.State, events.ToImmutable());
+        state = permanents.State;
+
+        // 704.5h is "since the last time state-based actions were checked" too: every deathtouch
+        // mark that survived this check is consumed now, so it cannot destroy on a later one.
+        foreach (var obj in before.Objects.Values.Where(o => o.DealtDeathtouchDamage))
+        {
+            if (!state.Objects.ContainsKey(obj.Id))
+                continue;
+            var consumed = new ObjectChanged(obj.Id, DealtDeathtouchDamage: false);
+            events.Add(consumed);
+            state = consumed.Apply(state);
+        }
+
+        return new Outcome(state, events.ToImmutable());
     }
 
     /// <summary>

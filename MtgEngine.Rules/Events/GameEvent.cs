@@ -36,7 +36,7 @@ public static class GameReducer
 
 /// <summary>The first event: players, seed and format. Produces the initial state from nothing.</summary>
 [RuleRef("103")]
-public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife, string Format) : GameEvent
+public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife, string Format, int StartingPlayer = 0) : GameEvent
 {
     internal static GameState Empty { get; } = new()
     {
@@ -46,12 +46,40 @@ public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed,
         Turn = new TurnState(0, new PlayerId(0), Step.Untap, 0),
     };
 
+    /// <summary>CR 103.1: the starting player is decided before anything else; the turn system reads it from the state.</summary>
     public override GameState Apply(GameState state) => Empty with
     {
         Players = [.. Players.Select((p, i) => new PlayerState(new PlayerId(i), p.Name, StartingLife))],
         Rng = new RngState(Seed, 0),
-        Turn = new TurnState(0, new PlayerId(0), Step.Untap, 0),
+        Turn = new TurnState(0, new PlayerId(StartingPlayer), Step.Untap, StartingPlayer),
+        Format = Format,
     };
+}
+
+/// <summary>A card was drawn, CR 121.1: the move itself is the preceding <see cref="ObjectMoved"/>; this names the draw for triggers and replacements.</summary>
+[RuleRef("121.1")]
+public sealed record ObjectDrawn(PlayerId Player, ObjectId Object) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var p = state.Player(Player);
+        return state with { Players = state.Players.SetItem(Player.Value, p with { ObjectsDrawnThisTurn = p.ObjectsDrawnThisTurn + 1 }) };
+    }
+}
+
+/// <summary>A per-player flag was consumed: "drewFromEmptyLibrary" once the loss for it is applied, CR 704.5b.</summary>
+public sealed record PlayerFlagCleared(PlayerId Player, string Flag) : GameEvent
+{
+    public override GameState Apply(GameState state)
+    {
+        var p = state.Player(Player);
+        var next = Flag switch
+        {
+            "drewFromEmptyLibrary" => p with { DrewFromEmptyLibrary = false },
+            _ => p,
+        };
+        return state with { Players = state.Players.SetItem(Player.Value, next) };
+    }
 }
 
 public sealed record PlayerStart(string Name, ImmutableList<string> DeckOracleIds, ImmutableList<string> CommandZoneOracleIds);
@@ -100,13 +128,27 @@ public sealed record ObjectMoved(ObjectId From, GameObject To, int Position) : G
 {
     public override GameState Apply(GameState state)
     {
+        var fromZone = state.Objects.TryGetValue(From, out var old) ? old.Zone.Zone : (Zone?)null;
         var withoutOld = new ObjectCeasedToExist(From).Apply(state);
-        return new ObjectCreated(To, Position).Apply(withoutOld);
+        var moved = new ObjectCreated(To, Position).Apply(withoutOld);
+
+        // The turn's history, for "entered this turn", morbid and revolt (CR 603.10 looks back at these).
+        var h = moved.History;
+        if (To.Zone.Zone == Zone.Battlefield)
+            h = h with { EnteredBattlefield = h.EnteredBattlefield.Add(To.Id) };
+        if (fromZone == Zone.Battlefield)
+        {
+            h = h with { LeftBattlefield = h.LeftBattlefield.Add(From) };
+            if (To.Zone.Zone == Zone.Graveyard)
+                h = h with { Died = h.Died.Add(From) };
+        }
+
+        return moved with { History = h };
     }
 }
 
 /// <summary>A stored property of an object changed: tapped, face down, phased out, summoning sickness, damage, attachment.</summary>
-public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceDown = null, bool? PhasedOut = null, bool? SummoningSick = null, int? Damage = null, ObjectId? AttachedTo = null, bool ClearAttachment = false) : GameEvent
+public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceDown = null, bool? PhasedOut = null, bool? SummoningSick = null, int? Damage = null, ObjectId? AttachedTo = null, bool ClearAttachment = false, bool? DealtDeathtouchDamage = null) : GameEvent
 {
     public override GameState Apply(GameState state)
     {
@@ -120,6 +162,7 @@ public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceD
             SummoningSick = SummoningSick ?? obj.SummoningSick,
             Damage = Damage ?? obj.Damage,
             AttachedTo = ClearAttachment ? null : (AttachedTo ?? obj.AttachedTo),
+            DealtDeathtouchDamage = DealtDeathtouchDamage ?? obj.DealtDeathtouchDamage,
         };
         return state with { Objects = state.Objects.SetItem(Id, updated) };
     }
@@ -166,8 +209,9 @@ public sealed record TurnBegan(int Number, PlayerId ActivePlayer, bool Extra) : 
 {
     public override GameState Apply(GameState state) => state with
     {
-        Turn = state.Turn with { Number = Number, ActivePlayer = ActivePlayer, Step = Step.Untap, IsExtraTurn = Extra },
+        Turn = state.Turn with { Number = Number, ActivePlayer = ActivePlayer, Step = Step.Untap, IsExtraTurn = Extra, TurnOrderIndex = ActivePlayer.Value },
         Players = [.. state.Players.Select(p => p with { LandsPlayedThisTurn = 0, ObjectsDrawnThisTurn = 0 })],
+        History = TurnHistory.Empty,
     };
 }
 
@@ -228,20 +272,28 @@ public sealed record DrawFromEmptyLibraryAttempted(PlayerId Player) : GameEvent
 
 /// <summary>Damage was dealt, CR 120. Marked on a permanent, or taken from a life total; the source's characteristics decide lifelink, infect and the rest, and those are separate events.</summary>
 [RuleRef("120")]
-public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? ToPlayer, int Amount, bool Combat, bool FromCommander) : GameEvent
+public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? ToPlayer, int Amount, bool Combat, bool FromCommander, bool Deathtouch = false) : GameEvent
 {
     public override GameState Apply(GameState state)
     {
+        var h = state.History with { DamageDealtBy = state.History.DamageDealtBy.SetItem(Source, state.History.DamageDealtBy.GetValueOrDefault(Source) + Amount) };
         if (ToObject is { } id && state.Objects.TryGetValue(id, out var obj))
-            return state with { Objects = state.Objects.SetItem(id, obj with { Damage = obj.Damage + Amount }) };
+        {
+            h = h with { DamageReceivedBy = h.DamageReceivedBy.SetItem(id, h.DamageReceivedBy.GetValueOrDefault(id) + Amount) };
+            // CR 702.2b: damage from a source with deathtouch is remembered until state-based actions look.
+            var damaged = obj with { Damage = obj.Damage + Amount, DealtDeathtouchDamage = obj.DealtDeathtouchDamage || (Deathtouch && Amount > 0) };
+            return state with { Objects = state.Objects.SetItem(id, damaged), History = h };
+        }
+
         if (ToPlayer is { } pid)
         {
             var p = state.Player(pid);
             var commanderDamage = FromCommander ? p.CommanderDamage.SetItem(Source, p.CommanderDamage.GetValueOrDefault(Source) + Amount) : p.CommanderDamage;
-            return state with { Players = state.Players.SetItem(pid.Value, p with { Life = p.Life - Amount, CommanderDamage = commanderDamage }) };
+            h = h with { DamageReceivedByPlayer = h.DamageReceivedByPlayer.SetItem(pid, h.DamageReceivedByPlayer.GetValueOrDefault(pid) + Amount) };
+            return state with { Players = state.Players.SetItem(pid.Value, p with { Life = p.Life - Amount, CommanderDamage = commanderDamage }), History = h };
         }
 
-        return state;
+        return state with { History = h };
     }
 }
 
@@ -269,11 +321,13 @@ public sealed record ManaPoolEmptied(PlayerId Player) : GameEvent
 [RuleRef("601.2i")]
 public sealed record SpellCast(ObjectId Spell, PlayerId Caster, Zone From) : GameEvent
 {
-    public override GameState Apply(GameState state) => state;
+    public override GameState Apply(GameState state) =>
+        state with { History = state.History with { SpellsCast = state.History.SpellsCast.Add(new SpellCastRecord(Spell, Caster, From)) } };
 }
 
+/// <summary><paramref name="StackObject"/> is null for a mana ability, which does not use the stack, CR 605.3a.</summary>
 [RuleRef("602.2")]
-public sealed record AbilityActivated(ObjectId StackObject, ObjectId Source, int AbilityIndex, PlayerId Player) : GameEvent
+public sealed record AbilityActivated(ObjectId? StackObject, ObjectId Source, int AbilityIndex, PlayerId Player) : GameEvent
 {
     public override GameState Apply(GameState state) => state;
 }
@@ -300,6 +354,7 @@ public sealed record AttackersDeclared(PlayerId Player, ImmutableDictionary<Obje
     public override GameState Apply(GameState state) => state with
     {
         Combat = new CombatState(Player, Attackers, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty, AttackersDeclared: true, BlockersDeclared: false),
+        History = state.History with { AttackedWith = state.History.AttackedWith.AddRange(Attackers.Keys) },
     };
 }
 

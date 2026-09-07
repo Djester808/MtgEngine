@@ -42,7 +42,7 @@ public sealed class ZoneSystem : IZoneSystem
         ArgumentNullException.ThrowIfNull(store);
 
         var tape = new Tape(GameStarted.Empty);
-        tape.Add(new GameStarted(setup.Players, setup.Seed, setup.StartingLife, setup.Format));
+        tape.Add(new GameStarted(setup.Players, setup.Seed, setup.StartingLife, setup.Format, setup.StartingPlayer));
 
         for (var seat = 0; seat < setup.Players.Count; seat++)
         {
@@ -53,9 +53,13 @@ public sealed class ZoneSystem : IZoneSystem
             foreach (var oracleId in start.DeckOracleIds)
                 tape.Add(Born(tape.State, Definition(store, oracleId), player, Cards.Zone.Library));
 
-            // CR 103.2c / 903.6: in a Commander game the commander starts face up in the command zone.
+            // CR 103.2c / 903.6: in a Commander game the commander starts face up in the command zone,
+            // and stays a commander through every zone it visits, CR 903.3.
             foreach (var oracleId in start.CommandZoneOracleIds)
-                tape.Add(Born(tape.State, Definition(store, oracleId), player, Cards.Zone.Command));
+            {
+                var born = Born(tape.State, Definition(store, oracleId), player, Cards.Zone.Command);
+                tape.Add(born with { Object = born.Object with { IsCommander = true } });
+            }
         }
 
         // CR 103.3: each player shuffles their deck so that the cards are in a random order.
@@ -126,7 +130,10 @@ public sealed class ZoneSystem : IZoneSystem
             // of the hand, which is unordered anyway, CR 400.5.
             var top = cards[0];
             var drawn = tape.State.Objects[top];
-            tape.Add(new ObjectMoved(top, Reborn(tape.State, drawn, hand, tapped: false, controller: null), -1));
+            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null);
+            tape.Add(new ObjectMoved(top, reborn, -1));
+            // CR 121.1: the draw is its own event, distinct from a card put into a hand, CR 121.2.
+            tape.Add(new ObjectDrawn(player, reborn.Id));
         }
 
         return tape.Done();
@@ -212,6 +219,7 @@ public sealed class ZoneSystem : IZoneSystem
         new(new ObjectId(state.NextObjectId), moving.Definition, moving.FaceIndex, moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
+            IsCommander = moving.IsCommander,
             Tapped = tapped,
 
             // CR 302.6: a creature entering the battlefield has not been controlled since the turn

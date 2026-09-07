@@ -35,6 +35,17 @@ public sealed record GameObject(
 
     public ObjectId? AttachedTo { get; init; }
 
+    /// <summary>A commander stays one through every zone change, CR 903.3; the zone system sets this at creation and carries it on every move.</summary>
+    [RuleRef("903.3")]
+    public bool IsCommander { get; init; }
+
+    /// <summary>Set when a source with deathtouch dealt this permanent damage, CR 702.2b; the state-based action of 704.5h reads it and clears it.</summary>
+    [RuleRef("702.2b")]
+    public bool DealtDeathtouchDamage { get; init; }
+
+    /// <summary>Designations the rules give an object: suspected (701.60), goaded-by ids, ring-bearer (701.54), harnessed (701.64), monstrous (701.37), and so on.</summary>
+    public ImmutableHashSet<string> Designations { get; init; } = [];
+
     /// <summary>For a spell or ability on the stack: the ability being resolved, its source and the choices made on casting.</summary>
     public StackEntry? Stack { get; init; }
 
@@ -50,4 +61,7 @@ public sealed record StackEntry(
     ImmutableList<PlayerId> TargetPlayers,
     ImmutableList<int> Modes,
     int? X,
-    bool IsCopy);
+    bool IsCopy,
+    ImmutableDictionary<Color, int>? ManaSpent = null,
+    Zone? CastFrom = null,
+    ImmutableList<string>? OptionalCostsPaid = null);

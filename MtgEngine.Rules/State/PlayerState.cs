@@ -22,6 +22,9 @@ public sealed record PlayerState(PlayerId Id, string Name, int Life)
 
     /// <summary>Damage dealt by each commander, CR 903.10a.</summary>
     public ImmutableDictionary<ObjectId, int> CommanderDamage { get; init; } = ImmutableDictionary<ObjectId, int>.Empty;
+
+    /// <summary>Designations a player can have: the city's blessing (702.131) and whatever later rules add.</summary>
+    public ImmutableHashSet<string> Designations { get; init; } = [];
 }
 
 /// <summary>Mana a player has, CR 106.4. Untyped restrictions are the mana subsystem's to add.</summary>

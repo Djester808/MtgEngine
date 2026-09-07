@@ -52,8 +52,9 @@ public sealed class TurnSystem(IZoneSystem zones, ICastingSystem casting) : ITur
         ArgumentNullException.ThrowIfNull(state);
         var log = new Log(state);
 
-        // CR 103.8: the starting player is the player at turn-order index 0.
-        BeginTurn(log, new PlayerId(0), 1, extra: false);
+        // CR 103.8: the starting player was decided when the game was created, CR 103.1, and the
+        // state carries the answer.
+        BeginTurn(log, state.Turn.ActivePlayer, 1, extra: false);
         return log.Done();
     }
 

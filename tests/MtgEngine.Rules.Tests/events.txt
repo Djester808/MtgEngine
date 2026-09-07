@@ -22,9 +22,11 @@ ManualActionTaken
 ObjectCeasedToExist
 ObjectChanged
 ObjectCreated
+ObjectDrawn
 ObjectLeftBy
 ObjectMoved
 PlayerCountersChanged
+PlayerFlagCleared
 PlayerLost
 PriorityGranted
 PriorityHandedTo

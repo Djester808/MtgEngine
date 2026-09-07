@@ -26,6 +26,24 @@ public sealed record Subsystems(
         new Stubs.Query(), new Stubs.Zones(), new Stubs.Turn(), new Stubs.Casting(), new Stubs.Combat(), new Stubs.Sba(),
         new Stubs.Triggers(), new Stubs.Layers(), new Stubs.Replacement(), new Stubs.Interpreter(),
         new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
+
+    /// <summary>
+    /// What wave 1 built, composed: layers, query, zones, casting, turns, combat and state-based
+    /// actions are real; triggers, replacement, the interpreter, choices and views are still
+    /// stubs, which is enough for a game of lands and vanilla creatures.
+    /// </summary>
+    public static Subsystems Wave1()
+    {
+        var layers = new Layers.LayerSystem();
+        var query = new Query.Query(layers);
+        var zones = new Zones.ZoneSystem();
+        var interpreter = new Stubs.Interpreter();
+        var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
+        var turn = new Turn.TurnSystem(zones, casting);
+        var combat = new Combat.CombatSystem(layers, query);
+        var sba = new Sba.StateBasedActions(zones, layers, query);
+        return new Subsystems(query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
+    }
 }
 
 /// <summary>A command was applied: the events, and the state after them.</summary>
