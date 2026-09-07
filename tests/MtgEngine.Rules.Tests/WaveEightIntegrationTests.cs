@@ -68,21 +68,17 @@ public sealed class WaveEightIntegrationTests
         table.PlayALand(P0);
         table.TapForMana(P0, 1);
         var restricted = table.InHand(P0, WaveEightIntegrationTable.CreatureAuraName);
-        // Which road the engine takes: it is buried, not refused. The announcement is accepted —
-        // an ObjectFilter cannot describe a player, so nothing on the casting side rules the
-        // player target out (seam-requests/E3f.md § 2 records that a player target is taken as
-        // legal) — and CR 704.5m then puts the permanent into its owner's graveyard, because
-        // StateBasedActions reads an enchant ability that names an object filter as a restriction
-        // to objects (seam-requests/E5c.md § 1). The permanent existed for a moment, which is the
-        // same graveyard by the longer road; both builders wrote the gap down and this is where
-        // the two halves meet.
-        var second = table.Do(new CastSpellCommand(P0, restricted, TargetPlayers: [P1]));
-        var doomed = Assert.Single(second.OfType<SpellCastEvent>()).Spell;
-        table.PassRound();
+        // Which road the engine takes, decided by E3h: it is refused, not buried. EINT3 found the
+        // announcement accepted here and CR 704.5m burying the permanent on the next check
+        // (seam-requests/E3f.md § 2, E5c.md § 1) — a permanent that existed for a moment and could
+        // never legally have been announced. CR 601.2c with 702.5b makes the enchant ability's
+        // filter a legality of the cast, so the casting system rules the player target out and the
+        // card stays in hand. CR 704.5m still owns the Aura that stops being legally attached.
+        Assert.Equal("601.2c", table.Refuse(new CastSpellCommand(P0, restricted, TargetPlayers: [P1])).Rule);
+        Assert.NotEmpty(table.Hand(P0, WaveEightIntegrationTable.CreatureAuraName));
 
         Assert.Empty(table.Battlefield(P0, WaveEightIntegrationTable.CreatureAuraName));
-        Assert.NotEmpty(table.Graveyard(P0, WaveEightIntegrationTable.CreatureAuraName));
-        Assert.DoesNotContain(doomed, table.State.Objects.Keys);
+        Assert.Empty(table.Graveyard(P0, WaveEightIntegrationTable.CreatureAuraName));
 
         // And the player Aura is untouched by that: CR 704.5m buries the one it applies to, no more.
         Assert.Equal(aura, Assert.Single(table.Battlefield(P0, WaveEightIntegrationTable.PlayerAuraName)));
@@ -121,12 +117,11 @@ public sealed class WaveEightIntegrationTests
         // CR 601.3: with no permission the graveyard is not a zone this card may be cast from.
         Assert.Equal("601.3", table.Refuse(new CastSpellCommand(P0, inGraveyard)).Rule);
 
-        // GAP, reported in seam-requests/EINT3.md for the casting builder (E3g): the same
-        // command with WithoutPayingManaCost set is accepted from the graveyard with no
-        // permission at all. CR 118.9 is a permission an *effect* gives, not something a
-        // player may assert on the command, and CR 601.3's zone check has to hold either way.
-        // What is asserted here is what the engine does, so the day it is fixed this line fails.
-        Assert.IsType<Applied>(table.Try(new CastSpellCommand(P0, inGraveyard, WithoutPayingManaCost: true)));
+        // The gap EINT3 reported, closed by E3h: CR 118.9 is a permission an *effect* gives, not
+        // something a player may assert on the command, so the same command with
+        // WithoutPayingManaCost set is refused for the zone exactly as the plain one is. Nothing
+        // a player says on a command is CR 601.3's "unless an effect says otherwise".
+        Assert.Equal("601.3", table.Refuse(new CastSpellCommand(P0, inGraveyard, WithoutPayingManaCost: true)).Rule);
 
         // CR 611.1 and 601.3a: the sorcery's resolution creates the permission rather than casting.
         var recall = table.InHand(P0, WaveEightIntegrationTable.RecallName);
@@ -199,25 +194,30 @@ public sealed class WaveEightIntegrationTests
         Assert.Equal(2, may.Options.Count);
         Assert.NotEmpty(table.Hand(P0, WaveEightIntegrationTable.TollName));
 
-        // GAP, reported in seam-requests/EINT3.md for the casting builder (E3g): saying yes never
-        // reaches CR 601.2c's cost question, because the cast is refused first. The spell is being
-        // cast *during a resolution*, so nobody holds priority — and
-        // CastingSystem.RequireCastingTiming refuses every cast whose caster is not the priority
-        // holder (CR 117.1a). CR 608.2g is the rule the check is missing: a spell cast because an
-        // effect instructs a player to cast it ignores timing, and the interpreter's may-cast arm
-        // is exactly that instruction. Until it lands the join is unreachable in a real game, so
-        // what is asserted is the refusal and its rule, not a cast that does not happen.
-        var yes = table.Try(new AnswerChoice(P0, may.Id, [may.Options[0].Id]));
-        var blocked = Assert.IsType<Refused>(yes);
-        Assert.Equal("117.1a", blocked.Rule);
+        // The gap EINT3 reported, half closed by E3h. A spell cast during a resolution has no
+        // priority holder, so the plain cast is still refused 117.1a while the question stands —
+        // that is CR 117.1a doing its job. CR 608.2g is the road round it: the cast an effect
+        // instructs is made through ICastingSystem.CastInstructed, which is not held to timing,
+        // and behind that check CR 601.2c's cost question is reachable at last. It is asked of the
+        // casting system directly here because the interpreter's may-cast arm is switched to the
+        // instructed road by E9i; once that lands, answering yes reaches the same two refusals.
+        Assert.Equal("117.1a", table.Engine.Casting.Check(table.State, new CastSpellCommand(P0, toll))?.Rule);
+
+        var unpaid = Assert.Throws<RefusedException>(
+            () => table.Engine.Casting.CastInstructed(table.State, new CastSpellCommand(P0, toll)));
+        Assert.Equal("601.2c", unpaid.Rule);
+
+        var instructed = table.Engine.Casting.CastInstructed(
+            table.State,
+            new CastSpellCommand(P0, toll, CostObjects: [lands[0]]));
+        Assert.Single(instructed.Events.OfType<SpellCastEvent>());
+        Assert.Equal(lands[0], Assert.Single(instructed.Events.OfType<ObjectLeftBy>(), e => e.Verb == "sacrificed").Object);
+
+        // Nothing of that reached the game: the question still stands and the table is untouched,
+        // so the log below is still the whole game (CR 101.4).
         Assert.Equal(may.Id, Assert.IsType<PendingChoice>(table.State.Pending).Id);
         Assert.NotEmpty(table.Hand(P0, WaveEightIntegrationTable.TollName));
         Assert.Equal(lands, table.Lands(P0));
-
-        // The same check answers 117.1a here too, while the question stands: the timing is what it
-        // fails on, before it ever looks at the cost, which is why the cast-cost question cannot be
-        // reached from a resolution at all.
-        Assert.Equal("117.1a", table.Engine.Casting.Check(table.State, new CastSpellCommand(P0, toll))?.Rule);
 
         // Declining leaves the game where it was, so the log still replays, CR 608.2.
         table.Do(new AnswerChoice(P0, may.Id, [may.Options[1].Id]));

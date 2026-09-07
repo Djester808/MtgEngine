@@ -9,7 +9,6 @@ using MtgEngine.Rules.State;
 using AbilityActivated = MtgEngine.Rules.Events.AbilityActivated;
 using CardZone = MtgEngine.Cards.Zone;
 using LandPlayed = MtgEngine.Rules.Events.LandPlayed;
-using SpellCast = MtgEngine.Rules.Events.SpellCast;
 
 namespace MtgEngine.Rules.Casting;
 
@@ -60,52 +59,6 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     }
 
     /// <summary>
-    /// CR 601.2: the card moves to the stack and becomes a spell carrying its targets, modes and
-    /// X (601.2a–d), the total cost is paid (601.2h), and then the spell is cast (601.2i). An
-    /// instant or a spell with flash needs only priority, CR 304.1 and 702.8b; everything else
-    /// waits for its controller's main phase with an empty stack, CR 302.1 and 307.1.
-    /// </summary>
-    [RuleRef("601.2")]
-    public Outcome Cast(GameState state, CastSpell command)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-        var card = Castable(state, command.Card, command.Player);
-
-        // CR 601.3b: the face and every optional cost are chosen before anything moves, so the
-        // plan is what the spell costs and what it will be on the stack.
-        var chars = characteristics.Of(state, card.Id);
-        var plan = CastPlan.For(state, card, command, query);
-        RequireCastingTiming(state, command.Player, plan, chars);
-
-        // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
-        // The costs that are not mana come first because each one moves objects, and the spell's
-        // own new object is numbered from the state they leave behind (CR 400.7).
-        // CR 601.2c: the objects that pay a cost naming some come off the command, read in the
-        // order the costs are written.
-        var costs = new CostContext(card, chars, command.Player, command.X, zones, query, Chosen: new ChosenObjects(command.CostObjects ?? []));
-        var others = CostPayment.Pay(state, costs, plan.NonMana);
-        var paid = CostPayment.PaySymbols(others.State, costs, plan.Mana, "cast");
-        var entry = new StackEntry(
-            Source: null,
-            AbilityIndex: null,
-            Targets: command.Targets ?? [],
-            TargetPlayers: command.TargetPlayers ?? [],
-            Modes: command.Modes ?? [],
-            X: command.X,
-            IsCopy: false,
-            ManaSpent: CostPayment.ByColor(paid.Spent),
-            CastFrom: plan.From,
-            OptionalCostsPaid: plan.OptionalCostsPaid,
-
-            // CR 702.174b: the promise is part of the spell, so it travels on the stack entry.
-            GiftPromisedTo: plan.GiftPromisedTo);
-        var move = StackZone.MoveSpellToStack(paid.Outcome.State, card, entry, plan.Chosen.FaceIndex);
-        var cast = new SpellCast(move.To.Id, command.Player, plan.From);
-        ImmutableList<GameEvent> events = [.. others.Events, .. paid.Outcome.Events, move, cast];
-        return new Outcome(GameReducer.Apply(state, events), events);
-    }
-
-    /// <summary>
     /// CR 602.2: the ability goes on the stack, then its costs are paid. A mana ability is the
     /// exception, CR 605.1a and 605.3a: it never uses the stack and its mana is added at once.
     /// </summary>
@@ -136,13 +89,16 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             state,
             new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom),
             ability.Costs);
+        // CR 106.6a: what the activation cost was spent on is the ability's source, so a
+        // "when that mana is spent" trigger can tell this payment from any other.
+        var spent = SpentOn(paid.Events, source.Id);
         var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
         if (IsManaAbility(ability, command))
         {
             // CR 605.3a: activating a mana ability does not use the stack, so it resolves here,
             // and the event's stack object stays null to say so.
             var mana = ManaFrom((AddMana)ability.Do, state, command, chars.Controller);
-            ImmutableList<GameEvent> immediate = [.. paid.Events, activated, mana];
+            ImmutableList<GameEvent> immediate = [.. spent, activated, mana];
             return new Outcome(GameReducer.Apply(state, immediate), immediate);
         }
 
@@ -150,8 +106,8 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             paid.State,
             source,
             chars.Controller,
-            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false));
-        ImmutableList<GameEvent> events = [.. paid.Events, onStack, activated with { StackObject = onStack.Object.Id }];
+            new StackEntry(source.Id, command.AbilityIndex, command.Targets ?? [], command.TargetPlayers ?? [], command.Modes ?? [], command.X, IsCopy: false, ManaProvenanceSpent: ProvenanceSpent(paid.Events)));
+        ImmutableList<GameEvent> events = [.. spent, onStack, activated with { StackObject = onStack.Object.Id }];
         return new Outcome(GameReducer.Apply(state, events), events);
     }
 
@@ -357,10 +313,11 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             ? controller
             : query.Players(state, add.Who, CostPayment.Context(command.Source, controller, command.X)).FirstOrDefault(controller);
         var times = add.N is null ? 1 : query.Evaluate(state, add.N, CostPayment.Context(command.Source, controller, command.X));
-        var once = OneProduction(add.Mana, command);
+        // CR 608.2d: each mana added is its own choice, so the nth one reads the nth letter of
+        // the activation's colours rather than repeating the first.
         var total = ManaPool.Empty;
         for (var i = 0; i < Math.Max(0, times); i++)
-            total = ManaSymbols.Add(total, once);
+            total = ManaSymbols.Add(total, OneProduction(add.Mana, command, i));
 
         // CR 106.6a: "spend this mana only on ..." adds a restricted block rather than ordinary
         // mana, so only a cost the filter matches can be paid with it; CR 106.6: either way the
@@ -368,16 +325,19 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         return new ManaChanged(who, ManaSources.Added(total, add.SpendOnlyOn, command.Source, add.Key), "mana ability");
     }
 
-    private static ManaPool OneProduction(ManaProduction production, ActivateAbility command)
+    private static ManaPool OneProduction(ManaProduction production, ActivateAbility command, int index)
     {
         if (production.Fixed is { Length: > 0 })
             return ManaSymbols.Produced(production.Fixed);
 
         // CR 608.2d: a choice the effect offers is announced as it is applied — here, with the
-        // activation, so no payment is ever suspended (CR 601.2h).
+        // activation, so no payment is ever suspended (CR 601.2h). ManaColors is the channel the
+        // command has for it, one letter per mana; CostChoices stays readable behind it for an
+        // activation that names its colour there.
         if (production.AnyColor || production.ChosenColor || production.OneOf is not null)
         {
-            var chosen = command.CostChoices?.Select(ManaSymbols.ColorFromChoice).FirstOrDefault(c => c is not null)
+            var chosen = ColorAt(command.ManaColors, index)
+                ?? command.CostChoices?.Select(ManaSymbols.ColorFromChoice).FirstOrDefault(c => c is not null)
                 ?? (production.OneOf is { } only && IsSingleColor(only) ? (Color?)only : null);
             return chosen is null
                 ? throw new RefusedException("The colour of mana to add was not chosen.", "608.2d")
@@ -389,37 +349,6 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
 
     private static bool IsSingleColor(Color color) =>
         color is Color.White or Color.Blue or Color.Black or Color.Red or Color.Green;
-
-    /// <summary>
-    /// CR 117.1a and 601.1a: casting needs priority; a sorcery-speed action needs the caster's own
-    /// main phase with an empty stack. The types read are the chosen face's, CR 712.11c, so casting
-    /// the instant back of a modal card is not held to the front face's timing; a flash granted by
-    /// an effect is on the object's computed characteristics rather than the printed face, so both
-    /// are consulted.
-    /// </summary>
-    [RuleRef("117.1a")]
-    private static void RequireCastingTiming(GameState state, PlayerId player, CastPlan plan, Characteristics chars)
-    {
-        if (state.Priority.Holder != player)
-            throw new RefusedException("You do not have priority.", "117.1a");
-
-        // CR 304.1 and 702.8b: an instant, or anything with flash, is cast whenever its
-        // controller holds priority.
-        if (plan.Types.HasFlag(CardType.Instant) || plan.HasFlash || chars.Has(KeywordKind.Flash))
-            return;
-        RequireSorcerySpeed(state, player, SorceryTimingRule(plan.Types));
-    }
-
-    /// <summary>The rule that names the timing for this card type: a creature's is 302.1, a sorcery's 307.1.</summary>
-    private static string SorceryTimingRule(CardType types) => types switch
-    {
-        _ when types.HasFlag(CardType.Sorcery) => "307.1",
-        _ when types.HasFlag(CardType.Creature) => "302.1",
-        _ when types.HasFlag(CardType.Artifact) => "301.1",
-        _ when types.HasFlag(CardType.Enchantment) => "303.1",
-        _ when types.HasFlag(CardType.Planeswalker) => "306.1",
-        _ => "601.3",
-    };
 
     private static void RequireSorcerySpeed(GameState state, PlayerId player, string rule)
     {

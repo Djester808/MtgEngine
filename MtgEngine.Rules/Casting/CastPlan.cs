@@ -38,8 +38,13 @@ internal sealed record CastPlan(
     /// CR 601.2b–f: the alternative and additional costs are locked in with it, so no payment is
     /// ever suspended.
     /// </summary>
+    /// <param name="instructed">
+    /// CR 608.2g: this cast is one a resolving effect instructed, so the instruction is itself
+    /// CR 601.3a's permission for the zone and carries CR 118.9's cost waiver when the command
+    /// says so. False for every cast a player commands.
+    /// </param>
     [RuleRef("601.3b")]
-    public static CastPlan For(GameState state, GameObject card, CastSpell command, IQuery query)
+    public static CastPlan For(GameState state, GameObject card, CastSpell command, IQuery query, bool instructed = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(card);
@@ -67,7 +72,7 @@ internal sealed record CastPlan(
         // CR 601.2b: an additional cost printed on the spell is announced with it and paid along
         // with the mana cost, whether or not the caster wants to — it is not optional.
         extra.AddRange(printed.AdditionalCosts ?? []);
-        var mana = Alternative(state, card, printed, command, query, paid, extra) ?? ManaSymbols.Parse(printed.ManaCost);
+        var mana = Alternative(state, card, printed, command, query, paid, extra, instructed) ?? ManaSymbols.Parse(printed.ManaCost);
         mana = Additional(printed, command, paid, extra, mana);
         mana = Shaped(state, printed, query, command.Player, mana);
         return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command));
@@ -145,33 +150,47 @@ internal sealed record CastPlan(
     /// An alternative cost, CR 118.9: the keyword's printed cost is paid instead of the mana
     /// cost, and several of them also say which zone the card is cast from, CR 601.3. Null means
     /// no alternative cost was announced, so the printed mana cost stands.
+    /// <para>
+    /// Both halves of CR 601.3a and 118.9 are an <em>effect's</em> to give, and neither is a
+    /// player's to assert: <see cref="CastSpell.WithoutPayingManaCost"/> on a command grants
+    /// nothing by itself, so the zone check holds and the mana cost is paid unless a
+    /// <see cref="MayPlayFromZone"/> permission or an instruction (CR 608.2g, whose caller is the
+    /// resolving effect and so carries the flag legitimately) says otherwise. A command that
+    /// claims the waiver with neither behind it is refused naming the half it fails.
+    /// </para>
     /// </summary>
     [RuleRef("118.9")]
-    private static ImmutableList<ManaSymbol>? Alternative(GameState state, GameObject card, Face printed, CastSpell command, IQuery query, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra)
+    private static ImmutableList<ManaSymbol>? Alternative(GameState state, GameObject card, Face printed, CastSpell command, IQuery query, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra, bool instructed)
     {
         var zone = card.Zone.Zone;
         var permission = Permission(state, card, command.Player, query);
 
+        // CR 601.3: a card is cast from its owner's hand unless an effect says otherwise. The
+        // exiled adventurer is one such permission (CR 715.3d), a MayPlayFromZone effect on the
+        // state is another (CR 601.3a), and the instruction of a resolving effect is the third
+        // (CR 608.2g). The check comes before the mana half, so a free-cast claim can never be
+        // the thing that lets a card out of a zone it may not be cast from. An announced
+        // alternative cost is checked against the zone its own keyword names instead, below
+        // (CR 702.34a: flashback is paid from a graveyard and from nowhere else).
+        if (command.AlternativeCost is null && zone != CardZone.Hand && !OnAdventure(card) && permission is null && !instructed)
+            throw new RefusedException("A card in that zone cannot be cast without permission.", "601.3");
+
         // CR 118.9 and 601.3a: an effect that lets the card be cast without paying its mana cost is
         // both the permission to cast it from where it is and the announcement that no mana cost is
-        // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs. A
-        // lasting permission that says so carries the same announcement, and a command that says it
-        // too agrees with the permission rather than contradicting it.
-        if (command.WithoutPayingManaCost || permission is { WithoutPayingManaCost: true })
+        // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs.
+        if (permission is { WithoutPayingManaCost: true } || (instructed && command.WithoutPayingManaCost))
         {
             paid.Add("free");
             return [];
         }
 
+        // CR 118.9: nothing gives this cast the waiver, so the claim on the command is refused
+        // rather than honoured — the mana cost is not a player's to set aside.
+        if (command.WithoutPayingManaCost)
+            throw new RefusedException("Nothing lets that spell be cast without paying its mana cost.", "118.9");
+
         if (command.AlternativeCost is not { } kind)
-        {
-            // CR 601.3: a card is cast from its owner's hand unless an effect says otherwise. The
-            // exiled adventurer is one such permission (CR 715.3d); a MayPlayFromZone effect on the
-            // state is the other, CR 601.3a.
-            if (zone != CardZone.Hand && !OnAdventure(card) && permission is null)
-                throw new RefusedException("A card in that zone cannot be cast without permission.", "601.3");
             return null;
-        }
 
         var semantic = KeywordSemantics.Of(kind);
         if (semantic.Cost != CostShape.Alternative)
