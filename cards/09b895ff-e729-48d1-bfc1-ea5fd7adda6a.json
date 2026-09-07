@@ -401,7 +401,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this artifact enters, choose a color."
               },
               {
@@ -464,10 +464,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "if": {
@@ -508,7 +504,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this artifact enters, choose a color."
               },
               {
@@ -571,10 +567,6 @@
                     "landCouldProduce": false,
                     "anyType": false,
                     "restriction": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "if": {

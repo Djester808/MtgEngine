@@ -27,17 +27,15 @@
               "for": {
                 "types": [
                   "Creature"
-                ],
-                "ownedBy": {
-                  "kind": "You"
-                }
+                ]
               },
               "to": "Library",
               "from": "Library",
               "where": "Top",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
           }
@@ -51,17 +49,15 @@
               "for": {
                 "types": [
                   "Creature"
-                ],
-                "ownedBy": {
-                  "kind": "You"
-                }
+                ]
               },
               "to": "Library",
               "from": "Library",
               "where": "Top",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
           }
@@ -69,150 +65,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e8863518-0bfa-49c3-8c6e-6c9116a81051",
-        "name": "Worldly Tutor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Worldly Tutor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "ownedBy": {
-                      "kind": "You"
-                    }
-                  },
-                  "to": "Library",
-                  "from": "Library",
-                  "where": "Top",
-                  "reveal": true,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
-              }
-            ],
-            "oracleText": "Search your library for a creature card, reveal it, then shuffle and put the card on top.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "ownedBy": {
-                      "kind": "You"
-                    }
-                  },
-                  "to": "Library",
-                  "from": "Library",
-                  "where": "Top",
-                  "reveal": true,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e8863518-0bfa-49c3-8c6e-6c9116a81051",
-        "name": "Worldly Tutor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Worldly Tutor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "to": "Library",
-                  "from": "Library",
-                  "where": "Top",
-                  "reveal": true,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
-              }
-            ],
-            "oracleText": "Search your library for a creature card, reveal it, then shuffle and put the card on top.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "to": "Library",
-                  "from": "Library",
-                  "where": "Top",
-                  "reveal": true,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for a creature card, reveal it, then shuffle and put the card on top."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

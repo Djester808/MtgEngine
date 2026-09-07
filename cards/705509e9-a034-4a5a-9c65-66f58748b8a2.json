@@ -41,7 +41,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
           }
@@ -53,10 +54,6 @@
               "types": [
                 "Land"
               ]
-            },
-            "count": {
-              "kind": "Fixed",
-              "n": 1
             }
           }
         ],
@@ -83,7 +80,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
           }
@@ -91,196 +89,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-55304d1efc47",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "705509e9-a034-4a5a-9c65-66f58748b8a2",
-        "name": "Harrow",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Harrow",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
-              }
-            ],
-            "additionalCosts": [
-              {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Land"
-                  ]
-                },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
-                }
-              }
-            ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a land.\nSearch your library for up to two basic land cards, put them onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "705509e9-a034-4a5a-9c65-66f58748b8a2",
-        "name": "Harrow",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Harrow",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
-              }
-            ],
-            "additionalCosts": [
-              {
-                "kind": "SacrificeCost",
-                "what": {
-                  "types": [
-                    "Land"
-                  ]
-                }
-              }
-            ],
-            "oracleText": "As an additional cost to cast this spell, sacrifice a land.\nSearch your library for up to two basic land cards, put them onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "supertypes": [
-                      "Basic"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "upTo": {
-                    "kind": "Fixed",
-                    "n": 2
-                  },
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true
-                },
-                "text": "Search your library for up to two basic land cards, put them onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

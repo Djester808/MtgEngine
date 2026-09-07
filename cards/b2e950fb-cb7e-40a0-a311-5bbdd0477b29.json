@@ -36,6 +36,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Vigilance",
+            "repeatable": false,
             "text": "Vigilance"
           },
           {
@@ -101,6 +102,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Vigilance",
+            "repeatable": false,
             "text": "Vigilance"
           },
           {
@@ -212,6 +214,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Vigilance",
+                "repeatable": false,
                 "text": "Vigilance"
               },
               {
@@ -277,6 +280,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Vigilance",
+                "repeatable": false,
                 "text": "Vigilance"
               },
               {
@@ -376,6 +380,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Vigilance",
+                "repeatable": false,
                 "text": "Vigilance"
               },
               {
@@ -417,10 +422,6 @@
                           }
                         },
                         "permanent": true
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "distinct": true
@@ -445,6 +446,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Vigilance",
+                "repeatable": false,
                 "text": "Vigilance"
               },
               {
@@ -486,10 +488,6 @@
                           }
                         },
                         "permanent": true
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "distinct": true

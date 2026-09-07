@@ -25,6 +25,7 @@
             "keyword": "Kicker",
             "cost": "{2}",
             "detail": "Multikicker",
+            "repeatable": false,
             "text": "Multikicker {2}"
           },
           {
@@ -87,6 +88,7 @@
             "keyword": "Kicker",
             "cost": "{2}",
             "detail": "Multikicker",
+            "repeatable": false,
             "text": "Multikicker {2}"
           },
           {
@@ -182,6 +184,7 @@
                 "keyword": "Kicker",
                 "cost": "{2}",
                 "detail": "Multikicker",
+                "repeatable": false,
                 "text": "Multikicker {2}"
               },
               {
@@ -244,6 +247,7 @@
                 "keyword": "Kicker",
                 "cost": "{2}",
                 "detail": "Multikicker",
+                "repeatable": false,
                 "text": "Multikicker {2}"
               },
               {

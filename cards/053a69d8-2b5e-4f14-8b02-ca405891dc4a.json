@@ -102,7 +102,7 @@
             },
             "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "selfOnly": true,
             "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
           },
           {
@@ -161,7 +161,7 @@
             },
             "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "selfOnly": true,
             "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
           },
           {
@@ -305,7 +305,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
               },
               {
@@ -364,7 +364,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
               },
               {
@@ -512,7 +512,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
               },
               {
@@ -585,7 +585,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
               },
               {

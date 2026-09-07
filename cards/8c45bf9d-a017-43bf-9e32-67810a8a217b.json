@@ -43,10 +43,6 @@
                     "Creature"
                   ]
                 },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
-                },
                 "upTo": true,
                 "distinct": true
               }
@@ -156,10 +152,6 @@
                   "types": [
                     "Creature"
                   ]
-                },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
                 },
                 "upTo": true,
                 "distinct": true

@@ -34,7 +34,8 @@
               "where": "Default",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
           }
@@ -55,7 +56,8 @@
               "where": "Default",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle."
           }

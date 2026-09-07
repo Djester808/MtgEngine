@@ -106,7 +106,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -133,7 +134,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 }
               ]
@@ -233,7 +235,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -260,7 +263,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 }
               ]
@@ -390,7 +394,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -417,7 +422,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       }
                     }
                   ]
@@ -517,7 +523,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -544,7 +551,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       }
                     }
                   ]
@@ -668,7 +676,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -699,7 +708,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       }
                     }
                   ]
@@ -803,7 +813,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -834,7 +845,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       }
                     }
                   ]

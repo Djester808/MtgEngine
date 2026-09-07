@@ -37,7 +37,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
           }
@@ -61,7 +62,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
           }
@@ -116,7 +118,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
               }
@@ -140,7 +143,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
               }
@@ -182,7 +186,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
               }
@@ -203,7 +208,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
               }

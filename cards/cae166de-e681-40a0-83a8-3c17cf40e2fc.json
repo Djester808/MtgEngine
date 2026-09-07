@@ -64,12 +64,14 @@
               ],
               "isCommander": true
             },
+            "repeatable": false,
             "text": "Equip commander {3}"
           },
           {
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{5}",
+            "repeatable": false,
             "text": "Equip {5}"
           }
         ],
@@ -114,12 +116,14 @@
               ],
               "isCommander": true
             },
+            "repeatable": false,
             "text": "Equip commander {3}"
           },
           {
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{5}",
+            "repeatable": false,
             "text": "Equip {5}"
           }
         ]
@@ -202,12 +206,14 @@
                   ],
                   "isCommander": true
                 },
+                "repeatable": false,
                 "text": "Equip commander {3}"
               },
               {
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{5}",
+                "repeatable": false,
                 "text": "Equip {5}"
               }
             ],
@@ -252,12 +258,14 @@
                   ],
                   "isCommander": true
                 },
+                "repeatable": false,
                 "text": "Equip commander {3}"
               },
               {
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{5}",
+                "repeatable": false,
                 "text": "Equip {5}"
               }
             ]

@@ -33,7 +33,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "LoseLife",
@@ -62,7 +63,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "LoseLife",

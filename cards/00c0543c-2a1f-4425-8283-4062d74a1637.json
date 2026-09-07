@@ -63,7 +63,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "optional": true,
             "where": "Battlefield",
@@ -124,7 +125,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "optional": true,
             "where": "Battlefield",
@@ -230,7 +232,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -291,7 +294,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "optional": true,
                 "where": "Battlefield",

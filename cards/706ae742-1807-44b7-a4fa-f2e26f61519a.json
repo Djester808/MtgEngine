@@ -33,6 +33,7 @@
                 "Land"
               ]
             },
+            "repeatable": false,
             "text": "Enchant land"
           },
           {
@@ -64,6 +65,7 @@
                 "Land"
               ]
             },
+            "repeatable": false,
             "text": "Enchant land"
           },
           {
@@ -133,6 +135,7 @@
                     "Land"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant land"
               },
               {
@@ -164,6 +167,7 @@
                     "Land"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant land"
               },
               {
@@ -221,6 +225,7 @@
                     "Land"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant land"
               },
               {
@@ -252,6 +257,7 @@
                     "Land"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant land"
               },
               {

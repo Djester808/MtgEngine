@@ -23,6 +23,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "SplitSecond",
+            "repeatable": false,
             "text": "Split second"
           },
           {
@@ -50,6 +51,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "SplitSecond",
+            "repeatable": false,
             "text": "Split second"
           },
           {

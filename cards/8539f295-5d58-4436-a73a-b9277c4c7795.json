@@ -37,7 +37,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
           }
@@ -61,7 +62,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
           }
@@ -116,7 +118,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }
@@ -140,7 +143,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }

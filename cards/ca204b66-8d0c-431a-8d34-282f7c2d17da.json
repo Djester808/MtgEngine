@@ -55,6 +55,7 @@
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{0}",
+            "repeatable": false,
             "text": "Equip {0}"
           }
         ],
@@ -90,6 +91,7 @@
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{0}",
+            "repeatable": false,
             "text": "Equip {0}"
           }
         ]

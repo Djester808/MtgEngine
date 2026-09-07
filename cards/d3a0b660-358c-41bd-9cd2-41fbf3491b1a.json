@@ -36,6 +36,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Flying",
+            "repeatable": false,
             "text": "Flying"
           },
           {
@@ -68,6 +69,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Flying",
+            "repeatable": false,
             "text": "Flying"
           },
           {

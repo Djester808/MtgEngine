@@ -38,7 +38,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
           }
@@ -63,7 +64,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
           }
@@ -119,7 +121,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
               }
@@ -144,7 +147,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
               }

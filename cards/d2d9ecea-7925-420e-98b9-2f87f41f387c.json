@@ -50,7 +50,8 @@
                 "where": "Default",
                 "reveal": true,
                 "tapped": false,
-                "shuffleAfter": true
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false
               }
             },
             "if": {
@@ -117,7 +118,8 @@
                 "where": "Default",
                 "reveal": true,
                 "tapped": false,
-                "shuffleAfter": true
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false
               }
             },
             "if": {
@@ -215,7 +217,8 @@
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {
@@ -282,7 +285,8 @@
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {
@@ -370,7 +374,8 @@
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {
@@ -436,7 +441,8 @@
                     "where": "Default",
                     "reveal": true,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {

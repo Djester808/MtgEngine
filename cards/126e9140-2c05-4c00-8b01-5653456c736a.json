@@ -646,7 +646,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "If you control two or more other lands, this land enters tapped."
               },
               {
@@ -795,7 +795,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "If you control two or more other lands, this land enters tapped."
               },
               {

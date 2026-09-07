@@ -36,6 +36,7 @@
                 "Creature"
               ]
             },
+            "repeatable": false,
             "text": "Enchant creature"
           },
           {
@@ -97,6 +98,7 @@
                 "Creature"
               ]
             },
+            "repeatable": false,
             "text": "Enchant creature"
           },
           {
@@ -199,6 +201,7 @@
                     "Creature"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant creature"
               },
               {
@@ -260,6 +263,7 @@
                     "Creature"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant creature"
               },
               {
@@ -349,6 +353,7 @@
                     "Creature"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant creature"
               },
               {
@@ -410,6 +415,7 @@
                     "Creature"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant creature"
               },
               {

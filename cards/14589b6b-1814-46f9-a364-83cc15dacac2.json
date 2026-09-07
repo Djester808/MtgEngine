@@ -30,7 +30,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a card, put that card into your hand, then shuffle."
           }
@@ -47,7 +48,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a card, put that card into your hand, then shuffle."
           }

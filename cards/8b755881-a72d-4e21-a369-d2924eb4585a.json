@@ -44,7 +44,8 @@
                   "where": "Default",
                   "reveal": true,
                   "tapped": true,
-                  "shuffleAfter": false
+                  "shuffleAfter": false,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "Search",
@@ -65,7 +66,8 @@
                   "where": "Default",
                   "reveal": true,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 }
               ]
             },
@@ -98,7 +100,8 @@
                   "where": "Default",
                   "reveal": true,
                   "tapped": true,
-                  "shuffleAfter": false
+                  "shuffleAfter": false,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "Search",
@@ -119,7 +122,8 @@
                   "where": "Default",
                   "reveal": true,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 }
               ]
             },
@@ -183,7 +187,8 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": true,
-                      "shuffleAfter": false
+                      "shuffleAfter": false,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Search",
@@ -204,7 +209,8 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     }
                   ]
                 },
@@ -237,7 +243,8 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": true,
-                      "shuffleAfter": false
+                      "shuffleAfter": false,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Search",
@@ -258,7 +265,8 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     }
                   ]
                 },
@@ -313,7 +321,8 @@
                       "reveal": true,
                       "tapped": true,
                       "shuffleAfter": false,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Search",
@@ -334,11 +343,9 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": false,
-                      "shuffleAfter": false,
-                      "rememberAs": "k2"
-                    },
-                    {
-                      "kind": "Shuffle"
+                      "shuffleAfter": true,
+                      "rememberAs": "k2",
+                      "shuffleOnlyIfFound": false
                     }
                   ]
                 },
@@ -372,7 +379,8 @@
                       "reveal": true,
                       "tapped": true,
                       "shuffleAfter": false,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Search",
@@ -393,11 +401,9 @@
                       "where": "Default",
                       "reveal": true,
                       "tapped": false,
-                      "shuffleAfter": false,
-                      "rememberAs": "k2"
-                    },
-                    {
-                      "kind": "Shuffle"
+                      "shuffleAfter": true,
+                      "rememberAs": "k2",
+                      "shuffleOnlyIfFound": false
                     }
                   ]
                 },

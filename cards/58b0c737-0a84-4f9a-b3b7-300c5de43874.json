@@ -109,7 +109,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
           }
@@ -133,7 +134,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": true,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
           }
@@ -262,7 +264,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }
@@ -286,7 +289,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }
@@ -346,7 +350,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This creature enters prepared. (While it\u0027s prepared, you may cast a copy of its spell. Doing so unprepares it.)"
               }
             ],
@@ -369,7 +373,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This creature enters prepared. (While it\u0027s prepared, you may cast a copy of its spell. Doing so unprepares it.)"
               }
             ]
@@ -403,7 +407,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }
@@ -427,7 +432,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": true,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
               }

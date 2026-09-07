@@ -46,7 +46,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "Shuffle",
@@ -93,7 +94,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "Shuffle",
@@ -171,7 +173,8 @@
                       "where": "Default",
                       "reveal": false,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Shuffle",
@@ -218,7 +221,8 @@
                       "where": "Default",
                       "reveal": false,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Shuffle",
@@ -286,7 +290,8 @@
                       "where": "Default",
                       "reveal": false,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Shuffle",
@@ -327,7 +332,8 @@
                       "where": "Default",
                       "reveal": false,
                       "tapped": false,
-                      "shuffleAfter": true
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "Shuffle",

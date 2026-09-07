@@ -72,10 +72,6 @@
                   "attacking": true,
                   "blocking": true
                 },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
-                },
                 "upTo": false,
                 "distinct": true
               },
@@ -178,10 +174,6 @@
                   ],
                   "attacking": true,
                   "blocking": true
-                },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
                 },
                 "upTo": false,
                 "distinct": true
@@ -512,10 +504,6 @@
                       "attacking": true,
                       "blocking": true
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
                     "upTo": false,
                     "distinct": true
                   },
@@ -618,10 +606,6 @@
                       ],
                       "attacking": true,
                       "blocking": true
-                    },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
                     },
                     "upTo": false,
                     "distinct": true

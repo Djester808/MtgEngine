@@ -34,7 +34,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a land card, put that card onto the battlefield, then shuffle."
           }
@@ -46,10 +47,6 @@
               "types": [
                 "Land"
               ]
-            },
-            "count": {
-              "kind": "Fixed",
-              "n": 1
             }
           }
         ],
@@ -69,7 +66,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a land card, put that card onto the battlefield, then shuffle."
           }
@@ -121,7 +119,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a land card, put that card onto the battlefield, then shuffle."
               }
@@ -133,10 +132,6 @@
                   "types": [
                     "Land"
                   ]
-                },
-                "count": {
-                  "kind": "Fixed",
-                  "n": 1
                 }
               }
             ],
@@ -156,7 +151,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a land card, put that card onto the battlefield, then shuffle."
               }

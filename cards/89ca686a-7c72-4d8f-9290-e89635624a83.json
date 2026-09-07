@@ -378,7 +378,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, choose a creature type."
               },
               {
@@ -424,10 +424,6 @@
                     "anyType": false,
                     "restriction": true,
                     "restrictedTo": "cast a creature spell of the chosen type, and that spell can\u0027t be countered"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "timing": "Any",
@@ -455,7 +451,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this land enters, choose a creature type."
               },
               {
@@ -501,10 +497,6 @@
                     "anyType": false,
                     "restriction": true,
                     "restrictedTo": "cast a creature spell of the chosen type, and that spell can\u0027t be countered"
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "timing": "Any",

@@ -48,7 +48,8 @@
                   "reveal": false,
                   "tapped": true,
                   "shuffleAfter": true,
-                  "rememberAs": "k1"
+                  "rememberAs": "k1",
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "If",
@@ -117,7 +118,8 @@
                   "reveal": false,
                   "tapped": true,
                   "shuffleAfter": true,
-                  "rememberAs": "k1"
+                  "rememberAs": "k1",
+                  "shuffleOnlyIfFound": false
                 },
                 {
                   "kind": "If",
@@ -216,7 +218,8 @@
                       "reveal": false,
                       "tapped": true,
                       "shuffleAfter": true,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "If",
@@ -285,7 +288,8 @@
                       "reveal": false,
                       "tapped": true,
                       "shuffleAfter": true,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "If",
@@ -378,7 +382,8 @@
                       "reveal": false,
                       "tapped": true,
                       "shuffleAfter": true,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "If",
@@ -454,7 +459,8 @@
                       "reveal": false,
                       "tapped": true,
                       "shuffleAfter": true,
-                      "rememberAs": "k1"
+                      "rememberAs": "k1",
+                      "shuffleOnlyIfFound": false
                     },
                     {
                       "kind": "If",

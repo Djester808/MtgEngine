@@ -64,7 +64,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": true,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -125,7 +126,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": true,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -217,7 +219,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": true,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -278,7 +281,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": true,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -365,7 +369,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": true,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -431,7 +436,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": true,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",

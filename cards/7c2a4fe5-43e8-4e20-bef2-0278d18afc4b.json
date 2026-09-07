@@ -551,7 +551,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {
@@ -599,10 +599,6 @@
                           "kind": "You"
                         },
                         "permanent": true
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "key": "k1",
@@ -667,7 +663,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {
@@ -715,10 +711,6 @@
                           "kind": "You"
                         },
                         "permanent": true
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "key": "k1",

@@ -290,10 +290,6 @@
                     "filter": {
                       "in": "Graveyard"
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
                     "upTo": false,
                     "key": "k1",
                     "distinct": true
@@ -330,10 +326,6 @@
                     "kind": "Target",
                     "filter": {
                       "in": "Graveyard"
-                    },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
                     },
                     "upTo": false,
                     "key": "k1",

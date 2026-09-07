@@ -35,7 +35,8 @@
               "where": "Top",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top."
           }
@@ -57,7 +58,8 @@
               "where": "Top",
               "reveal": true,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top."
           }
@@ -110,7 +112,8 @@
                   "where": "Top",
                   "reveal": true,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top."
               }
@@ -132,7 +135,8 @@
                   "where": "Top",
                   "reveal": true,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top."
               }

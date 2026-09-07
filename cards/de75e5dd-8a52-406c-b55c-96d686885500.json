@@ -58,7 +58,7 @@
             },
             "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "selfOnly": true,
             "text": "This land enters tapped unless you control a Forest."
           },
           {
@@ -162,7 +162,7 @@
             },
             "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "selfOnly": true,
             "text": "This land enters tapped unless you control a Forest."
           },
           {
@@ -296,7 +296,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {
@@ -400,7 +400,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {
@@ -524,7 +524,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {
@@ -628,7 +628,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "This land enters tapped unless you control a Forest."
               },
               {

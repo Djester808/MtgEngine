@@ -23,6 +23,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Extort",
+            "repeatable": false,
             "text": "Extort"
           },
           {
@@ -53,6 +54,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Extort",
+            "repeatable": false,
             "text": "Extort"
           },
           {
@@ -116,6 +118,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Extort",
+                "repeatable": false,
                 "text": "Extort"
               },
               {
@@ -146,6 +149,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "Extort",
+                "repeatable": false,
                 "text": "Extort"
               },
               {
@@ -198,6 +202,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Extort",
                 "cost": "{W/B}",
+                "repeatable": false,
                 "text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)"
               },
               {
@@ -229,6 +234,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Extort",
                 "cost": "{W/B}",
+                "repeatable": false,
                 "text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)"
               },
               {

@@ -439,7 +439,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As Throne of Eldraine enters, choose a color."
               },
               {
@@ -525,7 +525,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As Throne of Eldraine enters, choose a color."
               },
               {

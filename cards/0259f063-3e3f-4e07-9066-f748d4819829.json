@@ -40,7 +40,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
           },
@@ -48,6 +49,7 @@
             "kind": "KeywordAbility",
             "keyword": "Harmonize",
             "cost": "{X}{G}{G}{G}{G}",
+            "repeatable": false,
             "text": "Harmonize {X}{G}{G}{G}{G}"
           }
         ],
@@ -73,7 +75,8 @@
               "where": "Default",
               "reveal": false,
               "tapped": false,
-              "shuffleAfter": true
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false
             },
             "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
           },
@@ -81,6 +84,7 @@
             "kind": "KeywordAbility",
             "keyword": "Harmonize",
             "cost": "{X}{G}{G}{G}{G}",
+            "repeatable": false,
             "text": "Harmonize {X}{G}{G}{G}{G}"
           }
         ]
@@ -139,7 +143,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
               },
@@ -147,6 +152,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Harmonize",
                 "cost": "{X}{G}{G}{G}{G}",
+                "repeatable": false,
                 "text": "Harmonize {X}{G}{G}{G}{G}"
               }
             ],
@@ -172,7 +178,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
               },
@@ -180,6 +187,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Harmonize",
                 "cost": "{X}{G}{G}{G}{G}",
+                "repeatable": false,
                 "text": "Harmonize {X}{G}{G}{G}{G}"
               }
             ]
@@ -226,7 +234,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
               },
@@ -234,6 +243,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Harmonize",
                 "cost": "{X}{G}{G}{G}{G}",
+                "repeatable": false,
                 "text": "Harmonize {X}{G}{G}{G}{G} (You may cast this card from your graveyard for its harmonize cost. You may tap a creature you control to reduce that cost by an amount of generic mana equal to its power. Then exile this spell.)"
               }
             ],
@@ -259,7 +269,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle."
               },
@@ -267,6 +278,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Harmonize",
                 "cost": "{X}{G}{G}{G}{G}",
+                "repeatable": false,
                 "text": "Harmonize {X}{G}{G}{G}{G} (You may cast this card from your graveyard for its harmonize cost. You may tap a creature you control to reduce that cost by an amount of generic mana equal to its power. Then exile this spell.)"
               }
             ]

@@ -36,6 +36,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Haste",
+            "repeatable": false,
             "text": "Haste"
           },
           {
@@ -127,6 +128,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Haste",
+            "repeatable": false,
             "text": "Haste"
           },
           {

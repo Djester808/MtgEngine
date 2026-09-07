@@ -87,10 +87,6 @@
                   "kind": "Triggering",
                   "role": "Subject"
                 }
-              },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
               }
             },
             "optional": false,
@@ -168,10 +164,6 @@
                   "kind": "Triggering",
                   "role": "Subject"
                 }
-              },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
               }
             },
             "optional": false,
@@ -282,10 +274,6 @@
                       "kind": "Triggering",
                       "role": "Subject"
                     }
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "optional": false,
@@ -363,10 +351,6 @@
                       "kind": "Triggering",
                       "role": "Subject"
                     }
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "optional": false,

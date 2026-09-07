@@ -77,10 +77,6 @@
                         "kind": "EachOpponent"
                       }
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
                     "upTo": false,
                     "key": "k1",
                     "distinct": true
@@ -117,10 +113,6 @@
                             "kind": "EachOpponent"
                           }
                         },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 1
-                        },
                         "upTo": false,
                         "key": "k1",
                         "distinct": true
@@ -130,7 +122,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -148,10 +141,6 @@
                         "controlledBy": {
                           "kind": "EachOpponent"
                         }
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "key": "k1",
@@ -261,10 +250,6 @@
                         "kind": "EachOpponent"
                       }
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
                     "upTo": false,
                     "key": "k1",
                     "distinct": true
@@ -301,10 +286,6 @@
                             "kind": "EachOpponent"
                           }
                         },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 1
-                        },
                         "upTo": false,
                         "key": "k1",
                         "distinct": true
@@ -314,7 +295,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   },
                   "who": {
                     "kind": "ControllerOf",
@@ -332,10 +314,6 @@
                         "controlledBy": {
                           "kind": "EachOpponent"
                         }
-                      },
-                      "count": {
-                        "kind": "Fixed",
-                        "n": 1
                       },
                       "upTo": false,
                       "key": "k1",
@@ -747,10 +725,6 @@
                             "kind": "EachOpponent"
                           }
                         },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 1
-                        },
                         "upTo": false,
                         "key": "k1",
                         "distinct": true
@@ -787,10 +761,6 @@
                                 "kind": "EachOpponent"
                               }
                             },
-                            "count": {
-                              "kind": "Fixed",
-                              "n": 1
-                            },
                             "upTo": false,
                             "key": "k1",
                             "distinct": true
@@ -800,7 +770,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -818,10 +789,6 @@
                             "controlledBy": {
                               "kind": "EachOpponent"
                             }
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 1
                           },
                           "upTo": false,
                           "key": "k1",
@@ -931,10 +898,6 @@
                             "kind": "EachOpponent"
                           }
                         },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 1
-                        },
                         "upTo": false,
                         "key": "k1",
                         "distinct": true
@@ -971,10 +934,6 @@
                                 "kind": "EachOpponent"
                               }
                             },
-                            "count": {
-                              "kind": "Fixed",
-                              "n": 1
-                            },
                             "upTo": false,
                             "key": "k1",
                             "distinct": true
@@ -984,7 +943,8 @@
                         "where": "Default",
                         "reveal": false,
                         "tapped": false,
-                        "shuffleAfter": true
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false
                       },
                       "who": {
                         "kind": "ControllerOf",
@@ -1002,10 +962,6 @@
                             "controlledBy": {
                               "kind": "EachOpponent"
                             }
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 1
                           },
                           "upTo": false,
                           "key": "k1",

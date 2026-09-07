@@ -402,10 +402,6 @@
                         "Artifact"
                       ]
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
                     "upTo": false,
                     "distinct": true
                   },
@@ -473,10 +469,6 @@
                       "types": [
                         "Artifact"
                       ]
-                    },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 1
                     },
                     "upTo": false,
                     "distinct": true

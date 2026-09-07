@@ -38,6 +38,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "FirstStrike",
+            "repeatable": false,
             "text": "First strike"
           },
           {
@@ -67,7 +68,8 @@
                 "where": "Default",
                 "reveal": false,
                 "tapped": false,
-                "shuffleAfter": true
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false
               }
             },
             "if": {
@@ -106,6 +108,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "FirstStrike",
+            "repeatable": false,
             "text": "First strike"
           },
           {
@@ -135,7 +138,8 @@
                 "where": "Default",
                 "reveal": false,
                 "tapped": false,
-                "shuffleAfter": true
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false
               }
             },
             "if": {
@@ -222,6 +226,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "FirstStrike",
+                "repeatable": false,
                 "text": "First strike"
               },
               {
@@ -251,7 +256,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {
@@ -290,6 +296,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "FirstStrike",
+                "repeatable": false,
                 "text": "First strike"
               },
               {
@@ -319,7 +326,8 @@
                     "where": "Default",
                     "reveal": false,
                     "tapped": false,
-                    "shuffleAfter": true
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false
                   }
                 },
                 "if": {
@@ -394,6 +402,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "FirstStrike",
+                "repeatable": false,
                 "text": "First strike"
               },
               {
@@ -422,7 +431,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "if": {
                   "kind": "Controls",
@@ -460,6 +470,7 @@
               {
                 "kind": "KeywordAbility",
                 "keyword": "FirstStrike",
+                "repeatable": false,
                 "text": "First strike"
               },
               {
@@ -488,7 +499,8 @@
                   "where": "Default",
                   "reveal": false,
                   "tapped": false,
-                  "shuffleAfter": true
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false
                 },
                 "if": {
                   "kind": "Controls",

@@ -25,6 +25,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Indestructible",
+            "repeatable": false,
             "text": "Indestructible"
           },
           {
@@ -134,6 +135,7 @@
           {
             "kind": "KeywordAbility",
             "keyword": "Indestructible",
+            "repeatable": false,
             "text": "Indestructible"
           },
           {

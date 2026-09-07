@@ -79,10 +79,6 @@
                 "toughness": 10,
                 "isPredefined": false
               },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
-              },
               "tapped": false,
               "attacking": false
             },
@@ -152,10 +148,6 @@
                 "power": 10,
                 "toughness": 10,
                 "isPredefined": false
-              },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
               },
               "tapped": false,
               "attacking": false
@@ -258,10 +250,6 @@
                     "toughness": 10,
                     "isPredefined": false
                   },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
                   "tapped": false,
                   "attacking": false
                 },
@@ -331,10 +319,6 @@
                     "power": 10,
                     "toughness": 10,
                     "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   },
                   "tapped": false,
                   "attacking": false

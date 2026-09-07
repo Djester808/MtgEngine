@@ -33,6 +33,7 @@
                 "Forest"
               ]
             },
+            "repeatable": false,
             "text": "Enchant Forest"
           },
           {
@@ -88,10 +89,6 @@
                 "of": {
                   "kind": "Attached"
                 }
-              },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
               }
             },
             "optional": false,
@@ -110,6 +107,7 @@
                 "Forest"
               ]
             },
+            "repeatable": false,
             "text": "Enchant Forest"
           },
           {
@@ -165,10 +163,6 @@
                 "of": {
                   "kind": "Attached"
                 }
-              },
-              "n": {
-                "kind": "Fixed",
-                "n": 1
               }
             },
             "optional": false,
@@ -225,6 +219,7 @@
                     "Forest"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant Forest"
               },
               {
@@ -280,10 +275,6 @@
                     "of": {
                       "kind": "Attached"
                     }
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "optional": false,
@@ -302,6 +293,7 @@
                     "Forest"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant Forest"
               },
               {
@@ -357,10 +349,6 @@
                     "of": {
                       "kind": "Attached"
                     }
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
                   }
                 },
                 "optional": false,
@@ -405,6 +393,7 @@
                     "Forest"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant Forest"
               },
               {
@@ -424,7 +413,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this Aura enters, choose a color."
               },
               {
@@ -480,6 +469,7 @@
                     "Forest"
                   ]
                 },
+                "repeatable": false,
                 "text": "Enchant Forest"
               },
               {
@@ -499,7 +489,7 @@
                 },
                 "optional": false,
                 "where": "Battlefield",
-                "selfOnly": false,
+                "selfOnly": true,
                 "text": "As this Aura enters, choose a color."
               },
               {

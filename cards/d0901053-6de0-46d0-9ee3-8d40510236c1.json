@@ -104,10 +104,6 @@
               "steps": [
                 {
                   "kind": "Discard",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
                   "who": {
                     "kind": "TriggeringPlayer"
                   },
@@ -139,6 +135,7 @@
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{2}",
+            "repeatable": false,
             "text": "Equip {2}"
           }
         ],
@@ -223,10 +220,6 @@
               "steps": [
                 {
                   "kind": "Discard",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  },
                   "who": {
                     "kind": "TriggeringPlayer"
                   },
@@ -258,6 +251,7 @@
             "kind": "KeywordAbility",
             "keyword": "Equip",
             "cost": "{2}",
+            "repeatable": false,
             "text": "Equip {2}"
           }
         ]
@@ -380,10 +374,6 @@
                   "steps": [
                     {
                       "kind": "Discard",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
                       "who": {
                         "kind": "TriggeringPlayer"
                       },
@@ -415,6 +405,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{2}",
+                "repeatable": false,
                 "text": "Equip {2}"
               }
             ],
@@ -499,10 +490,6 @@
                   "steps": [
                     {
                       "kind": "Discard",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
                       "who": {
                         "kind": "TriggeringPlayer"
                       },
@@ -534,6 +521,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{2}",
+                "repeatable": false,
                 "text": "Equip {2}"
               }
             ]
@@ -641,10 +629,6 @@
                   "steps": [
                     {
                       "kind": "Discard",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
                       "who": {
                         "kind": "TriggeringPlayer"
                       },
@@ -676,6 +660,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{2}",
+                "repeatable": false,
                 "text": "Equip {2}"
               }
             ],
@@ -757,10 +742,6 @@
                   "steps": [
                     {
                       "kind": "Discard",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
                       "who": {
                         "kind": "TriggeringPlayer"
                       },
@@ -792,6 +773,7 @@
                 "kind": "KeywordAbility",
                 "keyword": "Equip",
                 "cost": "{2}",
+                "repeatable": false,
                 "text": "Equip {2}"
               }
             ]
