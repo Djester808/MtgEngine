@@ -38,6 +38,10 @@ internal sealed class PilotFakeClient : ITranslationClient
     /// <summary>What this model says when its first answer is sent back to it.</summary>
     public void RepairWith(string model, string oracleId, string text) => _repairs[Key(model, oracleId)] = text;
 
+    /// <summary>The oracle ids a batch was submitted with, or null for a batch this fake never saw: what a local batch's batch.json says.</summary>
+    public IReadOnlyList<string>? OracleIdsOf(string batchId) =>
+        _batches.TryGetValue(batchId, out var batch) ? batch.OracleIds : null;
+
     public Task<string> SubmitBatch(string model, IReadOnlyList<(string customId, string system, string user)> requests, CancellationToken ct)
     {
         var batchId = "pilot-batch-" + (++_nextBatch).ToString(System.Globalization.CultureInfo.InvariantCulture);

@@ -53,16 +53,42 @@ try
         // later and exits 3 while the batches are still going.
         case "pilot-submit":
             {
-                var count = args.Length > 1 ? int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 200;
-                var outDir = args.Length > 2 ? args[2] : Path.Combine(root, ".agents", "pilot");
+                var local = args.Contains("--local", StringComparer.Ordinal);
+                var positionals = Positionals(args);
+
+                // --local --next N: the next slice of the corpus, one local batch per model under
+                // <outDir>/local, skipping every face that has a card file or was ever submitted.
+                // The out directory is .agents/slices/001, 002, ... unless given; its name scopes
+                // the batch ids so two slices never share one in the store.
+                if (Flag(args, "--next") is { } next)
+                {
+                    if (!local)
+                    {
+                        Console.Error.WriteLine("pilot-submit --next needs --local: corpus slices run on the file transport, never the API.");
+                        return 64;
+                    }
+
+                    var sliceDir = positionals.Count > 0 ? positionals[0] : Pilot.NextSliceDirectory(Path.Combine(root, ".agents", "slices"));
+                    var sliceEnv = PilotEnvironment.Local(root, sliceDir, scope: Path.GetFileName(Path.TrimEndingDirectorySeparator(sliceDir)));
+                    var slice = Pilot.Next(
+                        PilotEnvironment.DeckCandidates(root),
+                        int.Parse(next, System.Globalization.CultureInfo.InvariantCulture),
+                        Pilot.Done(sliceEnv));
+                    Console.WriteLine($"slice: {slice.Count} faces selected (free slice, filed and already-submitted faces skipped)");
+                    return await Pilot.SubmitAsync(sliceEnv, slice, sliceDir, cts.Token, merge: true);
+                }
+
+                var count = positionals.Count > 0 ? int.Parse(positionals[0], System.Globalization.CultureInfo.InvariantCulture) : 200;
+                var outDir = positionals.Count > 1 ? positionals[1] : Path.Combine(root, ".agents", "pilot");
                 var cards = Pilot.Select(PilotEnvironment.DeckCandidates(root), count);
                 Console.WriteLine($"pilot: {cards.Count} faces selected (free slice skipped)");
-                return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), cards, outDir, cts.Token);
+                var pilotEnv = local ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair: true);
+                return await Pilot.SubmitAsync(pilotEnv, cards, outDir, cts.Token);
             }
 
         case "pilot-collect":
             {
-                var outDir = args.Length > 1 ? args[1] : Path.Combine(root, ".agents", "pilot");
+                var outDir = Positional(args, 1) ?? Path.Combine(root, ".agents", "pilot");
                 var repair = !args.Contains("--no-repair", StringComparer.Ordinal);
                 var collectEnv = args.Contains("--local", StringComparer.Ordinal) ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair);
                 return await Pilot.CollectAsync(collectEnv, outDir, cts.Token, again: args.Contains("--again", StringComparer.Ordinal));
@@ -87,9 +113,21 @@ try
 
                 var batch = RetranslateSelection.Cards(PilotEnvironment.DeckCandidates(root), selection);
                 // --local: no API. The requests are written as files for a translator on the
-                // subscription to answer;  reads the answers back.
-                var submitEnv = args.Contains("--local", StringComparer.Ordinal) ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair: true);
-                return await Pilot.SubmitAsync(submitEnv, batch.Cards, outDir, cts.Token);
+                // subscription to answer; pilot-collect --local reads the answers back.
+                // --model <label>: one local batch for that model only, recorded beside the
+                // submission's other batches, so a third reading of the disputed cards is one command.
+                var local = args.Contains("--local", StringComparer.Ordinal);
+                var model = Flag(args, "--model");
+                if (model is not null && !local)
+                {
+                    Console.Error.WriteLine("retranslate-submit --model needs --local: a single-model batch is a translator's, never the API's.");
+                    return 64;
+                }
+
+                var submitEnv = local ? PilotEnvironment.Local(root, outDir) : PilotEnvironment.ForRepo(root, repair: true);
+                return model is null
+                    ? await Pilot.SubmitAsync(submitEnv, batch.Cards, outDir, cts.Token)
+                    : await Pilot.SubmitAsync(submitEnv, batch.Cards, outDir, cts.Token, models: [model], merge: true);
             }
 
         // A translator's self-check over one local batch: the collect step's parse and lint, files only.
@@ -141,10 +179,11 @@ try
 
         default:
             Console.Error.WriteLine(
-                "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
+                "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] [--local] | pilot-submit --local --next <n> [outDir] | pilot-collect [outDir] [--no-repair] [--local] [--again]"
                 + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
-                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] | status [cardsDir] | answers-check <batchDir>"
-            + " (--local on retranslate-submit and pilot-collect: answers from files under <outDir>/local, never the API; --again on pilot-collect: read every answer file again after translators replaced them)");
+                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] [--local] [--model <label>] | status [cardsDir] | answers-check <batchDir>"
+            + " (--local: answers from files under <outDir>/local, never the API; --again on pilot-collect: read every answer file again after translators replaced them;"
+            + " --next <n> on pilot-submit: the next n deck faces without a card file or a batch, into .agents/slices/<n>; --model on retranslate-submit: one batch for that model, beside the others)");
             return 64;
     }
 }
@@ -165,6 +204,25 @@ static string? Flag(string[] argv, string name)
 {
     var at = Array.IndexOf(argv, name);
     return at >= 0 && at + 1 < argv.Length ? argv[at + 1] : null;
+}
+
+/// <summary>Every argument after the command that is neither a flag nor a flag's value, in order: what a command with switches before its positionals reads.</summary>
+static IReadOnlyList<string> Positionals(string[] argv)
+{
+    var found = new List<string>();
+    for (var i = 1; i < argv.Length; i++)
+    {
+        if (argv[i] is "--next" or "--only" or "--model")
+        {
+            i++;
+            continue;
+        }
+
+        if (!argv[i].StartsWith("--", StringComparison.Ordinal))
+            found.Add(argv[i]);
+    }
+
+    return found;
 }
 
 /// <summary>

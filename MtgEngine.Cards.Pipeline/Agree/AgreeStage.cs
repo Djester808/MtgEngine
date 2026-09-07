@@ -17,9 +17,17 @@ public sealed record AgreeRequest(
     IReadOnlyList<string>? ScryfallKeywords = null);
 
 /// <summary>
+/// A reading the majority left behind: with three readings, two that say the same thing agree
+/// and the third is reported here — with the first place it differs from what was agreed — and
+/// is not kept as a candidate, because the card is not in dispute.
+/// </summary>
+public sealed record OutvotedReading(string Model, string? Difference);
+
+/// <summary>
 /// What the agreement stage decided: the status, the file to write (null when there is nothing
-/// to write), each model's lint report, which models linted clean, and the first place the
-/// readings differ.
+/// to write), each model's lint report, which models linted clean, the first place the
+/// readings differ, the models whose identical readings carried the decision, and the readings
+/// they outvoted.
 /// </summary>
 public sealed record AgreeResult(
     string OracleId,
@@ -28,18 +36,26 @@ public sealed record AgreeResult(
     CardFile? File,
     IReadOnlyDictionary<string, LintReport?> Lint,
     IReadOnlyList<string> CleanModels,
-    string? Difference)
+    string? Difference,
+    IReadOnlyList<string>? AgreedModels = null,
+    IReadOnlyList<OutvotedReading>? Outvoted = null)
 {
-    /// <summary>True only for the agreed branch: every reading parsed, linted clean and said the same thing.</summary>
+    /// <summary>True only for the agreed branch: a majority of the readings parsed, linted clean and said the same thing.</summary>
     public bool Agreed => Status == ImplementationStatus.Translated;
+
+    /// <summary>The models whose readings were identical after canonicalisation: the provenance of the written file. Empty unless agreed.</summary>
+    public IReadOnlyList<string> AgreedBy => AgreedModels ?? [];
+
+    /// <summary>The readings the majority outvoted. Empty for a two-reading card and for a dispute.</summary>
+    public IReadOnlyList<OutvotedReading> OutvotedReadings => Outvoted ?? [];
 }
 
 /// <summary>
-/// The third stage: two readings in, one status out. Agreement is the only evidence the
+/// The third stage: two or three readings in, one status out. Agreement is the only evidence the
 /// pipeline has before the runner exists, so it is spent carefully — a reading that fails the
-/// serializer or carries a lint error is not evidence of anything, and two readings that
-/// differ leave the card <see cref="ImplementationStatus.Disputed"/> with both readings kept
-/// rather than silently picking one and calling it translated.
+/// serializer or carries a lint error is not evidence of anything, and readings of which no
+/// majority say the same thing leave the card <see cref="ImplementationStatus.Disputed"/> with
+/// every parsed reading kept rather than silently picking one and calling it translated.
 ///
 /// CARD_ENGINE_PLAN.md § "Wave 1", P3: structural diff, keyword cross-check (the linter's
 /// L002, which this stage runs by linting each reading against the Scryfall keyword list),
@@ -74,21 +90,32 @@ public static class AgreeStage
             return new AgreeResult(request.OracleId, request.Name, ImplementationStatus.Untranslated, null, lint, [], null);
         }
 
-        var models = readings.Select(r => r.Model).ToList();
-
         // A card both models could only mark Unsupported is not a dispute: they read the card the
         // same way and hit the same hole in the vocabulary. Calling that Disputed sent the dispute
         // queue two identical readings to choose between and hid the real answer, which is a
         // missing primitive. L001 still carries the marker into the file, the linter still errors
         // on it, and the deck gate still refuses it — only the status is now honest.
         var evidence = parsed.Where(r => IsEvidence(lint[r.Model])).ToList();
-        var agreed = evidence.Count == readings.Count
-            && evidence.Select(r => JsonDiff.CanonicalText(r.Definition!)).Distinct(StringComparer.Ordinal).Count() == 1;
 
-        if (agreed)
+        // More than half of the readings saying the same thing is agreement: both of two, any
+        // two of three (wave 15, P17). The readings that said something else are outvoted —
+        // reported with where they differ, and not kept as candidates, because the card is not
+        // in dispute. The majority's order is the readings' order, so provenance is stable.
+        var required = (readings.Count / 2) + 1;
+        var majority = evidence
+            .GroupBy(r => JsonDiff.CanonicalText(r.Definition!), StringComparer.Ordinal)
+            .Select(g => g.ToList())
+            .FirstOrDefault(g => g.Count >= required);
+
+        if (majority is not null)
         {
-            var file = FileFor(request, evidence[0].Definition!, models, ImplementationStatus.Translated, agreed: true);
-            return new AgreeResult(request.OracleId, request.Name, ImplementationStatus.Translated, file, lint, cleanModels, null);
+            var agreedModels = majority.Select(r => r.Model).ToList();
+            var outvoted = readings
+                .Where(r => !agreedModels.Contains(r.Model, StringComparer.Ordinal))
+                .Select(r => new OutvotedReading(r.Model, r.Definition is null ? r.ParseError : JsonDiff.Between(majority[0].Definition!, r.Definition)))
+                .ToList();
+            var file = FileFor(request, majority[0].Definition!, agreedModels, ImplementationStatus.Translated, agreed: true);
+            return new AgreeResult(request.OracleId, request.Name, ImplementationStatus.Translated, file, lint, cleanModels, null, agreedModels, outvoted);
         }
 
         // The first clean reading is the one written; every reading that parsed is kept as a

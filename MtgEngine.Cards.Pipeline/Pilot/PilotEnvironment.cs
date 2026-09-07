@@ -74,8 +74,16 @@ public sealed record PilotEnvironment(
     IReadOnlyList<string> Models,
     string PromptVersion,
     TextWriter Log,
-    bool Repair = true)
+    bool Repair = true,
+    Func<string, IReadOnlyList<string>?>? BatchOracleIds = null)
 {
+    /// <summary>
+    /// The oracle ids a batch the store has never heard of names — a local batch written by
+    /// hand, say — or the whole submission when the transport cannot say (the API, a fake).
+    /// </summary>
+    public IReadOnlyList<string> OracleIdsOf(string batchId, IReadOnlyList<string> fallback) =>
+        BatchOracleIds?.Invoke(batchId) ?? fallback;
+
     /// <summary>The real one: the Anthropic transport, the shared translation store, and <c>cards/</c>.</summary>
     public static PilotEnvironment ForRepo(string repoRoot, bool repair)
     {
@@ -95,17 +103,23 @@ public sealed record PilotEnvironment(
     /// The offline one: answers come from files under <c>{outDir}/local</c> written by whoever
     /// translates (an agent on the subscription, a person), never from the API. Same store, same
     /// writer, same models as labels, no repair (a translator rewrites the answer file instead).
+    /// <paramref name="scope"/> names the batches of a second out directory (a corpus slice) so
+    /// their ids cannot collide with the first's in the shared store.
     /// </summary>
-    public static PilotEnvironment Local(string repoRoot, string outDir) =>
-        new(
-            new FileTranslationClient(Path.Combine(outDir, "local")),
+    public static PilotEnvironment Local(string repoRoot, string outDir, string? scope = null)
+    {
+        var client = new FileTranslationClient(Path.Combine(outDir, "local"), scope);
+        return new(
+            client,
             new TranslationStore(TranslationStore.DefaultRoot(repoRoot)),
             new CardFileWriter(Path.Combine(repoRoot, "cards")),
             ids => FromCorpus(repoRoot, ids),
             Pilot.Models,
             TranslationPrompt.VersionOf("pilot"),
             Console.Out,
-            Repair: false);
+            Repair: false,
+            BatchOracleIds: id => client.Batch(id)?.CustomIds);
+    }
 
     /// <summary>The deck faces the pilot may choose from, most-played first, as the plan orders them.</summary>
     public static IEnumerable<CorpusCard> DeckCandidates(string repoRoot)

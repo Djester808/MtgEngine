@@ -21,10 +21,12 @@ public static class PilotReport
         ["claude-sonnet-5"] = (2m, 10m),
     };
 
-    public static string Build(IReadOnlyList<PilotCardResult> results, PilotEnvironment env, string promptVersion)
+    /// <param name="models">The models that read this submission — its batches' labels, which a collect takes from the submission rather than from <see cref="PilotEnvironment.Models"/>.</param>
+    public static string Build(IReadOnlyList<PilotCardResult> results, PilotEnvironment env, string promptVersion, IReadOnlyList<string>? models = null)
     {
         ArgumentNullException.ThrowIfNull(results);
         ArgumentNullException.ThrowIfNull(env);
+        models ??= env.Models;
 
         var count = results.Count;
         var sb = new StringBuilder();
@@ -34,23 +36,25 @@ public static class PilotReport
         sb.AppendLine(CultureInfo.InvariantCulture, $"prompt version: {promptVersion}");
         sb.AppendLine();
 
-        foreach (var model in env.Models)
-            Model(sb, results, env, promptVersion, model, count);
+        foreach (var model in models)
+            Model(sb, results, env, promptVersion, model);
 
-        Agreement(sb, results, env, count);
+        Agreement(sb, results, models, count);
         return sb.ToString();
     }
 
-    private static void Model(StringBuilder sb, IReadOnlyList<PilotCardResult> results, PilotEnvironment env, string promptVersion, string model, int count)
+    /// <summary>One model's numbers, over the faces its batch named: a third batch that covers a subset is counted against that subset.</summary>
+    private static void Model(StringBuilder sb, IReadOnlyList<PilotCardResult> results, PilotEnvironment env, string promptVersion, string model)
     {
-        var readings = results.Select(r => Reading(r, model)).ToList();
+        var readings = results.Select(r => Reading(r, model)).Where(r => r is not null).ToList();
+        var count = readings.Count;
         var parsed = readings.Count(r => r?.Definition is not null);
         var clean = readings.Count(r => r is { Definition: not null, Lint.HasErrors: false });
         var lintFailed = readings.Count(r => r?.Definition is not null && r.Lint is { HasErrors: true });
         var unsupported = readings.Count(r => r?.Lint?.Findings.Any(f => string.Equals(f.Code, "L001", StringComparison.Ordinal)) == true);
         var repaired = readings.Count(r => r?.Repaired == true);
 
-        var usage = results.Aggregate(default(Usage), (total, r) => total + Tokens(env, r.Card.OracleId, model, promptVersion));
+        var usage = readings.Aggregate(default(Usage), (total, r) => total + Tokens(env, r!.OracleId, model, promptVersion));
         var price = Prices.TryGetValue(model, out var p) ? p : (Input: 0m, Output: 0m);
         var cost = ((usage.Input * price.Input)
             + (usage.CacheRead * price.Input * 0.1m)
@@ -83,16 +87,16 @@ public static class PilotReport
         sb.AppendLine();
     }
 
-    private static void Agreement(StringBuilder sb, IReadOnlyList<PilotCardResult> results, PilotEnvironment env, int count)
+    private static void Agreement(StringBuilder sb, IReadOnlyList<PilotCardResult> results, IReadOnlyList<string> models, int count)
     {
         var agreed = results.Count(r => r.Agreement.Agreed);
-        var bothClean = results.Count(r => env.Models.All(m => r.Agreement.Lint.TryGetValue(m, out var lint) && lint is { HasErrors: false }));
+        var allClean = results.Count(r => r.Agreement.Lint.Values.All(lint => lint is { HasErrors: false }));
         var written = results.Count(r => r.Written is not null);
 
         sb.AppendLine("## Agreement");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- both models lint clean: {bothClean}/{count}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- all models lint clean: {allClean}/{count}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed (identical after stripping printed text): {agreed}/{count} ({Percent(agreed, count)})");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed among both-clean: {agreed}/{bothClean} ({Percent(agreed, bothClean)})");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed among all-clean: {agreed}/{allClean} ({Percent(agreed, allClean)})");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- card files written: {written}/{count}");
         sb.AppendLine();
 
@@ -102,10 +106,24 @@ public static class PilotReport
         sb.Append(Agree.AgreeReport.Of(results.Select(r => r.Agreement)).Text());
         sb.AppendLine();
 
+        // A third reading two others outvoted is reported, not kept: the card agreed without it.
+        var outvoted = results.Where(r => r.Agreement.OutvotedReadings.Count > 0).ToList();
+        if (outvoted.Count > 0)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"## Outvoted readings ({outvoted.Count} cards)");
+            foreach (var r in outvoted)
+            {
+                foreach (var odd in r.Agreement.OutvotedReadings)
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"- {r.Card.Name}: {odd.Model} differs at {odd.Difference ?? "(no difference recorded)"}");
+            }
+
+            sb.AppendLine();
+        }
+
         sb.AppendLine("## Disagreements (first 40)");
         foreach (var r in results.Where(r => !r.Agreement.Agreed).Take(40))
         {
-            var verdicts = string.Join(" | ", env.Models.Select(m => m + ": " + Verdict(r, m)));
+            var verdicts = string.Join(" | ", models.Select(m => m + ": " + Verdict(r, m)));
             sb.Append("- ").Append(r.Card.Name).Append(": ").AppendLine(verdicts);
             if (r.Agreement.Difference is not null)
                 sb.AppendLine(CultureInfo.InvariantCulture, $"  - first difference: {r.Agreement.Difference}");
@@ -115,7 +133,9 @@ public static class PilotReport
     private static string Verdict(PilotCardResult result, string model)
     {
         var reading = Reading(result, model);
-        if (reading?.Definition is null)
+        if (reading is null)
+            return "no reading";
+        if (reading.Definition is null)
             return "parse fail";
         var lint = reading.Lint;
         if (lint is null || !lint.HasErrors)

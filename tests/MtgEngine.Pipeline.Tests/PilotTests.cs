@@ -10,12 +10,13 @@ namespace MtgEngine.Cards.Pipeline.Tests;
 /// <see cref="AgreeStage"/> and writes through <see cref="CardFileWriter"/> — rather than doing
 /// any of it a second way of its own.
 /// </summary>
-public sealed class PilotTests
+public sealed partial class PilotTests
 {
     private const string ScribeId = "00000000-0000-0000-0000-0000000000a1";
     private const string SageId = "00000000-0000-0000-0000-0000000000a2";
     private const string Opus = "claude-opus-5";
     private const string Sonnet = "claude-sonnet-5";
+    private const string Fable = "claude-fable-5-1";
 
     [Fact]
     public async Task Submit_writes_one_batch_id_per_model_and_the_selection()
@@ -101,7 +102,8 @@ public sealed class PilotTests
         // The fake bills 100 input, 20 output and 9,000 cache-read tokens per answer.
         Assert.Contains("- tokens: input 200, cache read 18,000, cache write 0, output 40", report, StringComparison.Ordinal);
         Assert.Contains("- estimated batch cost: $", report, StringComparison.Ordinal);
-        Assert.Contains("- both models lint clean: 2/2", report, StringComparison.Ordinal);
+        Assert.Contains("- all models lint clean: 2/2", report, StringComparison.Ordinal);
+        Assert.Contains("  agreed by pair: " + Opus + "+" + Sonnet + ": 1", report, StringComparison.Ordinal);
         Assert.Contains("agreed (identical after stripping printed text): 1/2 (50.0%)", report, StringComparison.Ordinal);
         Assert.Contains("- card files written: 2/2", report, StringComparison.Ordinal);
         // seam-requests/P6.md § 1: the grouped first differences, largest first, with an example
@@ -228,7 +230,7 @@ public sealed class PilotTests
     {
         public const string PromptVersion = "pilot-test-v1";
 
-        public Harness()
+        public Harness(IReadOnlyList<string>? models = null)
         {
             var scratch = Path.Combine(AppContext.BaseDirectory, "pilot-tests", Guid.NewGuid().ToString("n"));
             OutDir = Path.Combine(scratch, "out");
@@ -240,9 +242,10 @@ public sealed class PilotTests
                 Store,
                 Writer,
                 ids => [.. ids.Select(id => Cards.First(c => string.Equals(c.OracleId, id, StringComparison.Ordinal)))],
-                Pilot.Models,
+                models ?? Pilot.Models,
                 PromptVersion,
-                Log);
+                Log,
+                BatchOracleIds: Client.OracleIdsOf);
         }
 
         public PilotFakeClient Client { get; } = new();
@@ -259,7 +262,7 @@ public sealed class PilotTests
 
         public StringWriter Log { get; } = new();
 
-        private static CorpusCard Card(string oracleId, string name) => new(
+        public static CorpusCard Card(string oracleId, string name) => new(
             oracleId,
             name,
             "normal",
