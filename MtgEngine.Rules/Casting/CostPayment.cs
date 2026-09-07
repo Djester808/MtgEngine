@@ -39,17 +39,60 @@ internal static class CostPayment
     }
 
     /// <summary>A mana cost, parsed and spent out of the player's pool, CR 601.2h.</summary>
-    public static Outcome PayMana(GameState state, PlayerId player, string? printed, int? x, string reason)
+    public static Outcome PayMana(GameState state, PlayerId player, string? printed, int? x, string reason) =>
+        PaySymbols(state, player, ManaSymbols.Parse(printed), x, reason).Outcome;
+
+    /// <summary>
+    /// An already-parsed cost spent out of the pool, CR 601.2h, with what was actually spent
+    /// handed back: CR 202.3a's "mana spent to cast this spell" is a property of the spell, so
+    /// the caller records it on the stack entry rather than recomputing it later.
+    /// </summary>
+    [RuleRef("601.2h")]
+    public static PaidMana PaySymbols(GameState state, PlayerId player, IReadOnlyList<ManaSymbol> symbols, int? x, string reason)
     {
-        var symbols = ManaSymbols.Parse(printed);
+        ArgumentNullException.ThrowIfNull(state);
         var payment = ManaSymbols.Pay(state.Player(player).Mana, symbols, x);
         if (payment.Refused is { } refusal)
             throw new RefusedException(refusal.Reason, refusal.Rule);
         if (payment.Delta.Total == 0)
-            return Outcome.Unchanged(state);
+            return new PaidMana(Outcome.Unchanged(state), ManaPool.Empty);
 
         var changed = new ManaChanged(player, payment.Delta, reason);
-        return new Outcome(changed.Apply(state), [changed]);
+        var spent = new ManaPool(
+            -payment.Delta.White,
+            -payment.Delta.Blue,
+            -payment.Delta.Black,
+            -payment.Delta.Red,
+            -payment.Delta.Green,
+            -payment.Delta.Colorless);
+        return new PaidMana(new Outcome(changed.Apply(state), [changed]), spent);
+    }
+
+    /// <summary>
+    /// The mana spent, by colour, for <see cref="StackEntry.ManaSpent"/>. Colorless mana is
+    /// <see cref="Color.Colorless"/>, CR 106.1b: there is no generic mana in a pool, so what paid
+    /// a generic symbol is recorded as the colour it actually was.
+    /// </summary>
+    [RuleRef("202.3a")]
+    public static ImmutableDictionary<Color, int> ByColor(ManaPool spent)
+    {
+        ArgumentNullException.ThrowIfNull(spent);
+        var byColor = ImmutableDictionary.CreateBuilder<Color, int>();
+        foreach (var (color, amount) in new[]
+        {
+            (Color.White, spent.White),
+            (Color.Blue, spent.Blue),
+            (Color.Black, spent.Black),
+            (Color.Red, spent.Red),
+            (Color.Green, spent.Green),
+            (Color.Colorless, spent.Colorless),
+        })
+        {
+            if (amount > 0)
+                byColor[color] = amount;
+        }
+
+        return byColor.ToImmutable();
     }
 
     /// <summary>Several costs paid together are one list, CR 601.2f; a choice of costs is not in this slice.</summary>
@@ -174,3 +217,7 @@ internal static class CostPayment
         [],
         null);
 }
+
+/// <summary>What paying a mana cost did: the resulting outcome, and the mana that left the pool.</summary>
+[RuleRef("601.2h")]
+internal sealed record PaidMana(Outcome Outcome, ManaPool Spent);
