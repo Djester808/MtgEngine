@@ -1,0 +1,107 @@
+{
+  "oracleId": "30ec73ad-c7a1-4527-8dc6-44bdd65b9ba6",
+  "name": "Imp\u0027s Mischief",
+  "oracleHash": "sha256:1466df26660073a5ff7be6e55ec4af93b8a7dcd6e5c0ae00aaeaa8be76d9a6fb",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "30ec73ad-c7a1-4527-8dc6-44bdd65b9ba6",
+    "name": "Imp\u0027s Mischief",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Imp\u0027s Mischief",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ChangeTarget",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "allTargets": false
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "ManaValueOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value."
+          }
+        ],
+        "oracleText": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ChangeTarget",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "allTargets": false
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "ManaValueOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

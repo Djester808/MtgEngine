@@ -1,0 +1,180 @@
+{
+  "oracleId": "162572f2-1757-42e9-bd97-e6bd9a762c0e",
+  "name": "Ashaya, Soul of the Wild",
+  "oracleHash": "sha256:562f1568fb57b26c43ebdb6dc26335c1daf4fd9d10052bd3a8bb6aba0373d514",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "162572f2-1757-42e9-bd97-e6bd9a762c0e",
+    "name": "Ashaya, Soul of the Wild",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ashaya, Soul of the Wild",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elemental"
+          ],
+          "subtypeList": [
+            "Elemental"
+          ]
+        },
+        "manaCost": "{3}{G}{G}",
+        "power": {
+          "text": "*"
+        },
+        "toughness": {
+          "text": "*"
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetPt",
+              "power": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": true,
+            "text": "Ashaya\u0027s power and toughness are each equal to the number of lands you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "types": [
+                "Land"
+              ],
+              "subtypes": [
+                "Forest"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Nontoken creatures you control are Forest lands in addition to their other types."
+          }
+        ],
+        "oracleText": "Ashaya\u0027s power and toughness are each equal to the number of lands you control.\nNontoken creatures you control are Forest lands in addition to their other types. (They\u0027re still affected by summoning sickness.)",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "SetPt",
+              "power": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": true,
+            "text": "Ashaya\u0027s power and toughness are each equal to the number of lands you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "AddTypes",
+              "types": [
+                "Land"
+              ],
+              "subtypes": [
+                "Forest"
+              ],
+              "allCreatureTypes": false
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Nontoken creatures you control are Forest lands in addition to their other types."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

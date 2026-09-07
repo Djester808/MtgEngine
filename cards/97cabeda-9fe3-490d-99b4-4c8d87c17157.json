@@ -1,0 +1,87 @@
+{
+  "oracleId": "97cabeda-9fe3-490d-99b4-4c8d87c17157",
+  "name": "Noxious Revival",
+  "oracleHash": "sha256:616b903e97ac36fd526023240a5320342ca3d5a890f54a8c5fe16ecf22c176cc",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "97cabeda-9fe3-490d-99b4-4c8d87c17157",
+    "name": "Noxious Revival",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Noxious Revival",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{G/P}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard"
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Library",
+              "where": "Top",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Put target card from a graveyard on top of its owner\u0027s library."
+          }
+        ],
+        "oracleText": "({G/P} can be paid with either {G} or 2 life.)\nPut target card from a graveyard on top of its owner\u0027s library.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard"
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Library",
+              "where": "Top",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Put target card from a graveyard on top of its owner\u0027s library."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

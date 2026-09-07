@@ -1,0 +1,852 @@
+{
+  "oracleId": "c02c5547-b9c9-4b2d-9d12-e87bfba8f2d2",
+  "name": "Herald\u0027s Horn",
+  "oracleHash": "sha256:79b1296489a296dc232de6b53365230371d3aecd54b02b1ecf8b9e0136ada83e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c02c5547-b9c9-4b2d-9d12-e87bfba8f2d2",
+    "name": "Herald\u0027s Horn",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Herald\u0027s Horn",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "CreatureType",
+              "key": "k1"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this artifact enters, choose a creature type."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "spell": true,
+                "also": {
+                  "kind": "IsChosenType",
+                  "key": "k1"
+                }
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LookAt",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "You"
+                    },
+                    "zone": "Library"
+                  },
+                  "rememberAs": "k2"
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k2"
+                    },
+                    "filter": {
+                      "in": "Library",
+                      "types": [
+                        "Creature"
+                      ],
+                      "also": {
+                        "kind": "IsChosenType",
+                        "key": "k1"
+                      }
+                    }
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Reveal",
+                          "what": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        },
+                        {
+                          "kind": "Move",
+                          "what": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          "to": "Hand",
+                          "where": "Default",
+                          "tapped": false,
+                          "faceDown": false,
+                          "attacking": false,
+                          "transformed": false,
+                          "ownersChoiceOfOrder": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+          }
+        ],
+        "oracleText": "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "ChooseValue",
+              "what": "CreatureType",
+              "key": "k1"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "As this artifact enters, choose a creature type."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "spell": true,
+                "also": {
+                  "kind": "IsChosenType",
+                  "key": "k1"
+                }
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LookAt",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "You"
+                    },
+                    "zone": "Library"
+                  },
+                  "rememberAs": "k2"
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k2"
+                    },
+                    "filter": {
+                      "in": "Library",
+                      "types": [
+                        "Creature"
+                      ],
+                      "also": {
+                        "kind": "IsChosenType",
+                        "key": "k1"
+                      }
+                    }
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Reveal",
+                          "what": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        },
+                        {
+                          "kind": "Move",
+                          "what": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          "to": "Hand",
+                          "where": "Default",
+                          "tapped": false,
+                          "faceDown": false,
+                          "attacking": false,
+                          "transformed": false,
+                          "ownersChoiceOfOrder": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "c02c5547-b9c9-4b2d-9d12-e87bfba8f2d2",
+        "name": "Herald\u0027s Horn",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Herald\u0027s Horn",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "CreatureType",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a creature type."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true,
+                    "also": {
+                      "kind": "IsChosenType",
+                      "key": "k1"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k2"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Matches",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "filter": {
+                          "in": "Library",
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsChosenType",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Reveal",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            },
+                            {
+                              "kind": "Move",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              },
+                              "to": "Hand",
+                              "where": "Default",
+                              "tapped": false,
+                              "faceDown": false,
+                              "attacking": false,
+                              "transformed": false,
+                              "ownersChoiceOfOrder": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+              }
+            ],
+            "oracleText": "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "CreatureType",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a creature type."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true,
+                    "also": {
+                      "kind": "IsChosenType",
+                      "key": "k1"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k2"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Matches",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "filter": {
+                          "in": "Library",
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsChosenType",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Reveal",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            },
+                            {
+                              "kind": "Move",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              },
+                              "to": "Hand",
+                              "where": "Default",
+                              "tapped": false,
+                              "faceDown": false,
+                              "attacking": false,
+                              "transformed": false,
+                              "ownersChoiceOfOrder": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "c02c5547-b9c9-4b2d-9d12-e87bfba8f2d2",
+        "name": "Herald\u0027s Horn",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Herald\u0027s Horn",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "CreatureType",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a creature type."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true,
+                    "also": {
+                      "kind": "IsChosenType",
+                      "key": "k1"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k2"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Matches",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsChosenType",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Reveal",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            },
+                            {
+                              "kind": "Move",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              },
+                              "to": "Hand",
+                              "where": "Default",
+                              "tapped": false,
+                              "faceDown": false,
+                              "attacking": false,
+                              "transformed": false,
+                              "ownersChoiceOfOrder": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+              }
+            ],
+            "oracleText": "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ChooseValue",
+                  "what": "CreatureType",
+                  "key": "k1"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this artifact enters, choose a creature type."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "spell": true,
+                    "also": {
+                      "kind": "IsChosenType",
+                      "key": "k1"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you cast of the chosen type cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k2"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Matches",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsChosenType",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Sequence",
+                          "steps": [
+                            {
+                              "kind": "Reveal",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            },
+                            {
+                              "kind": "Move",
+                              "what": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              },
+                              "to": "Hand",
+                              "where": "Default",
+                              "tapped": false,
+                              "faceDown": false,
+                              "attacking": false,
+                              "transformed": false,
+                              "ownersChoiceOfOrder": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, look at the top card of your library. If it\u0027s a creature card of the chosen type, you may reveal it and put it into your hand."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,1169 @@
+{
+  "oracleId": "14c3ff84-1e82-4606-a433-869fc52cc382",
+  "name": "Syr Konrad, the Grim",
+  "oracleHash": "sha256:8a3f78050bb1da4b1e6ef2ffdcf4faecc6419f2400e2e3eced19c26a5113a7df",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "14c3ff84-1e82-4606-a433-869fc52cc382",
+    "name": "Syr Konrad, the Grim",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Syr Konrad, the Grim",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Human",
+            "Knight"
+          ],
+          "subtypeList": [
+            "Human",
+            "Knight"
+          ]
+        },
+        "manaCost": "{3}{B}{B}",
+        "power": {
+          "text": "5",
+          "number": 5
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "other": true
+                  }
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Library",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Hand",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Stack",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Exile",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Command",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Battlefield"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Hand"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Library"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Exile"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Stack"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Command"
+                }
+              ]
+            },
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toPlayer": {
+                "kind": "EachOpponent"
+              },
+              "cantBePrevented": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{B}"
+              }
+            ],
+            "do": {
+              "kind": "Mill",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "EachPlayer"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{B}: Each player mills a card."
+          }
+        ],
+        "oracleText": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent.\n{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AnyOfTriggers",
+              "of": [
+                {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "other": true
+                  }
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Library",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Hand",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Stack",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Exile",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "from": "Command",
+                  "to": "Graveyard"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Battlefield"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Hand"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Library"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Exile"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Stack"
+                },
+                {
+                  "kind": "ZoneChange",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "from": "Graveyard",
+                  "to": "Command"
+                }
+              ]
+            },
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toPlayer": {
+                "kind": "EachOpponent"
+              },
+              "cantBePrevented": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{B}"
+              }
+            ],
+            "do": {
+              "kind": "Mill",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "who": {
+                "kind": "EachPlayer"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{B}: Each player mills a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Mill"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "14c3ff84-1e82-4606-a433-869fc52cc382",
+        "name": "Syr Konrad, the Grim",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Syr Konrad, the Grim",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Human",
+                "Knight"
+              ],
+              "subtypeList": [
+                "Human",
+                "Knight"
+              ]
+            },
+            "manaCost": "{3}{B}{B}",
+            "power": {
+              "text": "5",
+              "number": 5
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "Dies",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "other": true
+                      }
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Library",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Hand",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Stack",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Exile",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Command",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Battlefield"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Hand"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Library"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Exile"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Stack"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Command"
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "EachOpponent"
+                  },
+                  "cantBePrevented": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{B}"
+                  }
+                ],
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{B}: Each player mills a card."
+              }
+            ],
+            "oracleText": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent.\n{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "Dies",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "other": true
+                      }
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Library",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Hand",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Stack",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Exile",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "from": "Command",
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Battlefield"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Hand"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Library"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Exile"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Stack"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Command"
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "EachOpponent"
+                  },
+                  "cantBePrevented": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{B}"
+                  }
+                ],
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{B}: Each player mills a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "14c3ff84-1e82-4606-a433-869fc52cc382",
+        "name": "Syr Konrad, the Grim",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Syr Konrad, the Grim",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Human",
+                "Knight"
+              ],
+              "subtypeList": [
+                "Human",
+                "Knight"
+              ]
+            },
+            "manaCost": "{3}{B}{B}",
+            "power": {
+              "text": "5",
+              "number": 5
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "Dies",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "other": true
+                      }
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Battlefield"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Hand"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Library"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Exile"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Stack"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Command"
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "EachOpponent"
+                  },
+                  "cantBePrevented": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{B}"
+                  }
+                ],
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)"
+              }
+            ],
+            "oracleText": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent.\n{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AnyOfTriggers",
+                  "of": [
+                    {
+                      "kind": "Dies",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "other": true
+                      }
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "to": "Graveyard"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Battlefield"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Hand"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Library"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Exile"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Stack"
+                    },
+                    {
+                      "kind": "ZoneChange",
+                      "what": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "from": "Graveyard",
+                      "to": "Command"
+                    }
+                  ]
+                },
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "EachOpponent"
+                  },
+                  "cantBePrevented": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{B}"
+                  }
+                ],
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Mill"
+  ],
+  "scenarioList": []
+}

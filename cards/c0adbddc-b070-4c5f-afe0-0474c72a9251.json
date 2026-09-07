@@ -1,0 +1,461 @@
+{
+  "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+  "name": "Gemstone Caverns",
+  "oracleHash": "sha256:a13c11582e1f7d1f934097d9fd709fc587591153ab07cbf3a70382e6f0b5fd59",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+    "name": "Gemstone Caverns",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Gemstone Caverns",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
+              "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+            },
+            "where": "Hand",
+            "characteristicDefining": false,
+            "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Matches",
+                "of": {
+                  "kind": "Self"
+                },
+                "filter": {
+                  "withCounter": "luck"
+                }
+              },
+              "then": {
+                "kind": "AddMana",
+                "mana": {
+                  "anyColor": true,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              },
+              "else": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{C}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+          }
+        ],
+        "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
+              "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+            },
+            "where": "Hand",
+            "characteristicDefining": false,
+            "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Matches",
+                "of": {
+                  "kind": "Self"
+                },
+                "filter": {
+                  "withCounter": "luck"
+                }
+              },
+              "then": {
+                "kind": "AddMana",
+                "mana": {
+                  "anyColor": true,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              },
+              "else": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{C}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+        "name": "Gemstone Caverns",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Gemstone Caverns",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
+                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Self"
+                    },
+                    "filter": {
+                      "withCounter": "luck"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "anyColor": true,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{C}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+              }
+            ],
+            "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
+                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Self"
+                    },
+                    "filter": {
+                      "withCounter": "luck"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "anyColor": true,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{C}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+        "name": "Gemstone Caverns",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Gemstone Caverns",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "no record for beginning the game with a permanent already on the battlefield from the opening hand, or for placing a counter as part of game setup",
+                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Self"
+                    },
+                    "filter": {
+                      "withCounter": "luck"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": true,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{C}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+              }
+            ],
+            "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "no record for beginning the game with a permanent already on the battlefield from the opening hand, or for placing a counter as part of game setup",
+                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Matches",
+                    "of": {
+                      "kind": "Self"
+                    },
+                    "filter": {
+                      "withCounter": "luck"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": true,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{C}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

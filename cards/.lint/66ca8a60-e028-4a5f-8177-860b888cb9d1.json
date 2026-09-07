@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: A damage replacement that caps how far the damage may reduce a life total, rather than preventing it outright or by a fixed amount, has no record: the incoming damage is not an Amount and PreventThatDamage cannot be given the difference.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

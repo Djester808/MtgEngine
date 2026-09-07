@@ -1,0 +1,171 @@
+{
+  "oracleId": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc",
+  "name": "Sevinne\u0027s Reclamation",
+  "oracleHash": "sha256:6729a0e74f8f3ff67ca5f555d5e6c9cc0ab75acea2c9c6f883bfebebec0c38c6",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc",
+    "name": "Sevinne\u0027s Reclamation",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sevinne\u0027s Reclamation",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "CastFromZone",
+                    "from": "Graveyard"
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "CopySpell",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "mayChooseNewTargets": true
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Return target permanent card with mana value 3 or less from your graveyard to the battlefield. If this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flashback",
+            "cost": "{4}{W}",
+            "repeatable": false,
+            "text": "Flashback {4}{W}"
+          }
+        ],
+        "oracleText": "Return target permanent card with mana value 3 or less from your graveyard to the battlefield. If this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy.\nFlashback {4}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "CastFromZone",
+                    "from": "Graveyard"
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "CopySpell",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "mayChooseNewTargets": true
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Return target permanent card with mana value 3 or less from your graveyard to the battlefield. If this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flashback",
+            "cost": "{4}{W}",
+            "repeatable": false,
+            "text": "Flashback {4}{W}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Flashback"
+  ],
+  "keywordList": [
+    "Flashback"
+  ],
+  "scenarioList": []
+}

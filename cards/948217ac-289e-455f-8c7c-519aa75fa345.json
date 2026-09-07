@@ -1,0 +1,103 @@
+{
+  "oracleId": "948217ac-289e-455f-8c7c-519aa75fa345",
+  "name": "Mana Tithe",
+  "oracleHash": "sha256:3a0b8061274b0df3eeed8aa556f4f8ab16f4f13fc99945d1eef6827bd7f17cad",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "948217ac-289e-455f-8c7c-519aa75fa345",
+    "name": "Mana Tithe",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mana Tithe",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "Counter",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "key": "k1",
+                  "distinct": true
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
+                }
+              }
+            },
+            "text": "Counter target spell unless its controller pays {1}."
+          }
+        ],
+        "oracleText": "Counter target spell unless its controller pays {1}.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "Counter",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "key": "k1",
+                  "distinct": true
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
+                }
+              }
+            },
+            "text": "Counter target spell unless its controller pays {1}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

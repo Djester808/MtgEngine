@@ -1,0 +1,147 @@
+{
+  "oracleId": "66ca8a60-e028-4a5f-8177-860b888cb9d1",
+  "name": "Angel\u0027s Grace",
+  "oracleHash": "sha256:de55ee4af4270cf848ff3c510c6fed7318f43995107038f61129ccd0ce234a33",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "66ca8a60-e028-4a5f-8177-860b888cb9d1",
+    "name": "Angel\u0027s Grace",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Angel\u0027s Grace",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "SplitSecond",
+            "repeatable": false,
+            "text": "Split second"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantLoseGame",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantWinGame",
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "A damage replacement that caps how far the damage may reduce a life total, rather than preventing it outright or by a fixed amount, has no record: the incoming damage is not an Amount and PreventThatDamage cannot be given the difference.",
+                  "text": "Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead."
+                }
+              ]
+            },
+            "text": "You can\u0027t lose the game this turn and your opponents can\u0027t win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead."
+          }
+        ],
+        "oracleText": "Split second (As long as this spell is on the stack, players can\u0027t cast spells or activate abilities that aren\u0027t mana abilities.)\nYou can\u0027t lose the game this turn and your opponents can\u0027t win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "SplitSecond",
+            "repeatable": false,
+            "text": "Split second"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantLoseGame",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantWinGame",
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "A damage replacement that caps how far the damage may reduce a life total, rather than preventing it outright or by a fixed amount, has no record: the incoming damage is not an Amount and PreventThatDamage cannot be given the difference.",
+                  "text": "Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead."
+                }
+              ]
+            },
+            "text": "You can\u0027t lose the game this turn and your opponents can\u0027t win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Split second"
+  ],
+  "keywordList": [
+    "Split second"
+  ],
+  "scenarioList": []
+}

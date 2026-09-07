@@ -1,0 +1,1008 @@
+{
+  "oracleId": "f78af825-023a-42e9-8374-5c52303a1417",
+  "name": "Elspeth, Storm Slayer",
+  "oracleHash": "sha256:82104bebbf7a07ba10ace96af2392c5d5aaab0b35ceb90bdd80b5922d4807f03",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f78af825-023a-42e9-8374-5c52303a1417",
+    "name": "Elspeth, Storm Slayer",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Elspeth, Storm Slayer",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Planeswalker"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elspeth"
+          ],
+          "subtypeList": [
+            "Elspeth"
+          ]
+        },
+        "manaCost": "{3}{W}{W}",
+        "loyalty": "5",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldCreateTokens",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": 1
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Soldier",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Soldier"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "\u002B1: Create a 1/1 white Soldier creature token."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": 0
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Remember",
+                  "key": "k1",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flying"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "until": {
+                    "kind": "UntilYourNextTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": -3
+              }
+            ],
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "manaValue": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+          }
+        ],
+        "oracleText": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n\u002B1: Create a 1/1 white Soldier creature token.\n0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn.\n\u22123: Destroy target creature an opponent controls with mana value 3 or greater.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldCreateTokens",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": 1
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Soldier",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Soldier"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "\u002B1: Create a 1/1 white Soldier creature token."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": 0
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Remember",
+                  "key": "k1",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flying"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "until": {
+                    "kind": "UntilYourNextTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "LoyaltyCost",
+                "delta": -3
+              }
+            ],
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "manaValue": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "f78af825-023a-42e9-8374-5c52303a1417",
+        "name": "Elspeth, Storm Slayer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Elspeth, Storm Slayer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Planeswalker"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elspeth"
+              ],
+              "subtypeList": [
+                "Elspeth"
+              ]
+            },
+            "manaCost": "{3}{W}{W}",
+            "loyalty": "5",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create a 1/1 white Soldier creature token."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 0
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "PutCounters",
+                      "on": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "counter": "\u002B1/\u002B1",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilYourNextTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "manaValue": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+              }
+            ],
+            "oracleText": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n\u002B1: Create a 1/1 white Soldier creature token.\n0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn.\n\u22123: Destroy target creature an opponent controls with mana value 3 or greater.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create a 1/1 white Soldier creature token."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 0
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "PutCounters",
+                      "on": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "counter": "\u002B1/\u002B1",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "UntilYourNextTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "manaValue": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "f78af825-023a-42e9-8374-5c52303a1417",
+        "name": "Elspeth, Storm Slayer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Elspeth, Storm Slayer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Planeswalker"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elspeth"
+              ],
+              "subtypeList": [
+                "Elspeth"
+              ]
+            },
+            "manaCost": "{3}{W}{W}",
+            "loyalty": "5",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create a 1/1 white Soldier creature token."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 0
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "PutCounters",
+                      "on": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "counter": "\u002B1/\u002B1",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilYourNextTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "manaValue": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+              }
+            ],
+            "oracleText": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n\u002B1: Create a 1/1 white Soldier creature token.\n0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn.\n\u22123: Destroy target creature an opponent controls with mana value 3 or greater.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 1
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u002B1: Create a 1/1 white Soldier creature token."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": 0
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "PutCounters",
+                      "on": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "counter": "\u002B1/\u002B1",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Flying"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilYourNextTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "0: Put a \u002B1/\u002B1 counter on each creature you control. Those creatures gain flying until your next turn."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "LoyaltyCost",
+                    "delta": -3
+                  }
+                ],
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "manaValue": {
+                        "op": "Ge",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "\u22123: Destroy target creature an opponent controls with mana value 3 or greater."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,505 @@
+{
+  "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
+  "name": "Gray Merchant of Asphodel",
+  "oracleHash": "sha256:70eb07a3dd308f1f4203ef363925a719f00a267d1b72c42f2f69231e8b1ec518",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
+    "name": "Gray Merchant of Asphodel",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Gray Merchant of Asphodel",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Zombie"
+          ],
+          "subtypeList": [
+            "Zombie"
+          ]
+        },
+        "manaCost": "{3}{B}{B}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Store",
+                  "key": "k1",
+                  "value": {
+                    "kind": "Devotion",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+          }
+        ],
+        "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Store",
+                  "key": "k1",
+                  "value": {
+                    "kind": "Devotion",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
+        "name": "Gray Merchant of Asphodel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Gray Merchant of Asphodel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Zombie"
+              ],
+              "subtypeList": [
+                "Zombie"
+              ]
+            },
+            "manaCost": "{3}{B}{B}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Store",
+                      "key": "k1",
+                      "value": {
+                        "kind": "Devotion",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+              }
+            ],
+            "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Store",
+                      "key": "k1",
+                      "value": {
+                        "kind": "Devotion",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
+        "name": "Gray Merchant of Asphodel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Gray Merchant of Asphodel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Zombie"
+              ],
+              "subtypeList": [
+                "Zombie"
+              ]
+            },
+            "manaCost": "{3}{B}{B}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Store",
+                      "key": "k1",
+                      "value": {
+                        "kind": "Devotion",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "Store",
+                      "key": "k2",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 0
+                      }
+                    },
+                    {
+                      "kind": "ForEachPlayer",
+                      "over": {
+                        "kind": "EachOpponent"
+                      },
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Stored",
+                              "key": "k1"
+                            },
+                            "who": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          },
+                          {
+                            "kind": "Store",
+                            "key": "k2",
+                            "value": {
+                              "kind": "Sum",
+                              "left": {
+                                "kind": "Stored",
+                                "key": "k2"
+                              },
+                              "right": {
+                                "kind": "Stored",
+                                "key": "k1"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k2"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
+              }
+            ],
+            "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Store",
+                      "key": "k1",
+                      "value": {
+                        "kind": "Devotion",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "colors": [
+                          "Black"
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "Store",
+                      "key": "k2",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 0
+                      }
+                    },
+                    {
+                      "kind": "ForEachPlayer",
+                      "over": {
+                        "kind": "EachOpponent"
+                      },
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Stored",
+                              "key": "k1"
+                            },
+                            "who": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          },
+                          {
+                            "kind": "Store",
+                            "key": "k2",
+                            "value": {
+                              "kind": "Sum",
+                              "left": {
+                                "kind": "Stored",
+                                "key": "k2"
+                              },
+                              "right": {
+                                "kind": "Stored",
+                                "key": "k1"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k2"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

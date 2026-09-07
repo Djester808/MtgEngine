@@ -1,0 +1,142 @@
+{
+  "oracleId": "80ea56ad-e741-4a85-b4e8-ce62e7d593d5",
+  "name": "Blanchwood Armor",
+  "oracleHash": "sha256:df1be1edd3c318fcbeabfee64f043767a74db0512923bfc8d547607f5cf0c709",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "80ea56ad-e741-4a85-b4e8-ce62e7d593d5",
+    "name": "Blanchwood Armor",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Blanchwood Armor",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Aura"
+          ],
+          "subtypeList": [
+            "Aura"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "types": [
+                "Creature"
+              ]
+            },
+            "repeatable": false,
+            "text": "Enchant creature"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "CountOf",
+                "filter": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "CountOf",
+                "filter": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets \u002B1/\u002B1 for each Forest you control."
+          }
+        ],
+        "oracleText": "Enchant creature\nEnchanted creature gets \u002B1/\u002B1 for each Forest you control.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "types": [
+                "Creature"
+              ]
+            },
+            "repeatable": false,
+            "text": "Enchant creature"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "CountOf",
+                "filter": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "CountOf",
+                "filter": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets \u002B1/\u002B1 for each Forest you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Enchant"
+  ],
+  "keywordList": [
+    "Enchant"
+  ],
+  "scenarioList": []
+}

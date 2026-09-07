@@ -1,0 +1,258 @@
+{
+  "oracleId": "b01e698b-608a-4fc7-8073-b01d044743ec",
+  "name": "Thespian\u0027s Stage",
+  "oracleHash": "sha256:7d7f49f04e97ad41e0ef30afb54a0734359b9eeb5ea73a86bc50bf8755114f0e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b01e698b-608a-4fc7-8073-b01d044743ec",
+    "name": "Thespian\u0027s Stage",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Thespian\u0027s Stage",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "BecomesCopyOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "except": [
+                  {
+                    "kind": "GrantAbility",
+                    "ability": {
+                      "kind": "ActivatedAbility",
+                      "costs": [
+                        {
+                          "kind": "ManaCost",
+                          "mana": "{2}"
+                        },
+                        {
+                          "kind": "TapSelf"
+                        }
+                      ],
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "BecomesCopyOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "types": [
+                                "Land"
+                              ]
+                            },
+                            "upTo": false,
+                            "distinct": true
+                          },
+                          "isLegendary": false
+                        },
+                        "to": {
+                          "kind": "Self"
+                        },
+                        "until": {
+                          "kind": "Permanently"
+                        }
+                      },
+                      "timing": "Any",
+                      "where": "Battlefield",
+                      "anyPlayerMayActivate": false,
+                      "text": "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+                    }
+                  }
+                ],
+                "isLegendary": false
+              },
+              "to": {
+                "kind": "Self"
+              },
+              "until": {
+                "kind": "Permanently"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{2}, {T}: This land becomes a copy of target land, except it has this ability.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "BecomesCopyOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "except": [
+                  {
+                    "kind": "GrantAbility",
+                    "ability": {
+                      "kind": "ActivatedAbility",
+                      "costs": [
+                        {
+                          "kind": "ManaCost",
+                          "mana": "{2}"
+                        },
+                        {
+                          "kind": "TapSelf"
+                        }
+                      ],
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "BecomesCopyOf",
+                          "of": {
+                            "kind": "Target",
+                            "filter": {
+                              "types": [
+                                "Land"
+                              ]
+                            },
+                            "upTo": false,
+                            "distinct": true
+                          },
+                          "isLegendary": false
+                        },
+                        "to": {
+                          "kind": "Self"
+                        },
+                        "until": {
+                          "kind": "Permanently"
+                        }
+                      },
+                      "timing": "Any",
+                      "where": "Battlefield",
+                      "anyPlayerMayActivate": false,
+                      "text": "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+                    }
+                  }
+                ],
+                "isLegendary": false
+              },
+              "to": {
+                "kind": "Self"
+              },
+              "until": {
+                "kind": "Permanently"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

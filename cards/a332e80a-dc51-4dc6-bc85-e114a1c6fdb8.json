@@ -1,0 +1,376 @@
+{
+  "oracleId": "a332e80a-dc51-4dc6-bc85-e114a1c6fdb8",
+  "name": "Vanquish the Horde",
+  "oracleHash": "sha256:02b22e9de17ec5052c3ee294be97a782ffa0f53db3cab56d44748542042eed4a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "a332e80a-dc51-4dc6-bc85-e114a1c6fdb8",
+    "name": "Vanquish the Horde",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Vanquish the Horde",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{6}{W}{W}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {1} less to cast for each creature on the battlefield."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy all creatures."
+          }
+        ],
+        "oracleText": "This spell costs {1} less to cast for each creature on the battlefield.\nDestroy all creatures.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {1} less to cast for each creature on the battlefield."
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                }
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy all creatures."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-9a79507e633f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "a332e80a-dc51-4dc6-bc85-e114a1c6fdb8",
+        "name": "Vanquish the Horde",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Vanquish the Horde",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}{W}{W}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy all creatures."
+              }
+            ],
+            "oracleText": "This spell costs {1} less to cast for each creature on the battlefield.\nDestroy all creatures.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy all creatures."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "a332e80a-dc51-4dc6-bc85-e114a1c6fdb8",
+        "name": "Vanquish the Horde",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Vanquish the Horde",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}{W}{W}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy all creatures."
+              }
+            ],
+            "oracleText": "This spell costs {1} less to cast for each creature on the battlefield.\nDestroy all creatures.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                "text": "Destroy all creatures."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}
