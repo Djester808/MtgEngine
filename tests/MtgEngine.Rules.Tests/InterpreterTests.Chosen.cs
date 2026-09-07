@@ -162,17 +162,23 @@ public sealed partial class InterpreterTests
     }
 
     [Fact]
-    public void A_may_cast_of_a_copy_is_refused_by_name_when_no_zone_system_can_make_one()
+    public void A_may_cast_of_a_copy_casts_the_copy_the_real_zone_system_makes()
     {
         var table = new InterpreterTable();
-        table.Subject.Casting = new InterpreterTestsCasting();
+        var casting = new InterpreterTestsCasting();
+        table.Subject.Casting = casting;
         var card = table.Card(table.A, Zone.Graveyard);
         table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it"), AsCopy: true), Remembering(card)));
 
-        // CR 707.12: casting the original in the copy's place is a different game action, so the
-        // refusal stands and names the rule rather than guessing.
-        var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
-        Assert.Equal("707.12", refused.Rule);
+        table.Answer("yes");
+
+        // CR 707.12: the real zone system (E1c) makes the copy in the graveyard and marks it a copy of
+        // a card, and it is the copy that is announced, never the card the effect pointed at.
+        var command = Assert.Single(casting.Instructed);
+        Assert.NotEqual(card, command.Card);
+        var copy = table.Object(command.Card);
+        Assert.Equal(ZoneKey.Of(Zone.Graveyard, table.A), copy.Zone);
+        Assert.Contains(Zones.ZoneSystem.CopyOfCard, copy.Designations);
     }
 
     /// <summary>"As this enters, choose a color", CR 608.2d.</summary>
