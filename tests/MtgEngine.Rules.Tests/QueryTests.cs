@@ -121,6 +121,32 @@ public sealed class QueryTests
         Assert.Equal(1, world.Count(new ObjectFilter(Types: CardType.Creature, Also: new IsAttached())));
     }
 
+    /// <summary>
+    /// CR 301.5 with CR 303.4f: an Aura attached to a player is attached, so <c>IsAttached</c>
+    /// answers for it as it does for one on a creature. The object half of the vocabulary rightly
+    /// answers nothing about it — "enchanted creature" is no creature, and "attached to
+    /// [selector]" names objects — which is the shape of the gap <c>seam-requests/E5c.md</c> asks
+    /// to close with an "enchanted player" <c>PlayerRef</c>: today no record can name that player,
+    /// so the state and the view carry the attachment and no card can read it.
+    /// </summary>
+    [Fact]
+    [RuleRef("303.4f")]
+    public void An_aura_attached_to_a_player_is_attached_and_names_no_object()
+    {
+        var world = World.New()
+            .Creature(1, Alice, 1, 1)
+            .Creature(2, Alice, 1, 1)
+            .AttachToPlayer(2, Bob)
+            .As(2);
+
+        Assert.Equal(1, world.Count(new ObjectFilter(Types: CardType.Creature, Also: new IsAttached())));
+        Assert.Equal(1, world.Count(new ObjectFilter(Types: CardType.Creature, Also: new IsAttached(false))));
+
+        // The object half answers none, because there is no object to answer with.
+        Assert.Empty(world.Query.Resolve(world.State, new Attached(), world.Context));
+        Assert.Equal(0, world.Count(new ObjectFilter(Types: CardType.Creature, Also: new AttachedTo(new Self()))));
+    }
+
     [Fact]
     public void CountOf_and_Controls_count_the_same_objects()
     {
@@ -336,6 +362,10 @@ public sealed class QueryTests
 
         public World Attach(int id, int to) =>
             this with { State = new ObjectChanged(new ObjectId(id), AttachedTo: new ObjectId(to)).Apply(State) };
+
+        /// <summary>CR 303.4f: the other half of an attachment — an Aura on a player.</summary>
+        public World AttachToPlayer(int id, PlayerId player) =>
+            this with { State = new ObjectChanged(new ObjectId(id), AttachedToPlayer: player).Apply(State) };
 
         public World As(int source) => this with { Context = Context with { Source = new ObjectId(source) } };
 

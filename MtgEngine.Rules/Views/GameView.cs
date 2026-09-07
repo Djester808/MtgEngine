@@ -38,6 +38,15 @@ public sealed record ObjectView(
     int Damage,
     ImmutableDictionary<string, int> Counters,
     ObjectId? AttachedTo,
+
+    /// <summary>
+    /// CR 303.4f: an Aura is attached to an object <em>or a player</em>, and the second half is
+    /// this. It travels beside <see cref="AttachedTo"/> for every viewer because an attachment is
+    /// public information (CR 400.2) — the table can see what the Aura is on, and a client that
+    /// read only the object half would draw an "enchant player" Aura floating on nothing.
+    /// </summary>
+    PlayerId? AttachedToPlayer,
+
     ImmutableList<string> Keywords,
     ImmutableList<string> Types,
     ImmutableList<string> Subtypes,

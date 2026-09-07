@@ -31,8 +31,14 @@ public sealed partial class Query
                 .Any(other => other != candidate
                     && string.Equals(_layers.Of(state, other).Name, _layers.Of(state, candidate).Name, StringComparison.Ordinal)), // CR 201.2
 
-            AttachedTo to => obj.AttachedTo is { } host && Resolve(state, to.To, ctx).Contains(host), // CR 301.5c
-            IsAttached attached => attached.Value == (obj.AttachedTo is not null), // CR 301.5
+            // CR 301.5c. The record names objects, so an Aura on a player (CR 303.4f) matches
+            // nothing here however the selector is written — the player half of "attached to" has
+            // no spelling in the vocabulary; seam-requests/E5c.md asks for it.
+            AttachedTo to => obj.AttachedTo is { } host && Resolve(state, to.To, ctx).Contains(host),
+
+            // CR 301.5 with CR 303.4f: attached means attached to an object or to a player, so
+            // an "enchant player" Aura on its player answers this as any other Aura does.
+            IsAttached attached => attached.Value == (obj.AttachedTo is not null || obj.AttachedToPlayer is not null),
 
             // CR 608.2b: a spell or ability on the stack knows what it targets.
             TargetedBy by => Resolve(state, by.By, ctx)

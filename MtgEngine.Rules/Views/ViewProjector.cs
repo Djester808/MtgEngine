@@ -118,6 +118,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             obj.Damage,
             obj.Counters,
             obj.AttachedTo,
+            obj.AttachedToPlayer,
             [.. chars.Abilities.OfType<KeywordAbility>().Select(k => k.Keyword.ToString())],
             TypeNames(chars.Types),
             chars.Subtypes,
@@ -156,6 +157,10 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             obj.Damage,
             obj.Counters,
             obj.AttachedTo,
+
+            // CR 708.4 withholds what a face-down permanent is, never where it is: an attachment
+            // is on the table for everyone, so both halves travel as they do face up.
+            obj.AttachedToPlayer,
             [],
             permanent ? [nameof(CardType.Creature)] : [],
             [],

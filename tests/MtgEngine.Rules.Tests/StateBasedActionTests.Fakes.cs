@@ -57,6 +57,7 @@ internal sealed class Board
         bool token = false,
         ObjectId? attachedTo = null,
         StackEntry? stack = null,
+        int? attachedToPlayer = null,
         params (string Kind, int Count)[] counters)
     {
         var seat = new PlayerId(owner);
@@ -67,6 +68,10 @@ internal sealed class Board
                 Damage = damage,
                 IsToken = token,
                 AttachedTo = attachedTo,
+
+                // CR 303.4f: the other half of an attachment. A seat number rather than a
+                // PlayerId so a test names it the way it names an owner.
+                AttachedToPlayer = attachedToPlayer is { } seated ? new PlayerId(seated) : null,
                 Stack = stack,
                 SummoningSick = false,
                 Counters = counters.ToImmutableDictionary(c => c.Kind, c => c.Count, StringComparer.Ordinal),
