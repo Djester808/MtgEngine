@@ -292,13 +292,10 @@ public sealed class WaveEightIntegrationTests
         Assert.Equal(2, life - table.State.Player(P1).Life);
         Assert.DoesNotContain(table.State.ActiveEffects, e => e.Effect is PreventDamage);
 
-        // GAP, reported in seam-requests/EINT3.md for the combat and choices builder (E4d): the
-        // batch is finished but the step is not — nobody holds priority in the combat damage step
-        // after the resumption, so the game cannot be walked on. CR 510.3 gives every player
-        // priority after combat damage is dealt, and the ordinary batch does; the resumed one
-        // hands back its events without asking the turn system to open the step again.
+        // CR 510.3 with 117.3b: the resumed batch opens the step the way the ordinary one does, so the
+        // active player holds priority and the game can be walked on (E4e closed the gap EINT3 reported).
         Assert.Equal(Step.CombatDamage, table.State.Turn.Step);
-        Assert.Null(table.State.Priority.Holder);
+        Assert.Equal(P0, table.State.Priority.Holder);
         Assert.Null(table.State.Pending);
 
         AssertTheLogIsTheGame(table);
