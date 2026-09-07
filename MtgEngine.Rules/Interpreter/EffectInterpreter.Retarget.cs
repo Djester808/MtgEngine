@@ -23,6 +23,13 @@ public sealed partial class EffectInterpreter
     [RuleRef("601")]
     public ICastingSystem? Casting { get; set; }
 
+    /// <summary>
+    /// The second question of a may-cast pair, CR 601.2c: which objects pay the additional cost the
+    /// card prints. The kind is what tells the resumed walk which of the two answers it is holding.
+    /// </summary>
+    [RuleRef("601.2c")]
+    private const string CastCost = "cast-cost";
+
     /* ---------------------------------------------------------------------------------------- *
      * CR 115.7 — a spell on the stack points somewhere else.
      * ---------------------------------------------------------------------------------------- */
@@ -142,9 +149,15 @@ public sealed partial class EffectInterpreter
 
         var who = FirstPlayer(run, may.Who);
         if (Answered(run) is { } answered)
+        {
+            // CR 601.2c: the second question of the pair names the objects an additional cost
+            // consumes; the first is the yes/no of the permission itself.
+            if (run.Answer is { Kind: CastCost })
+                return Cast(run, who, cards[0], may, Named(run.State, answered));
             return answered.Any(o => string.Equals(o.Id, "yes", StringComparison.Ordinal))
-                ? Cast(run, who, cards[0], may)
+                ? Cast(run, who, cards[0], may, [])
                 : run;
+        }
 
         return Ask(run, who, "may-cast", "You may cast that card. Do you?", YesNo, 1, 1);
     }
@@ -154,35 +167,106 @@ public sealed partial class EffectInterpreter
     /// mana cost is not paid, and the same permission is also the permission to cast the card from
     /// the zone it is in (CR 601.3a). Both halves ride on one flag, which the casting system
     /// records on the stack entry as <c>"free"</c>, so "if it was cast that way" can be asked when
-    /// it resolves. Every additional cost is still paid (CR 601.2b) and the objects one needs are
-    /// chosen as the spell is announced (CR 601.2c), which a yes/no question cannot carry — a card
-    /// that prints an additional cost is refused by name rather than cast for a cost nobody chose.
+    /// it resolves. Every additional cost is still paid whatever the mana cost does (CR 601.2b),
+    /// and whether this command pays them is the casting system's word, not a guess made from the
+    /// printed face here: the command is handed to <see cref="ICastingSystem.Check"/> and its
+    /// refusal is relayed with its own rule.
     /// </summary>
     [RuleRef("601.2h")]
-    private EffectRun Cast(EffectRun run, PlayerId who, ObjectId card, MayCast may)
+    private EffectRun Cast(EffectRun run, PlayerId who, ObjectId card, MayCast may, ImmutableList<ObjectId> costObjects)
     {
-        // CR 706.2: a copy of a card in a zone is a new object, not this card being cast.
+        // CR 707.12: casting a copy of an object creates the copy in the zone the object is in and
+        // casts that, so the copy has to exist before the casting system is handed anything. No
+        // seam makes a copy of a card in a zone — CreateToken makes a permanent — so this is
+        // refused by name rather than casting the original in the copy's place.
         if (may.AsCopy)
             throw new RefusedException(
-                "A copy of that card is not this card being cast; asked for in seam-requests/E9f.md",
-                "706.2");
+                "A copy of that card is not this card being cast; asked for in seam-requests/E9g.md",
+                "707.12");
 
         // CR 118.9: the command names an alternative cost by the printed keyword whose cost the
         // plan parses; a cost the effect states in its own words has no channel.
         if (may.AlternativeCost is not null)
             throw new RefusedException(
-                "An alternative cost stated by the effect has no channel on CastSpell; asked for in seam-requests/E9f.md",
+                "An alternative cost stated by the effect has no channel on CastSpell; asked for in seam-requests/E9g.md",
                 "118.9");
 
-        if (PrintedFace(run.State, card) is { AdditionalCosts.Count: > 0 })
-            throw new RefusedException(
-                "That card's additional cost cannot be chosen from a may-cast question; asked for in seam-requests/E9f.md",
-                "601.2b");
-
-        var command = new CastSpell(who, card, WithoutPayingManaCost: may.WithoutPayingManaCost);
+        var command = new CastSpell(
+            who,
+            card,
+            CostObjects: costObjects.IsEmpty ? null : costObjects,
+            WithoutPayingManaCost: may.WithoutPayingManaCost);
         if (Casting!.Check(run.State, command) is { } refusal)
-            throw new RefusedException(refusal.Reason, refusal.Rule);
+            return CostQuestion(run, who, card, refusal, costObjects);
         return Merge(run, Casting.Cast(run.State, command));
+    }
+
+    /// <summary>
+    /// CR 601.2c: the objects an additional cost consumes are chosen as the spell is announced, and
+    /// a yes/no cannot carry them. A refusal naming CR 601.2c is the casting system saying nobody
+    /// chose, so the walk asks a second question of the objects that could pay and announces the
+    /// spell again with the answer. Any other refusal is the casting system's word about this
+    /// command and is relayed with its rule — a cost that needs no object (pay life, sacrifice this
+    /// card) never gets here, because <c>Check</c> accepts it.
+    /// </summary>
+    [RuleRef("601.2c")]
+    private EffectRun CostQuestion(EffectRun run, PlayerId who, ObjectId card, Refusal refusal, ImmutableList<ObjectId> already)
+    {
+        if (!already.IsEmpty || !string.Equals(refusal.Rule, "601.2c", StringComparison.Ordinal))
+            throw new RefusedException(refusal.Reason, refusal.Rule);
+
+        var wants = ImmutableList.CreateBuilder<CostObjectsWanted>();
+        foreach (var cost in PrintedFace(run.State, card)?.AdditionalCosts ?? [])
+        {
+            if (Wants(cost) is { } want)
+                wants.Add(want);
+        }
+
+        // One question fills CostObjects in the order the costs are written, so two costs that each
+        // name objects cannot be told apart inside a single answer.
+        if (wants.Count != 1)
+            throw new RefusedException(
+                "Which objects that spell's additional costs want cannot be asked for; asked for in seam-requests/E9g.md",
+                "601.2c");
+
+        var wanted = wants[0];
+        var count = Number(run, wanted.Count);
+        var legal = query.Resolve(run.State, new Each(Where(wanted)), run.Context);
+        if (count <= 0 || legal.Count < count)
+            throw new RefusedException(refusal.Reason, refusal.Rule);
+
+        return Ask(run, who, CastCost, "Choose what pays that spell's additional cost.", OptionsFor(run.State, legal), count, count);
+    }
+
+    /// <summary>
+    /// Where an additional cost looks for what pays it, CR 601.2c: the zone, whether the objects are
+    /// the player's by control or by ownership, and how many. Null for a cost that consumes no
+    /// object of the player's choosing — pay life, sacrifice this card, a random discard — which is
+    /// paid without anything on the command.
+    /// </summary>
+    [RuleRef("601.2c")]
+    private static CostObjectsWanted? Wants(Cost cost) => cost switch
+    {
+        // CR 701.17a: a player sacrifices only a permanent they control.
+        SacrificeCost sacrifice => new(sacrifice.What, sacrifice.Count, Cards.Zone.Battlefield, true, false),
+        ReturnToHandCost hand => new(hand.What, hand.Count, Cards.Zone.Battlefield, true, false),
+        // CR 118.12: a tapped permanent cannot pay a cost that taps one.
+        TapOther tap => new(tap.What, tap.Count, Cards.Zone.Battlefield, true, true),
+        // CR 701.9b: a random discard is the game's choice, not a question.
+        DiscardCost { Random: false } discard => new(discard.What, discard.Count, Cards.Zone.Hand, false, false),
+        ExileFromZoneCost exile => new(exile.What, exile.Count, exile.From, exile.From == Cards.Zone.Battlefield, false),
+        _ => null,
+    };
+
+    /// <summary>The filter that finds what could pay the cost: its own, narrowed to the zone and the player.</summary>
+    [RuleRef("601.2c")]
+    private static ObjectFilter Where(CostObjectsWanted wanted)
+    {
+        var filter = (wanted.What ?? new ObjectFilter()) with { In = wanted.In };
+        filter = wanted.ByControl
+            ? filter with { ControlledBy = filter.ControlledBy ?? new You() }
+            : filter with { OwnedBy = filter.OwnedBy ?? new You() };
+        return wanted.UntappedOnly ? filter with { Tapped = false } : filter;
     }
 
     /// <summary>
@@ -190,21 +274,26 @@ public sealed partial class EffectInterpreter
     /// cast but a continuous effect (CR 611.1), so it is created rather than offered — the player
     /// takes it later, at a time they could cast the card, or not at all. <see cref="MayPlayFromZone"/>
     /// is the vocabulary's spelling; the effect applies to the cards the resolution named and to
-    /// the zone they are in now, and it carries no cost half, so a permission that also changes
-    /// what the card costs is refused by name (seam-requests/E9f.md, which also asks the casting
-    /// system to read this effect for CR 601.3's permission).
+    /// the zone they are in now. CR 118.9: "you may cast it this turn without paying its mana
+    /// cost" is one permission with two halves, and the record carries both — the flag rides on the
+    /// effect and the casting system hands it to the <c>CastSpell</c> the player later announces.
+    /// A copy, or a cost the effect states in its own words, still has no half to say it with.
     /// </summary>
     [RuleRef("601.3a")]
     private EffectRun Permission(EffectRun run, MayCast may, ImmutableList<ObjectId> cards, Duration until)
     {
-        if (may.WithoutPayingManaCost || may.AsCopy || may.AlternativeCost is not null)
+        if (may.AsCopy || may.AlternativeCost is not null)
             throw new RefusedException(
-                "A lasting permission has no cost half to say that with; asked for in seam-requests/E9f.md",
+                "A lasting permission has no cost half to say that with; asked for in seam-requests/E9g.md",
                 "118.9");
 
         var who = FirstPlayer(run, may.Who);
         var from = run.State.Objects.TryGetValue(cards[0], out var card) ? card.Zone.Zone : Cards.Zone.Hand;
-        return Create(run, new MayPlayFromZone(may.Who ?? new You(), from), cards, [who], until);
+        var permission = new MayPlayFromZone(
+            may.Who ?? new You(),
+            from,
+            WithoutPayingManaCost: may.WithoutPayingManaCost);
+        return Create(run, permission, cards, [who], until);
     }
 
     /// <summary>The printed face a card would be cast as, CR 601.3b: the front one until a face is chosen.</summary>
@@ -214,3 +303,17 @@ public sealed partial class EffectInterpreter
             ? obj.Definition.Faces[0]
             : null;
 }
+
+/// <summary>
+/// What an additional cost is looking for, CR 601.2c: the objects that could pay it, said in the
+/// terms a question needs — a filter, how many, the zone they are in, whether they are the
+/// player's by control (a permanent they sacrifice or tap) or by ownership (a card in their hand),
+/// and whether a tapped one is disqualified (CR 118.4).
+/// </summary>
+[RuleRef("601.2c")]
+internal sealed record CostObjectsWanted(
+    ObjectFilter? What,
+    Amount? Count,
+    Cards.Zone In,
+    bool ByControl,
+    bool UntappedOnly);

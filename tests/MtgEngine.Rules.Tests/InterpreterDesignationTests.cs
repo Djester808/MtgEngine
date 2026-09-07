@@ -347,10 +347,11 @@ public sealed class InterpreterDesignationTests
     }
 
     [Fact]
-    public void A_may_cast_of_a_card_with_an_additional_cost_refuses_naming_the_rule()
+    public void A_may_cast_of_a_card_with_an_additional_cost_the_casting_system_accepts_is_cast()
     {
         var table = new InterpreterTable();
-        table.Subject.Casting = new InterpreterDesignationCasting();
+        var casting = new InterpreterDesignationCasting();
+        table.Subject.Casting = casting;
         var card = table.Put(
             table.A,
             ZoneKey.Of(Zone.Graveyard, table.A),
@@ -363,19 +364,19 @@ public sealed class InterpreterDesignationTests
                         "engine test object",
                         FaceRole.Main,
                         new TypeLine(CardType.Sorcery),
-                        AdditionalCosts: [new SacrificeCost(ObjectFilter.Creature)]),
+                        AdditionalCosts: [new SacrificeSelf()]),
                 ]));
         table.Resolve(table.OnStack(
             table.A,
             new MayCast(new Remembered("it"), WithoutPayingManaCost: true),
             Remembering(card)));
 
-        var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
+        table.Answer("yes");
 
-        // CR 601.2b: the additional cost is paid whatever the mana cost does, and CR 601.2c has
-        // its objects chosen as the spell is announced — a yes/no question cannot name them.
-        Assert.Equal("601.2b", refused.Rule);
-        Assert.Contains("seam-requests/E9f.md", refused.Message, StringComparison.Ordinal);
+        // CR 601.2b: the additional cost is paid whatever the mana cost does, and whether this
+        // command can pay it is the casting system's word — a cost that needs no object is cast,
+        // and the printed face is not read here to guess otherwise.
+        Assert.True(Assert.Single(casting.Cast).WithoutPayingManaCost);
     }
 
     [Fact]
@@ -410,15 +411,15 @@ public sealed class InterpreterDesignationTests
         table.Subject.Casting = new InterpreterDesignationCasting();
         var card = table.Card(table.A, Zone.Exile);
 
-        // CR 118.9: MayPlayFromZone says where a card may be cast from and nothing about what it
-        // costs, so "you may cast it this turn without paying its mana cost" has no spelling.
+        // CR 118.9: MayPlayFromZone now says a card may be cast without paying its mana cost, but
+        // it still says nothing about a cost the effect states in its own words.
         var refused = Assert.Throws<RefusedException>(() => table.Resolve(table.OnStack(
             table.A,
-            new MayCast(new Remembered("it"), WithoutPayingManaCost: true, Until: new UntilEndOfTurn()),
+            new MayCast(new Remembered("it"), AlternativeCost: new PayLife(new Fixed(3)), Until: new UntilEndOfTurn()),
             Remembering(card))));
 
         Assert.Equal("118.9", refused.Rule);
-        Assert.Contains("seam-requests/E9f.md", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("seam-requests/E9g.md", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
