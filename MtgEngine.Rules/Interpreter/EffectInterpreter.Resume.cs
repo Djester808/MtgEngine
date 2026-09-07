@@ -24,6 +24,12 @@ public sealed partial class EffectInterpreter : IResumable
     private const string AnsweredPrefix = "answered:";
 
     /// <summary>
+    /// The prefix a remembered set rides under in a question's context, CR 608.2h: the objects an
+    /// earlier step of the same walk named, which the resumed walk would otherwise have lost.
+    /// </summary>
+    private const string RememberedPrefix = "remembered:";
+
+    /// <summary>
     /// Continue whatever the question interrupted. The kinds a rule asked about are finished by
     /// the subsystem that owns the rule; every other kind came from an effect, and is found again
     /// by its source, its ability index and its path inside that ability's effect tree.
@@ -219,6 +225,17 @@ public sealed partial class EffectInterpreter : IResumable
         // CR 608.2: every answer this resolution has already given, not only the one just made.
         foreach (var (key, value) in Answers(resumption))
             context = context with { Chosen = context.Chosen.SetItem(key[AnsweredPrefix.Length..], value) };
+
+        // CR 608.2h: what the steps before the question remembered, put back so a later step's
+        // Remembered(key) still names it. The stack entry's own memory is the earlier word.
+        foreach (var (key, value) in resumption.Context.Extra)
+        {
+            if (!key.StartsWith(RememberedPrefix, StringComparison.Ordinal))
+                continue;
+            var name = key[RememberedPrefix.Length..];
+            if (!context.Remembered.ContainsKey(name))
+                context = context with { Remembered = context.Remembered.SetItem(name, [.. Numbers(value).Select(n => new ObjectId(n))]) };
+        }
 
         return context;
     }
