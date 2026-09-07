@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Interpreter;
@@ -155,26 +156,85 @@ public sealed partial class EffectInterpreter
 
             // CR 603.7: a delayed triggered ability is created now and triggers later, once.
             case DelayedTrigger delayed:
-                return Emit(run, new DelayedTriggerCreated(new DelayedTriggerState(
-                    run.State.NextTimestamp,
-                    delayed.When,
-                    delayed.Do,
-                    run.Context.Source,
-                    run.Context.Controller,
-                    delayed.Once,
-                    run.Context.Remembered)));
+                return Delayed(run, delayed);
 
             case DoNothing:
                 return run;
 
             // The translator could not say this in the vocabulary; it must never reach a table.
+            // CR 608.2: the resolution cannot be performed, so the definition is refused by name
+            // and with the reason the translator wrote, which a runner reports as a failure. A
+            // thrown NotSupportedException was a crash at the engine's front door instead.
             case Unsupported unsupported:
-                throw new NotSupportedException(
-                    $"the definition carries an {nameof(Unsupported)} effect and cannot resolve: {unsupported.Reason}");
+                throw new RefusedException(
+                    $"the definition carries an {nameof(Unsupported)} effect and cannot resolve: {unsupported.Reason}",
+                    "608.2");
 
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// Create the delayed triggered ability, CR 603.7 — one of them, except for the case CR 106.6a
+    /// names. An ability that produced keyed mana and then says "when that mana is spent" creates
+    /// <em>a separate delayed ability for each mana produced</em>, so a replacement that made two
+    /// mana where the card printed one gets two abilities and each fires for its own mana. Which
+    /// mana each one watches is the key the <see cref="AddMana"/> wrote on that mana's provenance,
+    /// so the two halves are linked through the pool and not through this node. An ability whose
+    /// key produced no mana creates nothing to watch it with; a key the same resolution did not
+    /// produce is left as the card wrote it, because CR 106.6 lets a linked ability elsewhere have
+    /// made the mana.
+    /// </summary>
+    [RuleRef("603.7")]
+    private EffectRun Delayed(EffectRun run, DelayedTrigger delayed)
+    {
+        if (delayed.When is ManaSpent spent && Keys(run.State, run.Context.Source, spent.ManaKey) is { Count: > 0 } keys)
+        {
+            foreach (var key in keys)
+                run = Delaying(run, delayed, spent with { ManaKey = key });
+            return run;
+        }
+
+        return Delaying(run, delayed, delayed.When);
+    }
+
+    [RuleRef("603.7")]
+    private static EffectRun Delaying(EffectRun run, DelayedTrigger delayed, Trigger when) =>
+        Emit(run, new DelayedTriggerCreated(new DelayedTriggerState(
+            run.State.NextTimestamp,
+            when,
+            delayed.Do,
+            run.Context.Source,
+            run.Context.Controller,
+            delayed.Once,
+            run.Context.Remembered)));
+
+    /// <summary>
+    /// The mana this source produced under that key, CR 106.6a, one entry per single mana. Empty
+    /// when nothing in any pool carries it: the mana has been spent already, or another permanent's
+    /// linked ability is the one that will make it (CR 106.6).
+    /// </summary>
+    [RuleRef("106.6a")]
+    private static ImmutableList<string> Keys(GameState state, ObjectId? source, string key)
+    {
+        if (source is null)
+            return [];
+
+        var prefix = key + "#";
+        var keys = ImmutableList.CreateBuilder<string>();
+        foreach (var player in state.Players)
+        {
+            foreach (var block in player.Mana.Provenance)
+            {
+                if (block.Source != source || block.Key is not { } written || !written.StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                for (var i = 0; i < block.Amount; i++)
+                    keys.Add(written);
+            }
+        }
+
+        return keys.ToImmutable();
     }
 
     /// <summary>

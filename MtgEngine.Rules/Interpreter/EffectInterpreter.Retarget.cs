@@ -151,9 +151,17 @@ public sealed partial class EffectInterpreter
         if (Answered(run) is { } answered)
         {
             // CR 601.2c: the second question of the pair names the objects an additional cost
-            // consumes; the first is the yes/no of the permission itself.
+            // consumes; the first is the yes/no of the permission itself. A face whose costs need
+            // two answers asks twice, and what the earlier answers named is carried on the mark
+            // rather than re-derived, because the board they were chosen from has moved on.
             if (run.Answer is { Kind: CastCost })
-                return Cast(run, who, cards[0], may, Named(run.State, answered));
+            {
+                ImmutableList<ObjectId> earlier = Marked(run) is { } already
+                    ? [.. already.Select(id => new ObjectId(id))]
+                    : [];
+                return Cast(Unmark(run), who, cards[0], may, earlier.AddRange(Named(run.State, answered)));
+            }
+
             return answered.Any(o => string.Equals(o.Id, "yes", StringComparison.Ordinal))
                 ? Cast(run, who, cards[0], may, [])
                 : run;
@@ -197,7 +205,7 @@ public sealed partial class EffectInterpreter
             CostObjects: costObjects.IsEmpty ? null : costObjects,
             WithoutPayingManaCost: may.WithoutPayingManaCost);
         if (Casting!.Check(run.State, command) is { } refusal)
-            return CostQuestion(run, who, card, refusal, costObjects);
+            return CostQuestion(run, who, command, refusal, costObjects);
         return Merge(run, Casting.Cast(run.State, command));
     }
 
@@ -210,64 +218,42 @@ public sealed partial class EffectInterpreter
     /// card) never gets here, because <c>Check</c> accepts it.
     /// </summary>
     [RuleRef("601.2c")]
-    private EffectRun CostQuestion(EffectRun run, PlayerId who, ObjectId card, Refusal refusal, ImmutableList<ObjectId> already)
+    private EffectRun CostQuestion(EffectRun run, PlayerId who, CastSpell command, Refusal refusal, ImmutableList<ObjectId> already)
     {
-        if (!already.IsEmpty || !string.Equals(refusal.Rule, "601.2c", StringComparison.Ordinal))
+        // CR 118.4: a question nobody can answer is not asked. The accumulated answer grows by at
+        // least one object per question, so the cap is what stops a casting system that refuses
+        // the same command however it is answered.
+        if (!string.Equals(refusal.Rule, "601.2c", StringComparison.Ordinal) || already.Count >= MaxCostObjects)
             throw new RefusedException(refusal.Reason, refusal.Rule);
 
-        var wants = ImmutableList.CreateBuilder<CostObjectsWanted>();
-        foreach (var cost in PrintedFace(run.State, card)?.AdditionalCosts ?? [])
-        {
-            if (Wants(cost) is { } want)
-                wants.Add(want);
-        }
-
-        // One question fills CostObjects in the order the costs are written, so two costs that each
-        // name objects cannot be told apart inside a single answer.
-        if (wants.Count != 1)
-            throw new RefusedException(
-                "Which objects that spell's additional costs want cannot be asked for; asked for in seam-requests/E9g.md",
-                "601.2c");
-
-        var wanted = wants[0];
-        var count = Number(run, wanted.Count);
-        var legal = query.Resolve(run.State, new Each(Where(wanted)), run.Context);
-        if (count <= 0 || legal.Count < count)
+        // The casting system is the only thing that knows what a cost consumes, where it looks and
+        // whose objects it may take; the interpreter's job is to turn one of its asks into one
+        // question. A system that cannot say answers with nothing, and its refusal stands.
+        var choices = Casting!.CostChoices(run.State, command);
+        if (choices.Count == 0)
             throw new RefusedException(refusal.Reason, refusal.Rule);
 
-        return Ask(run, who, CastCost, "Choose what pays that spell's additional cost.", OptionsFor(run.State, legal), count, count);
+        var choice = choices[0];
+        if (choice.Count <= 0 || choice.Legal.Count < choice.Count)
+            throw new RefusedException(refusal.Reason, refusal.Rule);
+
+        // CR 601.2c: two costs that each name objects are asked for one at a time, in the order the
+        // casting system writes them, and what the earlier ones took rides on the mark.
+        return Ask(
+            Mark(run, already.Select(id => id.Value)),
+            who,
+            CastCost,
+            "Choose what pays that spell's " + choice.Cost + ".",
+            OptionsFor(run.State, choice.Legal),
+            choice.Count,
+            choice.Count);
     }
 
     /// <summary>
-    /// Where an additional cost looks for what pays it, CR 601.2c: the zone, whether the objects are
-    /// the player's by control or by ownership, and how many. Null for a cost that consumes no
-    /// object of the player's choosing — pay life, sacrifice this card, a random discard — which is
-    /// paid without anything on the command.
+    /// How many objects one announcement may be asked to name, CR 601.2c. Every question adds at
+    /// least one, so this is the bound that makes the ask-and-announce-again loop finite.
     /// </summary>
-    [RuleRef("601.2c")]
-    private static CostObjectsWanted? Wants(Cost cost) => cost switch
-    {
-        // CR 701.17a: a player sacrifices only a permanent they control.
-        SacrificeCost sacrifice => new(sacrifice.What, sacrifice.Count, Cards.Zone.Battlefield, true, false),
-        ReturnToHandCost hand => new(hand.What, hand.Count, Cards.Zone.Battlefield, true, false),
-        // CR 118.12: a tapped permanent cannot pay a cost that taps one.
-        TapOther tap => new(tap.What, tap.Count, Cards.Zone.Battlefield, true, true),
-        // CR 701.9b: a random discard is the game's choice, not a question.
-        DiscardCost { Random: false } discard => new(discard.What, discard.Count, Cards.Zone.Hand, false, false),
-        ExileFromZoneCost exile => new(exile.What, exile.Count, exile.From, exile.From == Cards.Zone.Battlefield, false),
-        _ => null,
-    };
-
-    /// <summary>The filter that finds what could pay the cost: its own, narrowed to the zone and the player.</summary>
-    [RuleRef("601.2c")]
-    private static ObjectFilter Where(CostObjectsWanted wanted)
-    {
-        var filter = (wanted.What ?? new ObjectFilter()) with { In = wanted.In };
-        filter = wanted.ByControl
-            ? filter with { ControlledBy = filter.ControlledBy ?? new You() }
-            : filter with { OwnedBy = filter.OwnedBy ?? new You() };
-        return wanted.UntappedOnly ? filter with { Tapped = false } : filter;
-    }
+    private const int MaxCostObjects = 16;
 
     /// <summary>
     /// "You may cast it this turn", CR 601.3a: a permission that outlives the resolution is not a
@@ -295,25 +281,4 @@ public sealed partial class EffectInterpreter
             WithoutPayingManaCost: may.WithoutPayingManaCost);
         return Create(run, permission, cards, [who], until);
     }
-
-    /// <summary>The printed face a card would be cast as, CR 601.3b: the front one until a face is chosen.</summary>
-    [RuleRef("601.3b")]
-    private static Face? PrintedFace(GameState state, ObjectId card) =>
-        state.Objects.TryGetValue(card, out var obj) && obj.Definition.Faces.Count > 0
-            ? obj.Definition.Faces[0]
-            : null;
 }
-
-/// <summary>
-/// What an additional cost is looking for, CR 601.2c: the objects that could pay it, said in the
-/// terms a question needs — a filter, how many, the zone they are in, whether they are the
-/// player's by control (a permanent they sacrifice or tap) or by ownership (a card in their hand),
-/// and whether a tapped one is disqualified (CR 118.4).
-/// </summary>
-[RuleRef("601.2c")]
-internal sealed record CostObjectsWanted(
-    ObjectFilter? What,
-    Amount? Count,
-    Cards.Zone In,
-    bool ByControl,
-    bool UntappedOnly);

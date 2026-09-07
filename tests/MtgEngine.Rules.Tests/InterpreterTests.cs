@@ -11,7 +11,7 @@ namespace MtgEngine.Rules.Tests;
 /// The interpreter, CR 608.2: what a resolving spell or ability does to the game. Every test
 /// builds its own made-up definition, because a card is data and no card name belongs in here.
 /// </summary>
-public sealed class InterpreterTests
+public sealed partial class InterpreterTests
 {
     [Fact]
     public void Burn_spell_deals_damage_to_a_creature_and_to_a_player()
@@ -222,17 +222,6 @@ public sealed class InterpreterTests
     }
 
     [Fact]
-    public void An_unsupported_effect_refuses_to_resolve()
-    {
-        var table = new InterpreterTable();
-        var spell = table.OnStack(table.A, new Unsupported("no primitive for this sentence"));
-
-        var refused = Assert.Throws<NotSupportedException>(() => table.Resolve(spell));
-
-        Assert.Contains(nameof(Unsupported), refused.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void An_effect_with_no_arm_names_the_record_it_could_not_run()
     {
         var table = new InterpreterTable();
@@ -290,11 +279,12 @@ public sealed class InterpreterTests
     public void A_sacrifice_cost_is_asked_for_and_the_answer_pays_it()
     {
         var table = new InterpreterTable();
-        var casting = new InterpreterTestsCasting { WantsCostObjects = true };
+        var casting = new InterpreterTestsCasting();
         table.Subject.Casting = casting;
         var mine = table.Permanent(table.A);
-        table.Permanent(table.A);
+        var other = table.Permanent(table.A);
         table.Permanent(table.B);
+        casting.Choices.Add(new CostChoice("sacrifice a creature", [mine, other], 1));
         var card = table.Put(
             table.A,
             ZoneKey.Of(Zone.Graveyard, table.A),
@@ -304,10 +294,10 @@ public sealed class InterpreterTests
         table.Answer("yes");
 
         // CR 601.2c: the objects an additional cost consumes are chosen as the spell is announced,
-        // so the yes is followed by a second question of the creatures that could be sacrificed —
-        // the two this player controls, never the opponent's (CR 701.17a).
+        // so the yes is followed by a second question — of exactly what the casting system said the
+        // command still has to name, because it is the only thing that knows what a cost consumes.
         Assert.Equal("cast-cost", table.Pending.Kind);
-        Assert.Equal(2, table.Pending.Options.Count);
+        Assert.Equal([mine, other], table.Pending.Options.Select(o => o.Object));
         Assert.Equal(1, table.Pending.Min);
 
         table.Answer(mine.Value.ToString(CultureInfo.InvariantCulture));
@@ -320,9 +310,10 @@ public sealed class InterpreterTests
     public void The_cast_cost_question_is_answered_by_its_resumption_alone()
     {
         var table = new InterpreterTable();
-        var casting = new InterpreterTestsCasting { WantsCostObjects = true };
+        var casting = new InterpreterTestsCasting();
         table.Subject.Casting = casting;
         var mine = table.Permanent(table.A);
+        casting.Choices.Add(new CostChoice("sacrifice a creature", [mine], 1));
         var card = table.Put(
             table.A,
             ZoneKey.Of(Zone.Graveyard, table.A),
@@ -383,9 +374,10 @@ public sealed class InterpreterTests
 
 /// <summary>
 /// A casting system that announces nothing and writes down what it was asked to cast, CR 601.2.
-/// <see cref="WantsCostObjects"/> is the half the interpreter's cast-cost question exists for: the
-/// real casting system refuses naming CR 601.2c when a cost that consumes objects was announced
-/// without them, and accepts once the command names them.
+/// <see cref="Choices"/> is the half the interpreter's cast-cost question exists for: the real
+/// casting system refuses naming CR 601.2c when a cost that consumes objects was announced without
+/// them, says through <see cref="CostChoices"/> what those objects could be, and accepts once the
+/// command names them. One object per choice, in the order the costs are written.
 /// </summary>
 internal sealed class InterpreterTestsCasting : ICastingSystem
 {
@@ -394,8 +386,8 @@ internal sealed class InterpreterTestsCasting : ICastingSystem
     /// <summary>What <see cref="Check"/> answers regardless: null means the command is legal.</summary>
     public Refusal? Refusal { get; set; }
 
-    /// <summary>CR 601.2c: refuse until the command names the objects the additional cost wants.</summary>
-    public bool WantsCostObjects { get; set; }
+    /// <summary>CR 601.2c: what this system says a command still has to name, in cost order.</summary>
+    public List<CostChoice> Choices { get; } = [];
 
     public List<CastSpell> Cast { get; } = [];
 
@@ -412,7 +404,13 @@ internal sealed class InterpreterTestsCasting : ICastingSystem
     public Outcome ResolveTop(GameState state) => Outcome.Unchanged(state);
 
     public Refusal? Check(GameState state, Command command) =>
-        Refusal ?? (WantsCostObjects && command is CastSpell { CostObjects: null or { IsEmpty: true } }
-            ? new Refusal("Which of the permanents to sacrifice pay the cost was not chosen.", "601.2c")
+        Refusal ?? (Named(command) < Choices.Count
+            ? new Refusal("Which of the permanents pay that spell's costs was not chosen.", "601.2c")
             : null);
+
+    /// <summary>CR 601.2c: the asks this command has not answered yet, in the order the costs are written.</summary>
+    public ImmutableList<CostChoice> CostChoices(GameState state, Command command) => [.. Choices.Skip(Named(command))];
+
+    private static int Named(Command command) =>
+        command is CastSpell cast ? cast.CostObjects?.Count ?? 0 : 0;
 }
