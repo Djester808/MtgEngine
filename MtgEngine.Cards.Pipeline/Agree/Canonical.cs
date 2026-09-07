@@ -107,18 +107,22 @@ public static partial class Canonical
         "key", "storeAs", "storeChoiceAs", "rememberAs", "rememberHitAs", "rememberRestAs", "chosenColorKey",
     ];
 
-    private static readonly Lazy<HashSet<string>> YouDefaults = new(BuildYouDefaults);
+    private static readonly Lazy<Dictionary<string, string[]>> YouDefaults = new(BuildYouDefaults);
 
     private static readonly Lazy<HashSet<string>> CostKinds = new(BuildCostKinds);
 
     /// <summary>
-    /// The kinds with an optional <c>Who</c> of type PlayerRef defaulting to null. The default of
-    /// every one of them is the controller of the ability, so a written-out You is noise. Read by
-    /// reflection rather than listed, so a new verb is covered the day it is added.
+    /// The kinds with an optional <c>Who</c> of type PlayerRef defaulting to null, and the
+    /// properties that carry it. The default of every one of them is the controller of the
+    /// ability, so a written-out You is noise. An effect's optional <c>By</c> ("put them back in any
+    /// order", "goad") is the same default under another name (CR 109.5) — on an effect only: a
+    /// trigger's <c>By</c> left null watches every player, and You there is a real constraint. Read
+    /// by reflection rather than listed, so a new verb is covered the day it is added.
     /// </summary>
-    private static HashSet<string> BuildYouDefaults()
+    [RuleRef("109.5")]
+    private static Dictionary<string, string[]> BuildYouDefaults()
     {
-        var kinds = new HashSet<string>(StringComparer.Ordinal);
+        var kinds = new Dictionary<string, string[]>(StringComparer.Ordinal);
         foreach (var baseType in CardFileSerializer.PolymorphicBases)
         {
             foreach (var (type, name) in CardFileSerializer.RegisteredNames(baseType))
@@ -126,17 +130,21 @@ public static partial class Canonical
                 var ctor = type.GetConstructors().OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
                 if (ctor is null)
                     continue;
-                if (ctor.GetParameters().Any(IsOptionalYou))
-                    kinds.Add(name);
+                var properties = ctor.GetParameters()
+                    .Where(p => IsOptionalYou(p, "Who") || (baseType == typeof(Effect) && IsOptionalYou(p, "By")))
+                    .Select(p => Camel(p.Name!))
+                    .ToArray();
+                if (properties.Length > 0)
+                    kinds[name] = properties;
             }
         }
 
         return kinds;
     }
 
-    private static bool IsOptionalYou(ParameterInfo p) =>
+    private static bool IsOptionalYou(ParameterInfo p, string named) =>
         p.ParameterType == typeof(PlayerRef)
-        && string.Equals(p.Name, "Who", StringComparison.Ordinal)
+        && string.Equals(p.Name, named, StringComparison.Ordinal)
         && p.HasDefaultValue
         && p.DefaultValue is null;
 
@@ -182,12 +190,33 @@ public static partial class Canonical
     private static void StripDefaults(JsonObject obj, string? kind, Context context)
     {
         // "draw a card" and "you draw a card" are the same instruction.
-        if (kind is not null && YouDefaults.Value.Contains(kind) && IsYou(obj["who"]))
-            obj.Remove("who");
+        if (kind is not null && YouDefaults.Value.TryGetValue(kind, out var yours))
+        {
+            foreach (var property in yours)
+            {
+                if (IsYou(obj[property]))
+                    obj.Remove(property);
+            }
+        }
 
         // "sacrifice a creature" already means one you control.
         if (context.InCost && IsYou(obj["controlledBy"]))
             obj.Remove("controlledBy");
+
+        // CR 110.1: a permanent is what is on the battlefield, so a filter read there — no zone of
+        // its own, in a context whose zone is the battlefield — describes permanents already, and a
+        // written permanent: true says it twice (the twelve's Dawn's Truce). In any other zone the
+        // flag picks permanent cards out of the rest and is kept.
+        if (kind is null
+            && context.DefaultZone == nameof(Zone.Battlefield)
+            && obj["in"] is null
+            && obj["spell"] is null
+            && obj["permanent"] is JsonValue permanent
+            && permanent.TryGetValue<bool>(out var isPermanent)
+            && isPermanent)
+        {
+            obj.Remove("permanent");
+        }
 
         // Only an ObjectFilter carries "in", and only a filter has no discriminator.
         if (kind is null

@@ -110,17 +110,24 @@ public static partial class Canonical
     /// CR 608.1: a <see cref="SpellCast"/> trigger watches a spell being cast, so everything its
     /// filter can match is a spell. A written <c>spell: true</c> there is the trigger's own
     /// discriminator repeated inside its filter, and both readings of the report's <c>spell</c>
-    /// family are that.
+    /// family are that. <see cref="SpellsCastThisTurn"/> counts spells the same way, so the flag
+    /// on its <c>matching</c> filter says the record's own name again (the twelve's Veil of Summer).
     ///
-    /// The flag is stripped only on the trigger's own filter. Anywhere else — a filter compared
+    /// The flag is stripped only on those records' own filters. Anywhere else — a filter compared
     /// against something on the stack inside an effect, a static ability's subject — it separates
     /// spells from permanents and is the whole point of the filter, so it stays.
     /// </summary>
     private static void StripSpellFlagOnSpellCast(JsonObject obj, string? kind)
     {
-        if (!string.Equals(kind, nameof(SpellCast), StringComparison.Ordinal))
+        var property = kind switch
+        {
+            nameof(SpellCast) => "spell",
+            nameof(SpellsCastThisTurn) => "matching",
+            _ => null,
+        };
+        if (property is null)
             return;
-        if (obj["spell"] is JsonObject filter && filter["spell"] is JsonValue flag
+        if (obj[property] is JsonObject filter && filter["spell"] is JsonValue flag
             && flag.TryGetValue<bool>(out var isSpell) && isSpell)
         {
             filter.Remove("spell");

@@ -142,7 +142,7 @@ public static partial class SmokeScenario
 
             // CR 119.3: damage to a player is life lost.
             case DealDamage { To: null, ToPlayer: not null and not You } burn when Number(board, burn.N) is { } dealt && dealt > 0:
-                board.Expect(new Life(Opponent, 20 - dealt));
+                board.Lives(false, -dealt);
                 break;
 
             // CR 115.4: "any target" is one of a creature, a player, a planeswalker or a battle, and
@@ -151,15 +151,36 @@ public static partial class SmokeScenario
             case DealDamage { To: AnyTarget { Count: null or Fixed { N: 1 }, UpTo: false }, ToPlayer: null } bolt
                 when Number(board, bolt.N) is { } struck && struck > 0:
                 board.AimsAtPlayer(Opponent);
-                board.Expect(new Life(Opponent, 20 - struck));
+                board.Lives(false, -struck);
                 break;
 
             case GainLife { Who: null or You } gain when Number(board, gain.N) is { } gained && gained > 0:
-                board.Expect(new Life(Caster, 20 + gained));
+                board.Lives(true, gained);
                 break;
 
             case LoseLife { Who: not null and not You } drain when Number(board, drain.N) is { } lost && lost > 0:
-                board.Expect(new Life(Opponent, 20 - lost));
+                board.Lives(false, -lost);
+                break;
+
+            // CR 119.4: "you lose 2 life", or life equal to a remembered card's mana value (CR 202.3).
+            case LoseLife { Who: null or You } paid when Number(board, paid.N) is { } cost && cost > 0:
+                board.Lives(true, -cost);
+                break;
+
+            // CR 611.2a: a continuous effect on one target creature is created when the spell
+            // resolves, and the target has to be named for the cast to be legal (CR 601.2c). A spell's
+            // road only: an activation that aims is a road of its own (seam-requests/P19.md).
+            case Apply { To: Target granted } when !board.PlaysFromBattlefield && Aimable(granted) is { Count: > 0 } bodies:
+                board.AimedAmong(Mine(granted), bodies);
+                board.Expect(new EventLogged(nameof(ContinuousEffectCreated)));
+                break;
+
+            // CR 608.2m as the card overrides it: "exile this card" sends the resolved spell to
+            // exile instead of the graveyard. "Shuffle this card into its owner's library" is the
+            // same road, but the engine leaves such a spell in the graveyard today, so it is not
+            // asserted until it moves (seam-requests/P19.md).
+            case Exile { What: Self, Until: null }:
+                board.SpellEndsIn = Zone.Exile;
                 break;
 
             // CR 402.1: "return target card from your graveyard to your hand" — the graveyard is
@@ -340,7 +361,7 @@ public static partial class SmokeScenario
                 return false;
 
             default:
-                break;
+                return Remembers(board, effect);
         }
 
         return true;
@@ -394,6 +415,8 @@ public static partial class SmokeScenario
     {
         Fixed printed => printed.N,
         X => board.AnnouncedX,
+        // CR 202.3: "that card's mana value" is the printed cost of the one filler a step remembered.
+        ManaValueOf { Of: Remembered { Key: var key } } when board.Recalled(key) is [var (_, card)] => ScenarioFiller.ManaValueOf(card),
         _ => null,
     };
 
