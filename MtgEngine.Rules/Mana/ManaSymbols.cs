@@ -221,6 +221,25 @@ public static class ManaSymbols
             : null;
     }
 
+    /// <summary>
+    /// The part of a pool a spend restriction allows, CR 106.6b: "activate only using mana
+    /// produced by a creature", read as the colours that may be spent. What is not allowed is
+    /// still in the player's pool and still empties as the step ends, CR 106.4 — it simply
+    /// cannot pay this cost, so the payer is shown a pool with only the allowed colours in it.
+    /// </summary>
+    [RuleRef("106.6b")]
+    public static ManaPool Only(ManaPool pool, Color allowed)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        return new ManaPool(
+            allowed.HasFlag(Color.White) ? pool.White : 0,
+            allowed.HasFlag(Color.Blue) ? pool.Blue : 0,
+            allowed.HasFlag(Color.Black) ? pool.Black : 0,
+            allowed.HasFlag(Color.Red) ? pool.Red : 0,
+            allowed.HasFlag(Color.Green) ? pool.Green : 0,
+            allowed == Color.Colorless ? pool.Colorless : 0);
+    }
+
     public static ManaPool Add(ManaPool left, ManaPool right)
     {
         ArgumentNullException.ThrowIfNull(left);

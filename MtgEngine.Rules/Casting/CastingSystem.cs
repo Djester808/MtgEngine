@@ -69,13 +69,15 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
 
         // CR 601.3b: the face and every optional cost are chosen before anything moves, so the
         // plan is what the spell costs and what it will be on the stack.
+        var chars = characteristics.Of(state, card.Id);
         var plan = CastPlan.For(state, card, command, query);
-        if (plan.Printed.AdditionalCosts is { Count: > 0 })
-            throw new RefusedException("An additional cost printed on a spell cannot be paid yet.", "601.2f");
-        RequireCastingTiming(state, command.Player, plan, characteristics.Of(state, card.Id));
+        RequireCastingTiming(state, command.Player, plan, chars);
 
         // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
-        var paid = CostPayment.PaySymbols(state, command.Player, plan.Mana, command.X, "cast");
+        // The costs that are not mana come first because each one moves objects, and the spell's
+        // own new object is numbered from the state they leave behind (CR 400.7).
+        var others = CostPayment.Pay(state, new CostContext(card, chars, command.Player, command.X, zones, query), plan.NonMana);
+        var paid = CostPayment.PaySymbols(others.State, command.Player, plan.Mana, command.X, "cast");
         var entry = new StackEntry(
             Source: null,
             AbilityIndex: null,
@@ -87,9 +89,9 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             ManaSpent: CostPayment.ByColor(paid.Spent),
             CastFrom: plan.From,
             OptionalCostsPaid: plan.OptionalCostsPaid);
-        var move = StackZone.MoveSpellToStack(state, card, entry, plan.Chosen.FaceIndex);
+        var move = StackZone.MoveSpellToStack(paid.Outcome.State, card, entry, plan.Chosen.FaceIndex);
         var cast = new SpellCast(move.To.Id, command.Player, plan.From);
-        ImmutableList<GameEvent> events = [move, .. paid.Outcome.Events, cast];
+        ImmutableList<GameEvent> events = [.. others.Events, .. paid.Outcome.Events, move, cast];
         return new Outcome(GameReducer.Apply(state, events), events);
     }
 
@@ -119,7 +121,8 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         if (ability.Timing == Timing.SorcerySpeed)
             RequireSorcerySpeed(state, command.Player, "602.2a");
 
-        var paid = CostPayment.Pay(state, source, chars, ability.Costs, command.Player, command.X, zones, query);
+        // CR 106.6b: a printed rider on which mana may be spent travels with the payment.
+        var paid = CostPayment.Pay(state, new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith), ability.Costs);
         var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
         if (IsManaAbility(ability, command))
         {
