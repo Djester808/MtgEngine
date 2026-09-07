@@ -45,7 +45,8 @@
                         "tapped": false,
                         "shuffleAfter": true,
                         "rememberAs": "k1",
-                        "shuffleOnlyIfFound": false
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
                       },
                       {
                         "kind": "If",
@@ -190,7 +191,8 @@
                         "tapped": false,
                         "shuffleAfter": true,
                         "rememberAs": "k1",
-                        "shuffleOnlyIfFound": false
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
                       },
                       {
                         "kind": "If",
@@ -366,7 +368,8 @@
                             "tapped": false,
                             "shuffleAfter": true,
                             "rememberAs": "k1",
-                            "shuffleOnlyIfFound": false
+                            "shuffleOnlyIfFound": false,
+                            "othersTapped": false
                           },
                           {
                             "kind": "If",
@@ -511,7 +514,8 @@
                             "tapped": false,
                             "shuffleAfter": true,
                             "rememberAs": "k1",
-                            "shuffleOnlyIfFound": false
+                            "shuffleOnlyIfFound": false,
+                            "othersTapped": false
                           },
                           {
                             "kind": "If",
@@ -677,7 +681,8 @@
                             "tapped": false,
                             "shuffleAfter": true,
                             "rememberAs": "k1",
-                            "shuffleOnlyIfFound": false
+                            "shuffleOnlyIfFound": false,
+                            "othersTapped": false
                           },
                           {
                             "kind": "If",
@@ -825,7 +830,8 @@
                             "tapped": false,
                             "shuffleAfter": true,
                             "rememberAs": "k1",
-                            "shuffleOnlyIfFound": false
+                            "shuffleOnlyIfFound": false,
+                            "othersTapped": false
                           },
                           {
                             "kind": "If",

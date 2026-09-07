@@ -487,9 +487,6 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "White"
                     ],
@@ -597,9 +594,6 @@
                 "effect": {
                   "kind": "CostModifier",
                   "spells": {
-                    "controlledBy": {
-                      "kind": "You"
-                    },
                     "colors": [
                       "White"
                     ],

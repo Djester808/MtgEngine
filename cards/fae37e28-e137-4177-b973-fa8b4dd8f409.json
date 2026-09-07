@@ -255,6 +255,7 @@
               },
               {
                 "name": "Scenario Filler Creature",
+                "alias": "aim-1",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -356,7 +357,7 @@
           "player": "A",
           "card": "Generous Gift",
           "targets": [
-            "Scenario Filler Creature"
+            "aim-1"
           ]
         },
         {
@@ -366,7 +367,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Creature",
+          "card": "aim-1",
           "zone": "Graveyard",
           "owner": "B"
         },
@@ -389,10 +390,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260907T203611-93b7a8",
+    "runId": "verify-20260907T211241-8f2d1a",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T20:36:11.9695559+00:00"
+    "at": "2026-09-07T21:12:41.8107457+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -512,6 +513,7 @@
               },
               {
                 "name": "Scenario Filler Creature",
+                "alias": "aim-1",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -613,7 +615,7 @@
           "player": "A",
           "card": "Generous Gift",
           "targets": [
-            "Scenario Filler Creature"
+            "aim-1"
           ]
         },
         {
@@ -623,7 +625,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Creature",
+          "card": "aim-1",
           "zone": "Graveyard",
           "owner": "B"
         },

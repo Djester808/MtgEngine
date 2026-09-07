@@ -47,7 +47,8 @@
                   "reveal": false,
                   "tapped": false,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 {
                   "kind": "Shuffle",
@@ -95,7 +96,8 @@
                   "reveal": false,
                   "tapped": false,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 {
                   "kind": "Shuffle",
@@ -174,7 +176,8 @@
                       "reveal": false,
                       "tapped": false,
                       "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "Shuffle",
@@ -222,7 +225,8 @@
                       "reveal": false,
                       "tapped": false,
                       "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "Shuffle",
@@ -291,7 +295,8 @@
                       "reveal": false,
                       "tapped": false,
                       "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "Shuffle",
@@ -333,7 +338,8 @@
                       "reveal": false,
                       "tapped": false,
                       "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "Shuffle",

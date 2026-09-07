@@ -51,7 +51,8 @@
                 "reveal": true,
                 "tapped": false,
                 "shuffleAfter": true,
-                "shuffleOnlyIfFound": false
+                "shuffleOnlyIfFound": false,
+                "othersTapped": false
               }
             },
             "if": {
@@ -119,7 +120,8 @@
                 "reveal": true,
                 "tapped": false,
                 "shuffleAfter": true,
-                "shuffleOnlyIfFound": false
+                "shuffleOnlyIfFound": false,
+                "othersTapped": false
               }
             },
             "if": {
@@ -218,7 +220,8 @@
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "if": {
@@ -286,7 +289,8 @@
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "if": {
@@ -375,7 +379,8 @@
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "if": {
@@ -442,7 +447,8 @@
                     "reveal": true,
                     "tapped": false,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "if": {

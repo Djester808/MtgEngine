@@ -45,8 +45,7 @@
                       "of": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
+                          "kind": "Self"
                         }
                       }
                     }
@@ -121,8 +120,7 @@
                       "of": {
                         "kind": "PowerOf",
                         "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
+                          "kind": "Self"
                         }
                       }
                     }

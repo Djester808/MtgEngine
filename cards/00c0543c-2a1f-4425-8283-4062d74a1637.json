@@ -60,7 +60,8 @@
               "reveal": false,
               "tapped": true,
               "shuffleAfter": true,
-              "shuffleOnlyIfFound": false
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
             },
             "optional": true,
             "where": "Battlefield",
@@ -118,7 +119,8 @@
               "reveal": false,
               "tapped": true,
               "shuffleAfter": true,
-              "shuffleOnlyIfFound": false
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
             },
             "optional": true,
             "where": "Battlefield",
@@ -221,7 +223,8 @@
                   "reveal": false,
                   "tapped": true,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -279,7 +282,8 @@
                   "reveal": false,
                   "tapped": true,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -374,7 +378,8 @@
                     "reveal": false,
                     "tapped": true,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "optional": false,
@@ -438,7 +443,8 @@
                     "reveal": false,
                     "tapped": true,
                     "shuffleAfter": true,
-                    "shuffleOnlyIfFound": false
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
                   }
                 },
                 "optional": false,

@@ -48,7 +48,8 @@
                     "Library",
                     "Graveyard"
                   ],
-                  "shuffleOnlyIfFound": true
+                  "shuffleOnlyIfFound": true,
+                  "othersTapped": false
                 },
                 {
                   "kind": "If",
@@ -151,7 +152,8 @@
                     "Library",
                     "Graveyard"
                   ],
-                  "shuffleOnlyIfFound": true
+                  "shuffleOnlyIfFound": true,
+                  "othersTapped": false
                 },
                 {
                   "kind": "If",
@@ -285,7 +287,8 @@
                         "Library",
                         "Graveyard"
                       ],
-                      "shuffleOnlyIfFound": true
+                      "shuffleOnlyIfFound": true,
+                      "othersTapped": false
                     },
                     {
                       "kind": "If",
@@ -388,7 +391,8 @@
                         "Library",
                         "Graveyard"
                       ],
-                      "shuffleOnlyIfFound": true
+                      "shuffleOnlyIfFound": true,
+                      "othersTapped": false
                     },
                     {
                       "kind": "If",
@@ -512,7 +516,8 @@
                         "Library",
                         "Graveyard"
                       ],
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "If",
@@ -615,7 +620,8 @@
                         "Library",
                         "Graveyard"
                       ],
-                      "shuffleOnlyIfFound": false
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
                     },
                     {
                       "kind": "If",

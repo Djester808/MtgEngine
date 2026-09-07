@@ -50,7 +50,8 @@
                   "reveal": true,
                   "tapped": true,
                   "shuffleAfter": false,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 {
                   "kind": "Search",
@@ -72,7 +73,8 @@
                   "reveal": true,
                   "tapped": false,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 }
               ]
             },
@@ -106,7 +108,8 @@
                   "reveal": true,
                   "tapped": true,
                   "shuffleAfter": false,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 },
                 {
                   "kind": "Search",
@@ -128,7 +131,8 @@
                   "reveal": true,
                   "tapped": false,
                   "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
                 }
               ]
             },
@@ -410,10 +414,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260907T203611-93b7a8",
+    "runId": "verify-20260907T211241-8f2d1a",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T20:36:11.9695559+00:00"
+    "at": "2026-09-07T21:12:41.8107457+00:00"
   },
   "keywordList": [],
   "scenarioList": [

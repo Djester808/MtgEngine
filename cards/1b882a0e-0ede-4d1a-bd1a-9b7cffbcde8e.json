@@ -35,7 +35,8 @@
               "reveal": false,
               "tapped": false,
               "shuffleAfter": true,
-              "shuffleOnlyIfFound": false
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
             },
             "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
           }
@@ -57,7 +58,8 @@
               "reveal": false,
               "tapped": false,
               "shuffleAfter": true,
-              "shuffleOnlyIfFound": false
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
             },
             "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
           }
@@ -65,154 +67,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
-        "name": "Three Visits",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Three Visits",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Search your library for a Forest card, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
-        "name": "Three Visits",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Three Visits",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
-              }
-            ],
-            "oracleText": "Search your library for a Forest card, put it onto the battlefield, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Search",
-                  "for": {
-                    "types": [
-                      "Land"
-                    ],
-                    "subtypes": [
-                      "Forest"
-                    ]
-                  },
-                  "to": "Battlefield",
-                  "from": "Library",
-                  "where": "Default",
-                  "reveal": false,
-                  "tapped": false,
-                  "shuffleAfter": true,
-                  "shuffleOnlyIfFound": false
-                },
-                "text": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }
