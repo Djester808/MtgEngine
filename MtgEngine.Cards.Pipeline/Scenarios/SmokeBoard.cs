@@ -19,6 +19,7 @@ internal sealed class SmokeBoard(string card)
     private readonly List<string> _targets = [];
     private readonly List<Expectation> _expect = [];
     private readonly List<CardRef> _library = [];
+    private readonly List<CardRef> _casterGraveyardCards = [];
 
     private readonly List<int> _modes = [];
     private readonly List<string> _costObjects = [];
@@ -50,8 +51,17 @@ internal sealed class SmokeBoard(string card)
     private bool Moved =>
         (_casterArrivals | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard) != 0;
 
-    /// <summary>How many targets the steps supply. A second one is a smoke scenario's limit.</summary>
+    /// <summary>How many targets the steps supply. More than <see cref="TargetLimit"/> is a smoke scenario's limit.</summary>
     internal int Targets => _targets.Count;
+
+    /// <summary>
+    /// CR 601.2c: how many targets one play may name. One, unless a single record names two of its
+    /// own — a fight's pair — which the step carries in the order the record does; two separate
+    /// targeted effects stay over the limit, because which of them the engine's slots answer to
+    /// is not a generated scenario's to guess.
+    /// </summary>
+    [RuleRef("601.2c")]
+    internal int TargetLimit { get; set; } = 1;
 
     internal void Expect(Expectation expectation) => _expect.Add(expectation);
 
@@ -68,11 +78,27 @@ internal sealed class SmokeBoard(string card)
         // Under an alias, as a stocked library card is: the runner names objects first-wins and
         // places the hand before the battlefield, so a filler that also sits in the hand would
         // otherwise be what the target name resolves to (seam-requests/E5g.md).
-        var alias = FormattableString.Invariant($"aim-{_targets.Count + 1}");
+        var alias = NextAim();
         (mine ? _casterBattlefield : _opponentBattlefield).Add(new CardRef(card, Alias: alias));
         _targets.Add(alias);
         return alias;
     }
+
+    /// <summary>
+    /// CR 404.1: a card in the caster's graveyard for a spell to be aimed at, under an alias like a
+    /// battlefield target's — "return target card from your graveyard" has to name one particular
+    /// card, and the graveyard is otherwise empty until the spell itself arrives there.
+    /// </summary>
+    [RuleRef("404.1")]
+    internal string Buries(string card)
+    {
+        var alias = NextAim();
+        _casterGraveyardCards.Add(new CardRef(card, Alias: alias));
+        _targets.Add(alias);
+        return alias;
+    }
+
+    private string NextAim() => FormattableString.Invariant($"aim-{_targets.Count + 1}");
 
     /// <summary>
     /// CR 601.2c with CR 109.2: every body the target's filter admits is placed, and the first is
@@ -281,6 +307,7 @@ internal sealed class SmokeBoard(string card)
                         Battlefield: PlaysFromBattlefield ? [new CardRef(card), .. _casterBattlefield] : _casterBattlefield,
                         Hand: PlaysFromBattlefield ? CasterHand() : [new CardRef(card), .. CasterHand()],
                         Library: CasterLibrary(),
+                        Graveyard: _casterGraveyardCards.Count == 0 ? null : _casterGraveyardCards,
                         ManaPool: _pool ?? SmokeScenario.DeepPool),
                     new PlayerSetup(
                         SmokeScenario.Opponent,
@@ -361,8 +388,11 @@ internal sealed class SmokeBoard(string card)
             _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Hand, HandSize + _casterHand));
         if (_casterLibrary != 0)
             _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Library, LibrarySize + _casterLibrary));
-        if (_casterGraveyard != 0)
-            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Graveyard, _casterGraveyard));
+        // On top of whatever the setup buried there for a spell to be aimed at (CR 404.1) — and
+        // written whenever something was buried, because a card that left and a spell that
+        // arrived net to nothing and are still worth counting.
+        if (_casterGraveyard != 0 || _casterGraveyardCards.Count != 0)
+            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Graveyard, _casterGraveyardCards.Count + _casterGraveyard));
         if (_opponentHand != 0)
             _expect.Add(new ZoneCount(SmokeScenario.Opponent, Zone.Hand, HandSize + _opponentHand));
         if (_opponentLibrary != 0)
