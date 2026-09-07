@@ -256,11 +256,6 @@ public sealed partial class QueryTests
 
         // It is a RefusedException, so Game.Apply turns it into a Refused and the table is told
         // which primitive is missing rather than the game dying mid-command.
-        // CR 707.10: no state records that a permanent is a copy, so the question is refused by name.
-        var copy = Assert.Throws<RefusedException>(
-            () => world.Query.Matches(world.State, new ObjectFilter(Also: new IsCopy()), new ObjectId(1), world.Context));
-        Assert.Contains(nameof(IsCopy), copy.Reason, StringComparison.Ordinal);
-
         var commander = Assert.Throws<RefusedException>(
             () => world.Query.Resolve(world.State, new Cards.Commander(new You()), world.Context));
         Assert.Contains("Commander", commander.Reason, StringComparison.Ordinal);
@@ -364,19 +359,47 @@ public sealed partial class QueryTests
         public World CeaseToExist(int id) =>
             this with { State = new ObjectCeasedToExist(new ObjectId(id)).Apply(State) };
 
+        /// <summary>
+        /// A spell on the stack, CR 111.1. <c>copy</c> is the mark CR 707.10 puts on a copied
+        /// spell, and it lives on the stack entry because only a spell can carry one.
+        /// </summary>
+        public World Spell(int id, PlayerId owner, bool copy) =>
+            Put(
+                id,
+                owner,
+                Cards.Zone.Stack,
+                new Characteristics($"Object {id}", CardType.Instant, Supertype.None, [], Color.Red, null, null, null, null, null, [], owner),
+                stack: new StackEntry(null, null, [], [], [], null, copy));
+
+        /// <summary>
+        /// CR 707.12: a copy of a card, made in the zone the original is in. The zone system marks
+        /// it with a designation rather than a stack entry — such a copy has no stack entry, and it
+        /// is not a token (CR 111.1), so neither of the other two marks describes it.
+        /// </summary>
+        public World CopyOfCard(int id) =>
+            this with
+            {
+                State = State with
+                {
+                    Objects = State.Objects.SetItem(
+                        new ObjectId(id),
+                        State.Objects[new ObjectId(id)] with { Designations = [Zones.ZoneSystem.CopyOfCard] }),
+                },
+            };
+
         public World Library(int id, PlayerId owner) =>
             Put(id, owner, Cards.Zone.Library, new Characteristics(
                 $"Object {id}", CardType.Creature, Supertype.None, ["Beast"], Color.Green,
                 1, 1, null, null, null, [], owner));
 
-        private World Put(int id, PlayerId owner, Cards.Zone zone, Characteristics characteristics, bool commander = false)
+        private World Put(int id, PlayerId owner, Cards.Zone zone, Characteristics characteristics, bool commander = false, StackEntry? stack = null)
         {
             var definition = new CardDefinition(
                 $"oracle-{id}",
                 $"Object {id}",
                 Layout.Normal,
                 [new Face($"Object {id}", FaceRole.Main, new TypeLine(characteristics.Types))]);
-            var obj = new GameObject(new ObjectId(id), definition, 0, owner, owner, new ZoneKey(zone, zone == Cards.Zone.Battlefield ? null : (PlayerId?)owner), id) { IsCommander = commander };
+            var obj = new GameObject(new ObjectId(id), definition, 0, owner, owner, new ZoneKey(zone, zone == Cards.Zone.Battlefield ? null : (PlayerId?)owner), id) { IsCommander = commander, Stack = stack };
             Layers.Set(new ObjectId(id), characteristics);
             return this with { State = new ObjectCreated(obj, -1).Apply(State) };
         }
