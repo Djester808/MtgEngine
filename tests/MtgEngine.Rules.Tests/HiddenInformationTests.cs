@@ -242,6 +242,33 @@ public sealed class HiddenInformationTests
         }
     }
 
+    /// <summary>
+    /// CR 707.10 with 400.2: a copy of a spell has the copied spell's name and characteristics, so
+    /// a view that carried only those would show the same spell twice and a client could not say
+    /// which object CR 704.5e is about to remove. The stack is public, so both viewers are shown
+    /// it, and the object beside it — a real card on the same stack — carries the flag false in
+    /// the same view.
+    /// </summary>
+    [Fact]
+    [RuleRef("707.10")]
+    public void A_copy_on_the_stack_is_shown_as_a_copy_and_the_card_beside_it_is_not()
+    {
+        var board = new Board();
+        var card = board.Put(Board.Definition("quiet spell of the first seat", CardType.Instant), Zone.Stack);
+        var copy = board.Put(
+            Board.Definition("quiet spell of the first seat", CardType.Instant),
+            Zone.Stack,
+            stack: new StackEntry(null, null, [], [], [], null, IsCopy: true));
+
+        foreach (var viewer in new[] { Me, Them })
+        {
+            var stack = Project(board.State, viewer).Stack;
+
+            Assert.True(Assert.Single(stack, o => o.Id == copy).IsCopy);
+            Assert.False(Assert.Single(stack, o => o.Id == card).IsCopy);
+        }
+    }
+
     private static GameView Project(GameState state, PlayerId viewer) =>
         new ViewProjector(new LayerSystem(), oracle => oracle == MineOracle).Project(state, viewer);
 

@@ -11,7 +11,8 @@ namespace MtgEngine.Rules.Tests;
 /// <para>
 /// The attachment arms — 704.5m for an Aura and 704.5n for an Equipment or Fortification —
 /// live in <c>StateBasedActionTests.Auras.cs</c>, the other half of this partial class, which
-/// is where the enchant-ability helpers are too.
+/// is where the enchant-ability helpers are too. The two that take an object out of the game,
+/// 704.5d for a token and 704.5e for a copy, are in <c>StateBasedActionTests.Copies.cs</c>.
 /// </para>
 /// </summary>
 public sealed partial class StateBasedActionTests
@@ -94,54 +95,6 @@ public sealed partial class StateBasedActionTests
     public void Nine_poison_counters_do_not()
     {
         var board = new Board(players: 3).Poison(1, 9);
-
-        Assert.Empty(sba.Check(board.State).Events);
-    }
-
-    [Fact]
-    [RuleRef("704.5d")]
-    public void A_token_outside_the_battlefield_ceases_to_exist()
-    {
-        var board = new Board();
-        var id = board.Put(Board.Creature(1, 1, "sba token"), Zone.Graveyard, token: true);
-
-        var outcome = sba.Check(board.State);
-
-        Assert.Equal("ceased", Assert.Single(outcome.Events.OfType<ObjectLeftBy>()).Verb);
-        Assert.Equal(id, Assert.Single(outcome.Events.OfType<ObjectCeasedToExist>()).Id);
-        Assert.DoesNotContain(id, outcome.State.Objects.Keys);
-    }
-
-    [Fact]
-    [RuleRef("704.5d")]
-    public void A_token_on_the_battlefield_stays()
-    {
-        var board = new Board();
-        board.Put(Board.Creature(1, 1, "sba token"), token: true);
-
-        Assert.Empty(sba.Check(board.State).Events);
-    }
-
-    [Fact]
-    [RuleRef("704.5e")]
-    public void A_copy_of_a_spell_off_the_stack_ceases_to_exist()
-    {
-        var board = new Board();
-        var copy = new StackEntry(null, null, [], [], [], null, IsCopy: true);
-        var id = board.Put(Board.Definition("sba copy", CardType.Instant), Zone.Exile, stack: copy);
-
-        var outcome = sba.Check(board.State);
-
-        Assert.Equal(id, Assert.Single(outcome.Events.OfType<ObjectCeasedToExist>()).Id);
-    }
-
-    [Fact]
-    [RuleRef("704.5e")]
-    public void A_copy_of_a_spell_on_the_stack_stays()
-    {
-        var board = new Board();
-        var copy = new StackEntry(null, null, [], [], [], null, IsCopy: true);
-        board.Put(Board.Definition("sba copy", CardType.Instant), Zone.Stack, stack: copy);
 
         Assert.Empty(sba.Check(board.State).Events);
     }
