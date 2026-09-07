@@ -1,5 +1,6 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
@@ -93,5 +94,26 @@ public sealed partial class QueryTests
 
         // CR 205.3d: every creature type is not every subtype — a land type is not one of them.
         Assert.False(world.Query.Matches(world.State, new ObjectFilter(HasBasicLandType: true), new ObjectId(3), world.Context));
+    }
+    [Fact]
+    [RuleRef("608.2h")]
+    public void An_amount_read_off_a_departed_object_uses_last_known_information()
+    {
+        // CR 608.2h with 400.7: "exile target creature; its controller gains life equal to its
+        // power" reads the creature after it has left the battlefield, and the game uses what it
+        // last knew of it rather than failing to find it.
+        var world = World.New().Creature(1, Alice, 3, 4, manaCost: "{2}{G}");
+        var gone = world.State.Objects[new ObjectId(1)];
+        var exiled = gone with { Id = new ObjectId(9), Zone = ZoneKey.Of(Cards.Zone.Exile, Alice) };
+        var after = world with { State = new ObjectMoved(new ObjectId(1), exiled, -1).Apply(world.State) };
+        var remembered = after.Remember("it", new ObjectId(1));
+
+        Assert.False(after.State.Objects.ContainsKey(new ObjectId(1)));
+        Assert.Equal(3, remembered.Value(new PowerOf(new Remembered("it"))));
+        Assert.Equal(4, remembered.Value(new ToughnessOf(new Remembered("it"))));
+        Assert.Equal(3, remembered.Value(new ManaValueOf(new Remembered("it"))));
+
+        // An object the game never held counts for nothing rather than failing (CR 608.2h).
+        Assert.Equal(0, after.Remember("it", new ObjectId(77)).Value(new PowerOf(new Remembered("it"))));
     }
 }

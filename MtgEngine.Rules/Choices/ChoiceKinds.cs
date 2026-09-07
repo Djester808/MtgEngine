@@ -110,6 +110,12 @@ public static class ChoiceKinds
     public const string Search = "search";
 
     /// <summary>
+    /// CR 700.2: which objects a "choose" among a set names, the vocabulary's Choose selector.
+    /// Raised and finished by the interpreter (wave 16, E9m).
+    /// </summary>
+    public const string Choose = "choose";
+
+    /// <summary>
     /// CR 701.22: which of the scried cards go to the bottom. Raised and finished by the
     /// interpreter.
     /// </summary>

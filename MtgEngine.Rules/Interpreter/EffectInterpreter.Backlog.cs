@@ -90,6 +90,10 @@ public sealed partial class EffectInterpreter
             case MayCast may:
                 return MayCastCard(run, may);
 
+            // CR 601.3a with 305.1: a permission to play is a lasting effect, never a play on the spot.
+            case MayPlay play:
+                return MayPlayCards(run, play);
+
             default:
                 return null;
         }

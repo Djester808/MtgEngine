@@ -25,10 +25,10 @@ public sealed partial class Query
                 .Sum(p => state.In(ZoneKey.Of(Cards.Zone.Hand, p)).Count), // CR 402.1
             CardsInZoneOf zone => CardsIn(state, zone.Who, zone.Zone, zone.Matching, context),
 
-            PowerOf power => Resolve(state, power.Of, context).Sum(id => _layers.Of(state, id).Power ?? 0), // CR 208.1
-            ToughnessOf toughness => Resolve(state, toughness.Of, context).Sum(id => _layers.Of(state, id).Toughness ?? 0),
+            PowerOf power => Resolve(state, power.Of, context).Sum(id => Known(state, id)?.Characteristics.Power ?? 0), // CR 208.1
+            ToughnessOf toughness => Resolve(state, toughness.Of, context).Sum(id => Known(state, id)?.Characteristics.Toughness ?? 0),
             ManaValueOf manaValue => Resolve(state, manaValue.Of, context)
-                .Sum(id => ManaCosts.Value(_layers.Of(state, id).ManaCost, state.Objects[id])), // CR 202.3
+                .Sum(id => Known(state, id) is { } known ? ManaCosts.Value(known.Characteristics.ManaCost, known.Object) : 0), // CR 202.3
 
             CountersOn counters => Resolve(state, counters.On, context).Sum(id => CountersOf(state, id, counters.Counter)), // CR 122.1
             CountersOnPlayer counters => Players(state, counters.Who, context)
@@ -160,5 +160,18 @@ public sealed partial class Query
         }
 
         throw Unanswerable(nameof(ChosenNumber), $"nothing was chosen for \"{key}\"");
+    }
+    /// <summary>
+    /// The characteristics an amount reads off one object, CR 208.1 and 202.3: the object as it is
+    /// now, or, when it has left the battlefield, as it last existed there — CR 608.2h with 400.7:
+    /// an effect that reads a departed object uses last-known information rather than failing.
+    /// Null when the game never held it, which counts for nothing.
+    /// </summary>
+    [RuleRef("608.2h")]
+    private (Characteristics Characteristics, GameObject Object)? Known(GameState state, ObjectId id)
+    {
+        if (state.Objects.TryGetValue(id, out var here))
+            return (_layers.Of(state, id), here);
+        return LastKnown(state, id) is { } gone ? (_layers.PrintedOf(gone), gone) : null;
     }
 }

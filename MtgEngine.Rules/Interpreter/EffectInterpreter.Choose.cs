@@ -26,7 +26,7 @@ public sealed partial class EffectInterpreter
     /// <see cref="ChoiceKinds"/> declares none for a plain choice yet (seam-requests/E9m.md); the
     /// two questions have the same shape — which of these objects — and the same road back.
     /// </summary>
-    private const string ChooseKind = ChoiceKinds.Search;
+    private const string ChooseKind = ChoiceKinds.Choose;
 
     /// <summary>
     /// Ask every choice this node makes before it runs, one question at a time, CR 700.2. A key

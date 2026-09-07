@@ -478,7 +478,8 @@ public sealed partial class QueryTests
         /// object <em>was</em>, and no <c>Set</c> can answer that for an object the state no
         /// longer holds. The real layer system's printed snapshot is the answer here too.
         /// </summary>
+        /// <summary>What the fake knows of an object is what was printed on it, so a departed object reads as it was (CR 400.7).</summary>
         public Characteristics PrintedOf(GameObject obj) =>
-            MtgEngine.Rules.Layers.LayerSystem.PrintedCharacteristics(obj);
+            _of.TryGetValue(obj.Id, out var known) ? known : MtgEngine.Rules.Layers.LayerSystem.PrintedCharacteristics(obj);
     }
 }

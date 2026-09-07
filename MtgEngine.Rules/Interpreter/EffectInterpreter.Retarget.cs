@@ -297,6 +297,30 @@ public sealed partial class EffectInterpreter
     /// effect and the casting system hands it to the <c>CastSpell</c> the player later announces.
     /// A copy, or a cost the effect states in its own words, still has no half to say it with.
     /// </summary>
+    /// <summary>
+    /// "You may play it" — with or without paying its mana cost — CR 601.3a with 118.9 and 305.1: a
+    /// play permission is a lasting continuous effect (CR 611.1) and never a play on the spot, because
+    /// a land is played through the land-play door (CR 305.1, using the turn's land play, 305.2) and
+    /// a spell through a cast the player announces when they choose to. It lasts until the effect's
+    /// own duration, or the end of the turn when the card names none (CR 611.2a). The permission
+    /// applies to the cards the resolution named, in the zone they are in now.
+    /// </summary>
+    [RuleRef("601.3a")]
+    private EffectRun MayPlayCards(EffectRun run, MayPlay play)
+    {
+        var cards = Objects(run, play.What);
+        if (cards.Count == 0)
+            return run;
+
+        var who = FirstPlayer(run, play.Who);
+        var from = run.State.Objects.TryGetValue(cards[0], out var card) ? card.Zone.Zone : Cards.Zone.Hand;
+        var permission = new MayPlayFromZone(
+            play.Who ?? new You(),
+            from,
+            WithoutPayingManaCost: play.WithoutPayingManaCost);
+        return Create(run, permission, cards, [who], play.Until ?? new UntilEndOfTurn());
+    }
+
     [RuleRef("601.3a")]
     private EffectRun Permission(EffectRun run, MayCast may, ImmutableList<ObjectId> cards, Duration until)
     {
