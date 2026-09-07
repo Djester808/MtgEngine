@@ -15,108 +15,121 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-switch (command)
+// A refusal from the Anthropic API (a balance too low, a bad key) is a state to report in
+// one line, not a crash: the message is the API's own sentence and carries no secret.
+try
 {
-    case "reference":
-        Console.Write(VocabularyReference.Text());
-        return 0;
-
-    case "schema":
-        Console.Write(CardFileSerializer.DefinitionSchema().ToJsonString(new() { WriteIndented = true }));
-        return 0;
-
-    case "select":
-        {
-            var count = args.Length > 1 ? int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 200;
-            var raw = Corpus.LoadRaw(Corpus.DefaultPath(root));
-            var ids = Corpus.DeckOracleIds(Path.Combine(root, "MtgEngine.Api", "mtgengine.db"));
-            var chosen = 0;
-            foreach (var id in ids)
-            {
-                var card = Corpus.Card(raw, id);
-                if (card is null || card.IsFreeSlice)
-                    continue;
-                Console.WriteLine($"{card.OracleId}  {card.Name}  [{string.Join(", ", card.Keywords)}]  tokens={card.Tokens.Count}");
-                if (++chosen == count)
-                    break;
-            }
-
+    switch (command)
+    {
+        case "reference":
+            Console.Write(VocabularyReference.Text());
             return 0;
-        }
 
-    // Two commands, not one: a batch takes hours, and a process that waits for it holds the
-    // pipeline dll and the corpus for as long as it waits. Submit exits; collect is run again
-    // later and exits 3 while the batches are still going.
-    case "pilot-submit":
-        {
-            var count = args.Length > 1 ? int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 200;
-            var outDir = args.Length > 2 ? args[2] : Path.Combine(root, ".agents", "pilot");
-            var cards = Pilot.Select(PilotEnvironment.DeckCandidates(root), count);
-            Console.WriteLine($"pilot: {cards.Count} faces selected (free slice skipped)");
-            return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), cards, outDir, cts.Token);
-        }
+        case "schema":
+            Console.Write(CardFileSerializer.DefinitionSchema().ToJsonString(new() { WriteIndented = true }));
+            return 0;
 
-    case "pilot-collect":
-        {
-            var outDir = args.Length > 1 ? args[1] : Path.Combine(root, ".agents", "pilot");
-            var repair = !args.Contains("--no-repair", StringComparer.Ordinal);
-            return await Pilot.CollectAsync(PilotEnvironment.ForRepo(root, repair), outDir, cts.Token);
-        }
-
-    // The re-translation round (seam-requests/P14.md): the cards that disagreed or carry an
-    // Unsupported marker, never a verified one. --dry-run lists them and costs nothing.
-    case "retranslate-submit":
-        {
-            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
-            var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "retranslate");
-            if (!RetranslateSelection.TryParse(Flag(args, "--only"), out var kinds, out var error))
+        case "select":
             {
-                Console.Error.WriteLine(error ?? "no re-translation kind was named");
-                return 64;
+                var count = args.Length > 1 ? int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 200;
+                var raw = Corpus.LoadRaw(Corpus.DefaultPath(root));
+                var ids = Corpus.DeckOracleIds(Path.Combine(root, "MtgEngine.Api", "mtgengine.db"));
+                var chosen = 0;
+                foreach (var id in ids)
+                {
+                    var card = Corpus.Card(raw, id);
+                    if (card is null || card.IsFreeSlice)
+                        continue;
+                    Console.WriteLine($"{card.OracleId}  {card.Name}  [{string.Join(", ", card.Keywords)}]  tokens={card.Tokens.Count}");
+                    if (++chosen == count)
+                        break;
+                }
+
+                return 0;
             }
 
-            var selection = RetranslateSelection.Select(CardDirectory.Load(cardsDir), kinds);
-            RetranslateSelection.Print(selection, Console.Out);
-            if (args.Contains("--dry-run", StringComparer.Ordinal))
-                return 0;
+        // Two commands, not one: a batch takes hours, and a process that waits for it holds the
+        // pipeline dll and the corpus for as long as it waits. Submit exits; collect is run again
+        // later and exits 3 while the batches are still going.
+        case "pilot-submit":
+            {
+                var count = args.Length > 1 ? int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture) : 200;
+                var outDir = args.Length > 2 ? args[2] : Path.Combine(root, ".agents", "pilot");
+                var cards = Pilot.Select(PilotEnvironment.DeckCandidates(root), count);
+                Console.WriteLine($"pilot: {cards.Count} faces selected (free slice skipped)");
+                return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), cards, outDir, cts.Token);
+            }
 
-            var batch = RetranslateSelection.Cards(PilotEnvironment.DeckCandidates(root), selection);
-            return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), batch.Cards, outDir, cts.Token);
-        }
+        case "pilot-collect":
+            {
+                var outDir = args.Length > 1 ? args[1] : Path.Combine(root, ".agents", "pilot");
+                var repair = !args.Contains("--no-repair", StringComparer.Ordinal);
+                return await Pilot.CollectAsync(PilotEnvironment.ForRepo(root, repair), outDir, cts.Token);
+            }
 
-    case "status":
-        return StatusCommand.Run(Positional(args, 1) ?? Path.Combine(root, "cards"), Console.Out);
+        // The re-translation round (seam-requests/P14.md): the cards that disagreed or carry an
+        // Unsupported marker, never a verified one. --dry-run lists them and costs nothing.
+        case "retranslate-submit":
+            {
+                var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+                var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "retranslate");
+                if (!RetranslateSelection.TryParse(Flag(args, "--only"), out var kinds, out var error))
+                {
+                    Console.Error.WriteLine(error ?? "no re-translation kind was named");
+                    return 64;
+                }
 
-    // The verification loop. Nothing here reaches the network: a card is verified by being
-    // played, and the engine is what plays it (CARD_ENGINE_PLAN.md, rule 3).
-    case "verify":
-        {
-            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
-            var only = Flag(args, "--only");
-            return VerifyCommand.Run(cardsDir, only, Console.Out, cts.Token);
-        }
+                var selection = RetranslateSelection.Select(CardDirectory.Load(cardsDir), kinds);
+                RetranslateSelection.Print(selection, Console.Out);
+                if (args.Contains("--dry-run", StringComparer.Ordinal))
+                    return 0;
 
-    // The same submit/collect split as the pilot, and for the same reason: a batch takes hours.
-    case "rulings-submit":
-        {
-            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
-            var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "rulings");
-            return await RulingsCommand.SubmitAsync(RulingsFor(root, cardsDir), cardsDir, outDir, cts.Token);
-        }
+                var batch = RetranslateSelection.Cards(PilotEnvironment.DeckCandidates(root), selection);
+                return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), batch.Cards, outDir, cts.Token);
+            }
 
-    case "rulings-collect":
-        {
-            var outDir = Positional(args, 1) ?? Path.Combine(root, ".agents", "rulings");
-            var cardsDir = RulingsSubmission.Read(outDir)?.CardsDirectory ?? Path.Combine(root, "cards");
-            return await RulingsCommand.CollectAsync(RulingsFor(root, cardsDir), outDir, cts.Token);
-        }
+        case "status":
+            return StatusCommand.Run(Positional(args, 1) ?? Path.Combine(root, "cards"), Console.Out);
 
-    default:
-        Console.Error.WriteLine(
-            "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
-            + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
-            + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] | status [cardsDir]");
-        return 64;
+        // The verification loop. Nothing here reaches the network: a card is verified by being
+        // played, and the engine is what plays it (CARD_ENGINE_PLAN.md, rule 3).
+        case "verify":
+            {
+                var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+                var only = Flag(args, "--only");
+                return VerifyCommand.Run(cardsDir, only, Console.Out, cts.Token);
+            }
+
+        // The same submit/collect split as the pilot, and for the same reason: a batch takes hours.
+        case "rulings-submit":
+            {
+                var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+                var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "rulings");
+                return await RulingsCommand.SubmitAsync(RulingsFor(root, cardsDir), cardsDir, outDir, cts.Token);
+            }
+
+        case "rulings-collect":
+            {
+                var outDir = Positional(args, 1) ?? Path.Combine(root, ".agents", "rulings");
+                var cardsDir = RulingsSubmission.Read(outDir)?.CardsDirectory ?? Path.Combine(root, "cards");
+                return await RulingsCommand.CollectAsync(RulingsFor(root, cardsDir), outDir, cts.Token);
+            }
+
+        default:
+            Console.Error.WriteLine(
+                "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
+                + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
+                + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] | status [cardsDir]");
+            return 64;
+    }
+}
+catch (Anthropic.Exceptions.AnthropicException refused)
+{
+    var reason = System.Text.RegularExpressions.Regex.Match(refused.Message, "\"message\":\"([^\"]+)\"");
+    Console.Error.WriteLine("The Anthropic API refused the request: " + (reason.Success ? reason.Groups[1].Value : refused.Message.Split('
+')[0]));
+    Console.Error.WriteLine("Nothing was submitted. Add credits at Plans & Billing and run the command again.");
+    return 75;
 }
 
 /// <summary>A positional argument, or null when the caller gave a flag there or nothing at all.</summary>
