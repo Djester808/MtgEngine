@@ -9,7 +9,7 @@ Nothing from the deleted engine is restored. Where this plan names a decision th
 also made (state as a fold of the event log, computed characteristics, the game stops and
 asks), it is because the decision was right, not because the code was.
 
-## Status — where the programme stands (2026-09-07, 11:00 UTC)
+## Status — where the programme stands (2026-09-07, 13:30 UTC)
 
 The sections below are the design as it was written before anything ran. This is what has
 happened since, so the plan reads as a record and not only as an intention; the per-wave
@@ -20,14 +20,18 @@ decisions, every builder's seam request and its answer, are in `seam-requests/DE
 | 0 — the contract | vocabulary, engine skeleton, seams, hooks, gate | merged and gated 2026-09-06 |
 | 1 — subsystems and the pipeline | E0 E1 E2 E3 E4 E5 E7, P1 P2 P3, C1 | merged, gated, seam commit `0f47563`; a two-player game of lands and vanilla creatures plays to a win through `Game.Apply` (EINT) |
 | 2 — the interpreter meets the game | E6 E8 E9 E12 E13 E14 E15, A1, V1, P5 | merged, gated, seam commit `4e97e3f`; `Subsystems.Wave2()` composes every real subsystem; the wave-2 exit test plays triggers, a burn spell, the legend rule and an answered "may" (EINT2) |
-| 3 onward — rounds | the plan's rolling rounds ran as numbered waves 3–6: E9b E8b E3b E2b V2 P4 P6 (wave 3); E1b E9c V3 P7 E14b P6b (4); E7b E0b V4 E3c E9d P8 C3 (5); E8c E0c E9e E3d P9 (6) | each merged and gated with its own seam commit; wave 7 (E4b E3e E9f E6b V5, then P10) is running |
+| 3 onward — rounds | the plan's rolling rounds ran as numbered waves 3–7: E9b E8b E3b E2b V2 P4 P6 (wave 3); E1b E9c V3 P7 E14b P6b (4); E7b E0b V4 E3c E9d P8 C3 (5); E8c E0c E9e E3d P9 (6); E4b E3e E9f E6b V5 P10 (7) | each merged and gated with its own seam commit; wave 7 closed with an Aura attaching on resolution (CR 303.4f), combat damage offered to the replacement system hit by hit, a card's sacrifice cost named by the scenario, and the this-turn history a trigger condition reads |
 
-Measured, as of the wave-6 tip `b2549d6`:
+Measured, as of the wave-7 tip:
 
-- **Gate**: 527 engine, 115 vocabulary, 153 pipeline and 633 API tests green; every merge on
+- **Gate**: 566 engine, 125 vocabulary, 159 pipeline and 633 API tests green; every merge on
   `card-engine` was gated; `master` is untouched at `01af6ee`.
 - **Pilot**: 200 deck faces through both translators; 167 and 166 lint clean; 87 agree after
   two canonical passes (54% of both-clean pairs) — see the decision point below.
+- **Verify**: of the 87 agreed cards, **70 verified** through real games, 0 failed, 16 have
+  no smoke scenario yet (they need an artifact or enchantment filler and a stocked library,
+  P11), 1 crashed on its own `Unsupported` marker. The wave-8 seams are listed in
+  `seam-requests/DECISIONS.md`.
 - **Verify**: of the 87 agreed cards, 66 are `Verified` through real games with the engine
   hash in each card file; 4 fail for named causes, 16 have no smoke scenario yet, 1 crashes on
   its own `Unsupported` marker.
@@ -425,6 +429,9 @@ start with. It is a wave-2 client task if wanted, not a dependency of anything.
   the seam was wrong; unify before wave 2, do not patch.
 - **After the first verify round**: if more than a tenth of `Verified` cards are refuted,
   scenarios are too weak; the smoke scenario gains assertions before the corpus run.
+  - **Measured 2026-09-07, wave-7 tip** (`31ee3f6`): **70 verified, 0 failed**, 16 with no
+    scenario, 1 crashed; the four wave-6 failures were the two Auras (E3e attached them) and
+    the two sacrifice-cost spells (P10 named the object).
   - **Measured 2026-09-07** (`pipeline verify cards` on the wave-6 tip, engine hash
     `0813f37cabbabed6`): of the 87 agreed pilot cards, **66 verified** through real games, 4
     failed for named reasons (two Auras not attached on resolution, CR 303.4f; two
@@ -458,7 +465,8 @@ As it went (all 2026-09-06/07, UTC):
 | 07 08:05 | wave 4 merged and gated (422); enters-tapped and its kin reach a real game |
 | 07 09:00 | wave 5 merged and gated (481); first verify run: 57 of 87 |
 | 07 10:45 | wave 6 merged and gated (527); verify: 66 of 87 |
-| 07 11:00 | wave 7 running |
+| 07 11:00 | wave 7 launched: E4b E3e E9f E6b V5, then P10 on their tip |
+| 07 13:00 | wave 7 merged and gated (558); P10 merged; verify: 70 of 87, 0 failed |
 
 Builders finished in 15–35 minutes rather than a day, because each box was one folder, one
 anchor and 150 tool calls with a wall clock enforced by a hook; the cost moved to the

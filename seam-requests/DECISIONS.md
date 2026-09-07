@@ -163,3 +163,23 @@ landed in "Seams after wave 6" (`44b83fe`).
 | E9e | `RingTemptsYou`'s emblem has no spelling | **Wave 7 (V5)**: an `Emblem` effect record with the Ring's four abilities. |
 | E8c | combat damage never reaches the replacement system | **Wave 7 (E4b), first**: a settable `IReplacementSystem` handle on `CombatSystem`, the per-event propose loop in `DealCombatDamage`, lifelink after the damage actually dealt (702.15b), set in both compositions. |
 | coordinator | `GameEvent.cs` passed 500 lines | **Now**: the object-state events (`ObjectTurnedOver`, `ActiveEffectChanged`, `ObjectDesignated`, `StackTargetsChanged`) live in `Events/ObjectStateEvents.cs`. |
+
+# Seam decisions after wave 7
+
+Requests from `seam-requests/E4b.md`, `E3e.md`, `E9f.md`, `E6b.md`, `V5.md`, `P10.md`. Wave 7 ran on
+the user's "continue"; its merges are gated on `2d6bab7` and the P10 tip.
+
+| From | Request | Decision |
+|---|---|---|
+| E4b | `Wave2()` sets `combat.Replacements` | **Now.** Combat damage is offered hit by hit; lifelink follows the damage actually dealt. |
+| E4b | a replacement-order halt inside the combat damage batch leaves later assignments undealt | **Wave 8 (E4c + choices)**: `ICombatSystem.ResumeCombatDamage(state, firstStrike, from)` with the marks E4b wrote down; the gap is asserted by a test meanwhile. |
+| E3e | `GameObject.AttachedToPlayer` for an Aura cast at a player (CR 303.4f) | **Wave 8 (state + E5c)**, with `AttachedLegally` accepting it in the same landing. |
+| E9f | `CastPlan.For` reads `MayPlayFromZone` for CR 601.3's permission | **Wave 8 (E3f)**; a lasting permission is honest state nothing reads yet. |
+| E9f | cost objects on a may-cast; `MayPlayFromZone.WithoutPayingManaCost` | **Wave 8 (E9g, V6)**. |
+| E9f | `MtgEngine.Rules` had no `InternalsVisibleTo` for its tests | **Now.** |
+| E6b | delete the dead `NoDamagePairs` text | **Now.** A `TriggersFiredThisTurn` field for a countered trigger's once-per-turn count is **wave 8 (state)** if a card needs it. |
+| V5 | `AttachedToIs` rather than `AttachedTo` (a `Predicate` of that name exists); string players and cards on the expectations; the Ring's emblem is the engine's, `RingTemptsYou` carries none | **Accepted as written.** |
+| V5 | `paramref`/`see` tags rendered empty in the schema descriptions | **Now.** `VocabularySchema.Render` reads them as the names they point at; the snapshots are regenerated. |
+| P10 | stored generated scenarios were stale; regenerated on every run | **Accepted**; the card-file diff is one commit per run. |
+| P10 | the 16 cards without a scenario need an artifact/enchantment filler and a stocked library | **Wave 8 (P11)**. |
+| coordinator | verify on the wave-7 tip | **70 of 87 verified, 0 failed, 16 without a scenario, 1 crashed** (`31ee3f6`). |
