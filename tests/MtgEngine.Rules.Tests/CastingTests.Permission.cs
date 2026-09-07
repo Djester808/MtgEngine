@@ -151,12 +151,14 @@ public sealed partial class CastingTests
     {
         // CR 601.2b: an additional cost is paid whether or not the mana cost is, so a spell cast
         // for free still sacrifices, and the object that pays it comes off the command (601.2c).
+        // The free cast is the instructed one, CR 608.2g and 118.9: the flag is the resolving
+        // effect's announcement, and a player's command alone can never carry it (601.3).
         var table = new CastingTable();
         var spell = table.Add(CastingBacklogCards.SacrificeSorcery(), CastingTable.A, CardZone.Hand);
         var kept = table.Add(CastingBacklogCards.Beast(), CastingTable.A, CardZone.Battlefield);
         var given = table.Add(CastingBacklogCards.Beast(), CastingTable.A, CardZone.Battlefield);
 
-        var cast = filtering.Cast(
+        var cast = filtering.CastInstructed(
             table.State,
             new CastSpell(CastingTable.A, spell, CostObjects: [given], WithoutPayingManaCost: true));
 
