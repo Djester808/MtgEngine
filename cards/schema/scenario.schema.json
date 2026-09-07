@@ -183,6 +183,9 @@
           "$ref": "#/$defs/PowerToughness"
         },
         {
+          "$ref": "#/$defs/Shuffled"
+        },
+        {
           "$ref": "#/$defs/StackEmpty"
         },
         {
@@ -1276,6 +1279,23 @@
         "power",
         "toughness"
       ]
+    },
+    "Shuffled": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Shuffled"
+        },
+        "player": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "player"
+      ],
+      "description": "That player\u0027s library was shuffled during the scenario, CR 701.20: a reorder that says it was a shuffle, not any reorder."
     },
     "StackEmpty": {
       "type": "object",

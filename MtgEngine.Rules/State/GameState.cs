@@ -144,6 +144,14 @@ public sealed record TurnHistory(
         ImmutableDictionary<PlayerId, int>.Empty,
         ImmutableDictionary<(ObjectId, PlayerId), int>.Empty,
         ImmutableDictionary<(ObjectId, int), int>.Empty);
+
+    /// <summary>
+    /// The tokens each player created this turn, as they were created (CR 111.1), so "you created
+    /// a token this turn" still answers for a token that has since been sacrificed, the way
+    /// <see cref="Died"/> keeps the departed object. Folded by <c>ObjectCreated</c>.
+    /// </summary>
+    [RuleRef("111.1")]
+    public ImmutableDictionary<PlayerId, ImmutableList<GameObject>> TokensCreated { get; init; } = ImmutableDictionary<PlayerId, ImmutableList<GameObject>>.Empty;
 }
 
 public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From);

@@ -1000,6 +1000,16 @@
         "repeatable": {
           "type": "boolean"
         },
+        "ofPlayer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "anyOf": [
             {
@@ -1016,7 +1026,7 @@
         "kind",
         "keyword"
       ],
-      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. Cost is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in Costs as Cost records instead, mana included as a ManaCost entry, and leaves Cost null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set Repeatable when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice."
+      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. Cost is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in Costs as Cost records instead, mana included as a ManaCost entry, and leaves Cost null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set Repeatable when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice. OfPlayer: \u0022enchant player\u0022, \u0022enchant opponent\u0022 (CR 702.5b): what this Aura may enchant when it is a player rather than an object. An enchant ability with neither Of nor OfPlayer admits any object or player; one with Of only admits objects."
     },
     "ReplacementAbility": {
       "type": "object",
@@ -4236,6 +4246,43 @@
       "additionalProperties": false,
       "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022."
     },
+    "PlayerFilter": {
+      "type": "object",
+      "properties": {
+        "opponent": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isYou": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "also": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "Who qualifies for a player choice or target."
+    },
     "ReplacedEvent": {
       "anyOf": [
         {
@@ -4558,6 +4605,9 @@
       "anyOf": [
         {
           "$ref": "#/$defs/ActivePlayer"
+        },
+        {
+          "$ref": "#/$defs/AttachedPlayer"
         },
         {
           "$ref": "#/$defs/ChoosePlayer"
@@ -12283,6 +12333,19 @@
         "kind"
       ]
     },
+    "AttachedPlayer": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AttachedPlayer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022Enchanted player\u0022: the player this Aura is attached to, CR 303.4f. Nobody when the source is attached to an object or to nothing."
+    },
     "ChoosePlayer": {
       "type": "object",
       "properties": {
@@ -14696,43 +14759,6 @@
         "kind"
       ],
       "description": "CR 702.33"
-    },
-    "PlayerFilter": {
-      "type": "object",
-      "properties": {
-        "opponent": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "isYou": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "also": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Condition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "additionalProperties": false,
-      "description": "Who qualifies for a player choice or target."
     },
     "ForAsLongAs": {
       "type": "object",

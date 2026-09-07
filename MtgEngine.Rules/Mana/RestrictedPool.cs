@@ -12,6 +12,14 @@ namespace MtgEngine.Rules.Mana;
 public sealed record RestrictedBlock(Color Color, int Amount, ObjectFilter SpendOnlyOn);
 
 /// <summary>
+/// Mana that remembers the permanent that produced it and the key a card gave it, CR 106.6: what a
+/// "when that mana is spent" trigger (106.6a) and a "spend only mana produced by" restriction
+/// (106.6b) read. One block per source, key and colour; <see cref="State.ManaPool.Provenance"/> holds them.
+/// </summary>
+[RuleRef("106.6")]
+public sealed record ManaProvenance(Color Color, int Amount, ObjectId Source, string? Key = null);
+
+/// <summary>
 /// How the restricted mana of CR 106.6a is read out of a pool. The field landed on
 /// <see cref="State.ManaPool"/> in the seams after wave 6 (seam-requests/E3d.md), so the one
 /// implementation reads it; the interface stays because it is the seam a test can stand in for

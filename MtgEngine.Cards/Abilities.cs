@@ -38,6 +38,11 @@ public abstract record Ability
 /// the TimesKicked amount countable; without the flag, casting refuses a second payment, so a
 /// multikicker card translated without it is castable but never kicked twice.
 /// </para>
+/// <para>
+/// <c>OfPlayer</c>: "enchant player", "enchant opponent" (CR 702.5b): what this Aura may enchant when it is a
+/// player rather than an object. An enchant ability with neither <c>Of</c> nor <c>OfPlayer</c> admits
+/// any object or player; one with <c>Of</c> only admits objects.
+/// </para>
 /// </summary>
 [RuleRef("702")]
 public sealed record KeywordAbility(
@@ -48,7 +53,8 @@ public sealed record KeywordAbility(
     string? Detail = null,
     Condition? Condition = null,
     IReadOnlyList<Cost>? Costs = null,
-    bool Repeatable = false) : Ability;
+    bool Repeatable = false,
+    PlayerFilter? OfPlayer = null) : Ability;
 
 /// <summary>What an instant or sorcery does when it resolves, CR 113.3a.</summary>
 [RuleRef("113.3a")]

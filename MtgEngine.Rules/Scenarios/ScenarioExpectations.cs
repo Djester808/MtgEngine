@@ -1,5 +1,6 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Scenarios;
@@ -114,6 +115,9 @@ internal static class ScenarioExpectations
             case EventLogged e:
                 return Logged(run, e);
 
+            case Shuffled e:
+                return WasShuffled(run, e);
+
             default:
                 return (false, $"The runner cannot check {expectation.GetType().Name}.");
         }
@@ -219,6 +223,15 @@ internal static class ScenarioExpectations
             ? found.Definition.Name
             : "an object that has left the game";
         return (attached == run.Object(expectation.To), $"attached to {host}");
+    }
+
+    /// <summary>CR 701.20: a reorder of that player's library that says it was a shuffle.</summary>
+    private static (bool, string?) WasShuffled(ScenarioRun run, Shuffled expectation)
+    {
+        var library = ZoneKey.Of(Zone.Library, run.Player(expectation.Player));
+        // The opening shuffle of CR 103.2 is the setup's, not the scenario's: only a shuffle after the steps began counts.
+        var shuffles = run.Events.Skip(run.StepsBeganAt).Count(e => e is ZoneReordered { Shuffle: true } reordered && reordered.Zone == library);
+        return shuffles > 0 ? (true, $"shuffled {shuffles} time(s)") : (false, "never shuffled");
     }
 
     private static (bool, string?) Logged(ScenarioRun run, EventLogged expectation)

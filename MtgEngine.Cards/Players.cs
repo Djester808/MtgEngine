@@ -21,7 +21,12 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(RememberedPlayer), nameof(RememberedPlayer))]
 [JsonDerivedType(typeof(Monarch), nameof(Monarch))]
 [JsonDerivedType(typeof(PlayerWithMostOf), nameof(PlayerWithMostOf))]
+[JsonDerivedType(typeof(AttachedPlayer), nameof(AttachedPlayer))]
 public abstract record PlayerRef;
+
+/// <summary>"Enchanted player": the player this Aura is attached to, CR 303.4f. Nobody when the source is attached to an object or to nothing.</summary>
+[RuleRef("303.4f")]
+public sealed record AttachedPlayer : PlayerRef;
 
 /// <summary>The controller of the spell or ability.</summary>
 public sealed record You : PlayerRef;

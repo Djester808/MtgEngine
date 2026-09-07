@@ -82,6 +82,9 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
 
     internal IReadOnlyList<GameEvent> Events => _log;
 
+    /// <summary>Where in <see cref="Events"/> the scenario's own steps begin: everything before it is the setup (CR 103), which shuffled the libraries.</summary>
+    internal int StepsBeganAt { get; private set; }
+
     /// <summary>CR 103: the game is created empty and the scenario's board is placed into it.</summary>
     [RuleRef("103")]
     internal void Build(CancellationToken ct)
@@ -133,6 +136,7 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
 
     internal void Play(CancellationToken ct)
     {
+        StepsBeganAt = _log.Count;
         foreach (var step in scenario.Steps)
         {
             ct.ThrowIfCancellationRequested();

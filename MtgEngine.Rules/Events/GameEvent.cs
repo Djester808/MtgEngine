@@ -92,12 +92,21 @@ public sealed record ObjectCreated(GameObject Object, int Position) : GameEvent
     {
         var zone = state.In(Object.Zone);
         var index = Position < 0 || Position > zone.Count ? zone.Count : Position;
+        var history = state.History;
+        if (Object.IsToken)
+        {
+            // CR 111.1: the turn remembers the token as it was created, under the player who created it.
+            var mine = history.TokensCreated.TryGetValue(Object.InitialController, out var made) ? made : [];
+            history = history with { TokensCreated = history.TokensCreated.SetItem(Object.InitialController, mine.Add(Object)) };
+        }
+
         return state with
         {
             Objects = state.Objects.SetItem(Object.Id, Object),
             Zones = state.Zones.SetItem(Object.Zone, zone.Insert(index, Object.Id)),
             NextObjectId = Math.Max(state.NextObjectId, Object.Id.Value + 1),
             NextTimestamp = Math.Max(state.NextTimestamp, Object.Timestamp + 1),
+            History = history,
         };
     }
 }
@@ -335,6 +344,7 @@ public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason)
         var next = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless)
         {
             Restricted = ManaPool.FoldRestricted(m.Restricted, Delta.Restricted),
+            Provenance = ManaPool.FoldProvenance(m.Provenance, Delta.Provenance),
         };
         return state with { Players = state.Players.SetItem(Player.Value, p with { Mana = next }) };
     }

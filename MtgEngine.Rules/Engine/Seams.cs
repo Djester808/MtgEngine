@@ -133,7 +133,19 @@ public interface ICastingSystem : ISubsystem
 
     /// <summary>Whether the command would be legal now, with the rule when it would not.</summary>
     Refusal? Check(GameState state, Command command);
+
+    /// <summary>
+    /// CR 601.2c: for each cost of the command that needs objects chosen, the objects that could
+    /// legally pay it and how many it takes, so a question can offer them. Empty when nothing
+    /// needs choosing; the default is for a casting system that cannot say.
+    /// </summary>
+    [RuleRef("601.2c")]
+    ImmutableList<CostChoice> CostChoices(GameState state, Command command) => [];
 }
+
+/// <summary>One cost's ask, CR 601.2c: the cost by the name the casting system refuses it by, the objects that could legally pay it, and how many of them it takes.</summary>
+[RuleRef("601.2c")]
+public sealed record CostChoice(string Cost, ImmutableList<ObjectId> Legal, int Count);
 
 [RuleRef("506")]
 public interface ICombatSystem : ISubsystem
@@ -166,6 +178,15 @@ public interface ICombatSystem : ISubsystem
     [RuleRef("510.2")]
     Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from) =>
         throw new NotImplementedException("Resuming a halted combat damage step is not built in this combat system: wave 8, agent E4c.");
+
+    /// <summary>
+    /// CR 510.2 with 702.15b: the same resumption told what the halted hit finally dealt
+    /// (<paramref name="dealt"/>, the events the replacement system finished it with), so that
+    /// hit's lifelink and deathtouch follow the damage actually dealt. The default ignores them.
+    /// </summary>
+    [RuleRef("702.15b")]
+    Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from, ImmutableList<GameEvent> dealt) =>
+        ResumeCombatDamage(state, firstStrike, from);
 }
 
 [RuleRef("704")]

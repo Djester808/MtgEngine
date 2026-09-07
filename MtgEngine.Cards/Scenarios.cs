@@ -173,6 +173,7 @@ public sealed record ExpectRefusedStep(ScenarioStep Attempt, string? ReasonConta
 [JsonDerivedType(typeof(ManaPoolIs), nameof(ManaPoolIs))]
 [JsonDerivedType(typeof(AttachedToIs), nameof(AttachedToIs))]
 [JsonDerivedType(typeof(EventLogged), nameof(EventLogged))]
+[JsonDerivedType(typeof(Shuffled), nameof(Shuffled))]
 public abstract record Expectation;
 
 public sealed record InZone(string Card, Zone Zone, string? Owner = null) : Expectation;
@@ -220,6 +221,10 @@ public sealed record AttachedToIs(string Card, string To) : Expectation;
 
 /// <summary>An event of the given kind was logged, optionally mentioning a card.</summary>
 public sealed record EventLogged(string EventKind, string? Card = null) : Expectation;
+
+/// <summary>That player's library was shuffled during the scenario, CR 701.20: a reorder that says it was a shuffle, not any reorder.</summary>
+[RuleRef("701.20")]
+public sealed record Shuffled(string Player) : Expectation;
 
 /// <summary>What the engine's runner reports for one scenario.</summary>
 public sealed record ScenarioResult(string ScenarioId, bool Passed, IReadOnlyList<ExpectationResult> Results, string? Error = null, IReadOnlyList<string>? Log = null);

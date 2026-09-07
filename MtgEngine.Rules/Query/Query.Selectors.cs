@@ -95,6 +95,7 @@ public sealed partial class Query
             TargetPlayer => context.TargetPlayers, // CR 601.2c
             ActivePlayer => [state.Turn.ActivePlayer], // CR 102.1
             TriggeringPlayer => context.TriggeringPlayer is { } who ? [who] : [], // CR 603.6
+            AttachedPlayer => context.Source is { } aura && state.Objects.TryGetValue(aura, out var self) && self.AttachedToPlayer is { } enchanted ? [enchanted] : [], // CR 303.4f
 
             ControllerOf controller => [.. Resolve(state, controller.Of, context)
                 .Select(id => _layers.ControllerOf(state, id)).Distinct()], // CR 613.1a

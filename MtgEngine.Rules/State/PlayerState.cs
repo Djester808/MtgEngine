@@ -40,9 +40,37 @@ public sealed record ManaPool(int White, int Blue, int Black, int Red, int Green
     /// </summary>
     public ImmutableList<Mana.RestrictedBlock> Restricted { get; init; } = [];
 
+    /// <summary>
+    /// Where each mana came from, CR 106.6: the permanent whose ability produced it and the key a
+    /// "when that mana is spent" delayed trigger (CR 106.6a) or a "spend only mana produced by" 
+    /// restriction (CR 106.6b) reads. Mana is not an object, so this is the only handle on it. Kept
+    /// beside the totals; in a delta a negative amount spends it. The mana subsystem reads and
+    /// writes it; the fold only sums.
+    /// </summary>
+    [Cards.RuleRef("106.6")]
+    public ImmutableList<Mana.ManaProvenance> Provenance { get; init; } = [];
+
     public int Total => White + Blue + Black + Red + Green + Colorless + Restricted.Sum(r => r.Amount);
 
     /// <summary>Folds a delta's blocks into a pool's by colour and filter; a block that reaches zero is gone.</summary>
+    /// <summary>The same fold for <see cref="Provenance"/>: a block is one source, key and colour; a spent block drops out at zero.</summary>
+    public static ImmutableList<Mana.ManaProvenance> FoldProvenance(ImmutableList<Mana.ManaProvenance> current, ImmutableList<Mana.ManaProvenance> delta)
+    {
+        if (delta.IsEmpty)
+            return current;
+        var folded = current.ToList();
+        foreach (var block in delta)
+        {
+            var index = folded.FindIndex(b => b.Color == block.Color && b.Source == block.Source && b.Key == block.Key);
+            if (index < 0)
+                folded.Add(block);
+            else
+                folded[index] = folded[index] with { Amount = folded[index].Amount + block.Amount };
+        }
+
+        return [.. folded.Where(b => b.Amount > 0)];
+    }
+
     public static ImmutableList<Mana.RestrictedBlock> FoldRestricted(ImmutableList<Mana.RestrictedBlock> current, ImmutableList<Mana.RestrictedBlock> delta)
     {
         if (delta.IsEmpty)
