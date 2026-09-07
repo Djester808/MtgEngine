@@ -196,7 +196,7 @@ public sealed partial class EffectInterpreter
             announced,
             CostObjects: costObjects.IsEmpty ? null : costObjects,
             WithoutPayingManaCost: may.WithoutPayingManaCost);
-        if (Casting!.Check(run.State, command) is { } refusal)
+        if (Casting!.CheckInstructed(run.State, command) is { } refusal)
             return CostQuestion(run, who, command, refusal, costObjects);
 
         // CR 608.2g: this is a cast a resolving effect instructed, so it happens during that

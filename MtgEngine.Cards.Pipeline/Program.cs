@@ -63,6 +63,30 @@ switch (command)
             return await Pilot.CollectAsync(PilotEnvironment.ForRepo(root, repair), outDir, cts.Token);
         }
 
+    // The re-translation round (seam-requests/P14.md): the cards that disagreed or carry an
+    // Unsupported marker, never a verified one. --dry-run lists them and costs nothing.
+    case "retranslate-submit":
+        {
+            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+            var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "retranslate");
+            if (!RetranslateSelection.TryParse(Flag(args, "--only"), out var kinds, out var error))
+            {
+                Console.Error.WriteLine(error ?? "no re-translation kind was named");
+                return 64;
+            }
+
+            var selection = RetranslateSelection.Select(CardDirectory.Load(cardsDir), kinds);
+            RetranslateSelection.Print(selection, Console.Out);
+            if (args.Contains("--dry-run", StringComparer.Ordinal))
+                return 0;
+
+            var batch = RetranslateSelection.Cards(PilotEnvironment.DeckCandidates(root), selection);
+            return await Pilot.SubmitAsync(PilotEnvironment.ForRepo(root, repair: true), batch.Cards, outDir, cts.Token);
+        }
+
+    case "status":
+        return StatusCommand.Run(Positional(args, 1) ?? Path.Combine(root, "cards"), Console.Out);
+
     // The verification loop. Nothing here reaches the network: a card is verified by being
     // played, and the engine is what plays it (CARD_ENGINE_PLAN.md, rule 3).
     case "verify":
@@ -90,7 +114,8 @@ switch (command)
     default:
         Console.Error.WriteLine(
             "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
-            + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]");
+            + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]"
+            + " | retranslate-submit [cardsDir] [outDir] [--only disputed,unsupported,failed,all] [--dry-run] | status [cardsDir]");
         return 64;
 }
 

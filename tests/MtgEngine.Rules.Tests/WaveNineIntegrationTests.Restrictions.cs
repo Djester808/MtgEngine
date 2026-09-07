@@ -110,17 +110,22 @@ public sealed partial class WaveNineIntegrationTests
             o.Id.Contains("yes", StringComparison.OrdinalIgnoreCase)
             || o.Label.Contains("yes", StringComparison.OrdinalIgnoreCase));
 
-        // THE GAP: CR 601.3a says an effect that lets a player cast a card *is* the permission
-        // CR 601.3 asks for, so answering yes should reach the cast-cost question (CR 601.2b) and
-        // the land sacrifice. The instructed cast is refused for the zone instead, so a MayCast
-        // naming a graveyard card can never be taken up and the E9i + E3h + E3g join is unreached
-        // on this road. seam-requests/EINT4.md § 5.
-        Assert.Equal("601.3", table.Refuse(new AnswerChoice(P0, offered.Id, [yes.Id])).Rule);
+        // CR 601.3a with 608.2g: the instruction is the permission, so answering yes reaches the
+        // cast-cost question (CR 601.2c) that offers the lands (E3i, E3h, E9i and E3g's join).
+        var landsBefore = table.Lands(P0).Count;
+        var libraryBefore = table.State.In(ZoneKey.Of(CardZone.Library, P0)).Count;
+        table.Do(new AnswerChoice(P0, offered.Id, [yes.Id]));
+        var cost = table.State.Pending;
+        Assert.NotNull(cost);
+        Assert.Equal("cast-cost", cost.Kind);
+        Assert.NotEmpty(cost.Options);
 
-        // The card is still in the graveyard, the lands are all still there, and the question
-        // still stands: nothing of the refusal reached the game (CR 101.4).
-        Assert.Single(table.Graveyard(P0, WaveNineIntegrationTable.TollName));
-        Assert.Equal(offered.Id, table.State.Pending!.Id);
+        // Answering with a land casts the spell with that land sacrificed; the instant resolves
+        // and draws its card.
+        table.Do(new AnswerChoice(P0, cost.Id, [cost.Options[0].Id]));
+        table.PassUntilStackIsEmpty();
+        Assert.Equal(landsBefore - 1, table.Lands(P0).Count);
+        Assert.Equal(libraryBefore - 1, table.State.In(ZoneKey.Of(CardZone.Library, P0)).Count);
 
         AssertTheLogIsTheGame(table);
     }
@@ -205,15 +210,10 @@ public sealed partial class WaveNineIntegrationTests
         var bolt = table.InHand(P0, WaveNineIntegrationTable.BoltName);
         var life = table.State.Player(P1).Life;
 
-        // THE GAP: CR 115.6 makes a protected player an illegal target, so CR 601.2c should refuse
-        // the announcement the way E3h's enchant check now refuses an Aura at a player it cannot
-        // legally enchant. It is accepted instead, and the spell goes on the stack pointed at them.
-        // seam-requests/EINT4.md § 4.
-        Assert.Single(table.Do(new CastSpellCommand(P0, bolt, TargetPlayers: [P1])).OfType<SpellCastEvent>());
-        table.PassUntilStackIsEmpty();
-
-        // What does hold: CR 702.16j prevents the damage, so the life total never moves — the
-        // prohibition is read on resolution even though it was not read at announcement.
+        // CR 115.6 with 702.16j: a protected player is an illegal target, so the announcement is
+        // refused and the spell never leaves the hand (E3i closed the gap EINT4 § 4 reported).
+        Assert.Equal("115.6", table.Refuse(new CastSpellCommand(P0, bolt, TargetPlayers: [P1])).Rule);
+        Assert.True(table.State.In(ZoneKey.Shared(CardZone.Stack)).IsEmpty);
         Assert.Equal(life, table.State.Player(P1).Life);
 
         AssertTheLogIsTheGame(table);

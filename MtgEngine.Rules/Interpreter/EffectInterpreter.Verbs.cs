@@ -305,9 +305,12 @@ public sealed partial class EffectInterpreter
         var production = mana.Mana;
         if (production.Fixed is { } symbols)
             return ManaSymbols.Parse(symbols);
-        if (production.ChosenColor && production.ChosenColorKey is { } key
-            && run.Context.Chosen.TryGetValue(key, out var colour))
+        // CR 106.12a with 608.2d: a key alone names the chosen colour (the spelling the trigger system
+        // and the vocabulary document); the ChosenColor flag beside it is not required.
+        if (production.ChosenColorKey is { } key && run.Context.Chosen.TryGetValue(key, out var colour))
             return ManaSymbols.OfColor(colour);
-        throw new NotImplementedException($"no interpreter arm for this shape of {nameof(ManaProduction)}");
+        if (production.ChosenColorKey is { } missing)
+            throw new Engine.RefusedException($"No colour was chosen under '{missing}' for this mana.", "608.2d");
+        throw new Engine.RefusedException($"No interpreter arm for this shape of {nameof(ManaProduction)}.", "608.2");
     }
 }

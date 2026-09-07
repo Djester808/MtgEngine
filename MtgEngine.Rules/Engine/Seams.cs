@@ -163,6 +163,10 @@ public interface ICastingSystem : ISubsystem
     /// </summary>
     [RuleRef("608.2g")]
     Outcome CastInstructed(GameState state, CastSpell command) => Cast(state, command);
+
+    /// <summary>CR 608.2g with 601.3a: whether an instructed cast would be legal now, read the way <see cref="CastInstructed"/> reads it (no timing check, the instruction as the zone permission). The default is the ordinary check.</summary>
+    [RuleRef("608.2g")]
+    Refusal? CheckInstructed(GameState state, CastSpell command) => Check(state, command);
 }
 
 /// <summary>One cost's ask, CR 601.2c: the cost by the name the casting system refuses it by, the objects that could legally pay it, and how many of them it takes.</summary>

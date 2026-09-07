@@ -63,13 +63,9 @@ public sealed partial class WaveNineIntegrationTests
         Assert.Single(table.Battlefield(P0, WaveNineIntegrationTable.OxName));
         Assert.Equal(0, table.State.Player(P0).Mana.Total);
 
-        // THE GAP, and it is the whole point of this game: nothing fires the delayed ability. The
-        // key is written, the ability exists, the mana is spent — and no card is drawn, so the
-        // ability is still sitting in DelayedTriggers with its mana gone. E9h § 1 asked for the
-        // firing side (the casting system handing the trigger system the keys the payment spent,
-        // or the trigger system folding the negative provenance block); wave 10 did not land it.
-        // Asserted as it behaves so the test keeps its meaning; seam-requests/EINT4.md § 1.
-        Assert.Equal(libraryBefore, table.State.In(ZoneKey.Of(CardZone.Library, P0)).Count);
+        // CR 106.6a with 603.7: the spend fires the delayed ability and its body resolves, so the
+        // card is drawn (E6e and E9j closed the gap EINT4 § 1 reported).
+        Assert.Equal(libraryBefore - 1, table.State.In(ZoneKey.Of(CardZone.Library, P0)).Count);
         Assert.DoesNotContain(table.State.Player(P0).Mana.Provenance, p => p.Key is not null);
 
         // Worse than E9h expected: the delayed ability does not sit there waiting either. It is
@@ -120,20 +116,20 @@ public sealed partial class WaveNineIntegrationTests
         Assert.Equal(ChoiceKinds.Value, question.Kind);
         Assert.Equal(P0, question.Player);
 
-        // THE GAP: the question is asked with no options at all, and CR 601.2b's answer check
-        // refuses every answer — the free-form colour included. A "choose a color" nobody can
-        // answer stalls the game for good (CR 101.4), so the second half of the card is
-        // unreachable: the colour is never stored, so the tapped-for-mana trigger can never match.
-        // seam-requests/EINT4.md § 2.
-        Assert.Empty(question.Options);
-        Assert.Equal("601.2b", table.Refuse(new AnswerChoice(P0, question.Id, ["Green"])).Rule);
-        Assert.Equal("601.2b", table.Refuse(new AnswerChoice(P0, question.Id, ["green"])).Rule);
-        Assert.Equal(question.Id, table.State.Pending!.Id);
-
-        // The artifact is on the battlefield with nothing chosen, which is what E6c § 1 said an
-        // unanswered choice would leave behind: a key with nothing stored is "no colour".
+        // CR 601.2b with 608.2d: the question offers the five colours, the answer is accepted, and
+        // the artifact keeps what it chose (E9j and E9i closed the gap EINT4 § 2 reported).
+        Assert.Equal(5, question.Options.Count);
+        table.Do(new AnswerChoice(P0, question.Id, ["Green"]));
+        table.PassUntilStackIsEmpty();
         var prism = Assert.Single(table.Battlefield(P0, WaveNineIntegrationTable.PrismName));
-        Assert.DoesNotContain(WaveNineIntegrationTable.ColorKey, table.State.Objects[prism].Chosen.Keys);
+        Assert.Equal("Green", table.State.Objects[prism].Chosen[WaveNineIntegrationTable.ColorKey]);
+
+        // CR 106.12a: a land tapped for the chosen colour fires the trigger, which adds one more.
+        table.PassTo(7, Step.PrecombatMain);
+        table.PlayALand(P0, WaveNineIntegrationTable.GroveName);
+        table.TapNamed(P0, WaveNineIntegrationTable.GroveName);
+        table.PassUntilStackIsEmpty();
+        Assert.Equal(2, table.State.Player(P0).Mana.Total);
 
         AssertTheLogIsTheGame(table);
     }
@@ -173,13 +169,10 @@ public sealed partial class WaveNineIntegrationTests
         Assert.Equal(libraryBefore - 1, table.State.In(ZoneKey.Of(CardZone.Library, P0)).Count);
         Assert.Equal(0, table.State.Player(P0).Mana.Total);
 
-        // THE GAP: CR 117.3b gives the active player priority after a spell or ability resolves, and
-        // a resolution that was halted by a question and finished by its answer is still a
-        // resolution. Nobody holds priority here, so the game cannot be walked on — the same shape
-        // EINT3 found after a resumed combat damage batch and E4e fixed there, unfixed on the
-        // answer-resumed resolution road. seam-requests/EINT4.md § 3.
+        // CR 117.3b: a resolution finished by an answer opens the step like any other, so the active
+        // player holds priority (E4f closed the gap EINT4 § 3 reported).
         Assert.True(table.State.In(ZoneKey.Shared(CardZone.Stack)).IsEmpty);
-        Assert.Null(table.State.Priority.Holder);
+        Assert.Equal(P0, table.State.Priority.Holder);
 
         AssertTheLogIsTheGame(table);
     }

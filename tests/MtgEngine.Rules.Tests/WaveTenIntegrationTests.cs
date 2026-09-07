@@ -82,7 +82,7 @@ public sealed partial class WaveTenIntegrationTests
     /// </summary>
     [Fact]
     [RuleRef("608.2d")]
-    public void The_documented_chosen_colour_key_spelling_reaches_no_interpreter_arm()
+    public void The_documented_chosen_colour_key_spelling_adds_a_mana_of_that_colour()
     {
         var table = new WaveTenIntegrationTable(LensDeck(), LandDeck());
 
@@ -103,9 +103,12 @@ public sealed partial class WaveTenIntegrationTests
         // The trigger itself is fine — it matched, it is on the stack, and it carries the colour.
         Assert.False(table.State.In(ZoneKey.Shared(CardZone.Stack)).IsEmpty);
 
-        Assert.Throws<NotImplementedException>(table.PassUntilStackIsEmpty);
+        // CR 106.12a with 608.2d: the key alone names the colour the firing produced, so the trigger
+        // adds one more green beside the land's own (the crash EINT5 reported is closed).
+        table.PassUntilStackIsEmpty();
+        Assert.Equal(2, table.State.Player(P0).Mana.Total);
+        Assert.All(table.State.Player(P0).Mana.Provenance, block => Assert.Equal(Color.Green, block.Color));
 
-        // The log up to the crash is still a game: nothing half-applied was written to it.
         AssertTheLogIsTheGame(table);
     }
 

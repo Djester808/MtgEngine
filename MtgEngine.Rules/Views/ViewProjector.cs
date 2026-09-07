@@ -134,9 +134,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             chars.EveryCreatureType,
 
             // CR 707.10: a copy has the copied object's name and characteristics, so the view has
-            // to say which one it is looking at. Read off the stack entry because that is where
-            // the state marks a copy.
-            obj.Stack is { IsCopy: true });
+            // to say which one it is looking at: the stack entry marks a copied spell, and the
+            // zone system's designation marks a copy of a card (CR 707.12).
+            obj.Stack is { IsCopy: true } || obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard));
     }
 
     /// <summary>

@@ -130,7 +130,7 @@ public sealed partial class StateBasedActions
     private static bool Ceases(GameObject obj, Zone zone) =>
         obj.IsToken
             ? zone != Zone.Battlefield
-            : obj.Stack is { IsCopy: true } && zone is not (Zone.Stack or Zone.Battlefield);
+            : (obj.Stack is { IsCopy: true } || obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard)) && zone is not (Zone.Stack or Zone.Battlefield);
 
     /// <summary>
     /// Whether this permanent leaves the battlefield now, and by which verb. The order is the
