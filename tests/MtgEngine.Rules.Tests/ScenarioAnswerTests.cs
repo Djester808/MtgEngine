@@ -1,4 +1,4 @@
-﻿using MtgEngine.Cards;
+using MtgEngine.Cards;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Scenarios;
