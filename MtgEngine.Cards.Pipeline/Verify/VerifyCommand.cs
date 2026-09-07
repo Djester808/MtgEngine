@@ -13,7 +13,8 @@ public sealed record VerifySummary(
     int Verified,
     int Failed,
     int NoScenarios,
-    IReadOnlyList<VerifyOutcome> Outcomes);
+    IReadOnlyList<VerifyOutcome> Outcomes,
+    int Crashed = 0);
 
 /// <summary>
 /// <c>pipeline verify &lt;cardsDir&gt; [--only &lt;oracleId&gt;]</c>: the third rule of
@@ -33,8 +34,12 @@ public static class VerifyCommand
     /// <summary>Nothing in the directory to verify.</summary>
     public const int NothingToDo = 64;
 
-    /// <summary>At least one card's scenarios failed. The files still say so; this is for a script.</summary>
-    public const int Failures = 1;
+    /// <summary>
+    /// A run that ended is a success whatever it found. A failing card is the measurement, not an
+    /// error: the whole point of the loop is to count what does not play yet, so a directory of
+    /// failures still exits zero and the counts in the summary are what a caller reads.
+    /// </summary>
+    public const int Completed = 0;
 
     /// <summary>Run over a directory and print the summary. The exit code is for the shell; the files are the record.</summary>
     public static int Run(string cardsDir, string? only, TextWriter log, CancellationToken ct = default)
@@ -51,7 +56,7 @@ public static class VerifyCommand
             return NothingToDo;
         }
 
-        return summary.Failed > 0 ? Failures : 0;
+        return Completed;
     }
 
     /// <summary>The run itself, over a directory that is already read, so a test can supply its own.</summary>
@@ -74,11 +79,22 @@ public static class VerifyCommand
         var at = DateTimeOffset.UtcNow;
 
         var outcomes = new List<VerifyOutcome>();
+        var crashes = new List<VerifyOutcome>();
         var noScenarios = 0;
         foreach (var file in candidates)
         {
             ct.ThrowIfCancellationRequested();
-            var ready = WithScenarios(file);
+            CardFile ready;
+            try
+            {
+                ready = WithScenarios(file);
+            }
+            catch (Exception generating) when (generating is not OperationCanceledException)
+            {
+                crashes.Add(Crashed(file, generating, log));
+                continue;
+            }
+
             if (ready.ScenarioList.Count == 0)
             {
                 // Untouched: a card with nothing to play is not a failure, it is a gap in the
@@ -88,9 +104,18 @@ public static class VerifyCommand
                 continue;
             }
 
-            var outcome = stage.Verify(ready, runId, at, ct);
-            outcomes.Add(outcome);
-            log.WriteLine(Line(outcome));
+            try
+            {
+                var outcome = stage.Verify(ready, runId, at, ct);
+                outcomes.Add(outcome);
+                log.WriteLine(Line(outcome));
+            }
+            catch (Exception playing) when (playing is not OperationCanceledException)
+            {
+                // One card that makes the engine throw used to end the run and lose every card
+                // after it. The exception is this card's result, in the words the engine used.
+                crashes.Add(Crashed(ready, playing, log));
+            }
         }
 
         var summary = new VerifySummary(
@@ -99,10 +124,32 @@ public static class VerifyCommand
             outcomes.Count(o => o.Verified),
             outcomes.Count(o => !o.Verified),
             noScenarios,
-            outcomes);
+            [.. outcomes, .. crashes],
+            crashes.Count);
         log.WriteLine(FormattableString.Invariant(
-            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios; {engineHash}, run {runId}"));
+            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios, {summary.Crashed} crashed; {engineHash}, run {runId}"));
         return summary;
+    }
+
+    /// <summary>
+    /// A card whose scenario threw inside the engine. Its file is left exactly as it was — a crash
+    /// says nothing new about the card's content — except that a card which claimed to be verified
+    /// no longer does, and the exception is recorded as the first expectation's actual so the run's
+    /// output names the defect rather than "it failed".
+    /// </summary>
+    private static VerifyOutcome Crashed(CardFile file, Exception error, TextWriter log)
+    {
+        var actual = error.GetType().Name + ": " + error.Message;
+        var scenario = file.ScenarioList.FirstOrDefault();
+        var results = scenario is null
+            ? (IReadOnlyList<ScenarioResult>)[new ScenarioResult("smoke-" + file.OracleId, false, [], actual)]
+            : [new ScenarioResult(scenario.Id, false, [.. scenario.Expect.Select((e, i) => new ExpectationResult(e, false, i == 0 ? actual : "not run"))], actual)];
+
+        var demoted = file.Status == ImplementationStatus.Verified
+            ? file with { Status = ImplementationStatus.Translated }
+            : file;
+        log.WriteLine(FormattableString.Invariant($"  CRASHED       {file.Name} ({file.OracleId}): {actual}"));
+        return new VerifyOutcome(demoted, results, null);
     }
 
     /// <summary>

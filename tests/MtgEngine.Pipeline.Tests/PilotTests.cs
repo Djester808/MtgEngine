@@ -104,6 +104,10 @@ public sealed class PilotTests
         Assert.Contains("- both models lint clean: 2/2", report, StringComparison.Ordinal);
         Assert.Contains("agreed (identical after stripping printed text): 1/2 (50.0%)", report, StringComparison.Ordinal);
         Assert.Contains("- card files written: 2/2", report, StringComparison.Ordinal);
+        // seam-requests/P6.md § 1: the grouped first differences, largest first, with an example
+        // each — the line the next canonicalisation rule is read off, not thirty-seven sentences.
+        Assert.Contains("2 cards: 1 agreed, 1 disputed, 0 untranslated", report, StringComparison.Ordinal);
+        Assert.Contains("      on Test Sage", report, StringComparison.Ordinal);
         Assert.Contains("- Test Sage: ", report, StringComparison.Ordinal);
         Assert.DoesNotContain("- Test Scribe: ", report, StringComparison.Ordinal);
     }

@@ -96,6 +96,12 @@ public static class PilotReport
         sb.AppendLine(CultureInfo.InvariantCulture, $"- card files written: {written}/{count}");
         sb.AppendLine();
 
+        // The shapes, largest first, with one example each: a list of thirty-seven sentences is
+        // read once and forgotten, and "who: 9 cards" is the next canonicalisation rule
+        // (seam-requests/P6.md § 1).
+        sb.Append(Agree.AgreeReport.Of(results.Select(r => r.Agreement)).Text());
+        sb.AppendLine();
+
         sb.AppendLine("## Disagreements (first 40)");
         foreach (var r in results.Where(r => !r.Agreement.Agreed).Take(40))
         {

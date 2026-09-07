@@ -85,6 +85,26 @@ public sealed class VerifyCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_card_that_throws_inside_the_engine_is_reported_and_the_run_carries_on()
+    {
+        Write(Crasher(Scribe));
+        Write(Creature(Mute, "Second Scribe"));
+        var log = new StringWriter();
+
+        var code = VerifyCommand.Run(_cards, only: null, log);
+
+        // A crash is this card's result, not the run's: the run finished, so it exits zero.
+        Assert.Equal(VerifyCommand.Completed, code);
+        Assert.Contains("CRASHED", log.ToString(), StringComparison.Ordinal);
+        Assert.Contains(nameof(NotImplementedException), log.ToString(), StringComparison.Ordinal);
+        Assert.Contains("1 crashed", log.ToString(), StringComparison.Ordinal);
+        // The card behind it in the directory still ran, which is the whole point.
+        Assert.Equal(ImplementationStatus.Verified, Read(Mute).Status);
+        // Nothing was written for the card that threw: a crash says nothing about its content.
+        Assert.Null(Read(Scribe).Verification);
+    }
+
+    [Fact]
     public async Task Rulings_submit_records_one_batch_id_per_model()
     {
         Write(Creature(Scribe));
@@ -198,6 +218,15 @@ public sealed class VerifyCommandTests : IDisposable
             [new Face(name, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: "{1}", Power: new PrintedStat("1"), Toughness: new PrintedStat("1"))]),
         ImplementationStatus.Translated,
         new TemplateProvenance("test"));
+
+    /// <summary>
+    /// An instant that draws — so it gets a smoke scenario — and then does something the
+    /// interpreter has no arm for, so resolving it throws out of the engine.
+    /// </summary>
+    private static CardFile Crasher(string oracleId) => Card(
+        oracleId,
+        "Verify Crasher",
+        [new SpellAbility(new Sequence([new Draw(new Fixed(1)), new ChangeTarget(new ThisSpellsTargets())]))]);
 
     /// <summary>An instant whose only effect is one no smoke scenario can assert, so it gets no scenario at all.</summary>
     private static CardFile NoScenarios(string oracleId) =>
