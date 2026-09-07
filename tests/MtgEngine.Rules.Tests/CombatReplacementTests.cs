@@ -14,7 +14,7 @@ namespace MtgEngine.Rules.Tests;
 /// what comes back is folded before the next one is proposed. Lifelink follows (CR 702.15b): the
 /// life gained is the damage that was actually dealt, not the damage that was assigned.
 /// </summary>
-public sealed class CombatReplacementTests
+public sealed partial class CombatReplacementTests
 {
     /// <summary>
     /// With no replacement system attached the batch is exactly what it always was: the same
