@@ -18,6 +18,7 @@ public static class VocabularyReference
         sb.AppendLine("Every value below is a JSON object with a \"kind\" property naming the record, plus the parameters listed.");
         sb.AppendLine("Parameters marked ? are optional and may be omitted. Lists are JSON arrays. Flags (Color, CardType, Supertype) are arrays of names.");
         sb.AppendLine();
+        OneSpelling(sb);
 
         Section(sb, "CardDefinition (the root)", [typeof(CardDefinition), typeof(Face), typeof(TypeLine), typeof(PrintedStat), typeof(TokenSpec), typeof(EmblemSpec), typeof(ClassLevel), typeof(LevelBand), typeof(Mode), typeof(CounterSpec), typeof(ManaProduction), typeof(Comparison), typeof(ObjectFilter), typeof(PlayerFilter)]);
 
@@ -31,6 +32,27 @@ public static class VocabularyReference
 
         Enums(sb);
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// The same rules <see cref="Agree.Canonical"/> applies after the fact, said once to the model
+    /// so it does not have to be applied: two readings that differ only in whether a default was
+    /// written out are not a disagreement, and every one of them cost a card its status in the
+    /// 200-face pilot. Stated for the model here and enforced in code there; if you change one,
+    /// change the other.
+    /// </summary>
+    private static void OneSpelling(StringBuilder sb)
+    {
+        sb.AppendLine("## One spelling");
+        sb.AppendLine("Where a value is the default, omit it. Do not write it out:");
+        sb.AppendLine("- who?: omit it when the player is you, the controller of the ability. \"Draw a card\" is {\"kind\":\"Draw\",\"n\":{\"kind\":\"Fixed\",\"n\":1}} — no \"who\". Name a player only when the card names one.");
+        sb.AppendLine("- controlledBy?: omit it inside a cost. \"Sacrifice a creature\" already means one you control.");
+        sb.AppendLine("- in?: omit \"Battlefield\" on a filter describing permanents; a filter with no zone means the battlefield. Name a zone only when the card means another one (\"a creature card from your graveyard\").");
+        sb.AppendLine("- in?: omit it on the \"for\" filter of a Search; the search's own \"from\" already says the zone.");
+        sb.AppendLine("- Keys (\"key\", \"storeAs\", \"storeChoiceAs\", \"rememberAs\") are free text; any name reads the same. Use short ones and reuse the same name for the same thing within a face.");
+        sb.AppendLine("- Use GrantKeyword for a keyword, never GrantAbility wrapping a KeywordAbility. \"Gains flying until end of turn\" is GrantKeyword.");
+        sb.AppendLine("- One instruction is that instruction, not a Sequence of one step. Omit an empty \"of\" or \"except\" rather than writing {}.");
+        sb.AppendLine();
     }
 
     private static void Section(StringBuilder sb, string title, IReadOnlyList<Type> types, Type? baseType = null)

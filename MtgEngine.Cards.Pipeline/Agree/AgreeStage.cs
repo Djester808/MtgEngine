@@ -53,11 +53,18 @@ public static class AgreeStage
         if (request.Readings.Count < 2)
             throw new ArgumentException("Agreement needs the readings of two or more models; one reading is evidence of nothing.", nameof(request));
 
+        // Every reading is judged, linted and written in its canonical spelling, so two models
+        // that understood the card the same way agree however verbosely either wrote it, and the
+        // card file that comes out is canonical too.
+        var readings = request.Readings
+            .Select(r => r.Definition is null ? r : r with { Definition = Canonical.Of(r.Definition) })
+            .ToList();
+
         var lint = new Dictionary<string, LintReport?>(StringComparer.Ordinal);
-        foreach (var reading in request.Readings)
+        foreach (var reading in readings)
             lint[reading.Model] = LintOf(request, reading);
 
-        var parsed = request.Readings.Where(r => r.Definition is not null).ToList();
+        var parsed = readings.Where(r => r.Definition is not null).ToList();
         var clean = parsed.Where(r => lint[r.Model] is { HasErrors: false }).ToList();
         var cleanModels = clean.Select(r => r.Model).ToList();
 
@@ -67,8 +74,8 @@ public static class AgreeStage
             return new AgreeResult(request.OracleId, request.Name, ImplementationStatus.Untranslated, null, lint, [], null);
         }
 
-        var models = request.Readings.Select(r => r.Model).ToList();
-        var agreed = clean.Count == request.Readings.Count
+        var models = readings.Select(r => r.Model).ToList();
+        var agreed = clean.Count == readings.Count
             && clean.Select(r => JsonDiff.CanonicalText(r.Definition!)).Distinct(StringComparer.Ordinal).Count() == 1;
 
         if (agreed)
