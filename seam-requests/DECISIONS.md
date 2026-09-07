@@ -271,3 +271,14 @@ join landed `ICastingSystem.CheckInstructed`, the pipeline's `retranslate-submit
 | P14 | `retranslate-submit` and `status` arms in `Program.cs`; `Pilot.SubmitAsync` takes a card list | **Now**: both arms; `SubmitAsync` already took a list. `status` and `retranslate-submit --dry-run` run off the file system and cost nothing. |
 | EINT5 | `PoolFor` crashed on the documented chosen-colour spelling | **Now**: the key alone names the colour, and no arm refuses (CR 608.2) rather than throwing. |
 | coordinator | verify and gate on the wave-11 tip | **83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed** (`c203ba3`); gate green: 763 engine, 154 vocabulary, 193 pipeline, 633 API tests. |
+
+# Seam decisions after wave 12
+
+A lean wave of three (`seam-requests/E0f.md`, `E9k.md`, `E4g.md`) for the polish the wave-11
+requests left: no seam commit preceded it.
+
+| From | Request | Decision |
+|---|---|---|
+| E0f | `ZoneSystem.CopyOfCard` belongs in `Query/Designations.cs` (a four-file rename across three owners) | **Deferred**: every reader goes through the constant; it moves when someone owns all three folders in one wave. |
+| E0f | `GameObject.IsCopy` stays unneeded now that the query reads the designation | **Agreed** (E5f's ask closed). |
+| E9k | `"may-pay"`, `"may-cast"` and `"cast-cost"` still had no `ChoiceKinds` constant; `Query.MatchesAnyTarget`'s player half stays uncalled | **E4g** adds the constants in the same wave; the player half of `MatchesAnyTarget` stays unused because the casting system and the interpreter read the limits directly from the caster's point of view, which a static filter cannot carry. |
