@@ -250,4 +250,24 @@ priority assertion E4e closed.
 | E3h | `EffectInterpreter.Retarget.cs` had to move to `CastInstructed` or a free may-cast is refused | **Landed with E9i in the same batch**. |
 | P13 | nothing; records that its three any-colour activations fail until E3h reads `ManaColors` | **Landed in the same batch**: verify on the joined tip is 83 / 0 / 0 / 4 / 0. |
 | EINT4 | five gaps through the front door: (1) nothing fires a `ManaSpent` delayed trigger and the delayed ability is dropped with the pool (CR 106.6a); (2) a `ChooseValue(Color)` question is asked with no options, so every answer is refused and the game stalls (CR 601.2b) — this blocks the chosen colour end to end; (3) nobody holds priority after a question-resumed resolution (CR 117.3b); (4) a player with protection from everything can be targeted at announcement (CR 115.6); (5) an instructed `MayCast` of a graveyard card is refused for the zone (CR 601.3a), leaving the cast-cost join unverified on that road | **Wave 11**: E9j (2, 3 with the choice system, 1's firing), E3i (4, 5), E6e (1's matching on the spend event). The tests assert the current behaviour until then. |
-| coordinator | the wave-10 join | Rules 710 green on the joined tip with EINT4; verify 83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed (`7a42879`, engine hash `c8d2deb7a915f0d1`). |
+| coordinator | the wave-10 join | Rules 710 green on the joined tip with EINT4; verify 83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed (`7a42879`, engine hash `c8d2deb7a915f0d1`). Gate green on `44788c3` with E1c (721 / 154 / 182 / 633). |
+
+# Seam decisions after wave 11
+
+Requests from `seam-requests/E1c.md`, `E5f.md`, `E9j.md`, `E6e.md`, `E4f.md`, `E3i.md`, `P14.md`,
+`EINT5.md`. Wave 11 ran from the seam commit `c60cbec` (`ITurnSystem.OpenStep`); the coordinator's
+join landed `ICastingSystem.CheckInstructed`, the pipeline's `retranslate-submit --dry-run` and
+`status` arms, and flipped every wave-9 and wave-10 gap assertion: all sixteen front-door games hold.
+
+| From | Request | Decision |
+|---|---|---|
+| E1c | CR 704.5e reads the `"copy-of-card"` designation the zone system sets; `Query.IsCopy` is now answerable | **Now**: the state-based action and the view read the designation beside the stack entry's mark. `IsCopy` off the stack is **E0-series, wave 12**. |
+| E5f | a `GameObject.IsCopy` beside `IsToken` would make both readers honest | **Declined for now**: the designation is the mark; one field would be a second spelling. |
+| E9j | `StackEntry.DelayedDo` (or a spent flag) so a once-only delayed ability's body reaches its stack object | **Moot**: E6e made the delayed firing carry its ability onto the stack (CR 603.7), so E9j's index fallback is a second road; **E9-series, wave 12** deletes the fallback. |
+| E9j | `ChoiceKinds` has no constants for value / may-pay / may-cast / cast-cost | **E4-series, wave 12** (Choices owns the constants). |
+| E6e | nothing; warns against a second firing channel | **Agreed**. |
+| E4f | nothing; every answered question opens the step through `ITurnSystem.OpenStep` | **Accepted**; a test that answers through a stub turn system now sees the step stay shut. |
+| E3i | `ICastingSystem.CheckInstructed`; the interpreter's `LegalTargets` never re-checks `TargetPlayers` at CR 608.2b; the rule strings 115.6 vs 601.2c and 702.16c vs 702.16d | **Now** (`CheckInstructed`, and the interpreter's pre-flight uses it); the player half of the resolution re-check is **E9-series, wave 12**; the rule strings stay as EINT4 named them. |
+| P14 | `retranslate-submit` and `status` arms in `Program.cs`; `Pilot.SubmitAsync` takes a card list | **Now**: both arms; `SubmitAsync` already took a list. `status` and `retranslate-submit --dry-run` run off the file system and cost nothing. |
+| EINT5 | `PoolFor` crashed on the documented chosen-colour spelling | **Now**: the key alone names the colour, and no arm refuses (CR 608.2) rather than throwing. |
+| coordinator | verify and gate on the wave-11 tip | **83 verified, 0 failed, 0 without a scenario, 4 unsupported, 0 crashed** (`c203ba3`); gate green: 763 engine, 154 vocabulary, 193 pipeline, 633 API tests. |
