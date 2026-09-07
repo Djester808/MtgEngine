@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Interpreter;
@@ -168,9 +169,13 @@ public sealed partial class EffectInterpreter
                 return run;
 
             // The translator could not say this in the vocabulary; it must never reach a table.
+            // CR 608.2: the resolution cannot be performed, so the definition is refused by name
+            // and with the reason the translator wrote, which a runner reports as a failure. A
+            // thrown NotSupportedException was a crash at the engine's front door instead.
             case Unsupported unsupported:
-                throw new NotSupportedException(
-                    $"the definition carries an {nameof(Unsupported)} effect and cannot resolve: {unsupported.Reason}");
+                throw new RefusedException(
+                    $"the definition carries an {nameof(Unsupported)} effect and cannot resolve: {unsupported.Reason}",
+                    "608.2");
 
             default:
                 return null;

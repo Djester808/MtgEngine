@@ -25,6 +25,10 @@ public sealed partial class EffectInterpreter
             case PayCost pay:
                 return Paid(run, pay);
 
+            // CR 118.12: "[a player] may [do something]. If [they] [do or don't], [effect]."
+            case MayPay may:
+                return MayPaid(run, may);
+
             // CR 601.2d: the division was announced as the spell was cast; every named target gets
             // at least one, and the split is not re-chosen now unless nobody recorded one.
             case DistributeCounters distribute:
@@ -100,27 +104,65 @@ public sealed partial class EffectInterpreter
     /// unpayable cost a cost that was not paid and not an error the table has to see.
     /// </summary>
     [RuleRef("118.12")]
-    private EffectRun Paid(EffectRun run, PayCost pay)
+    private EffectRun Paid(EffectRun run, PayCost pay) =>
+        Pay(run, pay.Cost, FirstPlayer(run, pay.Who)) ?? Unpaid(run);
+
+    /// <summary>
+    /// Pay one cost where it stands, CR 118.12, through the same <see cref="CostPayment"/> the
+    /// activation path uses. Null is a cost that was not paid — there is no source to pay from, or
+    /// CR 118.4 says the player cannot pay it — which is not an error the table has to see.
+    /// </summary>
+    [RuleRef("118.12")]
+    private EffectRun? Pay(EffectRun run, Cost cost, PlayerId player)
     {
-        var player = FirstPlayer(run, pay.Who);
         if (run.Context.Source is not { } id || !run.State.Objects.TryGetValue(id, out var source))
-            return Unpaid(run);
+            return null;
 
         try
         {
             var paid = CostPayment.Pay(
                 run.State,
                 new Casting.CostContext(source, characteristics.Of(run.State, id), player, run.Context.X, zones, query),
-                [pay.Cost]);
+                [cost]);
             return Merge(run, paid);
         }
         catch (RefusedException)
         {
-            // CR 118.4: a player can't pay more than they have, and CR 118.12 leaves the rest of
-            // the effect to run with the cost unpaid.
-            return Unpaid(run);
+            return null;
         }
     }
+
+    /// <summary>
+    /// "[A player] may [pay a cost]. If [they] do, [effect]", CR 118.12: the action is a cost, paid
+    /// as the spell or ability resolves, so the walk stops and asks the player first (CR 101.4).
+    /// Answered yes the cost is paid and <c>Then</c> runs; answered no, or paid by a player who
+    /// cannot pay it (the CR 118.12 example where the permanent to sacrifice has gone), <c>Else</c>
+    /// runs where the card prints one. CR 118.12's last sentence is why the branch is decided on
+    /// the choice and the payment and never on what events came out of it — a sacrifice replaced
+    /// into an exile still paid. This is the mirror of <see cref="Unless"/> (CR 118.12a) and stays
+    /// a separate arm, because which half a card prints is the half its file keeps. The answer is
+    /// stored under this node's own key, so a bare <see cref="Resumption"/> puts the walk back here.
+    /// </summary>
+    [RuleRef("118.12")]
+    private EffectRun MayPaid(EffectRun run, MayPay may)
+    {
+        var who = FirstPlayer(run, may.Who);
+        var key = "may-pay:" + run.Path;
+        if (!run.Context.Chosen.TryGetValue(key, out var answer))
+            return Ask(run, who, "may-pay", "You may pay that cost. Do you?", YesNo, 1, 1, key);
+
+        if (!Yes(answer))
+            return Otherwise(run, may.Else);
+
+        return Pay(run, may.Paid, who) is { } paid
+            ? Child(paid, 0, may.Then)
+            : Otherwise(run, may.Else);
+    }
+
+    /// <summary>The "if you don't" half, CR 118.12: nothing at all when the card prints none.</summary>
+    [RuleRef("118.12")]
+    private EffectRun Otherwise(EffectRun run, Effect? otherwise) =>
+        otherwise is null ? run : Child(run, 1, otherwise);
 
     /// <summary>
     /// The cost was not paid, so the enclosing "you may" reads no. Without this a player who said
