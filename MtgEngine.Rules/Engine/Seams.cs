@@ -77,6 +77,16 @@ public interface ITurnSystem : ISubsystem
     [RuleRef("103.5")]
     Outcome OpenHands(GameState state) => Outcome.Unchanged(state);
 
+    /// <summary>
+    /// CR 103.5: one player's declaration is finished — they kept, and any cards their mulligans
+    /// cost them are on the bottom. The next player in turn order declares; when the turn order
+    /// has come back round to the starting player, every player has kept and turn 1 begins.
+    /// The choice system calls this after a finished declaration; the default is for a turn
+    /// system that offers no mulligans.
+    /// </summary>
+    [RuleRef("103.5")]
+    Outcome AfterMulligans(GameState state, PlayerId finished) => Outcome.Unchanged(state);
+
     /// <summary>A player passes priority. When all pass in succession, the stack resolves or the step advances.</summary>
     Outcome Pass(GameState state, PlayerId player);
 

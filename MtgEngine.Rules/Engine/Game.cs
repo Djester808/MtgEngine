@@ -41,7 +41,7 @@ public sealed record Subsystems(
         var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
         // CR 510.1 and 703.4m: combat damage is the turn system's action, so it needs the combat system.
         var combat = new Combat.CombatSystem(layers, query);
-        var turn = new Turn.TurnSystem(zones, casting, combat);
+        var turn = new Turn.TurnSystem(zones, casting, combat, layers);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         return new Subsystems(
             query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(),
@@ -71,7 +71,7 @@ public sealed record Subsystems(
 
         var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
         var combat = new Combat.CombatSystem(layers, query);
-        var turn = new Turn.TurnSystem(zones, casting, combat);
+        var turn = new Turn.TurnSystem(zones, casting, combat, layers);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);
         // The interpreter implements IResumable, so a card's question resumes through it (CR 101.4).
