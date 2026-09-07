@@ -1,5 +1,10 @@
+using Anthropic;
 using MtgEngine.Cards;
 using MtgEngine.Cards.Pipeline;
+using MtgEngine.Cards.Pipeline.Agree;
+using MtgEngine.Cards.Pipeline.Scenarios;
+using MtgEngine.Cards.Pipeline.Translate;
+using MtgEngine.Cards.Pipeline.Verify;
 
 var root = FindRepoRoot();
 var command = args.Length > 0 ? args[0] : "help";
@@ -58,9 +63,62 @@ switch (command)
             return await Pilot.CollectAsync(PilotEnvironment.ForRepo(root, repair), outDir, cts.Token);
         }
 
+    // The verification loop. Nothing here reaches the network: a card is verified by being
+    // played, and the engine is what plays it (CARD_ENGINE_PLAN.md, rule 3).
+    case "verify":
+        {
+            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+            var only = Flag(args, "--only");
+            return VerifyCommand.Run(cardsDir, only, Console.Out, cts.Token);
+        }
+
+    // The same submit/collect split as the pilot, and for the same reason: a batch takes hours.
+    case "rulings-submit":
+        {
+            var cardsDir = Positional(args, 1) ?? Path.Combine(root, "cards");
+            var outDir = Positional(args, 2) ?? Path.Combine(root, ".agents", "rulings");
+            return await RulingsCommand.SubmitAsync(RulingsFor(root, cardsDir), cardsDir, outDir, cts.Token);
+        }
+
+    case "rulings-collect":
+        {
+            var outDir = Positional(args, 1) ?? Path.Combine(root, ".agents", "rulings");
+            var cardsDir = RulingsSubmission.Read(outDir)?.CardsDirectory ?? Path.Combine(root, "cards");
+            return await RulingsCommand.CollectAsync(RulingsFor(root, cardsDir), outDir, cts.Token);
+        }
+
     default:
-        Console.Error.WriteLine("usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]");
+        Console.Error.WriteLine(
+            "usage: pipeline reference | schema | select [count] | pilot-submit [count] [outDir] | pilot-collect [outDir] [--no-repair]"
+            + " | verify [cardsDir] [--only <oracleId>] | rulings-submit [cardsDir] [outDir] | rulings-collect [outDir]");
         return 64;
+}
+
+/// <summary>A positional argument, or null when the caller gave a flag there or nothing at all.</summary>
+static string? Positional(string[] argv, int index) =>
+    index < argv.Length && !argv[index].StartsWith("--", StringComparison.Ordinal) ? argv[index] : null;
+
+/// <summary>The value after a named flag, or null when it was not given.</summary>
+static string? Flag(string[] argv, string name)
+{
+    var at = Array.IndexOf(argv, name);
+    return at >= 0 && at + 1 < argv.Length ? argv[at + 1] : null;
+}
+
+/// <summary>
+/// The real rulings environment: the Anthropic transport, <c>cards/</c>, and the corpus — which
+/// is not in git, so its absence is a state the command reports rather than a crash.
+/// </summary>
+static RulingsEnvironment RulingsFor(string repoRoot, string cardsDir)
+{
+    var corpus = Corpus.DefaultPath(repoRoot);
+    var cards = CardDirectory.Load(cardsDir);
+    return new RulingsEnvironment(
+        new AnthropicTranslationClient(new AnthropicClient { ApiKey = Secrets.AnthropicApiKey() }),
+        new CardFileWriter(cardsDir),
+        File.Exists(corpus) ? () => RulingsCommand.FromCorpus(corpus, cards) : null,
+        [new RulingsStageOptions().Model],
+        Console.Out);
 }
 
 static string FindRepoRoot()

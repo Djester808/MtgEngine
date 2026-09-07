@@ -23,6 +23,13 @@ public sealed class CardsImplementationController(CardImplementationService impl
     public ActionResult<CardImplementationDto> Implementation(string oracleId) =>
         implementation.Implementation(oracleId);
 
+    /// <summary>How far along each of a deck's cards is, in the order they were asked about.</summary>
+    [HttpPost("implementations")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<IReadOnlyList<CardImplementationDto>> Implementations([FromBody] CardImplementationsRequest request) =>
+        Ok(implementation.Implementations(request.OracleIds));
+
     /// <summary>Counts by status, the primitive backlog ranked by cards blocked, and the last run.</summary>
     [HttpGet("coverage")]
     [ProducesResponseType(StatusCodes.Status200OK)]

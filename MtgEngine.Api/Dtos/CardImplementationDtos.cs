@@ -36,5 +36,19 @@ public sealed record CardCoverageDto(
     VerificationDto? LastVerification,
     IReadOnlyList<DisputedCardDto>? Disputed = null);
 
+/// <summary>
+/// How far along a whole deck is, in one request. The client draws a badge per card and a deck is
+/// a hundred of them; a hundred round trips to draw one list is not a deck view.
+/// </summary>
+public sealed record CardImplementationsRequest(
+    [Required]
+    [MinLength(1, ErrorMessage = "Ask about at least one card.")]
+    [MaxLength(CardImplementationsRequest.MaxIds, ErrorMessage = "Ask about at most 500 cards at a time.")]
+    IReadOnlyList<string> OracleIds)
+{
+    /// <summary>Two commander decks' worth. The cap is the server's, not the caller's.</summary>
+    public const int MaxIds = 500;
+}
+
 /// <summary>Choosing one model's reading as the card's definition.</summary>
 public sealed record ChooseReadingRequest([Required][StringLength(120, MinimumLength = 1)] string Model);

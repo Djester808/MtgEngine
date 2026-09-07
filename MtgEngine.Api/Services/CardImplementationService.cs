@@ -25,6 +25,50 @@ public sealed class CardImplementationService(ICardFilePool pool, CardImplementa
     public CardImplementationDto Implementation(string oracleId)
     {
         var file = Load(oracleId) ?? throw new ResourceNotFoundException("No card file for that oracle id.");
+        return Dto(file);
+    }
+
+    /// <summary>
+    /// How far along each of these cards is, in the order they were asked about. An oracle id no
+    /// file covers is <see cref="ImplementationStatus.Untranslated"/> rather than an error: a deck
+    /// view asks about every card it holds and a card nothing has translated yet is the ordinary
+    /// case, not a failed request.
+    /// </summary>
+    /// <remarks>
+    /// The directory is scanned at most once, and only when a file was not where its oracle id
+    /// says it should be, so a deck of a hundred cards is a hundred file reads rather than a
+    /// hundred scans of the corpus.
+    /// </remarks>
+    public IReadOnlyList<CardImplementationDto> Implementations(IReadOnlyList<string> oracleIds)
+    {
+        ArgumentNullException.ThrowIfNull(oracleIds);
+        var found = new Dictionary<string, CardFile>(StringComparer.OrdinalIgnoreCase);
+        var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var oracleId in oracleIds)
+        {
+            if (string.IsNullOrWhiteSpace(oracleId) || found.ContainsKey(oracleId) || missing.Contains(oracleId))
+                continue;
+
+            var path = Path(oracleId);
+            var file = System.IO.File.Exists(path) ? Read(path) : null;
+            if (file is null)
+                missing.Add(oracleId);
+            else
+                found[oracleId] = file;
+        }
+
+        if (missing.Count > 0)
+        {
+            foreach (var file in All().Where(f => missing.Contains(f.OracleId)))
+                found[file.OracleId] = file;
+        }
+
+        return [.. oracleIds.Select(id => id is not null && found.TryGetValue(id, out var file) ? Dto(file) : Unknown(id))];
+    }
+
+    /// <summary>The status the deck gate reads, and the evidence a person reads beside it.</summary>
+    private CardImplementationDto Dto(CardFile file)
+    {
         var status = pool.StatusOf(file.OracleId);
         return new CardImplementationDto(
             file.OracleId,
@@ -35,6 +79,10 @@ public sealed class CardImplementationService(ICardFilePool pool, CardImplementa
             [.. file.ScenarioList.Select(s => new ScenarioSummaryDto(s.Title, s.Source.GetType().Name, Passed(file, s)))],
             Verification(file.Verification));
     }
+
+    /// <summary>A card no file covers: named by its id, because nothing here knows better.</summary>
+    private static CardImplementationDto Unknown(string? oracleId) =>
+        new(oracleId ?? string.Empty, oracleId ?? string.Empty, ImplementationStatus.Untranslated, null, nameof(Unknown), [], null);
 
     /// <summary>Counts by status, what is blocking the rest, and the last run the ledger saw.</summary>
     public CardCoverageDto Coverage(ImplementationStatus? status = null)
