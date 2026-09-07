@@ -106,6 +106,12 @@ try
                 return AnswersCheckCommand.Run(batchDir, id => Corpus.Card(raw, id), Console.Out);
             }
 
+        // The system text a translator reads (the prompt, the one-spelling rules and the vocabulary
+        // reference), so a local batch's system.md can be refreshed after the vocabulary moves.
+        case "prompt":
+            Console.Out.Write(TranslationPrompt.SystemWithVocabulary());
+            return 0;
+
         case "status":
             return StatusCommand.Run(Positional(args, 1) ?? Path.Combine(root, "cards"), Console.Out);
 

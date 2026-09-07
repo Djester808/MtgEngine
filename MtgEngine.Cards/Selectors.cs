@@ -94,7 +94,10 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// A description of objects. Every field is optional and every set field must hold. This is
 /// the noun phrase of the game: "another nontoken creature you control with power 4 or greater"
 /// is one filter. Anything the fields cannot say goes in <see cref="Also"/>.
-/// Because the set fields are joined with "and", the fixed fields cannot say "or": "attacking or
+/// The fields are joined with "and", except the two subtype lists, which are "any of": Subtypes
+/// ["Forest", "Island"] is "a Forest or Island card" (CR 205.3, an object has each of its subtypes),
+/// and NotSubtypes excludes an object that has any listed one; "a Forest Island" (both) is two
+/// nested filters, not one list. The fixed fields otherwise cannot say "or": "attacking or
 /// blocking creature" is not Attacking plus Blocking, which would match nothing. That one disjunction
 /// is common enough to have its own field — InCombat, true for a creature that is an attacking or a
 /// blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is

@@ -134,11 +134,14 @@ public static class Linter
         var faceIndex = 0;
         foreach (var face in file.Definition.Faces)
         {
+            // A key one ability produces ("as this enters, choose a color") is read by another on the
+            // same face, so the face's keys are what a reference is checked against.
+            var faceProduced = ProducedKeys(face.AbilityList.SelectMany(Walk));
             var abilityIndex = 0;
             foreach (var ability in face.AbilityList)
             {
                 var path = $"faces[{faceIndex}].abilities[{abilityIndex}]";
-                CheckAbility(ability, path, findings);
+                CheckAbility(ability, path, findings, faceProduced);
                 abilityIndex++;
             }
 
@@ -248,7 +251,30 @@ public static class Linter
     /// <summary>The five colours of CR 105.1, in the runner's pool spelling: one letter each.</summary>
     private const string ManaColorLetters = "WUBRG";
 
-    private static void CheckAbility(Ability ability, string path, List<LintFinding> findings)
+    /// <summary>The keys these nodes produce: every RememberAs, StoreAs, Key and their kin on a record that is not itself a reader of one.</summary>
+    private static HashSet<string> ProducedKeys(IEnumerable<object> nodes)
+    {
+        var produced = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var node in nodes)
+        {
+            if (IsConsumer(node))
+                continue;
+            foreach (var prop in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (prop.PropertyType != typeof(string))
+                    continue;
+                if (prop.Name is "RememberAs" or "StoreAs" or "Key" or "StoreChoiceAs" or "RememberHitAs" or "RememberRestAs")
+                {
+                    if (prop.GetValue(node) is string key && key.Length > 0)
+                        produced.Add(key);
+                }
+            }
+        }
+
+        return produced;
+    }
+
+    private static void CheckAbility(Ability ability, string path, List<LintFinding> findings, IReadOnlySet<string>? faceProduced = null)
     {
         var nodes = Walk(ability).ToList();
 
@@ -273,22 +299,7 @@ public static class Linter
         if (ability is KeywordAbility { Cost: not null, Costs.Count: > 0 } two)
             findings.Add(new(LintSeverity.Error, "L005", $"{two.Keyword} has both a printed Cost string and a Costs list; keep one.", path));
 
-        var produced = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var node in nodes)
-        {
-            if (IsConsumer(node))
-                continue;
-            foreach (var prop in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                if (prop.PropertyType != typeof(string))
-                    continue;
-                if (prop.Name is "RememberAs" or "StoreAs" or "Key" or "StoreChoiceAs" or "RememberHitAs" or "RememberRestAs")
-                {
-                    if (prop.GetValue(node) is string key && key.Length > 0)
-                        produced.Add(key);
-                }
-            }
-        }
+        var produced = ProducedKeys(nodes);
 
         foreach (var node in nodes)
         {
@@ -306,8 +317,8 @@ public static class Linter
                 IsChosenColor c => c.Key,
                 _ => null,
             };
-            if (key is not null && !produced.Contains(key))
-                findings.Add(new(LintSeverity.Error, "L003", $"'{key}' is referenced but nothing in this ability produces it.", path));
+            if (key is not null && !produced.Contains(key) && !(faceProduced?.Contains(key) ?? false))
+                findings.Add(new(LintSeverity.Error, "L003", $"'{key}' is referenced but nothing on this face produces it.", path));
         }
 
         foreach (var fixedAmount in nodes.OfType<Fixed>().Where(f => f.N < 0))
