@@ -183,15 +183,6 @@ public sealed partial class EffectInterpreter
     [RuleRef("601.2h")]
     private EffectRun Cast(EffectRun run, PlayerId who, ObjectId card, MayCast may, ImmutableList<ObjectId> costObjects)
     {
-        // CR 707.12: casting a copy of an object creates the copy in the zone the object is in and
-        // casts that, so the copy has to exist before the casting system is handed anything. No
-        // seam makes a copy of a card in a zone — CreateToken makes a permanent — so this is
-        // refused by name rather than casting the original in the copy's place.
-        if (may.AsCopy)
-            throw new RefusedException(
-                "A copy of that card is not this card being cast; asked for in seam-requests/E9g.md",
-                "707.12");
-
         // CR 118.9: the command names an alternative cost by the printed keyword whose cost the
         // plan parses; a cost the effect states in its own words has no channel.
         if (may.AlternativeCost is not null)
@@ -199,14 +190,55 @@ public sealed partial class EffectInterpreter
                 "An alternative cost stated by the effect has no channel on CastSpell; asked for in seam-requests/E9g.md",
                 "118.9");
 
+        var announced = may.AsCopy ? Copy(ref run, card) : card;
         var command = new CastSpell(
             who,
-            card,
+            announced,
             CostObjects: costObjects.IsEmpty ? null : costObjects,
             WithoutPayingManaCost: may.WithoutPayingManaCost);
         if (Casting!.Check(run.State, command) is { } refusal)
             return CostQuestion(run, who, command, refusal, costObjects);
-        return Merge(run, Casting.Cast(run.State, command));
+
+        // CR 608.2g: this is a cast a resolving effect instructed, so it happens during that
+        // resolution and CR 117.1a's timing does not apply to it — a player who could not cast the
+        // card of their own accord still casts it here. A command a player announced goes through
+        // the ordinary door; only the interpreter uses this one.
+        return Merge(run, Casting.CastInstructed(run.State, command));
+    }
+
+    /// <summary>
+    /// The copy that is cast, CR 707.12. "You may cast a copy of that card" casts a copy created in
+    /// the zone the card is in, not the card, so the copy has to be an object before the casting
+    /// system is handed anything — and only the zone system makes objects. A zone system that
+    /// cannot make one leaves the refusal standing rather than casting the original in the copy's
+    /// place, which is a different game action.
+    /// </summary>
+    [RuleRef("707.12")]
+    private ObjectId Copy(ref EffectRun run, ObjectId card)
+    {
+        var owner = run.State.Objects.TryGetValue(card, out var original)
+            ? original.Owner
+            : run.Context.Controller;
+        Outcome copied;
+        try
+        {
+            copied = zones.CopyInPlace(run.State, card, owner);
+        }
+        catch (NotImplementedException)
+        {
+            throw new RefusedException(
+                "A copy of that card is not this card being cast; asked for in seam-requests/E9g.md",
+                "707.12");
+        }
+
+        // The copy is the last object the outcome created: CR 707.12 makes one object, and anything
+        // the zone system created before it is the making of that one.
+        var made = copied.Events.OfType<ObjectCreated>().LastOrDefault()
+            ?? throw new RefusedException(
+                "The zone system made no copy of that card to cast; asked for in seam-requests/E9g.md",
+                "707.12");
+        run = Merge(run, copied);
+        return made.Object.Id;
     }
 
     /// <summary>

@@ -133,8 +133,8 @@ public sealed partial class EffectInterpreter
                 }
 
             case ChooseValue choose:
-                return run.Context.Chosen.ContainsKey(choose.Key)
-                    ? run
+                return run.Context.Chosen.TryGetValue(choose.Key, out var value)
+                    ? Kept(run, choose.Key, value)
                     : Ask(
                         run,
                         FirstPlayer(run, choose.Who),
@@ -173,6 +173,27 @@ public sealed partial class EffectInterpreter
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// Keep the value the card chose, CR 608.2d. The choice a resolution makes lives in that
+    /// resolution's context and dies with it, but "the chosen color" is asked again later — by a
+    /// triggered ability of the same permanent, by a devotion count, by a mana ability — so the
+    /// object that chose it keeps it. Only a permanent does: an object that changes zones is a new
+    /// object and CR 400.7 leaves the choice behind with the old one, and a spell's choices go with
+    /// the spell. A value already stored is not stored again, so reading a stored choice back on a
+    /// later resolution emits nothing and asks nobody.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static EffectRun Kept(EffectRun run, string key, string value)
+    {
+        if (run.Context.Source is not { } source
+            || !run.State.Objects.TryGetValue(source, out var obj)
+            || obj.Zone.Zone != Cards.Zone.Battlefield
+            || (obj.Chosen.TryGetValue(key, out var stored) && string.Equals(stored, value, StringComparison.Ordinal)))
+            return run;
+
+        return Emit(run, new Events.ValueChosen(source, key, value));
     }
 
     /// <summary>

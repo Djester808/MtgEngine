@@ -272,7 +272,7 @@ public sealed partial class InterpreterTests
         // CR 601.2b: an additional cost is paid whether or not the mana cost is, and whether this
         // command can pay it is the casting system's word. A cost that names no object is announced
         // and cast; the printed face is not read here to refuse it in advance.
-        Assert.Equal(card, Assert.Single(casting.Cast).Card);
+        Assert.Equal(card, Assert.Single(casting.Instructed).Card);
     }
 
     [Fact]
@@ -302,7 +302,7 @@ public sealed partial class InterpreterTests
 
         table.Answer(mine.Value.ToString(CultureInfo.InvariantCulture));
 
-        var command = Assert.Single(casting.Cast);
+        var command = Assert.Single(casting.Instructed);
         Assert.Equal([mine], command.CostObjects);
     }
 
@@ -330,7 +330,7 @@ public sealed partial class InterpreterTests
             table.State,
             new Resumption(pending.Kind, pending.Player, [new ChoiceOption(mine.Value.ToString(CultureInfo.InvariantCulture), "one", mine)], pending.Context));
 
-        Assert.Equal([mine], Assert.Single(casting.Cast).CostObjects);
+        Assert.Equal([mine], Assert.Single(casting.Instructed).CostObjects);
         Assert.Contains(resumed.Events, e => e is StackObjectResolved);
     }
 
@@ -389,11 +389,21 @@ internal sealed class InterpreterTestsCasting : ICastingSystem
     /// <summary>CR 601.2c: what this system says a command still has to name, in cost order.</summary>
     public List<CostChoice> Choices { get; } = [];
 
+    /// <summary>Commands announced through the ordinary door, CR 601 — a player's own cast.</summary>
     public List<CastSpell> Cast { get; } = [];
+
+    /// <summary>Commands announced through CR 608.2g's instructed cast, which is the one the interpreter uses.</summary>
+    public List<CastSpell> Instructed { get; } = [];
 
     Outcome ICastingSystem.Cast(GameState state, CastSpell command)
     {
         Cast.Add(command);
+        return Outcome.Unchanged(state);
+    }
+
+    Outcome ICastingSystem.CastInstructed(GameState state, CastSpell command)
+    {
+        Instructed.Add(command);
         return Outcome.Unchanged(state);
     }
 
