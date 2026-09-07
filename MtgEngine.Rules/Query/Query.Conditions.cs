@@ -66,7 +66,7 @@ public sealed partial class Query
             Lieutenant lieutenant => CountMatching(state, new ObjectFilter(IsCommander: true, ControlledBy: lieutenant.Who), context) >= 1,
 
             // The turn's history, folded by the events that made each fact (CR 603.10).
-            Morbid => state.History.Died.Count > 0,
+            Morbid => CreatureDied(state), // CR 603.10
             Revolt revolt => Left(state, revolt.Who, context),
             Raid raid => AttackersOf(state, raid.Who, context) >= 1, // CR 506.2
             AttackedThisTurn attacked => AttackersOf(state, attacked.Who, context) >= Evaluate(state, attacked.Min, context),
@@ -85,22 +85,10 @@ public sealed partial class Query
             YouAreMonarch => state.Monarch == context.Controller, // CR 724.2
             YouHaveInitiative => state.Initiative == context.Controller, // CR 725.2
 
-            FirstTimeThisTurn => throw Unanswerable(
-                nameof(FirstTimeThisTurn),
-                "nothing counts how many times an ability has resolved this turn; see seam-requests/E0b.md",
-                "603.4"),
+            FirstTimeThisTurn => FirstResolutionThisTurn(state, context), // CR 603.4
             _ => throw Unanswerable(condition.GetType().Name, "no arm in the query layer"),
         };
     }
-
-    /// <summary>
-    /// Revolt, CR 603.10: a permanent its controller controlled left the battlefield this turn.
-    /// <c>TurnHistory.LeftBattlefield</c> keeps the id of the object that left, and that object no
-    /// longer exists, so who controlled it is not recorded — the count is the whole answer today.
-    /// See seam-requests/E0b.md.
-    /// </summary>
-    private bool Left(GameState state, PlayerRef who, EffectContext ctx) =>
-        state.History.LeftBattlefield.Count > 0 && Players(state, who, ctx).Count > 0;
 
     /// <summary>
     /// How many creatures a player declared as attackers this turn, CR 506.2 and 508.1: only the

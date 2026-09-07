@@ -68,9 +68,7 @@ public sealed partial class Query
             // through the trigger that saw it enter.
             CastThisTurn => state.History.SpellsCast.Any(cast => cast.Spell == candidate),
 
-            DealtDamageThisTurn dealt => dealt.To is null
-                ? state.History.DamageDealtBy.GetValueOrDefault(candidate) > 0 // CR 120.3
-                : throw Unanswerable(nameof(DealtDamageThisTurn), NoDamagePairs, "120.3"),
+            DealtDamageThisTurn dealt => DealtDamage(state, dealt, candidate, ctx), // CR 120.3
             WasDealtDamageThisTurn => state.History.DamageReceivedBy.GetValueOrDefault(candidate) > 0, // CR 120.3
 
             // CR 702.32a: kicker is an optional additional cost, and casting records what was paid.
@@ -89,7 +87,7 @@ public sealed partial class Query
     }
 
     private const string NoDamagePairs =
-        "the turn's history totals damage per source and per receiver, not per pair, so \"dealt damage to that player this turn\" has nothing to read; see seam-requests/E0b.md";
+        "the turn's history totals damage per source and per receiver, not per pair, so \"dealt damage to that player this turn\" has nothing to read; see seam-requests/E0c.md";
 
     /// <summary>
     /// CR 701.15a: goading names the goader, because a goaded creature must attack a player other

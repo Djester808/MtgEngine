@@ -116,19 +116,20 @@ public sealed partial class Query
 
     /// <summary>
     /// Damage dealt this turn, CR 120.3. The turn's history totals it per source and per receiver,
-    /// so "damage dealt by these sources" and "damage dealt to that player" are both answerable and
-    /// the pair of the two is not — that refuses rather than guessing. See seam-requests/E0b.md.
+    /// so "damage dealt by these sources" and "damage dealt to that player" are answerable from the
+    /// totals; the pair of the two needs the per-pair map, and refuses without it rather than
+    /// answering a different question. See seam-requests/E0c.md.
     /// </summary>
     [RuleRef("120.3")]
     private int DamageThisTurn(GameState state, DamageDealtThisTurn damage, EffectContext ctx)
     {
-        if (damage.By is { } by && damage.To is null)
+        if (damage is { By: { } source, To: { } receiver })
+            return DamagePairTotal(state, source, receiver, ctx);
+        if (damage.By is { } by)
             return Resolve(state, by, ctx).Sum(id => state.History.DamageDealtBy.GetValueOrDefault(id));
-        if (damage.To is { } to && damage.By is null)
+        if (damage.To is { } to)
             return Players(state, to, ctx).Sum(p => state.History.DamageReceivedByPlayer.GetValueOrDefault(p));
-        if (damage is { By: null, To: null })
-            return state.History.DamageDealtBy.Values.Sum();
-        throw Unanswerable(nameof(DamageDealtThisTurn), NoDamagePairs, "120.3");
+        return state.History.DamageDealtBy.Values.Sum();
     }
 
     /// <summary>Domain: the basic land types among lands the player controls, CR 205.3i.</summary>

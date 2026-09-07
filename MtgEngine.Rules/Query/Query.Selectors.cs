@@ -25,6 +25,14 @@ public sealed partial class Query
             Target target => target.Key is { } key && context.Remembered.TryGetValue(key, out var remembered)
                 ? remembered
                 : context.Targets,
+            // "Any target", CR 115.4: one target chosen at cast time (CR 601.2c) from among the
+            // creatures, planeswalkers and battles on the battlefield and the players. The object
+            // half rides in Targets and the player half in TargetPlayers, so this answers the
+            // objects and answers none when a player was chosen — the caller then reads
+            // context.TargetPlayers. See Query.Targets.cs for the filter and the CR 608.2b re-check.
+            AnyTarget any => any.Key is { } anyKey && context.Remembered.TryGetValue(anyKey, out var chosenTarget)
+                ? chosenTarget
+                : context.Targets,
             ThisSpellsTargets => context.Targets,
             Choose choose => choose.Key is { } key && context.Remembered.TryGetValue(key, out var chosen)
                 ? chosen
