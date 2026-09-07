@@ -1,0 +1,191 @@
+using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
+using MtgEngine.Rules.State;
+
+namespace MtgEngine.Rules.Tests;
+
+/// <summary>
+/// A board built by hand, with made-up definitions. Nothing here reads a card file: every
+/// object is whatever the test says it is, so a state-based action is exercised on the state
+/// alone and not on a card's translation.
+/// </summary>
+internal sealed class Board
+{
+    public Board(int players = 2, int life = 20) =>
+        State = GameReducer.Replay(
+        [
+            new GameStarted(
+                [.. Enumerable.Range(0, players).Select(i => new PlayerStart($"seat {i}", [], []))],
+                7UL,
+                life,
+                "commander"),
+        ]);
+
+    public GameState State { get; private set; }
+
+    public static CardDefinition Definition(
+        string name,
+        CardType types,
+        int? power = null,
+        int? toughness = null,
+        Supertype supertypes = Supertype.None,
+        string[]? subtypes = null,
+        Ability[]? abilities = null) =>
+        new(
+            name,
+            name,
+            Layout.Normal,
+            [
+                new Face(
+                    name,
+                    FaceRole.Main,
+                    new TypeLine(types, supertypes, subtypes),
+                    Power: power is null ? null : new PrintedStat(power.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    Toughness: toughness is null ? null : new PrintedStat(toughness.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    Abilities: abilities),
+            ]);
+
+    public static CardDefinition Creature(int power, int toughness, string name = "sba beast", Ability[]? abilities = null, Supertype supertypes = Supertype.None) =>
+        Definition(name, CardType.Creature, power, toughness, supertypes, ["Beast"], abilities);
+
+    public ObjectId Put(
+        CardDefinition definition,
+        Zone zone = Zone.Battlefield,
+        int owner = 0,
+        int damage = 0,
+        bool token = false,
+        ObjectId? attachedTo = null,
+        StackEntry? stack = null,
+        params (string Kind, int Count)[] counters)
+    {
+        var seat = new PlayerId(owner);
+        var id = new ObjectId(State.NextObjectId);
+        var created = new ObjectCreated(
+            new GameObject(id, definition, 0, seat, seat, Key(zone, seat), State.NextTimestamp)
+            {
+                Damage = damage,
+                IsToken = token,
+                AttachedTo = attachedTo,
+                Stack = stack,
+                SummoningSick = false,
+                Counters = counters.ToImmutableDictionary(c => c.Kind, c => c.Count, StringComparer.Ordinal),
+            },
+            -1);
+        State = created.Apply(State);
+        return id;
+    }
+
+    public Board Fold(params GameEvent[] events)
+    {
+        State = GameReducer.Apply(State, events);
+        return this;
+    }
+
+    public Board Life(int player, int life) => Fold(new LifeChanged(new PlayerId(player), life - State.Player(new PlayerId(player)).Life, "test"));
+
+    public Board Poison(int player, int count) => Fold(new PlayerCountersChanged(new PlayerId(player), Counters.Poison, count));
+
+    public Board DrewFromEmptyLibrary(int player) => Fold(new DrawFromEmptyLibraryAttempted(new PlayerId(player)));
+
+    public Board CommanderDamage(int player, ObjectId commander, int amount) =>
+        Fold(new DamageDealt(commander, null, new PlayerId(player), amount, Combat: true, FromCommander: true));
+
+    public Board Lost(int player) => Fold(new PlayerLost(new PlayerId(player), "test"));
+
+    private static ZoneKey Key(Zone zone, PlayerId owner) => zone switch
+    {
+        Zone.Battlefield or Zone.Stack or Zone.Exile => ZoneKey.Shared(zone),
+        _ => ZoneKey.Of(zone, owner),
+    };
+}
+
+/// <summary>
+/// Layer 7d and nothing else: printed power and toughness moved by +1/+1 and -1/-1 counters,
+/// CR 613.4c. That is the whole reason a check has to repeat — the toughness a state-based
+/// action reads is computed, so removing counters changes it.
+/// </summary>
+internal sealed class FakeCharacteristics : ICharacteristics
+{
+    public string Name => "fake layers";
+
+    public Characteristics Of(GameState state, ObjectId id)
+    {
+        var obj = state.Objects[id];
+        var face = obj.Face;
+        var shift = obj.Counters.GetValueOrDefault(Counters.PlusOnePlusOne) - obj.Counters.GetValueOrDefault(Counters.MinusOneMinusOne);
+        return new Characteristics(
+            face.Name,
+            face.Types.Types,
+            face.Types.Supertypes,
+            [.. face.Types.SubtypeList],
+            Color.Colorless,
+            face.Power?.Number is { } power ? power + shift : null,
+            face.Toughness?.Number is { } toughness ? toughness + shift : null,
+            obj.Counters.GetValueOrDefault(Counters.Loyalty),
+            face.Defense,
+            face.ManaCost,
+            [.. face.AbilityList],
+            obj.InitialController);
+    }
+
+    public PlayerId ControllerOf(GameState state, ObjectId id) => state.Objects[id].InitialController;
+}
+
+/// <summary>Only <see cref="Move"/>: the state-based actions never draw, shuffle or make a token.</summary>
+internal sealed class FakeZones : IZoneSystem
+{
+    public string Name => "fake zones";
+
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null)
+    {
+        var obj = state.Objects[what];
+        var moved = new ObjectMoved(
+            what,
+            obj with
+            {
+                Id = new ObjectId(state.NextObjectId),
+                Zone = to,
+                Timestamp = state.NextTimestamp,
+                Tapped = tapped,
+                Damage = 0,
+                Counters = ImmutableDictionary<string, int>.Empty,
+                AttachedTo = null,
+            },
+            -1);
+        return new Outcome(moved.Apply(state), [moved]);
+    }
+
+    public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
+
+    public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+
+    public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+
+    public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
+}
+
+/// <summary>Enough filter matching for "enchant creature" to be right or wrong.</summary>
+internal sealed class FakeQuery(ICharacteristics characteristics) : IQuery
+{
+    public string Name => "fake query";
+
+    public bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context)
+    {
+        var chars = characteristics.Of(state, candidate);
+        if (filter.Types is { } types && (chars.Types & types) != types)
+            return false;
+        if (filter.NotTypes is { } notTypes && (chars.Types & notTypes) != 0)
+            return false;
+        return filter.Subtypes is not { Count: > 0 } subtypes
+            || subtypes.Any(s => chars.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase));
+    }
+
+    public bool Holds(GameState state, Condition condition, EffectContext context) => throw new NotSupportedException();
+
+    public int Evaluate(GameState state, Amount amount, EffectContext context) => throw new NotSupportedException();
+
+    public ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context) => throw new NotSupportedException();
+
+    public ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context) => throw new NotSupportedException();
+}
