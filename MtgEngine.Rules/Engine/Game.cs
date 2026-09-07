@@ -86,8 +86,10 @@ public sealed record Subsystems(
         var turn = new Turn.TurnSystem(zones, casting, combat, layers);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);
-        // The interpreter implements IResumable, so a card's question resumes through it (CR 101.4).
-        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter, casting);
+        // The interpreter implements IResumable, so a card's question resumes through it (CR 101.4);
+        // CR 510.2 and 616.1: a replacement-order question that stopped a combat damage batch
+        // resumes the rest of the batch through the combat system.
+        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter, casting, combat);
         return new Subsystems(
             query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices,
             new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
