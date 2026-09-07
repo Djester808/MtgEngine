@@ -14,6 +14,31 @@ namespace MtgEngine.Rules.Tests;
 /// </summary>
 public sealed partial class InterpreterTests
 {
+    [Fact]
+    [RuleRef("700.2")]
+    public void A_keyed_choice_inside_for_each_is_asked_once_per_iteration()
+    {
+        var table = new InterpreterTable();
+        var first = table.Permanent(table.A, power: 1, toughness: 5);
+        var second = table.Permanent(table.A, power: 1, toughness: 5);
+        table.Permanent(table.B, power: 1, toughness: 5);
+        table.Permanent(table.B, power: 1, toughness: 5);
+        var spell = table.OnStack(table.A, new ForEach(
+            new Each(new ObjectFilter(Types: CardType.Creature, ControlledBy: new EachOpponent())),
+            new DealDamage(new Fixed(1), To: new Choose(new ObjectFilter(Types: CardType.Creature, ControlledBy: new You()), new You(), Key: "pick"))));
+
+        table.Resolve(spell);
+        table.Answer(first.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        // CR 700.2: the second iteration makes its own choice rather than reusing the first.
+        Assert.NotNull(table.State.Pending);
+        table.Answer(second.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        Assert.Null(table.State.Pending);
+        Assert.Equal(1, table.Object(first).Damage);
+        Assert.Equal(1, table.Object(second).Damage);
+    }
+
     /* ---------------------------------------------------------------------------------------- *
      * CR 700.2 — "from among them": the candidates are the remembered set, wherever it is.
      * ---------------------------------------------------------------------------------------- */
