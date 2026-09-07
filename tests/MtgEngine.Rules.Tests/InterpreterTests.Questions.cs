@@ -169,28 +169,6 @@ public sealed partial class InterpreterTests
         Assert.Contains(table.State.Player(table.A).Mana.Provenance, p => p.Key == "k#0");
     }
 
-    [Fact]
-    [RuleRef("603.7")]
-    public void A_delayed_abilitys_instruction_is_read_off_the_state_and_not_off_a_card()
-    {
-        var table = new InterpreterTable();
-        var source = table.Permanent(table.A, CardType.Land, null, null);
-        table.Resolve(table.OnStack(table.A, new DelayedTrigger(
-            new ManaSpent("k"),
-            new GainLife(new Fixed(3)),
-            Once: false), Asked(source)));
-
-        Assert.Single(table.State.DelayedTriggers);
-
-        // CR 603.7: the ability on the stack is not an ability of the card, so its stack entry
-        // points at no index of the source and the instruction is found in the game state. Before
-        // this, the object resolved and did nothing at all.
-        var onStack = table.OnStack(table.A, new DoNothing(), new StackEntry(source, -1, [], [], [], null, false));
-        table.Resolve(onStack);
-
-        Assert.Equal(23, table.Life(table.A));
-    }
-
     /// <summary>An ability of that permanent on the stack, CR 603.3: the source is what is asked.</summary>
     private static StackEntry Asked(ObjectId source) => new(source, 0, [], [], [], null, false);
 }

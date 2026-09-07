@@ -169,12 +169,19 @@ public sealed partial class EffectInterpreter : IResumable
         var obj = state.Objects[stackObject];
         var entry = obj.Stack
             ?? throw new InvalidOperationException($"{stackObject} has no stack entry and cannot resume (CR 608.2)");
-        var effect = EffectOf(state, obj, entry);
+        var effect = EffectOf(obj, entry);
         if (effect is null)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
-        var context = ContextFor(state, obj, entry, characteristics.ControllerOf(state, stackObject));
-        context = Bind(context with { Targets = LegalTargets(state, entry, effect, context) }, resumption);
+        var controller = characteristics.ControllerOf(state, stackObject);
+        var context = ContextFor(state, obj, entry, controller);
+        context = Bind(
+            context with
+            {
+                Targets = LegalTargets(state, entry, effect, context),
+                TargetPlayers = LegalTargetPlayers(state, entry, controller),
+            },
+            resumption);
 
         var path = resumption.Context.EffectPath;
         var run = Execute(

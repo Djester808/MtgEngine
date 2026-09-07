@@ -52,7 +52,7 @@ public sealed partial class EffectInterpreter
             || spell.Stack is not { } entry)
             return run;
 
-        var effect = EffectOf(run.State, spell, entry);
+        var effect = EffectOf(spell, entry);
         var filters = effect is null ? [] : EffectWalk.TargetsIn(effect);
         var context = ContextFor(run.State, spell, entry, characteristics.ControllerOf(run.State, spell.Id));
 
