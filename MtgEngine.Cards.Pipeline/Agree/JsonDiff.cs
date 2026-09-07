@@ -51,6 +51,18 @@ public static class JsonDiff
             case JsonObject obj:
                 obj.Remove("text");
                 obj.Remove("oracleText");
+
+                // Two models that could not express the same sentence have agreed about the card:
+                // they both hit the same hole in the vocabulary. Which prose each chose for the
+                // hole is not a reading. The file keeps the reason — the linter's L001 quotes it,
+                // and the primitive backlog is ranked from it — only the comparison ignores it.
+                if (obj["kind"] is JsonValue kind
+                    && kind.TryGetValue<string>(out var name)
+                    && string.Equals(name, nameof(Unsupported), StringComparison.Ordinal))
+                {
+                    obj.Remove("reason");
+                }
+
                 foreach (var child in obj.Select(p => p.Value).ToList())
                     Strip(child);
                 break;
