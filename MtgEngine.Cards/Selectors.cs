@@ -196,6 +196,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(IsAttached), nameof(IsAttached))]
 [JsonDerivedType(typeof(IsRemembered), nameof(IsRemembered))]
 [JsonDerivedType(typeof(IsOneOf), nameof(IsOneOf))]
+[JsonDerivedType(typeof(DrawnThisTurn), nameof(DrawnThisTurn))]
 [JsonDerivedType(typeof(EnteredThisTurn), nameof(EnteredThisTurn))]
 [JsonDerivedType(typeof(CastThisTurn), nameof(CastThisTurn))]
 [JsonDerivedType(typeof(DealtDamageThisTurn), nameof(DealtDamageThisTurn))]
@@ -294,6 +295,22 @@ public sealed record IsOneOf(Selector Of) : Predicate;
 
 /// <summary>Attached to anything at all, or unattached when false.</summary>
 public sealed record IsAttached(bool Value = true) : Predicate;
+
+/// <summary>
+/// A card its owner drew this turn, CR 121.1: "choose two cards in your hand that you drew this
+/// turn". A draw is a game event and the game remembers which cards were drawn, so this describes
+/// a card in a hand by how it got there and by nothing else.
+/// <para>
+/// It is not <see cref="EnteredThisTurn"/>, which is a permanent entering the battlefield
+/// (CR 603.6a) and says nothing about a hand; and it is not a Remembered key, because the cards
+/// were drawn by another turn's step or by another ability, so no step of this card produced them.
+/// The filter it rides on carries the hand itself — <c>In: Zone.Hand</c> with a
+/// <c>ControlledBy</c>/<c>OwnedBy</c> of the player whose hand is meant — and this predicate only
+/// narrows that hand to the cards drawn this turn.
+/// </para>
+/// </summary>
+[RuleRef("121.1")]
+public sealed record DrawnThisTurn : Predicate;
 
 public sealed record EnteredThisTurn : Predicate;
 

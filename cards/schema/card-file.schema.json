@@ -419,6 +419,19 @@
               "type": "null"
             }
           ]
+        },
+        "alternativeCosts": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AlternativeCost"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -1079,6 +1092,29 @@
         "abilities"
       ],
       "description": "A leveler\u0027s band, CR 711: \u0022LEVEL 1-3 2/2 flying\u0022."
+    },
+    "AlternativeCost": {
+      "type": "object",
+      "properties": {
+        "cost": {
+          "$ref": "#/$defs/Cost"
+        },
+        "onlyIf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cost"
+      ],
+      "description": "A printed alternative cost, CR 118.9: \u0022you may pay {B} rather than pay this spell\u0027s mana cost\u0022, with the condition the printed line gates it on \u2014 \u0022if a creature died this turn\u0022. The spell is cast for Cost instead of its mana cost, and only while OnlyIf holds as the cost is chosen (CR 601.2b, where one alternative cost is chosen and CR 601.2f, where it is paid). Leave OnlyIf null for an ungated one. It belongs on the Face rather than on an ability because it is not a thing the card does: it is an option offered as the spell is cast, before any ability of it exists. A face may print more than one, and the caster picks at most one of them (CR 601.2b) \u2014 the list is the printed alternatives, never a way of saying \u0022and\u0022. It is not AdditionalCosts, which is CR 118.8 and is paid on top of the mana cost; a reading that puts an alternative cost there makes the spell cost both, which is a different card. It is not MayPay either: that is a choice made as the spell resolves, and this one is made as the spell is cast, before targets are legal. And it is not the play-permission flags on MayPlayFromZone, which grant a cast from another zone; this is the printed line on the card itself, whatever zone it is cast from."
     },
     "GeneratedSource": {
       "type": "object",
@@ -5260,6 +5296,9 @@
     "Amount": {
       "anyOf": [
         {
+          "$ref": "#/$defs/AttackersAgainst"
+        },
+        {
           "$ref": "#/$defs/CardsInHandOf"
         },
         {
@@ -5339,6 +5378,9 @@
         },
         {
           "$ref": "#/$defs/ToughnessOf"
+        },
+        {
+          "$ref": "#/$defs/TriggeringDamage"
         },
         {
           "$ref": "#/$defs/TurnNumber"
@@ -6306,6 +6348,9 @@
           "$ref": "#/$defs/CountersDoubled"
         },
         {
+          "$ref": "#/$defs/DamageDoesNotReduceLifeBelow"
+        },
+        {
           "$ref": "#/$defs/DamageMultiplier"
         },
         {
@@ -6337,6 +6382,9 @@
         },
         {
           "$ref": "#/$defs/MaxHandSize"
+        },
+        {
+          "$ref": "#/$defs/MayBeginGameOnBattlefield"
         },
         {
           "$ref": "#/$defs/MayLookAtTopCard"
@@ -6523,6 +6571,9 @@
         },
         {
           "$ref": "#/$defs/AttacksAlone"
+        },
+        {
+          "$ref": "#/$defs/AttacksWithCreatures"
         },
         {
           "$ref": "#/$defs/BecomesBlocked"
@@ -7650,6 +7701,16 @@
         },
         "once": {
           "type": "boolean"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Duration"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -7658,7 +7719,7 @@
         "when",
         "do"
       ],
-      "description": "\u0022At the beginning of the next end step, return it.\u0022 A trigger created by this effect, CR 603.7."
+      "description": "\u0022At the beginning of the next end step, return it.\u0022 A trigger created by this effect, CR 603.7. Until is the printed deadline, CR 603.7c: \u0022until end of turn, whenever a creature you control deals damage to a player, draw that many cards\u0022 is one DelayedTrigger with Once false and Until UntilEndOfTurn \u2014 the ability waits for its event for that long and is gone when the duration ends, whether or not it ever fired. It is the same \u0022this turn\u0022 that ends a continuous effect, so it is a Duration and not a condition or a turn count. Leave it null for the ordinary one-shot, whose own event is its end (\u0022at the beginning of the next end step\u0022): a deadline there would either repeat what the event already says or contradict it. Set Once false whenever the printed line says \u0022whenever\u0022 inside a duration, and keep it true for the single firing; the two fields answer different questions \u2014 how many times, and for how long \u2014 and a card that prints a duration and \u0022whenever\u0022 prints both."
     },
     "Destroy": {
       "type": "object",
@@ -8710,6 +8771,16 @@
               "type": "null"
             }
           ]
+        },
+        "storeAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -8717,7 +8788,7 @@
         "kind",
         "n"
       ],
-      "description": "CR 119"
+      "description": "\u0022Each opponent loses 3 life.\u0022 StoreAs is how \u0022the life lost this way\u0022 is said, CR 119.4: the life actually lost is stored under that key \u2014 the total across every player this one instruction took life from \u2014 and a later step reads it as a Stored amount, so \u0022you gain life equal to the life lost this way\u0022 is a GainLife whose N is Stored(that key). It is the life the game took, not the number the card asked for: a player at 2 who is asked for 3 loses 2, and CR 119.4 says the effect refers to what was lost. So the key is never a second copy of the amount \u2014 writing GainLife with the same Amount the LoseLife carried is a different card, and a Devotion or an X counted twice can differ between the two readings anyway. Leave the key out when nothing on the card refers back."
     },
     "Manifest": {
       "type": "object",
@@ -10624,6 +10695,26 @@
       ],
       "description": "CR 104.2"
     },
+    "AttackersAgainst": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AttackersAgainst"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "includingPermanentsTheyControl": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022two or more of those creatures are attacking you and/or planeswalkers you control\u0022: the creatures of the current declaration of attackers, CR 508.1, that are attacking the player Who names \u2014 and, while IncludingPermanentsTheyControl stands, the planeswalkers and battles that player controls, because a creature attacking one of those is attacking that player\u0027s side of the board and the printed phrase says \u0022and/or\u0022. It counts the declaration, so it is read in the same moment as AttacksWithCreatures \u2014 the condition of an ability that trigger put on the stack, CR 603.4 \u2014 and it is not CountOf with an Attacking filter, which counts every attacking creature in the combat whoever declared it and whoever it is aimed at, so a two-player attack in a three-player game reads the wrong number. Clear the flag only for a card that names the player alone."
+    },
     "CardsInHandOf": {
       "type": "object",
       "properties": {
@@ -11203,6 +11294,19 @@
         "of"
       ]
     },
+    "TriggeringDamage": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TriggeringDamage"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022that much damage\u0022, \u0022draw that many cards\u0022: how much damage the event that triggered this ability dealt, CR 603.10 \u2014 the trigger\u0027s own information, read as the ability resolves and not recomputed from the board. It is the amount half of every damage trigger, whether the ability is printed or was created as a DelayedTrigger this turn. It is not DamageDealtThisTurn, which totals a turn\u0027s damage and would count an earlier hit as well, and it is not a Stored key: no step of this card dealt the damage, so nothing on the card could have stored it. The ability it appears in must trigger on damage \u2014 DealsDamage, IsDealtDamage or PlayerIsDealtDamage, its own or its delayed trigger\u0027s \u2014 or there is no event to read and the amount is a lost sentence (L028)."
+    },
     "TurnNumber": {
       "type": "object",
       "properties": {
@@ -11250,6 +11354,9 @@
         },
         {
           "$ref": "#/$defs/DealtDamageThisTurn"
+        },
+        {
+          "$ref": "#/$defs/DrawnThisTurn"
         },
         {
           "$ref": "#/$defs/EnteredThisTurn"
@@ -12170,6 +12277,9 @@
         },
         "isLegendary": {
           "type": "boolean"
+        },
+        "exceptThisAbility": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -12177,7 +12287,7 @@
         "kind",
         "of"
       ],
-      "description": "Layer 1: becomes a copy of another object, with the printed exceptions."
+      "description": "Layer 1: becomes a copy of another object, with the printed exceptions. ExceptThisAbility is the self-referential exception, CR 707.9b: \u0022target land becomes a copy of this land, except it has this ability\u0022. \u0022This ability\u0022 is the very ability the effect is part of, so the copy keeps a copy of it and can be used again \u2014 the exception is a flag and never a nested ability inside Except. Writing the ability out would nest one reading of it inside another with no end to the nesting, and a reader that stopped early would produce a copy that cannot copy, which is a different card. The ability the flag points at is the activated or triggered ability that created this effect (CR 707.9b names an ability of the object, and CR 109.5 says \u0022this\u0022 means the object the ability is on). A static ability or a spell ability has no such ability to hand back \u2014 a spell ability goes to the graveyard with the card \u2014 so the flag on either is a lost sentence (L029)."
     },
     "CantActivateAbilities": {
       "type": "object",
@@ -12633,6 +12743,23 @@
         "who"
       ],
       "description": "CR 613"
+    },
+    "DamageDoesNotReduceLifeBelow": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DamageDoesNotReduceLifeBelow"
+        },
+        "floor": {
+          "$ref": "#/$defs/Amount"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "floor"
+      ],
+      "description": "\u0022Damage that would reduce your life total to less than 1 reduces it to 1 instead\u0022: a floor under a player\u0027s life total against damage, CR 120.4 (damage dealt to a player causes that player to lose that much life) with CR 119.3 (the life loss itself). It applies to the players a StaticAbility\u0027s Players or an ApplyToPlayer names, and it replaces only the damage event: the amount of damage is reduced so that the life total lands on Floor and no lower, and damage that leaves the total at or above the floor is dealt unchanged. It is not PreventDamage, which prevents a fixed amount or all of it whatever the life total is (CR 615), and it is not CantLoseGame, which lets the total fall and only stops the loss: a card that prints both sentences prints two abilities, and each is written as its own record. It is also not a life loss floor \u2014 Floor bites on damage alone, so a cost that pays life or an effect that says \u0022lose life\u0022 is untouched, exactly as the printed line says."
     },
     "DamageMultiplier": {
       "type": "object",
@@ -13255,6 +13382,52 @@
         "size"
       ],
       "description": "CR 613"
+    },
+    "MayBeginGameOnBattlefield": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "MayBeginGameOnBattlefield"
+        },
+        "onlyIf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "withCounters": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CounterSpec"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ifYouDo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022If this card is in your opening hand, you may begin the game with it on the battlefield\u0022: the one kind of ability that functions before the game begins, CR 103.6. The StaticAbility that carries it names Where: Zone.Hand, because the hand is the zone the ability works from and a battlefield-scoped ability would never be read (L027). OnlyIf is the printed rider some of these carry \u2014 \u0022and you\u0027re not the starting player\u0022 \u2014 read as the game is set up and never again. WithCounters is \u0022with a luck counter on it\u0022, the counters the permanent begins the game with, and IfYouDo is the cost the offer carries: \u0022if you do, exile a card from your hand\u0022. Leave each out when the card does not print it. The permission is one record and never a trigger: nothing has happened yet for a trigger to watch, there is no turn and no stack (CR 103.6), so an EntersBattlefield or AtStep reading of this line puts the card on the battlefield at a moment the rules do not offer."
     },
     "MayLookAtTopCard": {
       "type": "object",
@@ -14678,6 +14851,23 @@
       ],
       "description": "CR 603"
     },
+    "AttacksWithCreatures": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AttacksWithCreatures"
+        },
+        "by": {
+          "$ref": "#/$defs/PlayerRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "by"
+      ],
+      "description": "\u0022Whenever an opponent attacks with creatures\u0022: one firing per declaration of attackers, CR 508.1, not one per attacking creature. It triggers once for the player By names when that player declares one or more attackers, whatever they attack and however many there are. It is not Attacks, which is CR 508.2 and fires once for each creature: a card that says \u0022whenever an opponent attacks with creatures ... draw a card\u0022 draws one card for a three-creature attack, and written as Attacks it would draw three. It is not AttacksAlone either, which is the one-creature case. The \u0022if two or more of those creatures are attacking you and/or planeswalkers you control\u0022 half is the ability\u0027s own If \u2014 a Compare over the AttackersAgainst amount, which counts this declaration\u0027s attackers aimed at one player and the permanents that player controls. The two are read at the same moment and neither is written as the other."
+    },
     "BecomesBlocked": {
       "type": "object",
       "properties": {
@@ -15901,26 +16091,52 @@
           ]
         },
         "to": {
-          "type": "string",
-          "enum": [
-            "Library",
-            "Hand",
-            "Battlefield",
-            "Graveyard",
-            "Stack",
-            "Exile",
-            "Command",
-            "OutsideTheGame"
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Library",
+                "Hand",
+                "Battlefield",
+                "Graveyard",
+                "Stack",
+                "Exile",
+                "Command",
+                "OutsideTheGame"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notFrom": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Library",
+                "Hand",
+                "Battlefield",
+                "Graveyard",
+                "Stack",
+                "Exile",
+                "Command",
+                "OutsideTheGame"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
       "additionalProperties": false,
       "required": [
         "kind",
-        "what",
-        "to"
+        "what"
       ],
-      "description": "Any other zone change: \u0022whenever a card is put into your graveyard from anywhere\u0022."
+      "description": "Any other zone change: \u0022whenever a card is put into your graveyard from anywhere\u0022, CR 603.6. Every field but What is optional and each one set must hold. From names the zone the object left (\u0022from your graveyard\u0022), and NotFrom is the printed exception: \u0022put into a graveyard from anywhere other than the battlefield\u0022 is To Graveyard with NotFrom Battlefield, and it is ONE trigger, never a ZoneChange wrapped in a condition about where the object was \u2014 the object is gone by the time the ability\u0027s condition is read (CR 603.10), so a condition there tests nothing. Set one or the other, never both: a card names the zone it cares about or the one it excludes. To is optional so that a trigger about leaving one zone for anywhere is one trigger too: \u0022whenever a card leaves your graveyard\u0022 is From Graveyard with no To. Leave To out only then \u2014 a trigger with no From, no NotFrom and no To fires on every zone change in the game and is a lost sentence (L025). \u0022Leaves the battlefield\u0022 keeps its own record, LeavesBattlefield, and \u0022dies\u0022 keeps Dies."
     },
     "ManaProduction": {
       "type": "object",
@@ -16389,6 +16605,19 @@
       "required": [
         "kind"
       ]
+    },
+    "DrawnThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DrawnThisTurn"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "A card its owner drew this turn, CR 121.1: \u0022choose two cards in your hand that you drew this turn\u0022. A draw is a game event and the game remembers which cards were drawn, so this describes a card in a hand by how it got there and by nothing else. It is not EnteredThisTurn, which is a permanent entering the battlefield (CR 603.6a) and says nothing about a hand; and it is not a Remembered key, because the cards were drawn by another turn\u0027s step or by another ability, so no step of this card produced them. The filter it rides on carries the hand itself \u2014 In: Zone.Hand with a ControlledBy/OwnedBy of the player whose hand is meant \u2014 and this predicate only narrows that hand to the cards drawn this turn."
     },
     "EnteredThisTurn": {
       "type": "object",

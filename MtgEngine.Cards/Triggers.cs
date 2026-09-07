@@ -17,6 +17,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(AtStep), nameof(AtStep))]
 [JsonDerivedType(typeof(Attacks), nameof(Attacks))]
 [JsonDerivedType(typeof(AttacksAlone), nameof(AttacksAlone))]
+[JsonDerivedType(typeof(AttacksWithCreatures), nameof(AttacksWithCreatures))]
 [JsonDerivedType(typeof(Blocks), nameof(Blocks))]
 [JsonDerivedType(typeof(BecomesBlocked), nameof(BecomesBlocked))]
 [JsonDerivedType(typeof(DealsDamage), nameof(DealsDamage))]
@@ -81,9 +82,27 @@ public sealed record LeavesBattlefield(ObjectFilter What) : Trigger;
 [RuleRef("700.4")]
 public sealed record Dies(ObjectFilter What) : Trigger;
 
-/// <summary>Any other zone change: "whenever a card is put into your graveyard from anywhere".</summary>
+/// <summary>
+/// Any other zone change: "whenever a card is put into your graveyard from anywhere", CR 603.6.
+/// Every field but <paramref name="What"/> is optional and each one set must hold.
+/// <para>
+/// <paramref name="From"/> names the zone the object left ("from your graveyard"), and
+/// <paramref name="NotFrom"/> is the printed exception: "put into a graveyard from anywhere other
+/// than the battlefield" is To Graveyard with NotFrom Battlefield, and it is ONE trigger, never a
+/// ZoneChange wrapped in a condition about where the object was — the object is gone by the time
+/// the ability's condition is read (CR 603.10), so a condition there tests nothing. Set one or the
+/// other, never both: a card names the zone it cares about or the one it excludes.
+/// </para>
+/// <para>
+/// <paramref name="To"/> is optional so that a trigger about leaving one zone for anywhere is one
+/// trigger too: "whenever a card leaves your graveyard" is From Graveyard with no To. Leave To out
+/// only then — a trigger with no From, no NotFrom and no To fires on every zone change in the game
+/// and is a lost sentence (L025). "Leaves the battlefield" keeps its own record,
+/// <see cref="LeavesBattlefield"/>, and "dies" keeps <see cref="Dies"/>.
+/// </para>
+/// </summary>
 [RuleRef("603.6")]
-public sealed record ZoneChange(ObjectFilter What, Zone? From, Zone To) : Trigger;
+public sealed record ZoneChange(ObjectFilter What, Zone? From = null, Zone? To = null, Zone? NotFrom = null) : Trigger;
 
 [RuleRef("603.2")]
 public sealed record SpellCast(ObjectFilter Spell, PlayerRef By) : Trigger;
@@ -97,6 +116,27 @@ public sealed record AtStep(Step Step, PlayerRef Whose) : Trigger;
 public sealed record Attacks(ObjectFilter Who, PlayerRef? Defending = null, ObjectFilter? AttackedPermanent = null) : Trigger;
 
 public sealed record AttacksAlone(ObjectFilter Who) : Trigger;
+
+/// <summary>
+/// "Whenever an opponent attacks with creatures": one firing per declaration of attackers,
+/// CR 508.1, not one per attacking creature. It triggers once for the player
+/// <paramref name="By"/> names when that player declares one or more attackers, whatever they
+/// attack and however many there are.
+/// <para>
+/// It is not <see cref="Attacks"/>, which is CR 508.2 and fires once for each creature: a card that
+/// says "whenever an opponent attacks with creatures ... draw a card" draws one card for a
+/// three-creature attack, and written as Attacks it would draw three. It is not
+/// <see cref="AttacksAlone"/> either, which is the one-creature case.
+/// </para>
+/// <para>
+/// The "if two or more of those creatures are attacking you and/or planeswalkers you control" half
+/// is the ability's own <c>If</c> — a Compare over the <see cref="AttackersAgainst"/> amount, which
+/// counts this declaration's attackers aimed at one player and the permanents that player controls.
+/// The two are read at the same moment and neither is written as the other.
+/// </para>
+/// </summary>
+[RuleRef("508.1")]
+public sealed record AttacksWithCreatures(PlayerRef By) : Trigger;
 
 [RuleRef("509.2")]
 public sealed record Blocks(ObjectFilter Blocker, ObjectFilter? Blocked = null) : Trigger;
