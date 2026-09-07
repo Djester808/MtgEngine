@@ -13,7 +13,7 @@ namespace MtgEngine.Rules.Tests;
 /// Every test here checks the log as well as the state, because the property that makes the
 /// engine replayable is that a subsystem's state is the fold of the events it hands back.
 /// </summary>
-public sealed class ZoneChangeTests
+public sealed partial class ZoneChangeTests
 {
     private const string Bear = "oracle-bear";
     private const string Bolt = "oracle-bolt";
