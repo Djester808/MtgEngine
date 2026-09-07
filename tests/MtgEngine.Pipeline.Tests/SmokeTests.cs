@@ -1,3 +1,5 @@
+using MtgEngine.Cards.Pipeline.Translate;
+
 namespace MtgEngine.Cards.Pipeline.Tests;
 
 /// <summary>The test project exists before the stages do, so each stage's builder adds tests here rather than creating the project.</summary>
@@ -16,7 +18,7 @@ public sealed class SmokeTests
     public void A_fenced_or_prefixed_answer_still_parses()
     {
         const string text = "Here you go:\n```json\n{\"oracleId\":\"x\",\"name\":\"Test\",\"layout\":\"Normal\",\"faces\":[{\"name\":\"Test\",\"role\":\"Main\",\"types\":{\"types\":[\"Creature\"]}}]}\n```";
-        var (definition, error) = Translator.Parse(text);
+        var (definition, error) = TranslationPrompt.Parse(text);
         Assert.Null(error);
         Assert.Equal("Test", definition!.Name);
     }
