@@ -90,6 +90,66 @@ public sealed class TriggeredAbilityTests
     }
 
     [Fact]
+    [RuleRef("603.10")]
+    public void ALookBackSeesTheCountersThePermanentHadWhenItLeft()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Put(TriggeredAbilityBoard.Definition(
+            "mourner",
+            CardType.Enchantment,
+            [Ability(new LeavesBattlefield(new ObjectFilter(Types: CardType.Creature, WithCounter: "+1/+1")))]));
+        var beast = board.Put(TriggeredAbilityBoard.Creature("beast"), counter: "+1/+1").Object.Id;
+
+        // The card in the graveyard is a new object with no counters, CR 400.7; the permanent the
+        // trigger looks back at had one.
+        var died = board.Kill(beast);
+        Assert.Empty(died.To.Counters);
+
+        var fired = Assert.Single(board.Collect(died).Events.OfType<TriggerFired>());
+        Assert.Equal(beast, Assert.Single(fired.Subjects));
+    }
+
+    [Fact]
+    [RuleRef("603.10")]
+    public void ALookBackSeesWhoControlledThePermanentThatLeft()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Put(TriggeredAbilityBoard.Definition(
+            "mourner",
+            CardType.Enchantment,
+            [Ability(new LeavesBattlefield(new ObjectFilter(Types: CardType.Creature, ControlledBy: new You())))]));
+
+        // A creature seat 0 had taken control of: the card that goes to the graveyard is its
+        // owner's (CR 108.4), so only the departed permanent says seat 0 controlled it.
+        var stolen = board.Put(TriggeredAbilityBoard.Creature("beast"), controller: 0, owner: 1).Object.Id;
+        var died = board.Kill(stolen);
+        Assert.Equal(new PlayerId(1), died.To.InitialController);
+
+        var fired = Assert.Single(board.Collect(died).Events.OfType<TriggerFired>());
+        Assert.Equal(stolen, Assert.Single(fired.Subjects));
+    }
+
+    [Fact]
+    [RuleRef("603.10")]
+    public void AMoveThatCarriesNoDepartedObjectStillMatchesOnWhatTheNewObjectSays()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Put(TriggeredAbilityBoard.Definition(
+            "mourner",
+            CardType.Enchantment,
+            [Ability(new LeavesBattlefield(ObjectFilter.Creature))]));
+        var beast = board.Put(TriggeredAbilityBoard.Creature("beast"), counter: "+1/+1").Object.Id;
+
+        // The fallback: an event with no departed object is rebuilt from the card that arrived, so
+        // the type still matches and the counter is not there to be read.
+        var died = board.Kill(beast, carryDeparted: false);
+        Assert.Null(died.Departed);
+
+        var fired = Assert.Single(board.Collect(died).Events.OfType<TriggerFired>());
+        Assert.Equal(beast, Assert.Single(fired.Subjects));
+    }
+
+    [Fact]
     [RuleRef("700.4")]
     public void ADiesTriggerOnAnAuraSeesTheCreatureItWasAttachedTo()
     {
