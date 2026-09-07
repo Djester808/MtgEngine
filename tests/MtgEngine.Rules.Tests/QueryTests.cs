@@ -426,6 +426,9 @@ public sealed partial class QueryTests
 
         public World Targeting(params ObjectId[] targets) => this with { Context = Context with { Targets = [.. targets] } };
 
+        /// <summary>CR 603.6: the objects a firing was about, subject first, as the trigger system hands them on.</summary>
+        public World Triggered(params ObjectId[] objects) => this with { Context = Context with { Triggering = [.. objects] } };
+
         public World Remember(string key, params ObjectId[] objects) =>
             this with { Context = Context with { Remembered = Context.Remembered.SetItem(key, [.. objects]) } };
 
