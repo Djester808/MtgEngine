@@ -52,6 +52,13 @@ public static class VocabularyReference
         sb.AppendLine("- Keys (\"key\", \"storeAs\", \"storeChoiceAs\", \"rememberAs\") are free text; any name reads the same. Use short ones and reuse the same name for the same thing within a face.");
         sb.AppendLine("- Use GrantKeyword for a keyword, never GrantAbility wrapping a KeywordAbility. \"Gains flying until end of turn\" is GrantKeyword.");
         sb.AppendLine("- One instruction is that instruction, not a Sequence of one step. Omit an empty \"of\" or \"except\" rather than writing {}.");
+        sb.AppendLine("- n?/count?: omit a count of one wherever the record allows it. \"Discard a card\" is {\"kind\":\"Discard\"}; \"target creature\" is a Target with no \"count\". Write the count only from two upward, or when it is not a fixed number.");
+        sb.AppendLine("- ownedBy?: omit it on the \"for\" filter of a Search of a library. You search your own library, so \"a card you own\" there says nothing. On a graveyard or exile filter the owner matters — keep it.");
+        sb.AppendLine();
+        sb.AppendLine("Two more, where the same instruction has two shapes rather than an extra word:");
+        sb.AppendLine("- Basic lands carry the Land type. \"Basic land card\" is {\"supertypes\":[\"Basic\"],\"types\":[\"Land\"]} — write both, never Basic alone.");
+        sb.AppendLine("- A search that shuffles uses Search's own \"shuffleAfter\": true. Do not write Search with \"shuffleAfter\": false followed by a Shuffle step; that is the same instruction spelled twice.");
+        sb.AppendLine("- Remember a target only when a later step needs it after the object may have moved. \"Exile target creature, then its controller draws\" reads the target again; \"exile target creature, then return it\" remembers it, because the card it returns is no longer the object that was targeted.");
         sb.AppendLine();
     }
 

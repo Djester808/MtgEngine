@@ -75,12 +75,19 @@ public static class AgreeStage
         }
 
         var models = readings.Select(r => r.Model).ToList();
-        var agreed = clean.Count == readings.Count
-            && clean.Select(r => JsonDiff.CanonicalText(r.Definition!)).Distinct(StringComparer.Ordinal).Count() == 1;
+
+        // A card both models could only mark Unsupported is not a dispute: they read the card the
+        // same way and hit the same hole in the vocabulary. Calling that Disputed sent the dispute
+        // queue two identical readings to choose between and hid the real answer, which is a
+        // missing primitive. L001 still carries the marker into the file, the linter still errors
+        // on it, and the deck gate still refuses it — only the status is now honest.
+        var evidence = parsed.Where(r => IsEvidence(lint[r.Model])).ToList();
+        var agreed = evidence.Count == readings.Count
+            && evidence.Select(r => JsonDiff.CanonicalText(r.Definition!)).Distinct(StringComparer.Ordinal).Count() == 1;
 
         if (agreed)
         {
-            var file = FileFor(request, clean[0].Definition!, models, ImplementationStatus.Translated, agreed: true);
+            var file = FileFor(request, evidence[0].Definition!, models, ImplementationStatus.Translated, agreed: true);
             return new AgreeResult(request.OracleId, request.Name, ImplementationStatus.Translated, file, lint, cleanModels, null);
         }
 
@@ -107,6 +114,15 @@ public static class AgreeStage
             return null;
         return reading.Lint ?? Linter.Check(FileFor(request, reading.Definition, [reading.Model], ImplementationStatus.Translated, agreed: false));
     }
+
+    /// <summary>
+    /// Whether a reading is evidence of what the card does. Any lint error but L001 means the
+    /// reading is broken and says nothing; L001 alone means the reading is right about the card
+    /// and the vocabulary is short a primitive, which two readings can agree on.
+    /// </summary>
+    private static bool IsEvidence(LintReport? report) =>
+        report is not null
+        && report.Findings.All(f => f.Severity != LintSeverity.Error || string.Equals(f.Code, "L001", StringComparison.Ordinal));
 
     private static string? FirstDifference(IReadOnlyList<ModelReading> parsed)
     {

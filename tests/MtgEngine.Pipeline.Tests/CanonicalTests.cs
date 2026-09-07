@@ -11,7 +11,7 @@ namespace MtgEngine.Cards.Pipeline.Tests;
 /// The second half of that is the part with teeth — <see cref="Nothing_semantic_is_canonicalised_away"/>
 /// is the test that stops this class from turning agreement into a rubber stamp.
 /// </summary>
-public sealed class CanonicalTests
+public sealed partial class CanonicalTests
 {
     private const string OracleId = "00000000-0000-0000-0000-0000000000c1";
 

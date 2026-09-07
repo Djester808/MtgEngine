@@ -29,7 +29,7 @@ namespace MtgEngine.Cards.Pipeline.Agree;
 /// vocabulary — DealDamage carries To and ToPlayer separately — so a filter naming
 /// Creature/Planeswalker/Battle is left exactly as written, and the two readings still differ.
 /// </summary>
-public static class Canonical
+public static partial class Canonical
 {
     /// <summary>The canonical reading of a definition: the same card, spelled one way.</summary>
     public static CardDefinition Of(CardDefinition definition)
@@ -63,21 +63,28 @@ public static class Canonical
     }
 
     /// <summary>Where in the definition a node sits, which is what makes a default a default.</summary>
-    private readonly record struct Context(bool InCost, string? DefaultZone)
+    private readonly record struct Context(bool InCost, string? DefaultZone, bool InOwnLibrarySearch = false)
     {
         /// <summary>A card's abilities describe permanents until an effect says otherwise.</summary>
         public static Context Root => new(false, nameof(Zone.Battlefield));
 
-        public Context For(string? kind, string property)
+        public Context For(JsonObject parent, string? kind, string property)
         {
             var inCost = InCost || (kind is not null && CostKinds.Value.Contains(kind));
             var zone = DefaultZone;
+            var ownLibrary = false;
             if (kind == nameof(Search))
-                zone = property == "for" ? nameof(Zone.Library) : null;
+            {
+                var searched = property == "for";
+                zone = searched ? nameof(Zone.Library) : null;
+                ownLibrary = searched && SearchesOwnLibrary(parent);
+            }
             else if (kind is not null && ZoneBound.Contains(kind))
+            {
                 zone = null;
+            }
 
-            return new Context(inCost, zone);
+            return new Context(inCost, zone, ownLibrary);
         }
     }
 
@@ -161,12 +168,13 @@ public static class Canonical
         foreach (var name in obj.Select(p => p.Key).ToList())
         {
             var value = obj[name];
-            var rewritten = Rewrite(value, context.For(kind, name));
+            var rewritten = Rewrite(value, context.For(obj, kind, name));
             if (!ReferenceEquals(rewritten, value))
                 obj[name] = rewritten;
         }
 
         StripDefaults(obj, kind, context);
+        Derive(obj, kind, context);
         return Collapse(obj, kind) ?? obj;
     }
 

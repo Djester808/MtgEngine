@@ -3,8 +3,13 @@ using System.Text;
 
 namespace MtgEngine.Cards.Pipeline.Agree;
 
-/// <summary>One shape of disagreement and how many cards it cost, keyed by the property that differed.</summary>
-public sealed record DifferenceGroup(string Property, int Cards, string Example);
+/// <summary>
+/// One shape of disagreement and how many cards it cost, keyed by the property that differed.
+/// <paramref name="Example"/> is the whole difference line — the path and both readings' values,
+/// so the shape is readable without opening a card file — and <paramref name="ExampleCard"/> names
+/// the card it came from for when it is not.
+/// </summary>
+public sealed record DifferenceGroup(string Property, int Cards, string Example, string ExampleCard, string Left, string Right);
 
 /// <summary>
 /// What a batch of agreement decisions came to, and — the point of it — the remaining first
@@ -24,13 +29,14 @@ public sealed record AgreeReport(
     {
         ArgumentNullException.ThrowIfNull(results);
         var all = results.ToList();
-        var groups = new Dictionary<string, (int Cards, string Example)>(StringComparer.Ordinal);
-        foreach (var difference in all.Select(r => r.Difference).OfType<string>())
+        var groups = new Dictionary<string, (int Cards, string Example, string Card)>(StringComparer.Ordinal);
+        foreach (var result in all.Where(r => r.Difference is not null))
         {
+            var difference = result.Difference!;
             var property = PropertyOf(difference);
             groups[property] = groups.TryGetValue(property, out var seen)
-                ? (seen.Cards + 1, seen.Example)
-                : (1, difference);
+                ? (seen.Cards + 1, seen.Example, seen.Card)
+                : (1, difference, result.Name);
         }
 
         return new AgreeReport(
@@ -41,7 +47,28 @@ public sealed record AgreeReport(
             [.. groups
                 .OrderByDescending(g => g.Value.Cards)
                 .ThenBy(g => g.Key, StringComparer.Ordinal)
-                .Select(g => new DifferenceGroup(g.Key, g.Value.Cards, g.Value.Example))]);
+                .Select(g => new DifferenceGroup(
+                    g.Key,
+                    g.Value.Cards,
+                    g.Value.Example,
+                    g.Value.Card,
+                    Side(g.Value.Example, left: true),
+                    Side(g.Value.Example, left: false)))]);
+    }
+
+    /// <summary>
+    /// One side of an example's <c>a vs b</c>, so a caller that renders the pair in two columns
+    /// does not have to re-split the line. Empty when the line has no pair, which is the shape a
+    /// count difference takes (<c>abilities: 2 items vs 1 items</c> splits, <c>$</c> alone does not).
+    /// </summary>
+    private static string Side(string example, bool left)
+    {
+        var colon = example.IndexOf(": ", StringComparison.Ordinal);
+        var values = colon < 0 ? example : example[(colon + 2)..];
+        var vs = values.IndexOf(" vs ", StringComparison.Ordinal);
+        if (vs < 0)
+            return string.Empty;
+        return left ? values[..vs] : values[(vs + 4)..];
     }
 
     /// <summary>
@@ -68,7 +95,11 @@ public sealed record AgreeReport(
             CultureInfo.InvariantCulture,
             $"{Cards} cards: {Agreed} agreed, {Disputed} disputed, {Untranslated} untranslated"));
         foreach (var group in Differences)
+        {
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"  {group.Property}: {group.Cards}  e.g. {group.Example}"));
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"      on {group.ExampleCard}"));
+        }
+
         return sb.ToString();
     }
 }
