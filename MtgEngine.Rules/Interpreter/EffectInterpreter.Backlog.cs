@@ -1,6 +1,7 @@
 using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Casting;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Faces;
@@ -208,7 +209,7 @@ public sealed partial class EffectInterpreter
                 return Ask(
                     run,
                     run.Context.Controller,
-                    "value",
+                    ChoiceKinds.Value,
                     "Divide the counters among the targets.",
                     [.. options.Select(o => new ChoiceOption(o, o))],
                     1,

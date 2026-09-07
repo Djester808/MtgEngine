@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 
@@ -149,7 +150,7 @@ public sealed partial class EffectInterpreter
                     return Ask(
                         run,
                         FirstPlayer(run, choose.Who),
-                        "value",
+                        ChoiceKinds.Value,
                         "Choose " + choose.What.ToString(),
                         offered,
                         1,

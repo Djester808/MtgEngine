@@ -38,16 +38,19 @@ public sealed partial class EffectInterpreter(
         var entry = obj.Stack
             ?? throw new InvalidOperationException($"{stackObject} has no stack entry and cannot resolve (CR 608.2)");
         var controller = characteristics.ControllerOf(state, stackObject);
-        var effect = EffectOf(state, obj, entry);
+        var effect = EffectOf(obj, entry);
         var context = ContextFor(state, obj, entry, controller);
 
         // CR 608.2b: an illegal target is skipped, and a spell all of whose targets are illegal
-        // does not resolve at all.
+        // does not resolve at all. A targeted player counts on both sides of that: one who has
+        // become illegal is dropped like an object, and a spell that named nothing else fizzles.
         var legal = LegalTargets(state, entry, effect, context);
-        if (entry.Targets.Count > 0 && legal.Count == 0 && entry.TargetPlayers.Count == 0)
+        var legalPlayers = LegalTargetPlayers(state, entry, controller);
+        var named = entry.Targets.Count + Targeted(entry.TargetPlayers, entry).Count;
+        if (named > 0 && legal.Count == 0 && Targeted(legalPlayers, entry).Count == 0)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
-        context = context with { Targets = legal };
+        context = context with { Targets = legal, TargetPlayers = legalPlayers };
         if (effect is null)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
@@ -79,28 +82,19 @@ public sealed partial class EffectInterpreter(
 
     /// <summary>
     /// What the resolving object does: a spell's spell abilities, or the one ability that was put
-    /// on the stack. A delayed triggered ability is on the stack with no ability of its source to
-    /// point at — CR 603.7 keeps its instruction in the game state, not on a card — so a negative
-    /// index means "look there", the same reading <c>Tree</c> uses to resume a question
-    /// asked inside one. A delayed ability that fires only once is removed from the state as it
-    /// fires (CR 603.7b), so this finds a repeating one and nothing else; see
-    /// <c>seam-requests/E9j.md</c> for the once-only half, which needs the firing to carry its
-    /// instruction onto the stack object.
+    /// on the stack, named by its index. A delayed triggered ability comes in by that one road
+    /// too: CR 603.7a keeps its instruction off the card, so the trigger system appends the
+    /// ability to the definition the firing's stack object resolves from and the entry names that
+    /// appended position (<c>seam-requests/E6e.md</c>). There is nothing to look up in
+    /// <see cref="GameState.DelayedTriggers"/> here — a once-only ability is already removed from
+    /// there as it fires (CR 603.7b), which is why reading the state was never a road at all.
     /// </summary>
     [RuleRef("603.7")]
-    private static Effect? EffectOf(GameState state, GameObject obj, StackEntry entry)
+    private static Effect? EffectOf(GameObject obj, StackEntry entry)
     {
         var abilities = obj.Face.AbilityList;
         if (entry.AbilityIndex is { } index)
-        {
-            if (index >= 0)
-                return index < abilities.Count ? Body(abilities[index]) : null;
-
-            var delayed = entry.Source is { } source
-                ? state.DelayedTriggers.Where(t => t.Source == source).ToList()
-                : [];
-            return delayed.Count == 1 ? delayed[0].Do : null;
-        }
+            return index >= 0 && index < abilities.Count ? Body(abilities[index]) : null;
 
         // CR 608.2c: a spell does what its spell abilities say, in printed order.
         var spells = abilities.OfType<SpellAbility>().Select(a => a.Do).ToList();
@@ -195,6 +189,43 @@ public sealed partial class EffectInterpreter(
 
         return legal.ToImmutable();
     }
+
+    /// <summary>
+    /// The players still legally targeted, CR 608.2b with 115.6 and 702.16j. The two prohibitions
+    /// are read exactly as the casting system reads them at announcement, from the same point of
+    /// view, so a spell is not announced against a player it could not resolve against:
+    /// <see cref="PlayerRestriction.BeTargeted"/> is the card-text form ("by spells or abilities
+    /// your opponents control") and so lets the resolving object's own controller keep naming
+    /// themselves, while protection from everything is the stronger one that no source targets
+    /// through. A gift's promised player (CR 115.10) rides on the same list and is not a target,
+    /// so nothing is re-checked for them.
+    /// </summary>
+    [RuleRef("608.2b")]
+    private ImmutableList<PlayerId> LegalTargetPlayers(GameState state, StackEntry entry, PlayerId controller)
+    {
+        if (entry.TargetPlayers.Count == 0)
+            return entry.TargetPlayers;
+
+        var legal = ImmutableList.CreateBuilder<PlayerId>();
+        foreach (var player in entry.TargetPlayers)
+        {
+            var limits = characteristics.PlayerRestrictions(state, player);
+            var illegal = limits.ProtectionFromEverything
+                || (limits.Has(PlayerRestriction.BeTargeted) && player != controller);
+            if (player == entry.GiftPromisedTo || !illegal)
+                legal.Add(player);
+        }
+
+        return legal.ToImmutable();
+    }
+
+    /// <summary>
+    /// The players on a stack entry that are targets, CR 608.2b: everyone the spell named, less a
+    /// gift's promised player, who travels on the same list and is not one (CR 115.10).
+    /// </summary>
+    [RuleRef("115.10")]
+    private static ImmutableList<PlayerId> Targeted(ImmutableList<PlayerId> players, StackEntry entry) =>
+        entry.GiftPromisedTo is { } promised ? players.RemoveAll(p => p == promised) : players;
 
     /* ---------------------------------------------------------------------------------------- *
      * The walk itself.
