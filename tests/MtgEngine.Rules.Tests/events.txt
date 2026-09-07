@@ -10,6 +10,8 @@ CombatEnded
 CountersChanged
 DamageDealt
 DrawFromEmptyLibraryAttempted
+EndOfTurnEffectsEnded
+ExtraTurnTaken
 GameEnded
 GameStarted
 LandPlayed
@@ -25,6 +27,7 @@ ObjectMoved
 PlayerCountersChanged
 PlayerLost
 PriorityGranted
+PriorityHandedTo
 PriorityPassed
 RngAdvanced
 SpellCast
