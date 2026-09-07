@@ -386,6 +386,13 @@ start with. It is a wave-2 client task if wanted, not a dependency of anything.
   the seam was wrong; unify before wave 2, do not patch.
 - **After the first verify round**: if more than a tenth of `Verified` cards are refuted,
   scenarios are too weak; the smoke scenario gains assertions before the corpus run.
+  - **Measured 2026-09-07** (`pipeline verify cards` on the wave-6 tip, engine hash
+    `0813f37cabbabed6`): of the 87 agreed pilot cards, **66 verified** through real games, 4
+    failed for named reasons (two Auras not attached on resolution, CR 303.4f; two
+    sacrifice-cost spells whose scenario step cannot name the object), 16 with no smoke
+    scenario yet, 1 crashed on its own `Unsupported` marker. No refutation exists yet — the
+    rulings-as-scenarios round (`pipeline rulings-submit`) waits on credits, so this decision
+    point is still open. The verified statuses and engine hash are committed in `cards/`.
 
 ## Schedule
 
