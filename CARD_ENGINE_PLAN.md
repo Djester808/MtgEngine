@@ -31,7 +31,10 @@ Measured, as of the wave-12 tip (`2d9bae1`):
   `card-engine` was gated; `master` is untouched at `01af6ee`.
 - **Pilot**: 200 deck faces through both translators; 167 and 166 lint clean; 87 agree after
   two canonical passes (54% of both-clean pairs) — see the decision point below.
-- **Verify**: of the 87 agreed cards, **83 verified** through real games, 0 failed, 0 without a
+- **Verify**: after the subscription re-translation, **126 of the 192 pilot files verify** through
+  real games, 5 fail (engine gaps the newly agreed cards expose, wave 13), 9 have no scenario,
+  7 are unsupported (vocabulary gaps listed in `.agents/briefs/wave13.md`), 45 are still
+  disputed. Before it: of the 87 agreed cards, 83 verified, 0 failed, 0 without a
   scenario (the wave-12 tip, `2d9bae1`), 4 unsupported (their translations predate the vocabulary that now spells them: gift,
   a chosen colour's devotion, a two-zone search, two lands sharing a type — re-translation items,
   credit-bound), 0 crashed. The wave-8 and wave-9 seams are in `seam-requests/DECISIONS.md`.
@@ -484,6 +487,7 @@ As it went (all 2026-09-06/07, UTC):
 | 08 00:10 | wave 12 (the last polish) merged and gated (792); verify unchanged at 83 of 87 |
 | 08 00:40 | the API refused a real submit (balance too low); the user ruled the API out — "just use the subscription" |
 | 08 01:30 | the offline transport: requests as files, answers from translator agents, the same agree and verify; the first two translators on the 109 |
+| 08 03:45 | 22 translators done; collect: 64 of 105 disputed now agree; verify: 126 verified (was 83), 5 failed, 9 without a scenario, 7 unsupported; the five failures and the seven gaps scoped for wave 13 |
 
 Builders finished in 15–35 minutes rather than a day, because each box was one folder, one
 anchor and 150 tool calls with a wall clock enforced by a hook; the cost moved to the
