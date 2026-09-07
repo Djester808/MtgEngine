@@ -36,6 +36,11 @@ const RULES = [
     why: "The client's standards are not auto-loaded when you work from the API repo.",
   },
   {
+    test: /(^|\/)(mtgengine\.cards|mtgengine\.rules|mtgengine\.cards\.pipeline|cards|tests\/mtgengine\.cards\.tests|tests\/mtgengine\.rules\.tests|tests\/mtgengine\.pipeline\.tests)\//,
+    docs: ['CARD_ENGINE_PLAN.md'],
+    why: 'A card is data or it does not exist, the vocabulary is closed, and the seams between subsystems are fixed there — the plan decides all three, and the coordinator having read it does not count for you.',
+  },
+  {
     test: /(aibuildservice|synergyservice|decksuggestionsservice|candidateranking|commandersuggestionservice)\.cs$/,
     docs: ['MtgEngine.Api/Knowledge/commander-doctrine.md'],
     why: 'This code reasons from the doctrine, which is injected verbatim into prompts.',

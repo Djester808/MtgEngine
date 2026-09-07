@@ -13,6 +13,9 @@
   <ItemGroup>
     <!-- The prompt/response helpers are internal by design but are pure logic worth unit testing. -->
     <InternalsVisibleTo Include="MtgEngine.Api.Tests" />
+    <!-- The card vocabulary's keyword enums are generated from the same rules text this
+         project parses; the Cards tests read ParsedRules to prove the two agree. -->
+    <InternalsVisibleTo Include="MtgEngine.Cards.Tests" />
   </ItemGroup>
 
   <ItemGroup>

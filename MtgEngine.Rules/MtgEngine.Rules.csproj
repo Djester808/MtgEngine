@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The rules engine: an interpreter over the card vocabulary. It depends on MtgEngine.Cards
+    and nothing else. No ASP.NET, no EF Core, no MtgEngine.Api, no MtgEngine.Domain, and no
+    card: an architecture test fails the build if a card name appears in this project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Collections.Immutable" />
+  </ItemGroup>
+</Project>

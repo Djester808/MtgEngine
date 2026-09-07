@@ -1,0 +1,18 @@
+# Line endings are load-bearing here, not cosmetic.
+#
+# The C# analyzers are enforced in-build and warnings fail the build, so a file that arrives
+# with LF endings fails the gate — a `sed -i` pass over a .cs file has done exactly that more
+# than once. The shell scripts have the opposite requirement: CRLF makes them unrunnable.
+# Declaring both stops it depending on whose machine, editor or worktree wrote the file.
+# `agent-guard.js` denies `sed -i` on C# for the same reason.
+
+* text=auto
+
+*.cs text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+
+*.sh text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf

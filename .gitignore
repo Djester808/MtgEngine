@@ -64,3 +64,12 @@ server.log
 *.db.bak-*
 scratch-coord/
 trigger-audit-output.txt
+
+# Agent orchestration runtime state (CARD_ENGINE_PLAN.md § "Enforcement"). The launch
+# ledger, the per-worktree manifest/heartbeat/report that agent-guard.js writes, the ready
+# markers the merge queue reads, and per-agent scratch. All of it is machine-local signalling
+# about a run, not source — and /tmp is shared across agents, so scratch lives here instead.
+.agents/
+.agent/
+.agent-tmp/
+ready/
