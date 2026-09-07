@@ -15,12 +15,20 @@ internal static class EffectWalk
     private const string Vocabulary = "MtgEngine.Cards";
 
     /// <summary>
-    /// The <see cref="Target"/> selectors the effect names, in the order the text reads them.
-    /// Resolution re-checks the chosen targets against these, CR 608.2b.
+    /// The target selectors the effect names, in the order the text reads them: a
+    /// <see cref="Target"/> with its filter, and an <see cref="AnyTarget"/>, which CR 115.4 makes
+    /// one target chosen from among creatures, players, planeswalkers and battles. Both count, so
+    /// the slot a chosen target fills is the slot the tree named, and resolution re-checks the
+    /// chosen targets against these, CR 608.2b. An "any target" carries no filter of its own,
+    /// because the announcement already put an object in Targets or a player in TargetPlayers.
     /// </summary>
     [RuleRef("608.2b")]
-    public static ImmutableList<Target> TargetsIn(Effect effect) =>
-        [.. Nodes(effect, new HashSet<object>(ReferenceEqualityComparer.Instance)).OfType<Target>()];
+    public static ImmutableList<Selector> TargetsIn(Effect effect) =>
+    [
+        .. Nodes(effect, new HashSet<object>(ReferenceEqualityComparer.Instance))
+            .Where(n => n is Target or AnyTarget)
+            .Cast<Selector>(),
+    ];
 
     /// <summary>
     /// Every <see cref="Amount"/> in the effect, worked out now and replaced by a

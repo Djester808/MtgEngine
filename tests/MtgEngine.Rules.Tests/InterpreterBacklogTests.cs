@@ -272,36 +272,21 @@ public sealed class InterpreterBacklogTests
      * The arms that still need a seam refuse naming themselves and their rule.
      * ---------------------------------------------------------------------------------------- */
 
-    [Theory]
-    [InlineData("115.7")]
-    [InlineData("702.180")]
-    [InlineData("601")]
-    public void An_arm_that_needs_a_seam_refuses_naming_its_rule(string rule)
-    {
-        var table = new InterpreterTable();
-        var permanent = table.Permanent(table.A);
-        Effect effect = rule switch
-        {
-            "115.7" => new ChangeTarget(new Remembered("it")),
-            "702.180" => new Prepare(new Remembered("it")),
-            _ => new MayCast(new Remembered("it")),
-        };
-
-        var refused = Assert.Throws<RefusedException>(() => table.Resolve(table.OnStack(table.A, effect, Entry(permanent))));
-
-        Assert.Equal(rule, refused.Rule);
-        Assert.Contains("seam-requests/E9d.md", refused.Message, StringComparison.Ordinal);
-    }
-
     [Fact]
-    public void Unprepare_refuses_the_same_way_as_prepare()
+    public void An_arm_that_needs_a_seam_refuses_naming_its_rule()
     {
         var table = new InterpreterTable();
         var permanent = table.Permanent(table.A);
-        var refused = Assert.Throws<RefusedException>(
-            () => table.Resolve(table.OnStack(table.A, new Unprepare(new Remembered("it")), Entry(permanent))));
 
-        Assert.Equal("702.180", refused.Rule);
+        // CR 601: casting from inside a resolution needs the casting system, which the composition
+        // sets on the interpreter; without it the table is told, rather than the card doing nothing.
+        // Prepare (CR 702.180) and ChangeTarget (CR 115.7) were the other two and are real now —
+        // see InterpreterDesignationTests.
+        var refused = Assert.Throws<RefusedException>(
+            () => table.Resolve(table.OnStack(table.A, new MayCast(new Remembered("it")), Entry(permanent))));
+
+        Assert.Equal("601", refused.Rule);
+        Assert.Contains("seam-requests/E9e.md", refused.Message, StringComparison.Ordinal);
     }
 
     /* ---------------------------------------------------------------------------------------- *
