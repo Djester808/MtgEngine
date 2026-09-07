@@ -77,12 +77,22 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
         {
             if (player.HasLost || LossReason(player) is not { } reason)
                 continue;
-            var lost = new PlayerLost(player.Id, reason);
-            events.Add(lost);
-            state = lost.Apply(state);
 
-            // 704.5b is "since the last time state-based actions were checked": the flag is
-            // consumed with the loss, so a replaced loss (CR 614) does not repeat every check.
+            // CR 101.2 with 104.3: an effect saying this player can't lose the game beats every
+            // loss 704.5a-c and 903.10a would perform here. The player stays in the game, and
+            // loses the moment the effect ends, because the condition is still true on the next
+            // check — 704.5a and 704.5c read the state, not a moment that has passed.
+            if (!LimitsOn(before, player.Id).CantLose)
+            {
+                var lost = new PlayerLost(player.Id, reason);
+                events.Add(lost);
+                state = lost.Apply(state);
+            }
+
+            // 704.5b is the one that does not read the state: "since the last time state-based
+            // actions were checked". The flag is consumed by the check that read it, whether or
+            // not the loss happened, so neither a replaced loss (CR 614) nor a prevented one
+            // repeats on every later check.
             if (player.DrewFromEmptyLibrary)
             {
                 var cleared = new PlayerFlagCleared(player.Id, "drewFromEmptyLibrary");
@@ -142,8 +152,25 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
     }
 
     /// <summary>
-    /// Whether the game is over: 104.2a, the last player who has not lost wins; 104.4b, a game
+    /// The player-scoped continuous effects in force on this player, CR 613.10. The question
+    /// belongs on <see cref="ICharacteristics"/> — <c>seam-requests/E7b.md</c> asks for the hoist —
+    /// and until it lands the layer system answers it through <see cref="IPlayerLimits"/>. A
+    /// composition whose characteristics do not answer reports no restrictions, which is exactly
+    /// what these actions did before.
+    /// </summary>
+    [RuleRef("613.10")]
+    private PlayerLimits LimitsOn(GameState state, PlayerId player) =>
+        characteristics is IPlayerLimits limits ? limits.PlayerRestrictions(state, player) : PlayerLimits.None;
+
+    /// <summary>
+    /// Whether the game is over: 104.2a, the last player who has not lost wins; 104.4a, a game
     /// every remaining player left at once is a draw.
+    /// <para>
+    /// "You can't win the game" is deliberately not consulted. CR 104.2a says this win "happens
+    /// immediately and overrides all effects that would preclude that player from winning the
+    /// game", so the last player standing wins with such an effect on them; the prohibition bites
+    /// on 104.2b, an effect that states a player wins, which is the interpreter's to honour.
+    /// </para>
     /// </summary>
     [RuleRef("104")]
     private static GameEnded? Ending(GameState state)
