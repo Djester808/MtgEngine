@@ -109,7 +109,14 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     }
 
     /// <summary>What triggered, and everything needed to make its stack object.</summary>
-    private sealed record Firing(ObjectId? Source, int AbilityIndex, PlayerId Controller, TriggeredAbility Ability, TriggerSubject Subject, int? Delayed);
+    private sealed record Firing(
+        ObjectId? Source,
+        int AbilityIndex,
+        PlayerId Controller,
+        TriggeredAbility Ability,
+        TriggerSubject Subject,
+        int? Delayed,
+        ImmutableDictionary<string, string> Chosen);
 
     /// <summary>
     /// CR 603.10: a leaves-the-battlefield trigger looks back at the game as it was before the
@@ -183,32 +190,67 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
         TriggerWindow window,
         int? delayed)
     {
-        var context = Context(source, controller, TriggerSubject.Nothing);
+        var context = Context(state, source, controller, TriggerSubject.Nothing);
         var subjects = _matching.Match(ability.When, happened, context, window);
         foreach (var subject in subjects)
         {
+            var fired = Context(state, source, controller, subject);
+
             // CR 603.4: the intervening "if" is checked as the ability would go on the stack, and
             // the ability simply does not go there when it is false.
-            if (ability.If is { } condition && !_query.Holds(state, condition, Context(source, controller, subject)))
+            if (ability.If is { } condition && !_query.Holds(state, condition, fired))
                 continue;
-            yield return new Firing(source, index, controller, ability, subject, delayed);
+            yield return new Firing(source, index, controller, ability, subject, delayed, fired.Chosen);
         }
     }
 
-    private static EffectContext Context(ObjectId? source, PlayerId controller, TriggerSubject subject) => new(
+    private static EffectContext Context(GameState state, ObjectId? source, PlayerId controller, TriggerSubject subject) => new(
         source,
         controller,
         [],
         [],
         null,
         ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem(Triggering, subject.Objects),
-        ImmutableDictionary<string, string>.Empty,
+        ChosenFor(state, source, subject),
         ImmutableDictionary<string, int>.Empty,
         subject.Objects,
         subject.Player);
 
+    /// <summary>
+    /// The values this ability may read as "the chosen ...", CR 608.2d. A trigger is matched and
+    /// put on the stack outside any resolution, so the choices its source made while resolving are
+    /// gone from every live context; <see cref="GameObject.Chosen"/> keeps them on the object, and
+    /// seeding from there is what lets "tapped for mana of the chosen color" answer at all. The
+    /// firing's own values are set over the object's, because a value this event named — the colour
+    /// that was just produced — is about this firing and not about what the card chose earlier.
+    ///
+    /// The state read is the one the match ran against, which is the look-back of CR 603.10 for an
+    /// ability that watches its own source leave: a permanent that chose a colour and then died
+    /// still answers with it.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static ImmutableDictionary<string, string> ChosenFor(GameState state, ObjectId? source, TriggerSubject subject)
+    {
+        var chosen = source is { } id && state.Objects.TryGetValue(id, out var obj)
+            ? obj.Chosen
+            : ImmutableDictionary<string, string>.Empty;
+        foreach (var (key, value) in subject.Chosen)
+            chosen = chosen.SetItem(key, value);
+        return chosen;
+    }
+
     /// <summary>The key the triggering objects are remembered under, so "that creature" finds them.</summary>
     public const string Triggering = "triggering";
+
+    /// <summary>
+    /// The key the colour a permanent was tapped for is carried under, CR 106.12a: the colour's
+    /// enum name, which is what <c>ManaSymbols.ColorFromChoice</c> parses. The card's other half —
+    /// "add an additional one mana of that color" — is an <c>AddMana</c> whose
+    /// <c>ManaProduction.ChosenColorKey</c> is this key, so the two ends agree without either
+    /// naming a card.
+    /// </summary>
+    [RuleRef("106.12a")]
+    public const string TappedForManaColor = "tapped-for-mana-color";
 
     /// <summary>
     /// CR 603.3b: the active player's triggers go on the stack first, then each other player's in
@@ -272,7 +314,8 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
             RememberedPlayers: firing.Subject.Player is { } player
                 ? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty.SetItem(Triggering, [player])
                 : null,
-            Triggering: firing.Subject.Objects);
+            Triggering: firing.Subject.Objects,
+            Chosen: firing.Chosen.IsEmpty ? null : firing.Chosen);
         if (firing.Source is { } source && state.Objects.TryGetValue(source, out var obj))
             return StackZone.CreateAbilityOnStack(state, obj, firing.Controller, entry);
 

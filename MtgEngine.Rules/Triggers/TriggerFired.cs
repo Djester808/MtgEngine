@@ -37,6 +37,17 @@ public sealed record TriggerFired(
 /// <summary>What one firing of a trigger was about, CR 603.6: the objects, and the player if the event named one.</summary>
 public sealed record TriggerSubject(ImmutableList<ObjectId> Objects, PlayerId? Player)
 {
+    /// <summary>
+    /// Values the event itself named, which the firing carries onto the stack object so the
+    /// resolution can read them: CR 106.12a's produced colour under
+    /// <see cref="TriggerSystem.TappedForManaColor"/>, so "add an additional one mana of that
+    /// color" has a colour to add. Mana is not an object (CR 106.1), so it cannot travel in
+    /// <see cref="Objects"/>; a colour is a string, which is the channel
+    /// <c>EffectContext.Chosen</c> already carries.
+    /// </summary>
+    [RuleRef("106.12a")]
+    public ImmutableDictionary<string, string> Chosen { get; init; } = ImmutableDictionary<string, string>.Empty;
+
     public static TriggerSubject Nothing { get; } = new([], null);
 
     public static TriggerSubject Of(ObjectId subject) => new([subject], null);
