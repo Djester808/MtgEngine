@@ -163,8 +163,15 @@ public sealed partial class EffectInterpreter
                     if (Answered(run) is { } found)
                         return Found(run, search, searcher, Named(run.State, found));
 
-                    var zone = ZoneSystem.KeyFor(search.From, searcher);
-                    var matching = run.State.In(zone).Where(id => query.Matches(run.State, search.For, id, run.Context));
+                    // CR 701.23a: a search over several zones is one action over their union, so a
+                    // single card is found across all of them. The zone being scanned is the
+                    // search's to say, so a filter that named none is read in that zone.
+                    var matching = Searched(search).SelectMany(zone =>
+                    {
+                        var filter = search.For.In is null ? search.For with { In = zone } : search.For;
+                        return run.State.In(ZoneSystem.KeyFor(zone, searcher))
+                            .Where(id => query.Matches(run.State, filter, id, run.Context));
+                    });
                     var most = Math.Max(1, Number(run, search.UpTo));
                     return Ask(run, searcher, "search", "Search for a card.", OptionsFor(run.State, matching), search.UpTo is null ? 0 : 0, most);
                 }
@@ -248,19 +255,31 @@ public sealed partial class EffectInterpreter
     }
 
     /// <summary>
-    /// What a search found, CR 701.23a: each card goes to the zone the effect names, and the
-    /// library is shuffled afterwards, CR 701.23c.
+    /// What a search found, CR 701.23a: each card goes to the zone the effect names, and then
+    /// CR 701.23c shuffles the libraries that were searched — and only those, so a search of a
+    /// graveyard shuffles nothing. The printed rider "if you do, shuffle" is
+    /// <c>ShuffleOnlyIfFound</c>: no shuffle when nothing came out of the library.
     /// </summary>
     [RuleRef("701.23")]
     private EffectRun Found(EffectRun run, Cards.Search search, PlayerId searcher, ImmutableList<ObjectId> found)
     {
         var before = run.State;
+        var library = ZoneSystem.KeyFor(Zone.Library, searcher);
+        var fromLibrary = found.Any(id => before.Objects.TryGetValue(id, out var card) && card.Zone == library);
         foreach (var id in found)
             (run, _) = Relocate(run, id, search.To, search.Where, search.Tapped, controller: null);
-        if (search.ShuffleAfter && search.From == Zone.Library)
+        if (search.ShuffleAfter && Searched(search).Contains(Zone.Library) && (!search.ShuffleOnlyIfFound || fromLibrary))
             run = Merge(run, zones.Shuffle(run.State, searcher));
         return Recall(run, search.RememberAs, Landed(before, run));
     }
+
+    /// <summary>
+    /// The zones one search covers, CR 701.23a: the list the card printed, in printed order, or the
+    /// single zone when it names one.
+    /// </summary>
+    [RuleRef("701.23")]
+    private static ImmutableList<Zone> Searched(Cards.Search search) =>
+        search.Zones is { Count: > 0 } zones ? [.. zones] : [search.From];
 
     /// <summary>
     /// The cards a player looked at and then put somewhere, in the order they answered: the

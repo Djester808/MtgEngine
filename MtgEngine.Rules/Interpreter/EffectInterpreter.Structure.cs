@@ -39,9 +39,9 @@ public sealed partial class EffectInterpreter
                 {
                     var who = FirstPlayer(run, may.Who);
                     if (may.StoreChoiceAs is { } key && run.Context.Chosen.TryGetValue(key, out var answered))
-                        return Yes(answered) ? Child(run, 0, may.Do) : run;
+                        return Yes(answered) ? Inside(run, key, may.Do) : run;
                     if (may.StoreChoiceAs is null && run.Context.Chosen.TryGetValue("may:" + run.Path, out var inline))
-                        return Yes(inline) ? Child(run, 0, may.Do) : run;
+                        return Yes(inline) ? Inside(run, "may:" + run.Path, may.Do) : run;
                     return Ask(run, who, "may", "You may do this.", YesNo, 1, 1, may.StoreChoiceAs ?? "may:" + run.Path);
                 }
 
@@ -175,6 +175,18 @@ public sealed partial class EffectInterpreter
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// Run what a "you may" says yes to, telling the walk which answer it is inside. A
+    /// <see cref="PayCost"/> in there that cannot be paid puts that answer back to no, so the
+    /// "if you do" half reads false rather than running on an unpaid cost (CR 118.12).
+    /// </summary>
+    [RuleRef("118.12")]
+    private EffectRun Inside(EffectRun run, string key, Effect body)
+    {
+        var inner = Child(run with { PayKey = key }, 0, body);
+        return inner with { PayKey = run.PayKey };
     }
 
     private static bool Yes(string answer) => answer is "yes" or "true" or "1";
