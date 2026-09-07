@@ -119,15 +119,10 @@ public sealed record ObjectCeasedToExist(ObjectId Id) : GameEvent
 }
 
 /// <summary>
-/// An object changed zones. It becomes a new object with a new id, CR 400.7; the event carries
-/// both so replay and views can follow it. <paramref name="Position"/> is the index in the
-/// destination, or -1 for the end.
-/// </summary>
-[RuleRef("400.7")]
-/// <summary>
 /// An object changed zones, CR 400.7: the old object ceases and <paramref name="To"/> is the new one.
 /// <paramref name="Departed"/> is the old object as it last existed, for the abilities that look back
 /// at it (CR 603.10) and for a trigger on "from" a zone that is not the battlefield.
+/// <paramref name="Position"/> is the index in the destination, or -1 for the end.
 /// </summary>
 [RuleRef("400.7")]
 public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, GameObject? Departed = null) : GameEvent
@@ -142,11 +137,13 @@ public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, Gam
         var h = moved.History;
         if (To.Zone.Zone == Zone.Battlefield)
             h = h with { EnteredBattlefield = h.EnteredBattlefield.Add(To.Id) };
-        if (fromZone == Zone.Battlefield)
+        // CR 603.10: the object as it last existed is what looks back at it — morbid asks whether a
+        // creature died, revolt who controlled what left — so the departed object itself is kept.
+        if (fromZone == Zone.Battlefield && (Departed ?? old) is { } departed)
         {
-            h = h with { LeftBattlefield = h.LeftBattlefield.Add(From) };
+            h = h with { LeftBattlefield = h.LeftBattlefield.Add(departed) };
             if (To.Zone.Zone == Zone.Graveyard)
-                h = h with { Died = h.Died.Add(From) };
+                h = h with { Died = h.Died.Add(departed) };
         }
 
         return moved with { History = h };
@@ -266,64 +263,6 @@ public sealed record ZoneReordered(ZoneKey Zone, ImmutableList<ObjectId> Order, 
     public override GameState Apply(GameState state) => state with { Zones = state.Zones.SetItem(Zone, Order) };
 }
 
-/// <summary>
-/// A permanent changed which face is up: transformed or converted (CR 701.27, 701.28), flipped
-/// (CR 710), turned face up or face down (CR 708). The object keeps its identity, CR 712.8b.
-/// </summary>
-[RuleRef("701.27")]
-public sealed record ObjectTurnedOver(ObjectId Object, int FaceIndex, TurnKind Kind) : GameEvent
-{
-    public override GameState Apply(GameState state)
-    {
-        if (!state.Objects.TryGetValue(Object, out var obj))
-            return state;
-        var faceDown = Kind switch
-        {
-            TurnKind.TurnedFaceDown => true,
-            TurnKind.TurnedFaceUp => false,
-            _ => obj.FaceDown,
-        };
-        return state with { Objects = state.Objects.SetItem(Object, obj with { FaceIndex = FaceIndex, FaceDown = faceDown }) };
-    }
-}
-
-public enum TurnKind
-{
-    Transform,
-    Convert,
-    Flip,
-    TurnedFaceUp,
-    TurnedFaceDown,
-}
-
-/// <summary>
-/// A designation was given to or taken from an object: prepared (CR 702.180), suspected
-/// (701.60), goaded-by (701.15a, the name carries the goader's seat), ring-bearer (701.54),
-/// harnessed (701.64), monstrous (701.37). The names live in <c>Rules/Query/Designations.cs</c>.
-/// </summary>
-[RuleRef("702.180")]
-public sealed record ObjectDesignated(ObjectId Object, string Designation, bool Given) : GameEvent
-{
-    public override GameState Apply(GameState state)
-    {
-        if (!state.Objects.TryGetValue(Object, out var obj))
-            return state;
-        var designations = Given ? obj.Designations.Add(Designation) : obj.Designations.Remove(Designation);
-        return state with { Objects = state.Objects.SetItem(Object, obj with { Designations = designations }) };
-    }
-}
-
-/// <summary>A spell or ability on the stack had its targets changed, CR 115.7 (or new ones chosen, CR 114.6).</summary>
-[RuleRef("115.7")]
-public sealed record StackTargetsChanged(ObjectId StackObject, ImmutableList<ObjectId> Targets, ImmutableList<PlayerId> TargetPlayers) : GameEvent
-{
-    public override GameState Apply(GameState state)
-    {
-        if (!state.Objects.TryGetValue(StackObject, out var obj) || obj.Stack is not { } entry)
-            return state;
-        return state with { Objects = state.Objects.SetItem(StackObject, obj with { Stack = entry with { Targets = Targets, TargetPlayers = TargetPlayers } }) };
-    }
-}
 
 /// <summary>
 /// One continuous effect in force was edited, or with a null effect ended: a prevention shield
@@ -375,6 +314,8 @@ public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? 
             var p = state.Player(pid);
             var commanderDamage = FromCommander ? p.CommanderDamage.SetItem(Source, p.CommanderDamage.GetValueOrDefault(Source) + Amount) : p.CommanderDamage;
             h = h with { DamageReceivedByPlayer = h.DamageReceivedByPlayer.SetItem(pid, h.DamageReceivedByPlayer.GetValueOrDefault(pid) + Amount) };
+            var pair = (Source, pid);
+            h = h with { DamageDealtToPlayer = h.DamageDealtToPlayer.SetItem(pair, h.DamageDealtToPlayer.GetValueOrDefault(pair) + Amount) };
             return state with { Players = state.Players.SetItem(pid.Value, p with { Life = p.Life - Amount, CommanderDamage = commanderDamage }), History = h };
         }
 
@@ -390,7 +331,10 @@ public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason)
     {
         var p = state.Player(Player);
         var m = p.Mana;
-        var next = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless);
+        var next = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless)
+        {
+            Restricted = ManaPool.FoldRestricted(m.Restricted, Delta.Restricted),
+        };
         return state with { Players = state.Players.SetItem(Player.Value, p with { Mana = next }) };
     }
 }
@@ -430,7 +374,18 @@ public sealed record LandPlayed(ObjectId Land, PlayerId Player) : GameEvent
 [RuleRef("608.2")]
 public sealed record StackObjectResolved(ObjectId StackObject) : GameEvent
 {
-    public override GameState Apply(GameState state) => state;
+    /// <summary>The object is still on the stack (FinishResolving does the leaving, CR 608.2m), so its entry names the source and ability this resolution counts for: "the first time this turn" and once-a-turn abilities read the tally.</summary>
+    public override GameState Apply(GameState state)
+    {
+        if (!state.Objects.TryGetValue(StackObject, out var obj) || obj.Stack is not { } entry)
+            return state;
+        var key = (entry.Source ?? obj.Id, entry.AbilityIndex ?? -1);
+        var tally = state.History.AbilitiesResolvedThisTurn;
+        return state with
+        {
+            History = state.History with { AbilitiesResolvedThisTurn = tally.SetItem(key, tally.GetValueOrDefault(key) + 1) },
+        };
+    }
 }
 
 [RuleRef("508")]

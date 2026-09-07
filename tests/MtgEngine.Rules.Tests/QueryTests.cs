@@ -230,8 +230,10 @@ public sealed class QueryTests
 
         // It is a RefusedException, so Game.Apply turns it into a Refused and the table is told
         // which primitive is missing rather than the game dying mid-command.
-        var first = Assert.Throws<RefusedException>(() => world.Holds(new FirstTimeThisTurn()));
-        Assert.Contains(nameof(FirstTimeThisTurn), first.Reason, StringComparison.Ordinal);
+        // CR 707.10: no state records that a permanent is a copy, so the question is refused by name.
+        var copy = Assert.Throws<RefusedException>(
+            () => world.Query.Matches(world.State, new ObjectFilter(Also: new IsCopy()), new ObjectId(1), world.Context));
+        Assert.Contains(nameof(IsCopy), copy.Reason, StringComparison.Ordinal);
 
         var commander = Assert.Throws<RefusedException>(
             () => world.Query.Resolve(world.State, new Cards.Commander(new You()), world.Context));

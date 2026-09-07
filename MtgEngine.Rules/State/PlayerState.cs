@@ -33,5 +33,31 @@ public sealed record ManaPool(int White, int Blue, int Black, int Red, int Green
 {
     public static ManaPool Empty { get; } = new(0, 0, 0, 0, 0, 0);
 
-    public int Total => White + Blue + Black + Red + Green + Colorless;
+    /// <summary>
+    /// Mana that may be spent only on what its filter matches, CR 106.6a. It is otherwise ordinary
+    /// mana and empties with the rest at the end of each step and phase, CR 106.6b. In a delta a
+    /// negative amount spends a block.
+    /// </summary>
+    public ImmutableList<Mana.RestrictedBlock> Restricted { get; init; } = [];
+
+    public int Total => White + Blue + Black + Red + Green + Colorless + Restricted.Sum(r => r.Amount);
+
+    /// <summary>Folds a delta's blocks into a pool's by colour and filter; a block that reaches zero is gone.</summary>
+    public static ImmutableList<Mana.RestrictedBlock> FoldRestricted(ImmutableList<Mana.RestrictedBlock> current, ImmutableList<Mana.RestrictedBlock> delta)
+    {
+        if (delta.IsEmpty)
+            return current;
+        var folded = current.ToList();
+        foreach (var block in delta)
+        {
+            var index = folded.FindIndex(b => b.Color == block.Color && b.SpendOnlyOn.Equals(block.SpendOnlyOn));
+            if (index < 0)
+                folded.Add(block);
+            else
+                folded[index] = folded[index] with { Amount = folded[index].Amount + block.Amount };
+        }
+
+        folded.RemoveAll(b => b.Amount <= 0);
+        return folded.Count == 0 ? [] : [.. folded];
+    }
 }

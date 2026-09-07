@@ -127,19 +127,23 @@ public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? 
 /// </summary>
 public sealed record TurnHistory(
     ImmutableList<ObjectId> EnteredBattlefield,
-    ImmutableList<ObjectId> Died,
-    ImmutableList<ObjectId> LeftBattlefield,
+    ImmutableList<GameObject> Died,
+    ImmutableList<GameObject> LeftBattlefield,
     ImmutableList<SpellCastRecord> SpellsCast,
     ImmutableList<ObjectId> AttackedWith,
     ImmutableDictionary<ObjectId, int> DamageDealtBy,
     ImmutableDictionary<ObjectId, int> DamageReceivedBy,
-    ImmutableDictionary<PlayerId, int> DamageReceivedByPlayer)
+    ImmutableDictionary<PlayerId, int> DamageReceivedByPlayer,
+    ImmutableDictionary<(ObjectId Source, PlayerId To), int> DamageDealtToPlayer,
+    ImmutableDictionary<(ObjectId Source, int AbilityIndex), int> AbilitiesResolvedThisTurn)
 {
     public static TurnHistory Empty { get; } = new(
         [], [], [], [], [],
         ImmutableDictionary<ObjectId, int>.Empty,
         ImmutableDictionary<ObjectId, int>.Empty,
-        ImmutableDictionary<PlayerId, int>.Empty);
+        ImmutableDictionary<PlayerId, int>.Empty,
+        ImmutableDictionary<(ObjectId, PlayerId), int>.Empty,
+        ImmutableDictionary<(ObjectId, int), int>.Empty);
 }
 
 public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From);

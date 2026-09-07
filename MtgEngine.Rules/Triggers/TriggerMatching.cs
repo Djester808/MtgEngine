@@ -111,9 +111,9 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
     {
         if (happened is not Ev.ObjectMoved moved)
             return [];
-        if (!state.History.LeftBattlefield.Contains(moved.From))
+        if (!state.History.LeftBattlefield.Any(o => o.Id == moved.From))
             return [];
-        if (diedOnly && !state.History.Died.Contains(moved.From))
+        if (diedOnly && !state.History.Died.Any(o => o.Id == moved.From))
             return [];
         return _query.Matches(state, what, moved.From, ctx) ? [TriggerSubject.Of(moved.From, Controller(state, moved.From))] : [];
     }
@@ -123,7 +123,7 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
     {
         if (happened is not Ev.ObjectMoved moved || moved.To.Zone.Zone != trigger.To)
             return [];
-        var left = state.History.LeftBattlefield.Contains(moved.From);
+        var left = state.History.LeftBattlefield.Any(o => o.Id == moved.From);
         if (trigger.From is { } from && (from != Zone.Battlefield || !left))
             return [];
 
@@ -346,7 +346,7 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         if (happened is not Ev.ObjectLeftBy left || !string.Equals(left.Verb, verb, StringComparison.OrdinalIgnoreCase))
             return [];
         var owner = state.Objects.TryGetValue(left.Object, out var obj) ? obj.Owner : (PlayerId?)null;
-        var by = state.History.LeftBattlefield.Contains(left.Object) ? Controller(state, left.Object) : owner;
+        var by = state.History.LeftBattlefield.Any(o => o.Id == left.Object) ? Controller(state, left.Object) : owner;
         if (by is not { } player || !_query.Players(state, who, ctx).Contains(player))
             return [];
         if (what is { } filter && !_query.Matches(state, filter, left.Object, ctx))

@@ -108,6 +108,16 @@ internal sealed record CastPlan(
     private static ImmutableList<ManaSymbol>? Alternative(GameObject card, Face printed, CastSpell command, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra)
     {
         var zone = card.Zone.Zone;
+
+        // CR 118.9 and 601.3a: an effect that lets the card be cast without paying its mana cost is
+        // both the permission to cast it from where it is and the announcement that no mana cost is
+        // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs.
+        if (command.WithoutPayingManaCost)
+        {
+            paid.Add("free");
+            return [];
+        }
+
         if (command.AlternativeCost is not { } kind)
         {
             // CR 601.3: a card is cast from its owner's hand unless an effect says otherwise. The

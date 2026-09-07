@@ -33,7 +33,7 @@ public interface IRestrictedMana
 [RuleRef("106.6a")]
 public sealed class NoRestrictedMana : IRestrictedMana
 {
-    public ImmutableList<RestrictedBlock> In(ManaPool pool) => [];
+    public ImmutableList<RestrictedBlock> In(ManaPool pool) => pool.Restricted;
 }
 
 /// <summary>

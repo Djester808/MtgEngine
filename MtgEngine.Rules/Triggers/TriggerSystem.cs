@@ -56,7 +56,7 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     [RuleRef("603.10")]
     private static GameState LookBack(GameState state, GameEvent happened)
     {
-        if (happened is not Ev.ObjectMoved moved || !state.History.LeftBattlefield.Contains(moved.From))
+        if (happened is not Ev.ObjectMoved moved || !state.History.LeftBattlefield.Any(o => o.Id == moved.From))
             return state;
         if (state.Objects.ContainsKey(moved.From))
             return state;

@@ -111,8 +111,8 @@ public sealed class SeamTests
 
         var h = board.State.History;
         Assert.Equal(new[] { entered.To.Id }, h.EnteredBattlefield);
-        Assert.Equal(new[] { onField }, h.Died);
-        Assert.Equal(new[] { onField }, h.LeftBattlefield);
+        Assert.Equal(new[] { onField }, h.Died.Select(o => o.Id));
+        Assert.Equal(new[] { onField }, h.LeftBattlefield.Select(o => o.Id));
         Assert.Equal(seat, Assert.Single(h.SpellsCast).By);
         Assert.Equal(2, h.DamageDealtBy[entered.To.Id]);
         Assert.Equal(2, h.DamageReceivedByPlayer[new PlayerId(1)]);

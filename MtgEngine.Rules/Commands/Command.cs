@@ -22,7 +22,8 @@ public sealed record CastSpell(
     ImmutableList<string>? CostChoices = null,
     KeywordKind? AlternativeCost = null,
     ImmutableList<KeywordKind>? OptionalCosts = null,
-    ImmutableList<ObjectId>? CostObjects = null) : Command(Player);
+    ImmutableList<ObjectId>? CostObjects = null,
+    bool WithoutPayingManaCost = false) : Command(Player);
 
 [RuleRef("602")]
 public sealed record ActivateAbility(
