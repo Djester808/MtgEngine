@@ -223,10 +223,11 @@ public sealed class VerifyCommandTests : IDisposable
     /// An instant that draws — so it gets a smoke scenario — and then does something the
     /// interpreter has no arm for, so resolving it throws out of the engine.
     /// </summary>
+    /// <summary>A spell whose second step has no interpreter arm at all, so the engine throws rather than refuses: the run must survive it.</summary>
     private static CardFile Crasher(string oracleId) => Card(
         oracleId,
         "Verify Crasher",
-        [new SpellAbility(new Sequence([new Draw(new Fixed(1)), new ChangeTarget(new ThisSpellsTargets())]))]);
+        [new SpellAbility(new Sequence([new Draw(new Fixed(1)), new Clash()]))]);
 
     /// <summary>An instant whose only effect is one no smoke scenario can assert, so it gets no scenario at all.</summary>
     private static CardFile NoScenarios(string oracleId) =>
