@@ -47,14 +47,71 @@ public sealed partial class ChoiceSystem
     private Outcome RestOfTheBatch(GameState state, PendingChoice choice, ImmutableList<GameEvent> dealt)
     {
         if (combat is null
-            || state.Pending is not null
             || !choice.Context.Extra.TryGetValue(ChoiceKinds.CombatDamageIndex, out var raw)
             || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var from))
             return Outcome.Unchanged(state);
 
         var firstStrike = choice.Context.Extra.TryGetValue(ChoiceKinds.CombatDamageStep, out var step)
             && string.Equals(step, ChoiceKinds.FirstStrikeDamage, StringComparison.Ordinal);
-        return combat.ResumeCombatDamage(state, firstStrike, from, dealt);
+
+        // CR 101.4: the answer left another question open — a third effect still applies to the
+        // same hit — so the batch is waiting again rather than owed. The marks travel onto that
+        // question because they are the only record that this halt is a combat damage batch's.
+        return state.Pending is { } again
+            ? StillTheBatch(state, again, firstStrike, from)
+            : combat.ResumeCombatDamage(state, firstStrike, from, dealt).Then(OpenTheDamageStep);
+    }
+
+    /// <summary>
+    /// CR 616.1 with 510.2: a question raised by answering a question keeps the halt's marks, so
+    /// however many times one hit stops the game, the answer that finally finishes it deals the
+    /// rest of the batch and opens the step. The marks are written the way
+    /// <c>CombatSystem.Halted</c> writes them — the same two keys, from the same step and index —
+    /// and re-raising the question is how they are recorded, so a game rebuilt from its log
+    /// stops on the marked question and resumes the same way.
+    /// </summary>
+    [RuleRef("616.1")]
+    private static Outcome StillTheBatch(GameState state, PendingChoice pending, bool firstStrike, int from)
+    {
+        if (pending.Context.Extra.ContainsKey(ChoiceKinds.CombatDamageIndex))
+            return Outcome.Unchanged(state);
+
+        var marked = pending with
+        {
+            Context = pending.Context with
+            {
+                Extra = pending.Context.Extra
+                    .SetItem(ChoiceKinds.CombatDamageStep, firstStrike ? ChoiceKinds.FirstStrikeDamage : ChoiceKinds.RegularDamage)
+                    .SetItem(ChoiceKinds.CombatDamageIndex, from.ToString(CultureInfo.InvariantCulture)),
+            },
+        };
+
+        var requested = new ChoiceRequested(marked);
+        return new Outcome(requested.Apply(state), [requested]);
+    }
+
+    /// <summary>
+    /// CR 510.3 with 117.3b: combat damage has been dealt, so the active player receives priority
+    /// and the step can be walked on. An unhalted batch is dealt inside the turn system's advance,
+    /// which grants priority itself once its turn-based action is done (CR 117.3a); a batch a
+    /// CR 616.1 question halted comes back here through the answer instead, and until this nobody
+    /// had opened the step — the damage was right and the game could not go on. A second question
+    /// means the batch is waiting again and the step stays shut until that answer too (CR 101.4).
+    /// <para>
+    /// The grant is written out rather than asked of <see cref="ITurnSystem"/> because that
+    /// interface has no member for "a turn-based action is finished, open the step":
+    /// <c>seam-requests/E4e.md</c> asks for one, and this <b>duplicates</b>
+    /// <c>TurnSystem.GrantPriority</c> until it lands.
+    /// </para>
+    /// </summary>
+    [RuleRef("510.3")]
+    private static Outcome OpenTheDamageStep(GameState state)
+    {
+        if (state.Pending is not null || state.Priority.Holder is not null)
+            return Outcome.Unchanged(state);
+
+        var granted = new PriorityGranted(state.Turn.ActivePlayer);
+        return new Outcome(granted.Apply(state), [granted]);
     }
 
     /// <summary>
