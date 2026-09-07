@@ -80,7 +80,9 @@ public sealed record Subsystems(
         // which is built after the interpreter, so it is handed back through a handle.
         interpreter.Casting = casting;
 
-        var combat = new Combat.CombatSystem(layers, query);
+        // CR 614.1a and 510.2: combat damage is offered to the replacement system hit by hit,
+        // like every move and every effect, so shields and prevention work in combat too.
+        var combat = new Combat.CombatSystem(layers, query) { Replacements = replacement };
         var turn = new Turn.TurnSystem(zones, casting, combat, layers);
         var sba = new Sba.StateBasedActions(zones, layers, query);
         var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);

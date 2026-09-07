@@ -183,14 +183,59 @@ public static class VocabularySchema
         foreach (var member in doc.Descendants("member"))
         {
             var name = member.Attribute("name")?.Value;
-            var summary = member.Element("summary")?.Value;
+            var summary = member.Element("summary");
             if (name is null || summary is null)
                 continue;
-            var text = string.Join(' ', summary.Split((char[])['\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries));
+            var text = string.Join(' ', Render(summary).Split((char[])['\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries));
             if (text.Length > 0)
                 result[name] = text;
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// A doc comment as the translator should read it: the words, with a <c>paramref</c> or a
+    /// <c>see</c> rendered as the name it points at. <c>XElement.Value</c> drops those tags, and
+    /// with them a word from every comment that names a parameter or a record.
+    /// </summary>
+    private static string Render(XElement element)
+    {
+        var parts = new System.Text.StringBuilder();
+        foreach (var node in element.Nodes())
+        {
+            switch (node)
+            {
+                case XText text:
+                    parts.Append(text.Value);
+                    break;
+                case XElement child when child.Name.LocalName is "paramref" or "typeparamref":
+                    parts.Append(child.Attribute("name")?.Value);
+                    break;
+                case XElement child when child.Name.LocalName == "see":
+                    parts.Append(child.Attribute("langword")?.Value ?? LastSegment(child.Attribute("cref")?.Value));
+                    break;
+                case XElement child:
+                    parts.Append(Render(child));
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return parts.ToString();
+    }
+
+    /// <summary>"T:MtgEngine.Cards.DealDamage" reads as "DealDamage"; a member reference keeps its member name.</summary>
+    private static string LastSegment(string? cref)
+    {
+        if (string.IsNullOrEmpty(cref))
+            return string.Empty;
+        var body = cref.Length > 2 && cref[1] == ':' ? cref[2..] : cref;
+        var paren = body.IndexOf('(', StringComparison.Ordinal);
+        if (paren >= 0)
+            body = body[..paren];
+        var dot = body.LastIndexOf('.');
+        return dot >= 0 ? body[(dot + 1)..] : body;
     }
 }

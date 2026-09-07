@@ -714,7 +714,7 @@
         "costs",
         "do"
       ],
-      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a ; mana abilities are recognised by the engine, CR 605. is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. A restriction that names a source rather than a colour \u2014 \u0022mana produced by artifacts\u0022 \u2014 is not this field; it goes to a primitive request, because paying with the wrong mana is a different game action, not a rounding error."
+      "description": "\u0022[Cost]: [Effect]\u0022, CR 602. Loyalty abilities carry a LoyaltyCost; mana abilities are recognised by the engine, CR 605. PayOnlyWith is the printed rider \u0022activate only using mana produced by a creature\u0022 read as a colour restriction: the mana spent on this ability\u0027s cost must be of those colours (CR 106.6b, the spend restriction\u0027s other half). Leave it null for the ordinary case, where any mana pays. A restriction that names a source rather than a colour \u2014 \u0022mana produced by artifacts\u0022 \u2014 is not this field; it goes to a primitive request, because paying with the wrong mana is a different game action, not a rounding error."
     },
     "KeywordAbility": {
       "type": "object",
@@ -1003,7 +1003,7 @@
         "kind",
         "keyword"
       ],
-      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in as Cost records instead, mana included as a ManaCost entry, and leaves null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice."
+      "description": "A keyword from CR 702 with its parameters: \u0022Ward {2}\u0022 is Cost, \u0022Bushido 2\u0022 is N, \u0022Protection from red\u0022 and \u0022Affinity for artifacts\u0022 are Of, \u0022Partner with Name\u0022 is Detail. Cost is a printed mana string and takes nothing else. A keyword whose cost has a non-mana part \u2014 escape\u0027s \u0022{1}{B}{B}, Exile four other cards from your graveyard\u0022 (CR 702.138a), and the \u0022sacrifice a creature\u0022 half of several others \u2014 puts the whole cost in Costs as Cost records instead, mana included as a ManaCost entry, and leaves Cost null. Set one or the other, never both: two spellings of the same cost is how a card silently gets paid twice or not at all. Set Repeatable when the printed word says the cost may be paid more than once as the spell is cast: multikicker (CR 702.32b) and replicate-shaped keywords. Plain kicker (CR 702.32a) is paid once or not at all and leaves it false. A repeatable keyword is what makes the TimesKicked amount countable; without the flag, casting refuses a second payment, so a multikicker card translated without it is castable but never kicked twice."
     },
     "ReplacementAbility": {
       "type": "object",
@@ -1163,7 +1163,7 @@
         "kind",
         "effect"
       ],
-      "description": "A continuous effect from a static ability, CR 604. Applies to objects via or to players via ."
+      "description": "A continuous effect from a static ability, CR 604. Applies to objects via To or to players via Players."
     },
     "TriggeredAbility": {
       "type": "object",
@@ -1223,7 +1223,7 @@
         "when",
         "do"
       ],
-      "description": "\u0022When\u0022, \u0022whenever\u0022, \u0022at\u0022, CR 603. is the zone the ability functions in."
+      "description": "\u0022When\u0022, \u0022whenever\u0022, \u0022at\u0022, CR 603. Where is the zone the ability functions in."
     },
     "ChooseCost": {
       "type": "object",
@@ -1527,7 +1527,7 @@
         "kind",
         "generic"
       ],
-      "description": "Generic mana whose amount is counted from the game rather than printed, CR 118.8: \u0022unless that player pays {X}, where X is this creature\u0027s power\u0022. is the number of generic mana to pay, evaluated when the cost is announced (CR 601.2h); is any printed coloured part paid alongside it (\u0022{R} plus {X}\u0022), written as printed. Use ManaCost for everything a card prints as a fixed symbol string, including \u0022{X}\u0022 spelled with the spell\u0027s own X \u2014 this record is only for an amount the game has to count."
+      "description": "Generic mana whose amount is counted from the game rather than printed, CR 118.8: \u0022unless that player pays {X}, where X is this creature\u0027s power\u0022. Generic is the number of generic mana to pay, evaluated when the cost is announced (CR 601.2h); Colored is any printed coloured part paid alongside it (\u0022{R} plus {X}\u0022), written as printed. Use ManaCost for everything a card prints as a fixed symbol string, including \u0022{X}\u0022 spelled with the spell\u0027s own X \u2014 this record is only for an amount the game has to count."
     },
     "PutCountersCost": {
       "type": "object",
@@ -1843,7 +1843,7 @@
         "who",
         "min"
       ],
-      "description": "\u0022if you attacked with two or more creatures this turn\u0022: how many creatures a player declared as attackers this turn, compared against , CR 506.2 and 508.1. Counted over the whole turn and every combat phase in it, not just the current one, and a creature that was declared an attacker still counts after it has left combat or died. Raid is the same question with a minimum of one and is kept because the ability word is printed; use this record whenever the card names a number, and prefer it over Raid when the number is anything but one."
+      "description": "\u0022if you attacked with two or more creatures this turn\u0022: how many creatures a player declared as attackers this turn, compared against Min, CR 506.2 and 508.1. Counted over the whole turn and every combat phase in it, not just the current one, and a creature that was declared an attacker still counts after it has left combat or died. Raid is the same question with a minimum of one and is kept because the ability word is printed; use this record whenever the card names a number, and prefer it over Raid when the number is anything but one."
     },
     "CastFromZone": {
       "type": "object",
@@ -2119,7 +2119,7 @@
       "required": [
         "kind"
       ],
-      "description": "\u0022if the gift was promised\u0022, CR 702.174b: the caster of a spell with gift chose, as they cast it, to promise the gift to an opponent, and the spell\u0027s \u0022if the gift was promised\u0022 clauses now apply. Promising is a choice made on casting, so this is answered from the spell\u0027s record of that choice, not from anything on the battlefield. names the player the gift was promised to when the card asks about them; leave it null for the plain \u0022if the gift was promised\u0022 reading."
+      "description": "\u0022if the gift was promised\u0022, CR 702.174b: the caster of a spell with gift chose, as they cast it, to promise the gift to an opponent, and the spell\u0027s \u0022if the gift was promised\u0022 clauses now apply. Promising is a choice made on casting, so this is answered from the spell\u0027s record of that choice, not from anything on the battlefield. Who names the player the gift was promised to when the card asks about them; leave it null for the plain \u0022if the gift was promised\u0022 reading."
     },
     "HasKeyword": {
       "type": "object",
@@ -4181,7 +4181,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in . Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in ."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. Because the set fields are joined with \u0022and\u0022, the fixed fields cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also."
     },
     "ReplacedEvent": {
       "anyOf": [
@@ -4264,7 +4264,7 @@
           "$ref": "#/$defs/WouldUntap"
         }
       ],
-      "description": "The event a replacement effect watches for, CR 614. The ability\u0027s With effect runs instead of the event, with bound to the object the event was about."
+      "description": "The event a replacement effect watches for, CR 614. The ability\u0027s With effect runs instead of the event, with Triggering bound to the object the event was about."
     },
     "ContinuousEffect": {
       "anyOf": [
@@ -4499,7 +4499,7 @@
           "$ref": "#/$defs/Union"
         }
       ],
-      "description": "Which objects an instruction acts on. A selector names the objects; an describes them. Targets are selectors, and so are \u0022each creature\u0022, \u0022this permanent\u0022 and \u0022the exiled card\u0022."
+      "description": "Which objects an instruction acts on. A selector names the objects; an ObjectFilter describes them. Targets are selectors, and so are \u0022each creature\u0022, \u0022this permanent\u0022 and \u0022the exiled card\u0022."
     },
     "PlayerRef": {
       "anyOf": [
@@ -4722,7 +4722,7 @@
           "$ref": "#/$defs/ZoneChange"
         }
       ],
-      "description": "The event a triggered ability watches for, CR 603. Each record names the event and describes the objects or players it must involve. The interpreter binds selectors to the matched objects."
+      "description": "The event a triggered ability watches for, CR 603. Each record names the event and describes the objects or players it must involve. The interpreter binds Triggering selectors to the matched objects."
     },
     "Comparison": {
       "type": "object",
@@ -4828,7 +4828,7 @@
         "kind",
         "mana"
       ],
-      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022. Set for a restricted mana: \u0022add {C}. Spend this mana only to cast artifact spells\u0022 (CR 106.6a) \u2014 the filter describes what the mana may be spent on, and mana with a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say \u0022only to cast creature spells\u0022 as ObjectFilter(Spell: true, Types: CardType.Creature) and \u0022only to activate abilities\u0022 with an ability filter; a restriction the filter cannot express goes to a primitive request rather than being dropped, because unrestricted mana is a different card."
+      "description": "\u0022Add {G}{G}\u0022, \u0022add one mana of any color\u0022, \u0022add X mana of the chosen color\u0022. Set SpendOnlyOn for a restricted mana: \u0022add {C}. Spend this mana only to cast artifact spells\u0022 (CR 106.6a) \u2014 the filter describes what the mana may be spent on, and mana with a restriction is otherwise ordinary mana that empties from the pool as usual (CR 106.6b). Say \u0022only to cast creature spells\u0022 as ObjectFilter(Spell: true, Types: CardType.Creature) and \u0022only to activate abilities\u0022 with an ability filter; a restriction the filter cannot express goes to a primitive request rather than being dropped, because unrestricted mana is a different card."
     },
     "Airbend": {
       "type": "object",
@@ -5139,7 +5139,7 @@
         "kind",
         "what"
       ],
-      "description": "\u0022Change the target of target spell with a single target\u0022, CR 115.7: the spell or ability keeps resolving but points somewhere else. selects the spell or ability on the stack; names the new target when the card names it (\u0022change its target to this creature\u0022) and is left null when the card lets a player choose. Set for \u0022you may choose new targets for it\u0022 (CR 114.6), which is the weaker action: it may leave the targets as they are, while a change must alter at least one (CR 115.7b). Legality is rechecked on resolution, so an illegal change is simply not made."
+      "description": "\u0022Change the target of target spell with a single target\u0022, CR 115.7: the spell or ability keeps resolving but points somewhere else. What selects the spell or ability on the stack; To names the new target when the card names it (\u0022change its target to this creature\u0022) and is left null when the card lets a player choose. Set AllTargets for \u0022you may choose new targets for it\u0022 (CR 114.6), which is the weaker action: it may leave the targets as they are, while a change must alter at least one (CR 115.7b). Legality is rechecked on resolution, so an illegal change is simply not made."
     },
     "ChooseMode": {
       "type": "object",
@@ -5168,7 +5168,7 @@
         "kind",
         "modes"
       ],
-      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set to the mode count."
+      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count."
     },
     "ChooseValue": {
       "type": "object",
@@ -5608,7 +5608,7 @@
         "kind",
         "n"
       ],
-      "description": "\u0022Deals 3 damage\u0022: to objects through , to players through , or to both when the card names both (\u0022deals 2 damage to target creature and 2 damage to that creature\u0027s controller\u0022). The three words \u0022any target\u0022 are not both halves written out: they are the AnyTarget selector in , with left out (CR 115.4). Use the two halves together only when the card really names two things to damage."
+      "description": "\u0022Deals 3 damage\u0022: to objects through To, to players through ToPlayer, or to both when the card names both (\u0022deals 2 damage to target creature and 2 damage to that creature\u0027s controller\u0022). The three words \u0022any target\u0022 are not both halves written out: they are the AnyTarget selector in To, with ToPlayer left out (CR 115.4). Use the two halves together only when the card really names two things to damage."
     },
     "DealDividedDamage": {
       "type": "object",
@@ -5820,7 +5820,7 @@
         "among",
         "maxTargets"
       ],
-      "description": "\u0022Distribute three \u002B1/\u002B1 counters among one, two, or three target creatures\u0022, CR 601.2d: the division is announced as the spell is cast, every named target gets at least one counter, and no more than targets may be chosen. is the total distributed, the kind, and the target selector, whose own Count is the number of targets and is normally left null so MaxTargets rules it. This is the counter twin of DealDividedDamage; do not spell a division as ForEach over targets, which would give every target the whole amount."
+      "description": "\u0022Distribute three \u002B1/\u002B1 counters among one, two, or three target creatures\u0022, CR 601.2d: the division is announced as the spell is cast, every named target gets at least one counter, and no more than MaxTargets targets may be chosen. N is the total distributed, Counter the kind, and Among the target selector, whose own Count is the number of targets and is normally left null so MaxTargets rules it. This is the counter twin of DealDividedDamage; do not spell a division as ForEach over targets, which would give every target the whole amount."
     },
     "DoNothing": {
       "type": "object",
@@ -6379,7 +6379,7 @@
         "over",
         "do"
       ],
-      "description": "\u0022For each creature you control, ...\u0022. Inside, is the current object."
+      "description": "\u0022For each creature you control, ...\u0022. Inside, Triggering is the current object."
     },
     "ForEachPlayer": {
       "type": "object",
@@ -6400,7 +6400,7 @@
         "over",
         "do"
       ],
-      "description": "\u0022Each player ...\u0022, in APNAP order. Inside, is the current player."
+      "description": "\u0022Each player ...\u0022, in APNAP order. Inside, TriggeringPlayer is the current player."
     },
     "Forage": {
       "type": "object",
@@ -6835,7 +6835,7 @@
         "kind",
         "do"
       ],
-      "description": "\u0022You may ...\u0022: the player decides on resolution. defaults to you."
+      "description": "\u0022You may ...\u0022: the player decides on resolution. Who defaults to you."
     },
     "MayCast": {
       "type": "object",
@@ -7949,7 +7949,7 @@
         "for",
         "to"
       ],
-      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in . A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in in printed order and leaves alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with set shuffles only the libraries among . Set for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there."
+      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there."
     },
     "Sequence": {
       "type": "object",
@@ -8621,7 +8621,7 @@
         "kind",
         "key"
       ],
-      "description": "A number chosen earlier in the same effect with ."
+      "description": "A number chosen earlier in the same effect with Choose."
     },
     "CountOf": {
       "type": "object",
@@ -8665,7 +8665,7 @@
         "kind",
         "on"
       ],
-      "description": "Counters of one kind on an object; any kind when is null."
+      "description": "Counters of one kind on an object; any kind when Counter is null."
     },
     "CountersOnPlayer": {
       "type": "object",
@@ -8759,7 +8759,7 @@
         "kind",
         "who"
       ],
-      "description": "Devotion to one or more colors, CR 700.5: the number of mana symbols of those colors among the mana costs of permanents that player controls. Normally the colors are printed and go in (\u0022your devotion to black\u0022). When the card instead reads \u0022your devotion to the chosen color\u0022, leave at Colorless and set to the key an earlier ChooseValue(ChooseWhat.Color, key) step stored the colour under; the colour is then read from that choice when the amount is counted. Never emit a fixed colour for a chosen one \u2014 the two are different cards."
+      "description": "Devotion to one or more colors, CR 700.5: the number of mana symbols of those colors among the mana costs of permanents that player controls. Normally the colors are printed and go in Colors (\u0022your devotion to black\u0022). When the card instead reads \u0022your devotion to the chosen color\u0022, leave Colors at Colorless and set ChosenColorKey to the key an earlier ChooseValue(ChooseWhat.Color, key) step stored the colour under; the colour is then read from that choice when the amount is counted. Never emit a fixed colour for a chosen one \u2014 the two are different cards."
     },
     "Difference": {
       "type": "object",
@@ -9249,7 +9249,7 @@
           "$ref": "#/$defs/WasKicked"
         }
       ],
-      "description": "The long tail of object descriptions the fixed fields of cannot express."
+      "description": "The long tail of object descriptions the fixed fields of ObjectFilter cannot express."
     },
     "PlayerWouldBeDealtDamage": {
       "type": "object",
@@ -11394,7 +11394,7 @@
         "kind",
         "what"
       ],
-      "description": "A prohibition that applies to a player rather than to an object: \u0022your life total can\u0027t change\u0022, \u0022you can\u0027t lose the game\u0022, \u0022you can\u0027t be the target of spells\u0022, \u0022prevent all damage that would be dealt to you\u0022. Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a duration; the Selector-shaped To is not used for these. Several restrictions can be set at once because is a flag set. CantLoseGame, CantWinGame and CantGainLife stay as they are \u2014 they were already spelled that way in card files and mean exactly what they say; use this record for the restrictions they do not cover."
+      "description": "A prohibition that applies to a player rather than to an object: \u0022your life total can\u0027t change\u0022, \u0022you can\u0027t lose the game\u0022, \u0022you can\u0027t be the target of spells\u0022, \u0022prevent all damage that would be dealt to you\u0022. Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a duration; the Selector-shaped To is not used for these. Several restrictions can be set at once because PlayerRestriction is a flag set. CantLoseGame, CantWinGame and CantGainLife stay as they are \u2014 they were already spelled that way in card files and mean exactly what they say; use this record for the restrictions they do not cover."
     },
     "PlayerProtectionFromEverything": {
       "type": "object",
@@ -11453,7 +11453,7 @@
       "required": [
         "kind"
       ],
-      "description": "Prevention, CR 615: all when is null."
+      "description": "Prevention, CR 615: all when Amount is null."
     },
     "RegenerationShield": {
       "type": "object",
@@ -12063,7 +12063,7 @@
         "kind",
         "filter"
       ],
-      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. lets later steps refer back."
+      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. Key lets later steps refer back."
     },
     "ThisSpellsTargets": {
       "type": "object",
@@ -12789,7 +12789,7 @@
         "kind",
         "on"
       ],
-      "description": "\u0022Whenever one or more \u002B1/\u002B1 counters are put on a creature you control\u0022; for \u0022the third\u0022."
+      "description": "\u0022Whenever one or more \u002B1/\u002B1 counters are put on a creature you control\u0022; Nth for \u0022the third\u0022."
     },
     "CounterRemoved": {
       "type": "object",
@@ -13242,7 +13242,7 @@
         "kind",
         "by"
       ],
-      "description": "Landfall: \u0022whenever a land enters under your control\u0022 is ; this is the play itself."
+      "description": "Landfall: \u0022whenever a land enters under your control\u0022 is EntersBattlefield; this is the play itself."
     },
     "Learns": {
       "type": "object",
@@ -13787,7 +13787,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "What a mana instruction produces. is printed mana (\u0022{G}{G}\u0022); otherwise one of the described choices."
+      "description": "What a mana instruction produces. Fixed is printed mana (\u0022{G}{G}\u0022); otherwise one of the described choices."
     },
     "Duration": {
       "anyOf": [
@@ -13987,7 +13987,7 @@
         "colors",
         "types"
       ],
-      "description": "A token to create, CR 111. The pipeline fills it from Scryfall\u0027s all_parts and the token\u0027s own card object; keeps the link."
+      "description": "A token to create, CR 111. The pipeline fills it from Scryfall\u0027s all_parts and the token\u0027s own card object; ScryfallOracleId keeps the link."
     },
     "CounterSpec": {
       "type": "object",
@@ -14465,7 +14465,7 @@
         "kind",
         "with"
       ],
-      "description": "Shares a card type \u2014 or, with , a creature type \u2014 with the object names. This is how a relation between two objects the same effect touched is written, and it is the answer to the shape translators reach for a new record for: \u0022search your library for two basic land cards that share a land type\u0022 is a Sequence whose first step searches and remembers the first card, and whose second step searches for one that shares a type with it \u2014 Sequence([Search(basicLand, Battlefield, RememberAs: \u0022first\u0022), Search(new ObjectFilter(Types: CardType.Land, Supertypes: Supertype.Basic, Also: new SharesTypeWith(new Remembered(\u0022first\u0022), CreatureTypeOnly: false)), Zone.Battlefield)]). Remember plus this predicate expresses every \u0022that share a ...\u0022 and \u0022with the same ...\u0022 relation; SharesColorWith and SharesNameWith are the same pattern for colour and name."
+      "description": "Shares a card type \u2014 or, with CreatureTypeOnly, a creature type \u2014 with the object With names. This is how a relation between two objects the same effect touched is written, and it is the answer to the shape translators reach for a new record for: \u0022search your library for two basic land cards that share a land type\u0022 is a Sequence whose first step searches and remembers the first card, and whose second step searches for one that shares a type with it \u2014 Sequence([Search(basicLand, Battlefield, RememberAs: \u0022first\u0022), Search(new ObjectFilter(Types: CardType.Land, Supertypes: Supertype.Basic, Also: new SharesTypeWith(new Remembered(\u0022first\u0022), CreatureTypeOnly: false)), Zone.Battlefield)]). Remember plus this predicate expresses every \u0022that share a ...\u0022 and \u0022with the same ...\u0022 relation; SharesColorWith and SharesNameWith are the same pattern for colour and name."
     },
     "TargetedBy": {
       "type": "object",
@@ -14482,7 +14482,7 @@
         "kind",
         "by"
       ],
-      "description": "Currently targeted by the given object, typically ."
+      "description": "Currently targeted by the given object, typically Self."
     },
     "WasDealtDamageThisTurn": {
       "type": "object",

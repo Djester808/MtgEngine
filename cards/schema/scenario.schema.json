@@ -1453,7 +1453,7 @@
       "required": [
         "name"
       ],
-      "description": "A card placed by a scenario. is how steps and expectations refer to it when names repeat."
+      "description": "A card placed by a scenario. Alias is how steps and expectations refer to it when names repeat."
     },
     "Attack": {
       "type": "object",
