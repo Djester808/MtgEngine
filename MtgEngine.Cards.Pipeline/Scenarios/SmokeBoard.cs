@@ -65,9 +65,13 @@ internal sealed class SmokeBoard(string card)
     [RuleRef("702.5b")]
     internal string Aimed(bool mine, string card)
     {
-        Place(mine, card, 1);
-        _targets.Add(card);
-        return card;
+        // Under an alias, as a stocked library card is: the runner names objects first-wins and
+        // places the hand before the battlefield, so a filler that also sits in the hand would
+        // otherwise be what the target name resolves to (seam-requests/E5g.md).
+        var alias = FormattableString.Invariant($"aim-{_targets.Count + 1}");
+        (mine ? _casterBattlefield : _opponentBattlefield).Add(new CardRef(card, Alias: alias));
+        _targets.Add(alias);
+        return alias;
     }
 
     /// <summary>

@@ -95,15 +95,14 @@ public sealed partial class InterpreterTests
         Assert.Null(table.State.Pending);
         Assert.DoesNotContain(spell, table.State.In(ZoneKey.Shared(Zone.Stack)));
 
-        // CR 701.23a: a basic land was found and put onto the battlefield tapped. It is the wrong
-        // player's: "its controller" is a Remembered read of the key the Target selector declared,
-        // nothing recalls a target under its key, and the exiled object is a new one anyway
-        // (CR 400.7), so the search fell back to the spell's controller. Asserted as it stands;
-        // the reading of "its controller" is named in seam-requests/E9l.md.
-        var found = table.Battlefield(E0, InterpreterTestsEnteringTable.PlainName);
-        Assert.Equal(2, found.Count);
-        Assert.Contains(found, id => table.State.Objects[id].Tapped);
-        Assert.Empty(table.Battlefield(E1, InterpreterTestsEnteringTable.WoodName));
+        // CR 701.23a with 608.2h and 400.7: "its controller" is the controller the exiled land had
+        // (the target is remembered under the key its selector declared, and a departed object's
+        // controller is last-known information), so the search was the other player's: their basic
+        // land is on their battlefield, tapped, and the caster found nothing.
+        var found = table.Battlefield(E1, InterpreterTestsEnteringTable.WoodName);
+        var land = Assert.Single(found);
+        Assert.True(table.State.Objects[land].Tapped);
+        Assert.Single(table.Battlefield(E0, InterpreterTestsEnteringTable.PlainName));
     }
 
     [Fact]

@@ -26,7 +26,7 @@ public sealed class ScenarioStageTestsFillers
         var opponent = scenario!.Setup.Players[1].Battlefield!;
         Assert.Contains(opponent, c => c.Name == ScenarioFiller.Artifact);
         Assert.Contains(opponent, c => c.Name == ScenarioFiller.Enchantment);
-        Assert.Contains(scenario.Expect, e => e is InZone { Card: ScenarioFiller.Artifact, Zone: Zone.Graveyard });
+        Assert.Contains(scenario.Expect, e => e is InZone { Card: "aim-1", Zone: Zone.Graveyard });
         Passes(scenario, file);
     }
 

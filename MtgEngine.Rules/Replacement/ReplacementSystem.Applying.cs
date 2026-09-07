@@ -49,6 +49,11 @@ public sealed partial class ReplacementSystem
             case EntersTapped:
                 return new Applied(Entering(current, obj => obj with { Tapped = true }), state, []);
 
+            // CR 702.180 with 614.1c: "enters prepared" puts the designation on the object as it
+            // enters; the selector is the entering object itself on this road.
+            case Cards.Prepare:
+                return new Applied(Entering(current, obj => obj with { Designations = obj.Designations.Add(Query.Designations.Prepared) }), state, []);
+
             case EntersWithCounters counters:
                 {
                     var n = _query.Evaluate(state, counters.N, Context(candidate.Source, candidate.Controller, current));

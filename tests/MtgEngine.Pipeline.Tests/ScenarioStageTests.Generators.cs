@@ -187,11 +187,11 @@ public sealed class ScenarioStageTestsGenerators
         var scenario = Generate("enchant creature", new KeywordAbility(KeywordKind.Enchant, Of: ObjectFilter.Creature), CardType.Enchantment);
 
         var cast = Assert.IsType<CastStep>(scenario.Steps[0]);
-        Assert.Equal([ScenarioFiller.Creature], cast.Targets);
+        Assert.Equal(["aim-1"], cast.Targets);
         Assert.Contains(scenario.Setup.Players[0].Battlefield!, c => c.Name == ScenarioFiller.Creature);
         // The attachment is the assertion and not the zone: CR 303.4f puts the Aura onto the
         // battlefield attached to what it was cast at, and CR 704.5m buries it when it is not.
-        Assert.Equal(ScenarioFiller.Creature, Assert.Single(scenario.Expect.OfType<AttachedToIs>()).To);
+        Assert.Equal("aim-1", Assert.Single(scenario.Expect.OfType<AttachedToIs>()).To);
         Assert.DoesNotContain(scenario.Expect, e => e is InZone { Zone: Zone.Battlefield });
     }
 
@@ -201,7 +201,7 @@ public sealed class ScenarioStageTestsGenerators
     {
         var scenario = Generate("enchant land", new KeywordAbility(KeywordKind.Enchant, Of: new ObjectFilter(Types: CardType.Land)), CardType.Enchantment);
 
-        Assert.Equal([ScenarioFiller.Land], Assert.IsType<CastStep>(scenario.Steps[0]).Targets);
+        Assert.Equal(["aim-1"], Assert.IsType<CastStep>(scenario.Steps[0]).Targets);
     }
 
     [Fact]

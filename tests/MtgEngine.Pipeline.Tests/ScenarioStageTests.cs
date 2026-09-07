@@ -87,8 +87,8 @@ public sealed class ScenarioStageTests : IDisposable
 
         Assert.NotNull(scenario);
         var body = Assert.Single(scenario!.Setup.Players[1].Battlefield!);
-        Assert.Equal(body.Name, Assert.IsType<CastStep>(scenario.Steps[0]).Targets!.Single());
-        var dead = scenario.Expect.OfType<InZone>().Single(z => z.Card == body.Name);
+        Assert.Equal(body.Alias ?? body.Name, Assert.IsType<CastStep>(scenario.Steps[0]).Targets!.Single());
+        var dead = scenario.Expect.OfType<InZone>().Single(z => z.Card == (body.Alias ?? body.Name));
         Assert.Equal(Zone.Graveyard, dead.Zone);
         Assert.Equal(SmokeScenario.Opponent, dead.Owner);
     }
@@ -100,7 +100,7 @@ public sealed class ScenarioStageTests : IDisposable
 
         Assert.NotNull(scenario);
         var body = Assert.Single(scenario!.Setup.Players[1].Battlefield!);
-        Assert.Equal(Zone.Exile, scenario.Expect.OfType<InZone>().Single(z => z.Card == body.Name).Zone);
+        Assert.Equal(Zone.Exile, scenario.Expect.OfType<InZone>().Single(z => z.Card == (body.Alias ?? body.Name)).Zone);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class ScenarioStageTests : IDisposable
         // The target is the caster's own, because that is what the filter said (CR 115.1).
         var body = Assert.Single(scenario!.Setup.Players[0].Battlefield!);
         var counters = Assert.Single(scenario.Expect.OfType<CountersAre>());
-        Assert.Equal(body.Name, counters.Card);
+        Assert.Equal(body.Alias ?? body.Name, counters.Card);
         Assert.Equal("+1/+1", counters.Counter);
         Assert.Equal(3, counters.Count);
     }

@@ -134,9 +134,54 @@ public sealed partial class EffectInterpreter(
         // the trigger system's key and as the context's Triggering; anything else the stack
         // object remembers rides along.
         var remembered = (entry.Remembered ?? ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty).SetItem("triggering", triggering);
-        var triggeringPlayer = entry.RememberedPlayers is { } players && players.TryGetValue("triggering", out var those) && those.Count > 0
+        var rememberedPlayers = entry.RememberedPlayers ?? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty;
+        var triggeringPlayer = rememberedPlayers.TryGetValue("triggering", out var those) && those.Count > 0
             ? those[0]
             : (PlayerId?)null;
+
+        // CR 601.2c with 608.2h: a target chosen as the spell was announced is remembered under
+        // the key its Target selector declared, in the order the selectors are written, so a later
+        // step's Remembered(key) or RememberedPlayer(key) names it (and, after it moved, the
+        // look-back reads what it was).
+        if (EffectOf(obj, entry) is { } tree)
+        {
+            var objectAt = 0;
+            var playerAt = 0;
+            foreach (var node in Cards.Linter.Walk(tree))
+            {
+                switch (node)
+                {
+                    case Cards.Target { Key: { } key } target:
+                        {
+                            var take = target.Count is Fixed { N: var n } && n > 0 ? n : 1;
+                            var taken = entry.Targets.Skip(objectAt).Take(take).ToImmutableList();
+                            objectAt += take;
+                            if (!remembered.ContainsKey(key))
+                                remembered = remembered.SetItem(key, taken);
+                            break;
+                        }
+
+                    case Cards.AnyTarget { Key: { } anyKey }:
+                        {
+                            if (objectAt < entry.Targets.Count && !remembered.ContainsKey(anyKey))
+                                remembered = remembered.SetItem(anyKey, [entry.Targets[objectAt]]);
+                            objectAt++;
+                            break;
+                        }
+
+                    case Cards.TargetPlayer { Key: { } playerKey }:
+                        {
+                            if (playerAt < entry.TargetPlayers.Count && !rememberedPlayers.ContainsKey(playerKey))
+                                rememberedPlayers = rememberedPlayers.SetItem(playerKey, [entry.TargetPlayers[playerAt]]);
+                            playerAt++;
+                            break;
+                        }
+
+                    default:
+                        break;
+                }
+            }
+        }
 
         return new EffectContext(
             source,
@@ -149,7 +194,7 @@ public sealed partial class EffectInterpreter(
             ImmutableDictionary<string, int>.Empty,
             triggering,
             triggeringPlayer,
-            entry.RememberedPlayers);
+            rememberedPlayers);
     }
 
     /// <summary>

@@ -83,6 +83,15 @@ public sealed partial class Query
         return ids.ToImmutable();
     }
 
+
+    /// <summary>The object, or what it was when it left (CR 400.7 last-known information), or null when the game never held it.</summary>
+    private static GameObject? LastKnown(GameState state, ObjectId id) =>
+        state.Objects.TryGetValue(id, out var here) ? here
+        : state.History.LeftBattlefield.Concat(state.History.Died).FirstOrDefault(o => o.Id == id);
+
+    private PlayerId? LastKnownController(GameState state, ObjectId id) =>
+        state.Objects.ContainsKey(id) ? _layers.ControllerOf(state, id) : LastKnown(state, id)?.InitialController;
+
     public ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -97,10 +106,12 @@ public sealed partial class Query
             TriggeringPlayer => context.TriggeringPlayer is { } who ? [who] : [], // CR 603.6
             AttachedPlayer => context.Source is { } aura && state.Objects.TryGetValue(aura, out var self) && self.AttachedToPlayer is { } enchanted ? [enchanted] : [], // CR 303.4f
 
+            // CR 400.7 with 608.2h: an object that has left the zone it was in is a new object; "its
+            // controller" for a remembered one reads the last-known information the turn kept.
             ControllerOf controller => [.. Resolve(state, controller.Of, context)
-                .Select(id => _layers.ControllerOf(state, id)).Distinct()], // CR 613.1a
+                .Select(id => LastKnownController(state, id)).OfType<PlayerId>().Distinct()], // CR 613.1a
             OwnerOf owner => [.. Resolve(state, owner.Of, context)
-                .Select(id => state.Objects[id].Owner).Distinct()], // CR 108.3
+                .Select(id => LastKnown(state, id)?.Owner).OfType<PlayerId>().Distinct()], // CR 108.3
 
             DefendingPlayer => Defending(state), // CR 506.2
             PlayerWithMostOf most => Extreme(state, most, context),
