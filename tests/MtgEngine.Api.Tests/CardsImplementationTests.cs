@@ -1,3 +1,8 @@
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
 using MtgEngine.Cards;
 
@@ -122,6 +127,65 @@ public sealed class CardsImplementationTests : IDisposable
 
         Assert.Throws<ResourceNotFoundException>(() => service.Choose(file.OracleId, "some-other-model"));
     }
+
+    [Fact]
+    public void The_batch_endpoint_answers_in_the_order_asked_and_calls_an_unknown_id_untranslated()
+    {
+        var verified = Write(Card("batch-1", "one") with { Status = ImplementationStatus.Verified });
+        var translated = Write(Card("batch-2", "two"));
+
+        var dtos = Service(verified, translated).Implementations(["batch-2", "nothing-here", "batch-1"]);
+
+        Assert.Equal(3, dtos.Count);
+        Assert.Equal(["batch-2", "nothing-here", "batch-1"], dtos.Select(d => d.OracleId).ToArray());
+        Assert.Equal(ImplementationStatus.Translated, dtos[0].Status);
+        Assert.Equal(ImplementationStatus.Untranslated, dtos[1].Status);
+        Assert.Empty(dtos[1].Scenarios);
+        Assert.Equal(ImplementationStatus.Verified, dtos[2].Status);
+    }
+
+    [Fact]
+    public void The_batch_request_refuses_an_empty_list()
+    {
+        Assert.False(Valid(new CardImplementationsRequest([])));
+        Assert.True(Valid(new CardImplementationsRequest(["one"])));
+        Assert.False(Valid(new CardImplementationsRequest([.. Enumerable.Range(0, CardImplementationsRequest.MaxIds + 1).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture))])));
+    }
+
+    /// <summary>
+    /// The client's status union is the enum's names, so the wire has to carry "Verified" and not
+    /// 3. The converter is registered in <c>Program.cs</c>'s <c>AddJsonOptions</c>; this asserts
+    /// what that registration produces for this DTO.
+    /// </summary>
+    [Fact]
+    public void Status_serialises_as_the_enum_name()
+    {
+        var file = Write(Card("json-1", "a verified card") with { Status = ImplementationStatus.Verified });
+
+        var json = JsonSerializer.Serialize(Service(file).Implementations([file.OracleId]), MvcJson);
+
+        Assert.Contains("\"status\":\"Verified\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"status\":3", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>What <c>builder.Services.AddControllers().AddJsonOptions(...)</c> leaves the API writing.</summary>
+    private static readonly JsonSerializerOptions MvcJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    /// <summary>
+    /// The attributes on a positional record target the constructor parameter, which is what MVC
+    /// validates when it binds the body — <c>[property: ...]</c> throws at bind time, so the check
+    /// has to read the parameter the same way.
+    /// </summary>
+    private static bool Valid(CardImplementationsRequest request) =>
+        typeof(CardImplementationsRequest)
+            .GetConstructors()[0]
+            .GetParameters()
+            .Single(p => string.Equals(p.Name, nameof(CardImplementationsRequest.OracleIds), StringComparison.Ordinal))
+            .GetCustomAttributes<ValidationAttribute>()
+            .All(a => a.IsValid(request.OracleIds));
 
     public void Dispose()
     {

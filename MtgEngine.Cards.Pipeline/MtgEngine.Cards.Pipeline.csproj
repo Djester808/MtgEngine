@@ -18,6 +18,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
+    <!--
+      The verify command plays a card's scenarios through the real engine, so it needs the engine:
+      the runner, Subsystems.Wave2() and EventLogSerializer.EngineHash(). Rules depends only on
+      Cards, so there is no cycle, and nothing here is referenced by the engine.
+    -->
+    <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
   </ItemGroup>
 
   <ItemGroup>
