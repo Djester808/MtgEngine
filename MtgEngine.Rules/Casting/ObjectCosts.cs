@@ -13,10 +13,13 @@ namespace MtgEngine.Rules.Casting;
 /// consumed in full before anything else happens, so no payment is ever partial.
 /// </summary>
 /// <remarks>
-/// CR 601.2c says the player chooses. The command carries no list of chosen objects yet
-/// (seam-requests/E3c.md asks for <c>CostObjects</c> on <see cref="Commands.CastSpell"/>), so a
-/// cost whose objects are forced — exactly as many legal objects as it asks for — is paid, and a
-/// cost with a real choice is refused naming CR 601.2c rather than choosing for the player.
+/// CR 601.2c says the player chooses, and the command carries that choice: <c>CostObjects</c> on
+/// <see cref="Commands.CastSpell"/> and <see cref="Commands.ActivateAbility"/> is read in the
+/// order the costs are written, each cost taking as many as it asks for. An object that is not
+/// legal for the cost it was named for — wrong zone, wrong controller, or not matching the
+/// filter — is refused naming CR 601.2c. A cost the command names nothing for is still paid when
+/// the payment is forced (exactly as many legal objects as it asks for) and refused otherwise,
+/// so no object is ever picked for the player.
 /// </remarks>
 [RuleRef("601.2c")]
 internal static class ObjectCosts
@@ -104,15 +107,31 @@ internal static class ObjectCosts
     [RuleRef("701.24")]
     private static Outcome RemoveCounters(GameState state, CostContext context, RemoveCountersCost cost)
     {
-        if (cost.From is not null)
-            throw new RefusedException("Which permanent to remove counters from cannot be chosen yet.", "601.2c");
-        var source = context.Source ?? throw new RefusedException("There is nothing to remove counters from.", "601.2h");
+        var from = cost.From is null
+            ? context.Source?.Id ?? throw new RefusedException("There is nothing to remove counters from.", "601.2h")
+            : NamedPermanent(state, context, cost.From);
         var count = Count(state, context, cost.Count);
-        if (state.Objects[source.Id].Counters.GetValueOrDefault(cost.Counter) < count)
+        if (state.Objects[from].Counters.GetValueOrDefault(cost.Counter) < count)
             throw new RefusedException("There are not enough counters to remove.", "601.2h");
 
-        var changed = new CountersChanged(source.Id, cost.Counter, -count);
+        var changed = new CountersChanged(from, cost.Counter, -count);
         return new Outcome(changed.Apply(state), [changed]);
+    }
+
+    /// <summary>
+    /// CR 601.2c: the permanent a cost takes counters off is the player's choice, so it comes off
+    /// the command. Nothing is resolved unless one was named — a command that names none is
+    /// refused, exactly as it was before the choice could be carried.
+    /// </summary>
+    [RuleRef("601.2c")]
+    private static ObjectId NamedPermanent(GameState state, CostContext context, Selector from)
+    {
+        var named = context.Named.Take(1);
+        if (named.Count == 0)
+            throw new RefusedException("Which permanent to remove counters from was not chosen.", "601.2c");
+        return context.Query.Resolve(state, from, context.Effect).Contains(named[0])
+            ? named[0]
+            : throw new RefusedException("That permanent cannot pay this cost.", "601.2c");
     }
 
     private static Outcome MoveSelf(GameState state, CostContext context, CardZone to, string how)
@@ -140,9 +159,10 @@ internal static class ObjectCosts
     }
 
     /// <summary>
-    /// The objects that pay the cost. CR 601.2c makes this the player's choice; until the command
-    /// can carry it, only a forced payment goes through — every legal object is taken when there
-    /// are exactly as many as the cost asks for.
+    /// The objects that pay the cost, CR 601.2c: the ones the command named for it, each of which
+    /// must be legal for this cost. A command that named none for this cost falls back to the
+    /// forced payment — every legal object is taken when there are exactly as many as the cost
+    /// asks for — so a cost with no choice in it needs nothing on the command.
     /// </summary>
     [RuleRef("601.2c")]
     private static ImmutableList<ObjectId> Choose(
@@ -157,12 +177,34 @@ internal static class ObjectCosts
         bool excludeSource = false)
     {
         var wanted = Count(state, context, count);
+        if (wanted == 0)
+            return [];
+
         var legal = Candidates(state, context, zone, byControl, filter, untappedOnly, excludeSource);
         if (legal.Count < wanted)
             throw new RefusedException($"There are not enough {what}.", "601.2h");
-        if (legal.Count > wanted)
-            throw new RefusedException($"Which of the {what} pay the cost cannot be chosen yet.", "601.2c");
-        return legal;
+
+        var named = context.Named.Take(wanted);
+        if (named.Count == 0)
+        {
+            // CR 601.2c: nothing was named for this cost, so it is paid only when the payment is
+            // forced. A real choice is refused rather than made for the player.
+            return legal.Count == wanted
+                ? legal
+                : throw new RefusedException($"Which of the {what} pay the cost was not chosen.", "601.2c");
+        }
+
+        if (named.Count < wanted)
+            throw new RefusedException($"Too few {what} were chosen to pay the cost.", "601.2c");
+        if (named.Distinct().Count() != named.Count)
+            throw new RefusedException("One object cannot pay a cost twice.", "601.2c");
+        foreach (var id in named)
+        {
+            if (!legal.Contains(id))
+                throw new RefusedException($"That is not one of the {what} that can pay the cost.", "601.2c");
+        }
+
+        return named;
     }
 
     /// <summary>Ordered by object id so a forced payment is the same on every replay.</summary>
@@ -202,4 +244,29 @@ internal static class ObjectCosts
     [RuleRef("601.2h")]
     private static int Count(GameState state, CostContext context, Amount? amount) =>
         amount is null ? 1 : Math.Max(0, context.Query.Evaluate(state, amount, context.Effect));
+}
+
+/// <summary>
+/// The objects a command named to pay the costs that name some, CR 601.2c, read in the order the
+/// costs are written: each cost takes as many as it asks for and the next one reads on from where
+/// it stopped. One payment is one pass, so the position is this object's and never the state's.
+/// </summary>
+[RuleRef("601.2c")]
+internal sealed class ChosenObjects(ImmutableList<ObjectId> chosen)
+{
+    private int taken;
+
+    /// <summary>A command that named nothing: every cost falls back to its forced payment.</summary>
+    public static ChosenObjects None => new([]);
+
+    /// <summary>The next <paramref name="count"/> objects, or fewer when the command named fewer.</summary>
+    public ImmutableList<ObjectId> Take(int count)
+    {
+        if (count <= 0 || taken >= chosen.Count)
+            return [];
+
+        var slice = chosen.GetRange(taken, Math.Min(count, chosen.Count - taken));
+        taken += slice.Count;
+        return slice;
+    }
 }

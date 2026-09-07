@@ -166,14 +166,15 @@ public sealed class CastingBacklogTests
     }
 
     [Fact]
-    public void A_gift_is_refused_until_the_promise_can_be_recorded_on_the_stack()
+    public void A_gift_cannot_be_promised_on_a_card_that_offers_none()
     {
-        // CR 702.174b: the promise is made as the spell is cast and remembered on the spell.
+        // CR 702.174b: the promise is made as the spell is cast and remembered on the spell — but
+        // only a card with gift offers one. The promise itself is CastingChoiceTests'.
         var table = new CastingTable();
         var spell = table.Add(CastingBacklogCards.MultikickerSorcery(), CastingTable.A, CardZone.Hand);
         table.AddMana(CastingTable.A, new ManaPool(0, 0, 0, 0, 0, 3));
 
-        var command = new CastSpell(CastingTable.A, spell, OptionalCosts: [KeywordKind.Gift]);
+        var command = new CastSpell(CastingTable.A, spell, TargetPlayers: [CastingTable.B], OptionalCosts: [KeywordKind.Gift]);
         Assert.Equal("702.174b", casting.Check(table.State, command)?.Rule);
     }
 }

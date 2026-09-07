@@ -19,10 +19,14 @@ internal sealed record CostContext(
     int? X,
     IZoneSystem Zones,
     IQuery Query,
-    Color? PayOnlyWith = null)
+    Color? PayOnlyWith = null,
+    ChosenObjects? Chosen = null)
 {
     /// <summary>The context an <see cref="Amount"/> or an <see cref="ObjectFilter"/> on a cost is read in.</summary>
     public EffectContext Effect => CostPayment.Context(Source?.Id, Player, X);
+
+    /// <summary>The objects the command named for these costs, CR 601.2c; none when it named none.</summary>
+    public ChosenObjects Named => Chosen ?? ChosenObjects.None;
 }
 
 /// <summary>
@@ -64,7 +68,30 @@ internal static class CostPayment
     public static PaidMana PaySymbols(GameState state, PlayerId player, IReadOnlyList<ManaSymbol> symbols, int? x, string reason, Color? only = null)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var pool = state.Player(player).Mana;
+        return Spend(state, player, state.Player(player).Mana, symbols, x, reason, only);
+    }
+
+    /// <summary>
+    /// The same payment made for a known spell or ability, so CR 106.6a's restricted mana can be
+    /// offered to it: only the blocks whose filter matches what is being paid for are spendable,
+    /// and ordinary mana is always. <see cref="RestrictedPool"/> reads the blocks off the pool.
+    /// </summary>
+    [RuleRef("106.6a")]
+    public static PaidMana PaySymbols(GameState state, CostContext context, IReadOnlyList<ManaSymbol> symbols, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(context);
+        var spendable = RestrictedPool.Pools.Spendable(
+            state,
+            state.Player(context.Player).Mana,
+            context.Query,
+            context.Source?.Id,
+            context.Effect);
+        return Spend(state, context.Player, spendable, symbols, context.X, reason, context.PayOnlyWith);
+    }
+
+    private static PaidMana Spend(GameState state, PlayerId player, ManaPool pool, IReadOnlyList<ManaSymbol> symbols, int? x, string reason, Color? only)
+    {
         var payment = ManaSymbols.Pay(only is null ? pool : ManaSymbols.Only(pool, only.Value), symbols, x);
         if (payment.Refused is { } refusal)
         {
@@ -136,7 +163,7 @@ internal static class CostPayment
         switch (cost)
         {
             case ManaCost mana:
-                return PayMana(state, context.Player, mana.Mana, context.X, "cost", context.PayOnlyWith);
+                return PaySymbols(state, context, ManaSymbols.Parse(mana.Mana), "cost").Outcome;
 
             // CR 118.8: generic mana whose amount the game counts, evaluated as the cost is
             // announced (CR 601.2h) and paid alongside any printed coloured part.
@@ -178,7 +205,7 @@ internal static class CostPayment
             throw new RefusedException("A mana cost cannot be less than nothing.", "118.8");
 
         ImmutableList<ManaSymbol> symbols = [.. ManaSymbols.Parse(cost.Colored), new ManaSymbol { Generic = generic }];
-        return PaySymbols(state, context.Player, symbols, context.X, "cost", context.PayOnlyWith).Outcome;
+        return PaySymbols(state, context, symbols, "cost").Outcome;
     }
 
     /// <summary>
