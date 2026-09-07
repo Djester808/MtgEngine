@@ -55,6 +55,12 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
 
         for (var round = 0; round < MaxRounds && current is not null; round++)
         {
+            // CR 101.2 with 120.3 and 119.3: what the affected player's own limits forbid never
+            // happens, so it is dropped before any card-driven candidate is gathered and no
+            // effect — not even a self-replacement of CR 614.15 — is offered it.
+            if (Forbidden(working, current))
+                return new Outcome(working, extra);
+
             var candidates = Applicable(working, current, used);
             if (candidates.Count == 0)
                 break;
