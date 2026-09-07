@@ -120,14 +120,27 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         return _query.Matches(state, what, moved.From, ctx) ? [TriggerSubject.Of(moved.From, Controller(state, moved.From))] : [];
     }
 
-    /// <summary>Any other zone change, CR 603.6. The destination is on the event; a named source zone is only knowable for the battlefield today.</summary>
+    /// <summary>
+    /// Any other zone change, CR 603.6. The destination is on the event and a trigger that names none
+    /// fires on any arrival ("leaves your graveyard"); a named or excluded source zone is only knowable
+    /// for the battlefield today, so "from anywhere other than the battlefield" is answered and any
+    /// other exclusion is refused rather than guessed.
+    /// </summary>
+    [RuleRef("603.6")]
     private ImmutableList<TriggerSubject> Moved(GameState state, ZoneChange trigger, Ev.GameEvent happened, EffectContext ctx)
     {
-        if (happened is not Ev.ObjectMoved moved || moved.To.Zone.Zone != trigger.To)
+        if (happened is not Ev.ObjectMoved moved || (trigger.To is { } to && moved.To.Zone.Zone != to))
             return [];
         var left = state.History.LeftBattlefield.Any(o => o.Id == moved.From);
         if (trigger.From is { } from && (from != Zone.Battlefield || !left))
             return [];
+        if (trigger.NotFrom is { } notFrom)
+        {
+            if (notFrom != Zone.Battlefield)
+                throw new Engine.RefusedException("A zone change's excluded source zone is only knowable for the battlefield today.", "603.6");
+            if (left)
+                return [];
+        }
 
         // The object that arrived is the one to describe when it is still there; when the trigger
         // looks back past the battlefield the caller restored the object that left, CR 603.10.

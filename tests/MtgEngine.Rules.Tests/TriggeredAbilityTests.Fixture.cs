@@ -121,6 +121,16 @@ internal sealed class TriggeredAbilityBoard
     /// <summary>Whose turn it is, which is what APNAP and "at the beginning of your upkeep" turn on.</summary>
     public TriggeredAbilityBoard ActivePlayer(int seat) => Fold(new TurnBegan(1, new PlayerId(seat), false));
 
+    /// <summary>Move an object to another of its owner's zones, CR 400.7: a new object arrives there and the old one ceases to exist.</summary>
+    public ObjectMoved MoveTo(ObjectId id, Zone zone)
+    {
+        var obj = State.Objects[id];
+        var arrived = new GameObject(new ObjectId(State.NextObjectId), obj.Definition, obj.FaceIndex, obj.Owner, obj.Owner, ZoneKey.Of(zone, obj.Owner), State.NextTimestamp);
+        var moved = new ObjectMoved(id, arrived, -1);
+        State = moved.Apply(State);
+        return moved;
+    }
+
     public Outcome Collect(params GameEvent[] since) => Collector.Collect(State, since);
 
     private static ZoneKey Key(Zone zone, PlayerId owner) =>
