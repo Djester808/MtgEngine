@@ -17,7 +17,9 @@ public sealed partial class LayerSystem : ICharacteristics
 {
     public string Name => "continuous effects and layers";
 
-    public Chars Of(GameState state, ObjectId id) => Compute(state, id, withStatics: true);
+    // A read taken to answer a static ability's filter leaves the board's static abilities out:
+    // gathering them is what asked the question (CR 613.8 is not built, see Layers.Matcher.cs).
+    public Chars Of(GameState state, ObjectId id) => Compute(state, id, withStatics: !MatchingFilter);
 
     /// <summary>Layer 2 on its own, CR 613.1b: who controls this object now.</summary>
     [RuleRef("613.1b")]
@@ -25,7 +27,7 @@ public sealed partial class LayerSystem : ICharacteristics
     {
         ArgumentNullException.ThrowIfNull(state);
         var obj = Find(state, id);
-        return ControllerFrom(obj, Applicable(state, id, withStatics: true));
+        return ControllerFrom(obj, Applicable(state, id, withStatics: !MatchingFilter));
     }
 
     private Chars Compute(GameState state, ObjectId id, bool withStatics)
