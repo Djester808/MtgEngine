@@ -69,6 +69,12 @@ public sealed partial class ReplacementSystem
             case ModifyAmount modify:
                 return new Applied(Modify(current, modify), state, []);
 
+            // CR 614.1c with 608.2d: "as this enters, choose …". The choosing is part of the
+            // entering, not a replacement of it, so the event still happens; reading it as
+            // CR 614.1a's "instead" drops the move and the permanent never arrives at all.
+            case ChooseValue or Sequence when Arriving(current) && Chooses(effect):
+                return Choosing(state, effect, candidate, current);
+
             case Sequence sequence:
                 {
                     var applied = new Applied(current, state, []);
@@ -102,13 +108,60 @@ public sealed partial class ReplacementSystem
     [RuleRef("614.1a")]
     private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current)
     {
-        // CR 101.4: the walk is told which ability of the source the instruction belongs to, so a
-        // question it asks can be found again there when the answer comes (E9c).
-        var index = candidate.Source is { } source && candidate.Ability is { } ability && state.Objects.TryGetValue(source, out var obj)
-            ? obj.Face.AbilityList.ToList().IndexOf(ability)
-            : -1;
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), index >= 0 ? index : null);
+        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate));
         return new Applied(null, outcome.State, outcome.Events);
+    }
+
+    /// <summary>
+    /// CR 614.1c: the choice is made as the object enters, so the event survives and is offered on
+    /// to the effects that have not applied yet (CR 616.1). The walk runs off the stack against the
+    /// object as it will exist (CR 614.12), which is what the question carries as its source; when
+    /// the answer comes, CR 608.2d writes it on the permanent that by then has arrived, and a later
+    /// ability of that permanent reads it there.
+    /// </summary>
+    [RuleRef("614.1c")]
+    private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current)
+    {
+        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate));
+        return new Applied(current, outcome.State, outcome.Events);
+    }
+
+    /// <summary>
+    /// Whether the effect does nothing but choose a value: one <see cref="ChooseValue"/>, or a
+    /// sequence of nothing else. Such an effect modifies no event, so CR 614.1a is the wrong
+    /// reading of it (CR 608.2d).
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static bool Chooses(Effect effect) => effect switch
+    {
+        ChooseValue => true,
+        Sequence sequence => sequence.Steps.Count > 0 && sequence.Steps.All(Chooses),
+        _ => false,
+    };
+
+    /// <summary>CR 614.12: whether the proposed event is an object arriving on the battlefield.</summary>
+    [RuleRef("614.12")]
+    private static bool Arriving(GameEvent current) =>
+        current is ObjectMoved moved && moved.To.Zone.Zone == Zone.Battlefield;
+
+    /// <summary>
+    /// CR 101.4: which ability of the source the instruction belongs to, so a question it asks can
+    /// be found again there when the answer comes (E9c). CR 400.7 with 614.12: an object that is
+    /// entering is a new object that exists only in the probe state the candidate was gathered
+    /// from, so the index is looked up there — read from the state the event has not reached yet,
+    /// every enters-replacement question would travel with no index and no answer could find it.
+    /// </summary>
+    [RuleRef("101.4")]
+    private static int? IndexOf(GameState state, GameEvent current, Candidate candidate)
+    {
+        if (candidate.Source is not { } source || candidate.Ability is not { } ability)
+            return null;
+
+        if (!Probe(state, current).Objects.TryGetValue(source, out var obj))
+            return null;
+
+        var index = obj.Face.AbilityList.ToList().IndexOf(ability);
+        return index >= 0 ? index : null;
     }
 
     /// <summary>

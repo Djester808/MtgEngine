@@ -17,6 +17,12 @@ internal sealed class ReplacementEffectFakeInterpreter : IInterpreter
 
     public List<EffectContext> Contexts { get; } = [];
 
+    /// <summary>
+    /// Which ability of the source each run was told it came from, CR 101.4: an answer finds the
+    /// effect that asked by that index, so a run handed none is a question nobody can answer.
+    /// </summary>
+    public List<int?> Indexes { get; } = [];
+
     public Func<GameState, Effect, EffectContext, Outcome>? Instead { get; init; }
 
     public Outcome Resolve(GameState state, ObjectId stackObject) => throw new NotSupportedException();
@@ -26,5 +32,11 @@ internal sealed class ReplacementEffectFakeInterpreter : IInterpreter
         Ran.Add(effect);
         Contexts.Add(context);
         return Instead?.Invoke(state, effect, context) ?? Outcome.Unchanged(state);
+    }
+
+    public Outcome Run(GameState state, Effect effect, EffectContext context, int? abilityIndex)
+    {
+        Indexes.Add(abilityIndex);
+        return Run(state, effect, context);
     }
 }
