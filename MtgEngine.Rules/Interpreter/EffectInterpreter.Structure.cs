@@ -20,7 +20,7 @@ public sealed partial class EffectInterpreter
                     var index = 0;
                     foreach (var step in sequence.Steps)
                     {
-                        run = Execute(Descend(run, index++), step) with { Path = run.Path };
+                        run = Child(run, index++, step);
                         if (run.Halted)
                             break;
                     }
@@ -31,17 +31,17 @@ public sealed partial class EffectInterpreter
             // CR 608.2a: an "if" inside an effect is checked as the effect resolves.
             case If test:
                 return query.Holds(run.State, test.Test, run.Context)
-                    ? Execute(Descend(run, 0), test.Then) with { Path = run.Path }
-                    : test.Else is { } otherwise ? Execute(Descend(run, 1), otherwise) with { Path = run.Path } : run;
+                    ? Child(run, 0, test.Then)
+                    : test.Else is { } otherwise ? Child(run, 1, otherwise) : run;
 
             // CR 608.2: "you may" is a question, and the game stops until it is answered.
             case May may:
                 {
                     var who = FirstPlayer(run, may.Who);
                     if (may.StoreChoiceAs is { } key && run.Context.Chosen.TryGetValue(key, out var answered))
-                        return Yes(answered) ? Execute(Descend(run, 0), may.Do) with { Path = run.Path } : run;
+                        return Yes(answered) ? Child(run, 0, may.Do) : run;
                     if (may.StoreChoiceAs is null && run.Context.Chosen.TryGetValue("may:" + run.Path, out var inline))
-                        return Yes(inline) ? Execute(Descend(run, 0), may.Do) with { Path = run.Path } : run;
+                        return Yes(inline) ? Child(run, 0, may.Do) : run;
                     return Ask(run, who, "may", "You may do this.", YesNo, 1, 1, may.StoreChoiceAs ?? "may:" + run.Path);
                 }
 
@@ -51,7 +51,7 @@ public sealed partial class EffectInterpreter
                     var who = FirstPlayer(run, unless.Who);
                     var key = "unless:" + run.Path;
                     if (run.Context.Chosen.TryGetValue(key, out var paid))
-                        return Yes(paid) ? run : Execute(Descend(run, 0), unless.Do) with { Path = run.Path };
+                        return Yes(paid) ? run : Child(run, 0, unless.Do);
                     return Ask(run, who, "unless", "Pay the cost to stop this?", YesNo, 1, 1, key);
                 }
 
@@ -63,7 +63,7 @@ public sealed partial class EffectInterpreter
                     foreach (var id in Objects(run, each.Over))
                     {
                         run = run with { Context = run.Context with { Triggering = [id] } };
-                        run = Execute(Descend(run, index++), each.Do) with { Path = run.Path };
+                        run = Child(run, index++, each.Do);
                         if (run.Halted)
                             break;
                     }
@@ -78,7 +78,7 @@ public sealed partial class EffectInterpreter
                     foreach (var player in PlayersOrYou(run, each.Over))
                     {
                         run = run with { Context = run.Context with { TriggeringPlayer = player } };
-                        run = Execute(Descend(run, index++), each.Do) with { Path = run.Path };
+                        run = Child(run, index++, each.Do);
                         if (run.Halted)
                             break;
                     }
@@ -90,7 +90,7 @@ public sealed partial class EffectInterpreter
                 {
                     var times = Math.Max(0, Number(run, repeat.Times));
                     for (var i = 0; i < times && !run.Halted; i++)
-                        run = Execute(Descend(run, i), repeat.Do) with { Path = run.Path };
+                        run = Child(run, i, repeat.Do);
                     return run;
                 }
 
@@ -112,7 +112,7 @@ public sealed partial class EffectInterpreter
                     {
                         if (index < 0 || index >= modal.Modes.Count)
                             continue;
-                        run = Execute(Descend(run, index), modal.Modes[index].Do) with { Path = run.Path };
+                        run = Child(run, index, modal.Modes[index].Do);
                         if (run.Halted)
                             break;
                     }

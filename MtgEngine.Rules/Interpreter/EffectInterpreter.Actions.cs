@@ -50,6 +50,11 @@ public sealed partial class EffectInterpreter
                 {
                     if (sacrifice.What is { } named)
                         return Leave(run, Objects(run, named), "sacrificed", Zone.Graveyard, skipIndestructible: false);
+
+                    // CR 701.21a: the player has now chosen, so the permanents they named leave.
+                    if (Answered(run) is { } given)
+                        return Leave(run, Named(run.State, given), "sacrificed", Zone.Graveyard, skipIndestructible: false);
+
                     var chooser = FirstPlayer(run, sacrifice.Who);
                     var options = OptionsFor(run.State, Controlled(run.State, chooser, sacrifice.Choice, run.Context));
                     var count = Math.Max(1, Number(run, sacrifice.N));
@@ -77,6 +82,10 @@ public sealed partial class EffectInterpreter
             // CR 701.7: the token is created by the zone system, which knows how an object enters.
             case Cards.CreateToken token:
                 {
+                    // CR 707.2: a token that is a copy of something takes its copiable values.
+                    if (token.CopyOf is { } copied)
+                        return CopyToken(run, token, copied);
+
                     var created = new List<ObjectId>();
                     var count = Math.Max(0, Number(run, token.N));
                     foreach (var player in PlayersOrYou(run, token.Who))
@@ -95,7 +104,18 @@ public sealed partial class EffectInterpreter
             // CR 701.9a: the player chooses which card, unless the whole hand goes.
             case Cards.Discard discard:
                 {
-                    foreach (var player in PlayersOrYou(run, discard.Who))
+                    var discarding = PlayersOrYou(run, discard.Who);
+                    var next = 0;
+
+                    // CR 701.9a: the cards this player chose are discarded, and the players after
+                    // them are asked in their turn.
+                    if (Answered(run) is { } discarded && run.Answer is { } answer)
+                    {
+                        run = Leave(run, Named(run.State, discarded), "discarded", Zone.Graveyard, skipIndestructible: false);
+                        next = discarding.IndexOf(answer.Player) + 1;
+                    }
+
+                    foreach (var player in discarding.Skip(next))
                     {
                         var hand = run.State.In(ZoneKey.Of(Zone.Hand, player));
                         if (discard.WholeHand)
@@ -130,15 +150,25 @@ public sealed partial class EffectInterpreter
 
             // CR 701.22a and 701.25a: the player looks and then decides, which is a question.
             case Cards.Scry scry:
-                return Look(run, scry.Who, scry.N, "scry", "Put any number on the bottom.");
+                return Answered(run) is { } scried
+                    ? Sorted(run, Named(run.State, scried), Zone.Library, Placement.Bottom)
+                    : Look(run, scry.Who, scry.N, "scry", "Put any number on the bottom.");
 
             case Cards.Surveil surveil:
-                return Look(run, surveil.Who, surveil.N, "surveil", "Put any number into your graveyard.");
+                return Answered(run) is { } surveilled
+                    ? Sorted(run, Named(run.State, surveilled), Zone.Graveyard, Placement.Default)
+                    : Look(run, surveil.Who, surveil.N, "surveil", "Put any number into your graveyard.");
 
             // CR 701.23a: searching shows the player what is there and asks which cards to take.
             case Cards.Search search:
                 {
                     var searcher = FirstPlayer(run, search.Who);
+
+                    // CR 701.23a: the cards the player found go where the effect says, and then
+                    // CR 701.23c shuffles the library whether anything was found or not.
+                    if (Answered(run) is { } found)
+                        return Found(run, search, searcher, Named(run.State, found));
+
                     var zone = ZoneSystem.KeyFor(search.From, searcher);
                     var matching = run.State.In(zone).Where(id => query.Matches(run.State, search.For, id, run.Context));
                     var most = Math.Max(1, Number(run, search.UpTo));
@@ -190,6 +220,34 @@ public sealed partial class EffectInterpreter
         var outcome = zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller);
         var landed = outcome.Events.OfType<ObjectMoved>().LastOrDefault(e => e.From == id)?.To.Id;
         return (Merge(run, outcome), landed);
+    }
+
+    /// <summary>
+    /// What a search found, CR 701.23a: each card goes to the zone the effect names, and the
+    /// library is shuffled afterwards, CR 701.23c.
+    /// </summary>
+    [RuleRef("701.23")]
+    private EffectRun Found(EffectRun run, Cards.Search search, PlayerId searcher, ImmutableList<ObjectId> found)
+    {
+        var before = run.State;
+        foreach (var id in found)
+            (run, _) = Relocate(run, id, search.To, search.Where, search.Tapped, controller: null);
+        if (search.ShuffleAfter && search.From == Zone.Library)
+            run = Merge(run, zones.Shuffle(run.State, searcher));
+        return Recall(run, search.RememberAs, Landed(before, run));
+    }
+
+    /// <summary>
+    /// The cards a player looked at and then put somewhere, in the order they answered: the
+    /// bottom of the library after a scry (CR 701.22a) or the graveyard after a surveil
+    /// (CR 701.25a). The ones not named stay on top in the order they were.
+    /// </summary>
+    [RuleRef("701.22")]
+    private EffectRun Sorted(EffectRun run, IEnumerable<ObjectId> chosen, Zone to, Placement where)
+    {
+        foreach (var id in chosen)
+            (run, _) = Relocate(run, id, to, where, tapped: false, controller: null);
+        return run;
     }
 
     private EffectRun Look(EffectRun run, PlayerRef? who, Amount count, string kind, string prompt)

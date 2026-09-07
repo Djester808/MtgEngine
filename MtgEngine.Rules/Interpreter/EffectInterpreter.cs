@@ -51,7 +51,7 @@ public sealed partial class EffectInterpreter(
         if (effect is null)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
-        var run = Execute(new EffectRun(state, context, [], false, "0"), effect);
+        var run = Execute(new EffectRun(state, context, [], false, "0", entry.AbilityIndex), effect);
         return run.Halted
             ? new Outcome(run.State, run.Events)
             : new Outcome(run.State, run.Events.Add(new StackObjectResolved(stackObject)));
@@ -162,17 +162,73 @@ public sealed partial class EffectInterpreter(
      * The walk itself.
      * ---------------------------------------------------------------------------------------- */
 
-    /// <summary>One step of a resolution: where the state is, what the effect remembers, and whether the game stopped to ask.</summary>
+    /// <summary>
+    /// One step of a resolution: where the state is, what the effect remembers, and whether the
+    /// game stopped to ask. The last four fields are only set while a question is being resumed:
+    /// which ability is resolving, the path back to the node that asked, and the answer it is
+    /// waiting for. There is never a captured continuation, so a game rebuilt from its log
+    /// resumes the same way (CR 101.4).
+    /// </summary>
     internal sealed record EffectRun(
         GameState State,
         EffectContext Context,
         ImmutableList<GameEvent> Events,
         bool Halted,
-        string Path);
+        string Path,
+        int? AbilityIndex = null,
+        string? Resume = null,
+        Resumption? Answer = null,
+        string? AnswerPath = null);
 
-    private EffectRun Execute(EffectRun run, Effect effect) =>
-        run.Halted ? run : Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect)
+    private EffectRun Execute(EffectRun run, Effect effect)
+    {
+        if (run.Halted)
+            return run;
+
+        // The node that asked runs again with the answer bound; everything under it is work that
+        // has not happened yet, so the walk stops skipping here.
+        if (run.Resume is { } target && string.Equals(target, run.Path, StringComparison.Ordinal))
+            run = run with { Resume = null };
+
+        return Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
             ?? throw new NotImplementedException($"no interpreter arm for {effect.GetType().Name}");
+    }
+
+    /// <summary>
+    /// Run one sub-effect. While a resumption walks back to the question it came from, the steps
+    /// that already happened are skipped and only the branch holding the question is entered;
+    /// everything after that branch runs normally, because the answer put the walk back where it
+    /// stopped (CR 101.4).
+    /// </summary>
+    [RuleRef("101.4")]
+    private EffectRun Child(EffectRun run, int index, Effect effect)
+    {
+        var descended = Descend(run, index);
+        if (run.Resume is not { } target)
+            return Execute(descended, effect) with { Path = run.Path };
+        if (!OnPath(descended.Path, target))
+            return run;
+        return Execute(descended, effect) with { Path = run.Path, Resume = null };
+    }
+
+    /// <summary>Is the question's path this node, or somewhere inside it?</summary>
+    private static bool OnPath(string path, string target) =>
+        string.Equals(path, target, StringComparison.Ordinal)
+        || target.StartsWith(path + ".", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The answer to the question this very node asked, or null when nothing is being resumed
+    /// here. An arm that asks checks this first, so resuming it performs the instruction instead
+    /// of asking the same question twice.
+    /// </summary>
+    private static ImmutableList<ChoiceOption>? Answered(EffectRun run) =>
+        run.Answer is { } answer && string.Equals(run.AnswerPath, run.Path, StringComparison.Ordinal)
+            ? answer.Chosen
+            : null;
+
+    /// <summary>The objects an answer named that are still in the game.</summary>
+    private static ImmutableList<ObjectId> Named(GameState state, IEnumerable<ChoiceOption> options) =>
+        [.. options.Select(o => o.Object).OfType<ObjectId>().Where(state.Objects.ContainsKey)];
 
     /* ---------------------------------------------------------------------------------------- *
      * Shared plumbing: events, sub-runs, selectors, players, numbers, questions.
@@ -213,7 +269,7 @@ public sealed partial class EffectInterpreter(
             options,
             min,
             max,
-            new ChoiceContext(run.Context.Source, null, run.Path, extra));
+            new ChoiceContext(run.Context.Source, run.AbilityIndex, run.Path, extra));
         return Emit(run, new ChoiceRequested(choice)) with { Halted = true };
     }
 

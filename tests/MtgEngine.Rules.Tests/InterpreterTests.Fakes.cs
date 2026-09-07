@@ -58,6 +58,15 @@ internal sealed class InterpreterFakeReplacements : IReplacementSystem
 
     public List<GameEvent> Proposed { get; } = [];
 
+    public List<Resumption> Resumed { get; } = [];
+
+    /// <summary>CR 616.1: the order question goes back to this system unchanged; the test only records that it arrived.</summary>
+    public Outcome Resume(GameState state, Resumption resumption)
+    {
+        Resumed.Add(resumption);
+        return Outcome.Unchanged(state);
+    }
+
     public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected)
     {
         Proposed.Add(proposed);
@@ -75,13 +84,17 @@ internal sealed class InterpreterTable
 {
     private int _next = 1;
 
-    public InterpreterTable()
+    public InterpreterTable(ICharacteristics? layers = null)
     {
+        Characteristics = layers ?? Layers;
         State = GameReducer.Replay([new GameStarted([new PlayerStart("one", [], []), new PlayerStart("two", [], [])], 7, 20, "commander")]);
-        Subject = new EffectInterpreter(new Query.Query(Layers), new Zones.ZoneSystem(), Replacements, Layers);
+        Subject = new EffectInterpreter(new Query.Query(Characteristics), new Zones.ZoneSystem(), Replacements, Characteristics);
     }
 
     public InterpreterFakeCharacteristics Layers { get; } = new();
+
+    /// <summary>What the interpreter reads characteristics through: the fake, or the real layer system when a test asks for it.</summary>
+    public ICharacteristics Characteristics { get; }
 
     public InterpreterFakeReplacements Replacements { get; } = new();
 
@@ -102,7 +115,7 @@ internal sealed class InterpreterTable
     /// <summary>A permanent on the battlefield with the characteristics a test says it has.</summary>
     public ObjectId Permanent(PlayerId controller, CardType types = CardType.Creature, int? power = 1, int? toughness = 1, KeywordKind[]? keywords = null)
     {
-        var id = Put(controller, ZoneKey.Shared(Zone.Battlefield), Definition(types));
+        var id = Insert(controller, ZoneKey.Shared(Zone.Battlefield), Definition(types));
         Layers.Set(id, new Characteristics(
             "engine test object",
             types,
@@ -119,7 +132,7 @@ internal sealed class InterpreterTable
         return id;
     }
 
-    public ObjectId Card(PlayerId owner, Zone zone) => Put(owner, ZoneKey.Of(zone, owner), Definition(CardType.Creature));
+    public ObjectId Card(PlayerId owner, Zone zone) => Insert(owner, ZoneKey.Of(zone, owner), Definition(CardType.Creature));
 
     /// <summary>A spell or ability on the stack, with what it does and what it chose.</summary>
     public ObjectId OnStack(PlayerId controller, Effect does, StackEntry? entry = null)
@@ -134,6 +147,24 @@ internal sealed class InterpreterTable
     }
 
     public ImmutableList<GameEvent> Resolve(ObjectId stackObject) => Run(Subject.Resolve(State, stackObject));
+
+    /// <summary>Answer the question the game is waiting on, the way the choice system would.</summary>
+    public ImmutableList<GameEvent> Answer(params string[] chosen)
+    {
+        var pending = State.Pending ?? throw new InvalidOperationException("nothing is waiting on an answer");
+        var options = chosen
+            .Select(id => pending.Options.FirstOrDefault(o => o.Id == id) ?? new ChoiceOption(id, id))
+            .ToImmutableList();
+        var answered = new ChoiceAnswered(pending.Id, pending.Player, [.. chosen]);
+        State = answered.Apply(State);
+        return Run(Subject.Resume(State, new Resumption(pending.Kind, pending.Player, options, pending.Context)));
+    }
+
+    public PendingChoice Pending => State.Pending ?? throw new InvalidOperationException("nothing is waiting on an answer");
+
+    public GameObject Object(ObjectId id) => State.Objects[id];
+
+    public ObjectId Put(PlayerId owner, ZoneKey zone, CardDefinition definition) => Insert(owner, zone, definition);
 
     public ImmutableList<GameEvent> Run(Effect effect, EffectContext? context = null) =>
         Run(Subject.Run(State, effect, context ?? Context()));
@@ -154,7 +185,7 @@ internal sealed class InterpreterTable
 
     public ImmutableList<ObjectId> In(Zone zone, PlayerId player) => State.In(ZoneKey.Of(zone, player));
 
-    private ObjectId Put(PlayerId owner, ZoneKey zone, CardDefinition definition)
+    private ObjectId Insert(PlayerId owner, ZoneKey zone, CardDefinition definition)
     {
         var id = new ObjectId(_next++);
         State = new ObjectCreated(new GameObject(id, definition, 0, owner, owner, zone, id.Value), -1).Apply(State);
