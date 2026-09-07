@@ -24,9 +24,11 @@ public sealed class ScenarioStageTests : IDisposable
         Assert.NotNull(scenario);
         Assert.Equal($"smoke-{file.OracleId}", scenario!.Id);
         Assert.Equal(SmokeScenario.Generator, Assert.IsType<GeneratedSource>(scenario.Source).Generator);
-        var count = Assert.Single(scenario.Expect.OfType<ZoneCount>());
-        Assert.Equal(Zone.Hand, count.Zone);
-        Assert.Equal(2, count.Count);
+        var count = Assert.Single(scenario.Expect.OfType<ZoneCount>(), z => z.Zone == Zone.Hand);
+        Assert.Equal(SmokeScenario.HandSize + 2, count.Count);
+        // The library the draw came from is one smaller, which is the other half of CR 121.1.
+        Assert.Equal(SmokeScenario.LibrarySize - 2, Assert.Single(scenario.Expect.OfType<ZoneCount>(), z => z.Zone == Zone.Library).Count);
+        Assert.Equal(SmokeScenario.LibrarySize, scenario.Setup.Players[0].Library!.Count);
         Assert.Contains(scenario.Expect, e => e is InZone { Zone: Zone.Graveyard });
         var cast = Assert.IsType<CastStep>(scenario.Steps[0]);
         Assert.Equal(file.Name, cast.Card);
@@ -51,6 +53,145 @@ public sealed class ScenarioStageTests : IDisposable
         Assert.NotNull(scenario);
         Assert.Equal(Zone.Battlefield, Assert.Single(scenario!.Expect.OfType<InZone>()).Zone);
     }
+
+    [Fact]
+    public void A_land_is_played_and_not_cast()
+    {
+        var scenario = SmokeScenario.Of(File("a forest", null, CardType.Land));
+
+        Assert.NotNull(scenario);
+        var play = Assert.IsType<PlayLandStep>(scenario!.Steps[0]);
+        Assert.Equal("a forest", play.Card);
+        Assert.Equal(SmokeScenario.Caster, play.Player);
+        Assert.DoesNotContain(scenario.Steps, s => s is CastStep);
+        var arrived = Assert.Single(scenario.Expect.OfType<InZone>());
+        Assert.Equal(Zone.Battlefield, arrived.Zone);
+        Assert.Contains("playing", scenario.Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_spell_with_X_in_its_cost_announces_one_and_says_so()
+    {
+        var scenario = SmokeScenario.Of(Spell("burn X", new DealDamage(new Fixed(2), ToPlayer: new EachOpponent()), mana: "{X}{R}"));
+
+        Assert.NotNull(scenario);
+        // CR 601.2b: X is chosen as the spell is cast, and a scenario that does not choose it is refused.
+        Assert.Equal(SmokeScenario.AnnouncedX, Assert.IsType<CastStep>(scenario!.Steps[0]).X);
+        Assert.Contains("X=1", scenario.Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Destroying_a_creature_puts_the_opponents_creature_in_their_graveyard()
+    {
+        var scenario = SmokeScenario.Of(Spell("kill it", new Destroy(new Target(ObjectFilter.Creature))));
+
+        Assert.NotNull(scenario);
+        var body = Assert.Single(scenario!.Setup.Players[1].Battlefield!);
+        Assert.Equal(body.Name, Assert.IsType<CastStep>(scenario.Steps[0]).Targets!.Single());
+        var dead = scenario.Expect.OfType<InZone>().Single(z => z.Card == body.Name);
+        Assert.Equal(Zone.Graveyard, dead.Zone);
+        Assert.Equal(SmokeScenario.Opponent, dead.Owner);
+    }
+
+    [Fact]
+    public void Exiling_a_creature_puts_it_in_exile()
+    {
+        var scenario = SmokeScenario.Of(Spell("blink it away", new Exile(new Target(ObjectFilter.Creature))));
+
+        Assert.NotNull(scenario);
+        var body = Assert.Single(scenario!.Setup.Players[1].Battlefield!);
+        Assert.Equal(Zone.Exile, scenario.Expect.OfType<InZone>().Single(z => z.Card == body.Name).Zone);
+    }
+
+    [Fact]
+    public void Making_tokens_expects_them_on_the_casters_battlefield()
+    {
+        var token = new TokenSpec("Soldier", Color.White, CardType.Creature, ["Soldier"], Power: 1, Toughness: 1);
+        var scenario = SmokeScenario.Of(Spell("two soldiers", new CreateToken(token, new Fixed(2))));
+
+        Assert.NotNull(scenario);
+        var count = scenario!.Expect.OfType<ZoneCount>().Single(z => z.Zone == Zone.Battlefield);
+        Assert.Equal(SmokeScenario.Caster, count.Player);
+        Assert.Equal(2, count.Count);
+    }
+
+    [Fact]
+    public void Putting_counters_on_a_creature_expects_the_counters_on_it()
+    {
+        var scenario = SmokeScenario.Of(Spell(
+            "grow it",
+            new PutCounters(new Target(new ObjectFilter(Types: CardType.Creature, ControlledBy: new You())), "+1/+1", new Fixed(3))));
+
+        Assert.NotNull(scenario);
+        // The target is the caster's own, because that is what the filter said (CR 115.1).
+        var body = Assert.Single(scenario!.Setup.Players[0].Battlefield!);
+        var counters = Assert.Single(scenario.Expect.OfType<CountersAre>());
+        Assert.Equal(body.Name, counters.Card);
+        Assert.Equal("+1/+1", counters.Counter);
+        Assert.Equal(3, counters.Count);
+    }
+
+    [Fact]
+    public void Searching_a_library_for_a_land_takes_one_out_of_it()
+    {
+        var scenario = SmokeScenario.Of(Spell("go get one", new Search(new ObjectFilter(Types: CardType.Land), Zone.Hand), CardType.Sorcery));
+
+        Assert.NotNull(scenario);
+        Assert.Equal(SmokeScenario.HandSize + 1, scenario!.Expect.OfType<ZoneCount>().Single(z => z.Zone == Zone.Hand).Count);
+        Assert.Equal(SmokeScenario.LibrarySize - 1, scenario.Expect.OfType<ZoneCount>().Single(z => z.Zone == Zone.Library).Count);
+    }
+
+    [Fact]
+    public void Countering_a_spell_casts_one_first_and_expects_it_in_the_graveyard()
+    {
+        var scenario = SmokeScenario.Of(Spell("say no", new Counter(new Target(new ObjectFilter(Spell: true)))));
+
+        Assert.NotNull(scenario);
+        // CR 701.5 needs something on the stack, so the opponent casts before the counterspell does.
+        var first = Assert.IsType<CastStep>(scenario!.Steps[0]);
+        Assert.Equal(SmokeScenario.Opponent, first.Player);
+        var counterspell = Assert.IsType<CastStep>(scenario.Steps[1]);
+        Assert.Equal(first.Card, counterspell.Targets!.Single());
+        var countered = scenario.Expect.OfType<InZone>().Single(z => z.Card == first.Card);
+        Assert.Equal(Zone.Graveyard, countered.Zone);
+        Assert.Equal(SmokeScenario.Opponent, countered.Owner);
+    }
+
+    [Fact]
+    public void Milling_an_opponent_moves_their_library_into_their_graveyard()
+    {
+        var scenario = SmokeScenario.Of(Spell("mill three", new Mill(new Fixed(3), new EachOpponent()), CardType.Sorcery));
+
+        Assert.NotNull(scenario);
+        var counts = scenario!.Expect.OfType<ZoneCount>().Where(z => z.Player == SmokeScenario.Opponent).ToList();
+        Assert.Equal(SmokeScenario.LibrarySize - 3, counts.Single(z => z.Zone == Zone.Library).Count);
+        Assert.Equal(3, counts.Single(z => z.Zone == Zone.Graveyard).Count);
+    }
+
+    [Fact]
+    public void Making_an_opponent_discard_shrinks_their_hand()
+    {
+        var scenario = SmokeScenario.Of(Spell("drop two", new Discard(new Fixed(2), new EachOpponent()), CardType.Sorcery));
+
+        Assert.NotNull(scenario);
+        var counts = scenario!.Expect.OfType<ZoneCount>().Where(z => z.Player == SmokeScenario.Opponent).ToList();
+        Assert.Equal(SmokeScenario.HandSize - 2, counts.Single(z => z.Zone == Zone.Hand).Count);
+        Assert.Equal(2, counts.Single(z => z.Zone == Zone.Graveyard).Count);
+    }
+
+    [Fact]
+    public void A_target_the_board_cannot_place_gets_no_scenario_rather_than_a_refused_cast() =>
+        // A blue creature with flying is not furniture the runner has, and casting without a legal
+        // target is refused — which would report the generator's gap as the card's failure.
+        Assert.Null(SmokeScenario.Of(Spell(
+            "kill a flier",
+            new Destroy(new Target(new ObjectFilter(Types: CardType.Creature, Has: KeywordKind.Flying))))));
+
+    [Fact]
+    public void Two_targeted_effects_are_more_than_a_smoke_scenario_can_aim() =>
+        Assert.Null(SmokeScenario.Of(Spell(
+            "kill two",
+            new Sequence([new Destroy(new Target(ObjectFilter.Creature)), new Exile(new Target(ObjectFilter.Creature))]))));
 
     [Fact]
     public void A_card_whose_definition_asserts_nothing_gets_no_smoke_scenario() =>
@@ -145,6 +286,14 @@ public sealed class ScenarioStageTests : IDisposable
     {
         if (Directory.Exists(_directory))
             Directory.Delete(_directory, recursive: true);
+    }
+
+    /// <summary>An instant whose one spell ability is the effect under test.</summary>
+    private static CardFile Spell(string name, Effect effect, CardType types = CardType.Instant, string mana = "{1}")
+    {
+        var file = File(name, new SpellAbility(effect), types);
+        var face = file.Definition.Faces[0] with { ManaCost = mana };
+        return file with { Definition = file.Definition with { Faces = [face] } };
     }
 
     private static CardFile File(string name, Ability? ability, CardType types) => new(

@@ -92,8 +92,10 @@ internal sealed class ScenarioRun(Game game, Scenario scenario)
             var id = Player(player.Name);
             if (player.Life != StartingLife)
                 Emit(new LifeChanged(id, player.Life - StartingLife, "scenario"));
-            Place(id, Zone.Library, player.Library);
+            // Hand first: a scenario that stocks a library with copies of the card under test
+            // still means the one in hand when it names it, and the name is first-wins.
             Place(id, Zone.Hand, player.Hand);
+            Place(id, Zone.Library, player.Library);
             Place(id, Zone.Battlefield, player.Battlefield);
             Place(id, Zone.Graveyard, player.Graveyard);
             Place(id, Zone.Exile, player.Exile);
@@ -276,6 +278,7 @@ internal sealed class ScenarioRun(Game game, Scenario scenario)
         foreach (var card in cards ?? [])
         {
             var definition = game.Store.ByName(card.Name)
+                ?? ScenarioFiller.For(card.Name)
                 ?? throw new ScenarioFailure($"No definition for '{card.Name}'.");
             var placed = new GameObject(
                 new ObjectId(_state.NextObjectId), definition, 0, owner, owner,
@@ -290,8 +293,22 @@ internal sealed class ScenarioRun(Game game, Scenario scenario)
                     : card.Counters.ToImmutableDictionary(c => c.Key, c => c.Value, StringComparer.Ordinal),
             };
             Name(card.Alias ?? card.Name, placed.Id);
-            Emit(new ObjectCreated(placed, -1));
+            Placement(placed);
         }
+    }
+
+    /// <summary>
+    /// A placed card is named by the scenario — its alias when it has one, its printed name when
+    /// it does not — so the placement does not go through <see cref="Track"/>, whose naming of a
+    /// created object after its definition would let an aliased library copy claim the plain name
+    /// the scenario meant for the card in hand (seam-requests/P7.md § 2). Tokens and copies the
+    /// game itself makes still go through <see cref="Track"/>, which is what it is for.
+    /// </summary>
+    private void Placement(GameObject placed)
+    {
+        var created = new ObjectCreated(placed, -1);
+        _state = created.Apply(_state);
+        _log.Add(created);
     }
 
     /// <summary>CR 301.5: an Equipment or Aura placed by a scenario is already attached.</summary>

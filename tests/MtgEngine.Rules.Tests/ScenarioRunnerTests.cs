@@ -115,6 +115,48 @@ public sealed class ScenarioRunnerTests
         Assert.True(clock.Elapsed < TimeSpan.FromMinutes(1), $"1,000 scenarios took {clock.Elapsed}.");
     }
 
+    [Fact]
+    public void A_library_stocked_with_copies_of_the_card_still_casts_the_one_in_hand()
+    {
+        // seam-requests/P7.md § 2: the plain name went to the first library copy, so the cast was
+        // refused on zone (601.3). The hand is placed first now, and a placement does not name
+        // itself after its definition.
+        var scenario = new Scenario(
+            "runner-library-copies",
+            "the card under test is also in the library",
+            new GeneratedSource("test"),
+            new ScenarioSetup(
+                [
+                    new PlayerSetup("A", Hand: [new CardRef(Bolt)], Library: [.. Enumerable.Repeat(new CardRef(Bolt), 5)], ManaPool: "RRRRR"),
+                    new PlayerSetup("B", Battlefield: [new CardRef(Bear)]),
+                ],
+                "A"),
+            [new CastStep("A", Bolt, [Bear]), new ResolveAllStep()],
+            [new InZone(Bear, Zone.Graveyard, "B"), new ZoneCount("A", Zone.Library, 5)]);
+
+        var result = Run(scenario);
+
+        Assert.True(result.Passed, result.Error ?? string.Join("; ", result.Results.Where(r => !r.Passed).Select(r => r.Actual)));
+    }
+
+    [Fact]
+    public void The_runner_supplies_the_filler_a_library_is_stocked_with()
+    {
+        // The definition store here knows two cards and neither is the filler: a scenario that
+        // needs a library to draw from must not have to name a real card to get one (CR 103.2).
+        var scenario = new Scenario(
+            "runner-filler-library",
+            "a library of filler",
+            new GeneratedSource("test"),
+            new ScenarioSetup([new PlayerSetup("A", Library: [.. Enumerable.Repeat(new CardRef(ScenarioFiller.Land), 3)])], "A"),
+            [],
+            [new ZoneCount("A", Zone.Library, 3)]);
+
+        var result = Run(scenario);
+
+        Assert.True(result.Passed, result.Error);
+    }
+
     private static Scenario Kill(IReadOnlyList<Expectation> expect) => new(
         "runner-bolt-kills",
         "a burn spell kills a creature",
