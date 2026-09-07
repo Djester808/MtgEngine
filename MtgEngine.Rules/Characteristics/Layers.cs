@@ -46,7 +46,7 @@ public sealed partial class LayerSystem : ICharacteristics
         Layer4Types(draft, effects);
         Layer5Colors(draft, effects);
         Layer6Abilities(obj, draft, effects);
-        Layer7PowerAndToughness(obj, draft, effects);
+        Layer7PowerAndToughness(state, obj, draft, effects);
 
         return Snapshot(draft);
     }
@@ -169,7 +169,7 @@ public sealed partial class LayerSystem : ICharacteristics
             if (layered.Effect is not BecomesCopyOf copy)
                 continue;
 
-            var of = ObjectsFor(state, obj, layered.Controller, copy.Of);
+            var of = ObjectsFor(state, obj, layered.Controller, copy.Of, layered.Bound);
             if (of.IsEmpty)
                 continue;
 
@@ -209,8 +209,9 @@ public sealed partial class LayerSystem : ICharacteristics
 
             controller = control.Who is You
                 ? layered.Controller
-                : throw new NotImplementedException(
-                    $"A control-changing effect naming {control.Who.GetType().Name} needs the query layer to resolve one player; see seam-requests/E7.md.");
+                : throw new RefusedException(
+                    $"A control-changing effect naming {control.Who.GetType().Name} is not built: the layer system resolves only \"you\" (CR 109.5) as the new controller.",
+                    "613.1b");
         }
 
         return controller;
@@ -352,92 +353,6 @@ public sealed partial class LayerSystem : ICharacteristics
         }
     }
 
-    /// <summary>
-    /// Layer 7, CR 613.1g, in the sublayers of CR 613.4: 7a characteristic-defining power and
-    /// toughness, 7b effects that set them, 7c effects and counters that modify them, 7d
-    /// effects that switch them.
-    /// </summary>
-    [RuleRef("613.4")]
-    private static void Layer7PowerAndToughness(GameObject obj, Draft draft, ImmutableList<Layered> effects)
-    {
-        // 7a, CR 613.4a: a characteristic-defining ability that defines power and toughness.
-        foreach (var layered in effects.Where(l => l.CharacteristicDefining))
-        {
-            if (layered.Effect is SetPt cda)
-            {
-                draft.Power = Value(cda.Power, "a characteristic-defining power");
-                draft.Toughness = Value(cda.Toughness, "a characteristic-defining toughness");
-            }
-        }
-
-        // 7b, CR 613.4b: effects that set power and toughness to a specific number.
-        foreach (var layered in effects.Where(l => !l.CharacteristicDefining))
-        {
-            if (layered.Effect is SetPt set)
-            {
-                draft.Power = Value(set.Power, "a power-setting effect");
-                draft.Toughness = Value(set.Toughness, "a toughness-setting effect");
-            }
-        }
-
-        // 7c, CR 613.4c: effects and counters that modify power and toughness. Addition
-        // commutes, so the timestamp order the list is already in changes nothing here.
-        var power = 0;
-        var toughness = 0;
-        foreach (var layered in effects)
-        {
-            if (layered.Effect is ModifyPt modify)
-            {
-                power += Value(modify.Power, "a power-modifying effect");
-                toughness += Value(modify.Toughness, "a toughness-modifying effect");
-            }
-        }
-
-        foreach (var counter in obj.Counters)
-        {
-            var delta = PowerToughnessCounter(counter.Key);
-            if (counter.Value != 0 && delta is not null)
-            {
-                power += delta.Value.Power * counter.Value;
-                toughness += delta.Value.Toughness * counter.Value;
-            }
-        }
-
-        if (draft.Power is not null)
-            draft.Power += power;
-        if (draft.Toughness is not null)
-            draft.Toughness += toughness;
-
-        // 7d, CR 613.4d: switches. Two switches cancel each other out.
-        if (effects.Count(l => l.Effect is SwitchPt) % 2 == 1)
-            (draft.Power, draft.Toughness) = (draft.Toughness, draft.Power);
-    }
-
-    /// <summary>
-    /// The numbers a continuous effect carries are pre-evaluated by the interpreter before the
-    /// effect becomes active (CR 608.2h, 611.2d), so only a literal reaches this layer.
-    /// </summary>
-    private static int Value(Amount amount, string what) => amount switch
-    {
-        Fixed fixedAmount => fixedAmount.N,
-        _ => throw new NotImplementedException(
-            $"{what} used the amount {amount.GetType().Name}; the layer system takes only Fixed, because amounts are evaluated when the effect is created (CR 611.2d)."),
-    };
-
-    /// <summary>"+1/+1", "-1/-1", "+2/+0" and the rest: what one counter of that kind modifies.</summary>
-    [RuleRef("613.4c")]
-    private static (int Power, int Toughness)? PowerToughnessCounter(string counter)
-    {
-        var parts = counter.Split('/');
-        if (parts.Length != 2)
-            return null;
-        if (!int.TryParse(parts[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var power))
-            return null;
-        if (!int.TryParse(parts[1], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var toughness))
-            return null;
-        return (power, toughness);
-    }
-
     /// <summary>CR 202.2: the colors of the mana symbols in a cost, hybrid and Phyrexian included.</summary>
     [RuleRef("202.2")]
     private static Color ColorsOf(string? manaCost)
@@ -462,8 +377,21 @@ public sealed partial class LayerSystem : ICharacteristics
     private static int? Number(string? text) =>
         int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ? value : null;
 
-    /// <summary>One continuous effect ready to apply: what it does, when it started, and who made it.</summary>
-    private sealed record Layered(ContinuousEffect Effect, int Timestamp, bool CharacteristicDefining, ObjectId? Source, PlayerId Controller);
+    /// <summary>
+    /// One continuous effect ready to apply: what it does, when it started, who made it, and
+    /// whether a static ability generates it now (CR 611.3a, its amounts read each time) or a
+    /// resolving spell or ability created it (CR 611.2c, its numbers and objects fixed then).
+    /// <paramref name="Bound"/> is the memory a resolved effect was created with: the announced
+    /// objects under the target and remembered keys its selectors name (CR 601.2c, 608.2h).
+    /// </summary>
+    private sealed record Layered(
+        ContinuousEffect Effect,
+        int Timestamp,
+        bool CharacteristicDefining,
+        ObjectId? Source,
+        PlayerId Controller,
+        bool FromStatic = false,
+        ImmutableDictionary<string, ImmutableList<ObjectId>>? Bound = null);
 
     /// <summary>The characteristics as the layers are being applied to them.</summary>
     private sealed class Draft

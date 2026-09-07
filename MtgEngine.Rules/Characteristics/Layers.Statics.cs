@@ -1,5 +1,6 @@
 using System.Numerics;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 using Chars = MtgEngine.Rules.Engine.Characteristics;
 
@@ -51,7 +52,7 @@ public sealed partial class LayerSystem
 
                 // CR 613.7a: the effect's timestamp is the timestamp of the object the ability is on.
                 gathered.Add(new StaticEffect(
-                    new Layered(ability.Effect, source.Timestamp, ability.CharacteristicDefining, source.Id, controller),
+                    new Layered(ability.Effect, source.Timestamp, ability.CharacteristicDefining, source.Id, controller, FromStatic: true),
                     appliesTo));
             }
         }
@@ -69,24 +70,62 @@ public sealed partial class LayerSystem
     ];
 
     /// <summary>
-    /// Which objects a static ability's selector names. Only the three shapes a static ability
-    /// uses are answered here: itself, what it is attached to, and each object matching a
-    /// filter. Anything else is the interpreter's to resolve and pre-record.
+    /// Which objects a continuous effect's selector names. Three shapes are read off the board:
+    /// itself, what it is attached to, and each object matching a filter. A target, a remembered
+    /// set or a choice is what a resolving ability announced, fixed as it resolved (CR 611.2c
+    /// with 601.2c and 608.2h): it is read from <paramref name="bound"/>, the memory the effect
+    /// was created with, never from the board. A keyed selector with no binding is a shape the
+    /// interpreter did not build, and is refused with the rule rather than resolved to nothing.
     /// </summary>
-    private ImmutableList<ObjectId> ObjectsFor(GameState state, GameObject source, PlayerId controller, Selector selector) => selector switch
+    [RuleRef("611.2c")]
+    private ImmutableList<ObjectId> ObjectsFor(
+        GameState state,
+        GameObject source,
+        PlayerId controller,
+        Selector selector,
+        ImmutableDictionary<string, ImmutableList<ObjectId>>? bound = null)
     {
-        Self => [source.Id],
-        Attached => source.AttachedTo is { } attached && state.Objects.ContainsKey(attached) ? [attached] : [],
-        Each each =>
-        [
-            .. state.Objects.Values
-                .Where(candidate => Matches(state, each.Filter, candidate, source, controller))
-                .Select(candidate => candidate.Id)
-                .OrderBy(id => id.Value),
-        ],
-        _ => throw new NotImplementedException(
-            $"A continuous effect selected its objects with {selector.GetType().Name}; the layer system resolves Self, Attached and Each. See seam-requests/E7.md."),
-    };
+        return selector switch
+        {
+            Self => [source.Id],
+            Attached => source.AttachedTo is { } attached && state.Objects.ContainsKey(attached) ? [attached] : [],
+            Each each =>
+            [
+                .. state.Objects.Values
+                    .Where(candidate => Matches(state, each.Filter, candidate, source, controller))
+                    .Select(candidate => candidate.Id)
+                    .OrderBy(id => id.Value),
+            ],
+            Target target => Bound(state, bound, target.Key, selector),
+            AnyTarget any => Bound(state, bound, any.Key, selector),
+            Remembered remembered => Bound(state, bound, remembered.Key, selector),
+            Choose choose => Bound(state, bound, choose.Key, selector),
+            _ => throw new RefusedException(
+                $"A continuous effect selected its objects with {selector.GetType().Name}, which the layer system does not resolve: it reads Self, Attached and Each off the board, and a target, remembered or chosen set from what the effect announced as it resolved.",
+                "611.2c"),
+        };
+    }
+
+    /// <summary>
+    /// The objects a resolved effect announced under this key (CR 601.2c, 608.2h), still in the
+    /// game: an object that has left is no longer the one that was named (CR 400.7). A selector
+    /// with no key, or a key the effect was not created with, is refused — the interpreter binds
+    /// every announced object as the effect is created, so an unbound key is an unbuilt shape.
+    /// </summary>
+    [RuleRef("601.2c")]
+    private static ImmutableList<ObjectId> Bound(
+        GameState state,
+        ImmutableDictionary<string, ImmutableList<ObjectId>>? bound,
+        string? key,
+        Selector selector)
+    {
+        if (key is not null && bound is not null && bound.TryGetValue(key, out var announced))
+            return [.. announced.Where(state.Objects.ContainsKey)];
+
+        throw new RefusedException(
+            $"A continuous effect named its objects with {selector.GetType().Name}{(key is null ? " and no key" : $" under \"{key}\"")}, and the effect carries no announced objects for it; a resolved effect's objects are fixed as it resolves (CR 611.2c, 601.2c), so the interpreter must bind them as the effect is created.",
+            "611.2c");
+    }
 
     /// <summary>
     /// Does this object match the filter? Matched against characteristics computed without the
@@ -188,8 +227,9 @@ public sealed partial class LayerSystem
 
         if (missing is not null)
         {
-            throw new NotImplementedException(
-                $"A static ability's filter used {missing}, which the layer system's matcher does not answer; see seam-requests/E7.md.");
+            throw new RefusedException(
+                $"A static ability's filter used {missing}, which the layer system's matcher does not answer.",
+                "611.3a");
         }
     }
 
@@ -201,16 +241,30 @@ public sealed partial class LayerSystem
         EachOpponent => candidate != controller,
         EachPlayer => true,
         ActivePlayer => candidate == state.Turn.ActivePlayer,
-        _ => throw new NotImplementedException(
-            $"A static ability's filter named the player {who.GetType().Name}, which needs the query layer; see seam-requests/E7.md."),
+        _ => throw new RefusedException(
+            $"A static ability's filter named the player {who.GetType().Name}, which the layer system's matcher does not answer.",
+            "611.3a"),
     };
 
+    /// <summary>
+    /// A filter's comparison against a literal. A comparison against a counted amount inside a
+    /// static ability's filter would be read through the query, whose reading of every object
+    /// leads back here; that dependency (CR 613.8) is not built and is refused with the rule.
+    /// </summary>
+    [RuleRef("613.8")]
     private static bool Compare(int? value, Comparison comparison)
     {
         if (value is not { } actual)
             return false;
 
-        var against = Value(comparison.Value, "a filter's comparison");
+        if (comparison.Value is not Fixed fixedAmount)
+        {
+            throw new RefusedException(
+                $"A static ability's filter compared against {comparison.Value.GetType().Name}; the layer system's matcher compares against a literal only.",
+                "613.8");
+        }
+
+        var against = fixedAmount.N;
         return comparison.Op switch
         {
             ComparisonOp.Eq => actual == against,
@@ -219,7 +273,7 @@ public sealed partial class LayerSystem
             ComparisonOp.Le => actual <= against,
             ComparisonOp.Gt => actual > against,
             ComparisonOp.Ge => actual >= against,
-            _ => throw new NotImplementedException($"The comparison {comparison.Op} is not implemented."),
+            _ => throw new RefusedException($"The comparison {comparison.Op} is not built.", "613.8"),
         };
     }
 

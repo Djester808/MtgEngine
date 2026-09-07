@@ -191,16 +191,102 @@ public sealed class LayerTests
     }
 
     [Fact]
-    public void An_amount_the_interpreter_has_not_evaluated_throws_naming_it()
+    [RuleRef("611.2c")]
+    public void An_amount_the_interpreter_has_not_evaluated_is_refused_naming_it_and_the_rule()
     {
+        // CR 611.2c: a resolved effect's numbers were fixed as it resolved, so a countable amount
+        // reaching the layers from one is a shape the interpreter did not build — refused with
+        // the rule, never thrown as a crash.
         var creature = Obj(1, CreatureFace("Test Bear", 2, 2), Mine);
         var board = Board(creature) with
         {
             ActiveEffects = [Active(1, new ModifyPt(new X(), new Fixed(0)), creature.Id, Mine, timestamp: 2)],
         };
 
-        var ex = Assert.Throws<NotImplementedException>(() => _layers.Of(board, creature.Id));
-        Assert.Contains(nameof(X), ex.Message, StringComparison.Ordinal);
+        var ex = Assert.Throws<RefusedException>(() => _layers.Of(board, creature.Id));
+        Assert.Contains(nameof(X), ex.Reason, StringComparison.Ordinal);
+        Assert.Equal("611.2c", ex.Rule);
+    }
+
+    [Fact]
+    [RuleRef("604.3")]
+    public void A_characteristic_defining_power_and_toughness_counts_the_board_as_it_changes()
+    {
+        // CR 604.3 with 613.4a: "power and toughness are each equal to the number of lands you
+        // control" is read every time the characteristics are, and moves as a land enters.
+        var lands = new ObjectFilter(Types: CardType.Land, ControlledBy: new You());
+        var elemental = Obj(1, CountingFace(lands), Mine);
+        var two = Board(elemental, Obj(2, LandFace(), Mine), Obj(3, LandFace(), Mine), Obj(4, LandFace(), Theirs));
+        var three = Board(elemental, Obj(2, LandFace(), Mine), Obj(3, LandFace(), Mine), Obj(4, LandFace(), Theirs), Obj(5, LandFace(), Mine));
+
+        Assert.Equal(2, _layers.Of(two, elemental.Id).Power);
+        Assert.Equal(2, _layers.Of(two, elemental.Id).Toughness);
+        Assert.Equal(3, _layers.Of(three, elemental.Id).Power);
+        Assert.Equal(3, _layers.Of(three, elemental.Id).Toughness);
+    }
+
+    [Fact]
+    [RuleRef("604.3")]
+    public void A_characteristic_defining_count_includes_the_object_when_another_static_makes_it_a_land()
+    {
+        // The count reads every object's characteristics, and one of them is the object whose
+        // count this is: its type-changing static ability (layer 4) makes it a land, so it counts
+        // itself, and the visit that counts it reads it without its own layer-7 amount rather than
+        // recurring — CR 613.8's dependency rules are not built, and this is the case that matters.
+        var lands = new ObjectFilter(Types: CardType.Land, ControlledBy: new You());
+        var creaturesAreLands = new StaticAbility(
+            new AddTypes(CardType.Land, ["Forest"]),
+            To: new Each(new ObjectFilter(Types: CardType.Creature, ControlledBy: new You(), Token: false)));
+        var elemental = Obj(1, CountingFace(lands, creaturesAreLands), Mine);
+        var board = Board(elemental, Obj(2, LandFace(), Mine), Obj(3, LandFace(), Mine));
+        var chars = _layers.Of(board, elemental.Id);
+
+        Assert.Equal(CardType.Creature | CardType.Land, chars.Types);
+        Assert.Equal(3, chars.Power);
+        Assert.Equal(3, chars.Toughness);
+    }
+
+    [Fact]
+    [RuleRef("611.3a")]
+    public void A_static_bonus_that_counts_is_re_read_while_a_resolved_one_keeps_its_number()
+    {
+        // CR 611.3a: an Aura's "+1/+1 for each Forest you control" is a static ability's effect
+        // and is read as the board changes. CR 611.2c: the resolved effect beside it was fixed
+        // to +1/+1 as it resolved and does not move when a second Forest enters.
+        var forests = new ObjectFilter(Subtypes: ["Forest"], ControlledBy: new You());
+        var bear = Obj(1, CreatureFace("Test Bear", 2, 2), Mine);
+        var armor = Obj(2, AuraFace(forests), Mine) with { AttachedTo = bear.Id };
+        var resolved = Active(1, new ModifyPt(new Fixed(1), new Fixed(1)), bear.Id, Mine, timestamp: 2);
+        var one = Board(bear, armor, Obj(3, LandFace("Test Forest", "Forest"), Mine)) with { ActiveEffects = [resolved] };
+        var two = Board(bear, armor, Obj(3, LandFace("Test Forest", "Forest"), Mine), Obj(4, LandFace("Test Forest", "Forest"), Mine)) with
+        {
+            ActiveEffects = [resolved],
+        };
+
+        Assert.Equal(4, _layers.Of(one, bear.Id).Power);
+        Assert.Equal(4, _layers.Of(one, bear.Id).Toughness);
+        Assert.Equal(5, _layers.Of(two, bear.Id).Power);
+        Assert.Equal(5, _layers.Of(two, bear.Id).Toughness);
+    }
+
+    [Fact]
+    [RuleRef("611.2c")]
+    public void A_copy_of_a_target_the_effect_was_not_created_with_is_refused_never_thrown()
+    {
+        // CR 611.2c with 601.2c: "becomes a copy of target land" applies to the object the
+        // ability announced, fixed as it resolved. The layers read that binding from the effect
+        // and never from the board; an effect that carries none is refused with the rule.
+        var land = Obj(1, LandFace("Test Forest", "Forest"), Mine);
+        var stage = Obj(2, LandFace("Test Stage"), Mine);
+        var unbound = new BecomesCopyOf(new Target(new ObjectFilter(Types: CardType.Land), Key: "target:0"));
+        var board = Board(land, stage) with
+        {
+            ActiveEffects = [Active(1, unbound, stage.Id, Mine, timestamp: 2)],
+        };
+
+        var ex = Assert.Throws<RefusedException>(() => _layers.Of(board, stage.Id));
+        Assert.Equal("611.2c", ex.Rule);
+        Assert.Contains(nameof(Target), ex.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -465,6 +551,29 @@ public sealed class LayerTests
             2,
             [new StaticAbility(new ModifyPt(new Fixed(power), new Fixed(toughness)), To: new Each(what))],
             "{2}{W}");
+
+    private static Face LandFace(string name = "Test Land", string? subtype = null) =>
+        new(name, FaceRole.Main, new TypeLine(CardType.Land, Subtypes: subtype is null ? null : [subtype]));
+
+    /// <summary>A creature whose power and toughness are each the number of objects the filter names, CR 604.3.</summary>
+    private static Face CountingFace(ObjectFilter each, params Ability[] more) =>
+        new(
+            "Test Elemental",
+            FaceRole.Main,
+            new TypeLine(CardType.Creature, Subtypes: ["Elemental"]),
+            ManaCost: "{3}{G}{G}",
+            Power: new PrintedStat("*"),
+            Toughness: new PrintedStat("*"),
+            Abilities: [new StaticAbility(new SetPt(new CountOf(each), new CountOf(each)), To: new Self(), CharacteristicDefining: true), .. more]);
+
+    /// <summary>An Aura whose static ability gives what it enchants +1/+1 for each object the filter names, CR 611.3a.</summary>
+    private static Face AuraFace(ObjectFilter each) =>
+        new(
+            "Test Armor",
+            FaceRole.Main,
+            new TypeLine(CardType.Enchantment, Subtypes: ["Aura"]),
+            ManaCost: "{2}{G}",
+            Abilities: [new StaticAbility(new ModifyPt(new CountOf(each), new CountOf(each)), To: new Attached())]);
 
     /// <summary>An enchantment with the same static ability, so its own type does not match the filter.</summary>
     private static Face EnchantmentFace(int power, int toughness, ObjectFilter what) =>
