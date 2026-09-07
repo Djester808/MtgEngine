@@ -179,6 +179,10 @@ public static class VerifyCommand
         var smoke = SmokeScenario.Of(file);
         if (smoke is not null)
             scenarios.Add(smoke);
+        // CR 602.2: an activated ability is a second thing the card does, and a card whose spell
+        // cannot be asserted may still have an ability that can — so these are added whether or not
+        // the cast scenario was generated.
+        scenarios.AddRange(SmokeActivation.Of(file));
 
         return scenarios.Count == 0 && file.ScenarioList.Count == 0 ? file : file with { Scenarios = scenarios };
 
