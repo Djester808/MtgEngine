@@ -108,15 +108,16 @@ public sealed class ScenarioStageTestsFillers
 
     [Fact]
     [RuleRef("608.2d")]
-    public void An_any_colour_mana_ability_gets_no_scenario_because_the_colour_is_a_choice()
+    public void An_any_colour_mana_ability_makes_the_colour_choice_on_its_step()
     {
-        // Five cards failed a verify run this way: the engine refuses an activation that did not
-        // bring the colour with it, and a refusal reads as the card being broken.
+        // Five cards lost their activation scenario this way: the engine refuses an activation that
+        // did not bring the colour with it, and a refusal reads as the card being broken. The step
+        // carries the colour now (seam-requests/P12.md § 1), so the ability gets its scenario back.
         var any = File("any colour", new ActivatedAbility([new TapSelf()], new AddMana(new ManaProduction(AnyColor: true))), CardType.Creature);
         var fixedMana = File("green", new ActivatedAbility([new TapSelf()], new AddMana(new ManaProduction("{G}"))), CardType.Land);
 
-        Assert.Empty(SmokeActivation.Of(any));
-        Assert.Single(SmokeActivation.Of(fixedMana));
+        Assert.Equal("W", Assert.IsType<ActivateStep>(Assert.Single(SmokeActivation.Of(any)).Steps[0]).ManaColors);
+        Assert.Null(Assert.IsType<ActivateStep>(Assert.Single(SmokeActivation.Of(fixedMana)).Steps[0]).ManaColors);
     }
 
     /// <summary>The generated scenario has to pass in the real engine, or it is not a scenario, it is a claim.</summary>

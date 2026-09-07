@@ -50,7 +50,7 @@ public static class VerifyCommand
         foreach (var bad in directory.Unreadable)
             log.WriteLine("verify: could not read " + bad);
 
-        var summary = Verify(directory, new CardFileWriter(cardsDir), only, log, ct);
+        var summary = Verify(directory, new CardFileWriter(cardsDir), only, log, runner: null, ct);
         if (summary is null)
         {
             log.WriteLine(FormattableString.Invariant($"verify: nothing to verify in {cardsDir}."));
@@ -61,7 +61,20 @@ public static class VerifyCommand
     }
 
     /// <summary>The run itself, over a directory that is already read, so a test can supply its own.</summary>
-    public static VerifySummary? Verify(CardDirectory directory, CardFileWriter writer, string? only, TextWriter log, CancellationToken ct = default)
+    /// <param name="runner">
+    /// How the run gets its runner, given the directory it plays over. The default is the real
+    /// engine, which is the only thing this command ever uses; a test hands in a runner of its own
+    /// so the crash path — a card whose play throws out of the engine — keeps a test of its own.
+    /// It used to be proved with a definition that made the interpreter throw, and that card is now
+    /// refused before a game starts (seam-requests/P12.md § 4), which left the path untested.
+    /// </param>
+    public static VerifySummary? Verify(
+        CardDirectory directory,
+        CardFileWriter writer,
+        string? only,
+        TextWriter log,
+        Func<CardDirectory, IScenarioRunner>? runner = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(directory);
         ArgumentNullException.ThrowIfNull(writer);
@@ -82,7 +95,8 @@ public static class VerifyCommand
         // CR 101.4: who answers is the scenario's own opt-in (ScenarioSetup.AutoAnswer) and no
         // longer the command's, so a card file's hand-written scenario keeps its own answers while
         // the generated one beside it is answered first-legal.
-        var stage = new VerifyStage(new ScenarioRunner(new Game(Subsystems.Wave2(), directory)), writer, engineHash);
+        var play = runner ?? (cards => new ScenarioRunner(new Game(Subsystems.Wave2(), cards)));
+        var stage = new VerifyStage(play(directory), writer, engineHash);
         var at = DateTimeOffset.UtcNow;
 
         var outcomes = new List<VerifyOutcome>();

@@ -44,16 +44,30 @@ public static class SmokeActivation
             return null;
 
         // CR 608.2d: "add one mana of any colour" asks the activator which colour, and the engine
-        // refuses an activation that did not bring the answer with it. A generated scenario has no
-        // way to make that choice, so the ability gets none rather than a scenario that is refused.
-        if (Parts(ability.Do).Any(e => e is AddMana produced && produced.Mana.Fixed is not { Length: > 0 }))
+        // refuses an activation that did not bring the answer with it. The step carries the answer
+        // (seam-requests/P12.md § 1), so the scenario chooses white and asserts the pool that
+        // leaves. A production the step cannot answer for — a chosen colour, the commander's
+        // identity, what a land could produce — still gets no scenario rather than a refusal.
+        var additions = Parts(ability.Do).OfType<AddMana>().ToList();
+        if (additions.Any(a => a.Mana.Fixed is not { Length: > 0 } && !Choosable(a)))
             return null;
+        var colors = Colors(additions);
 
         var board = new SmokeBoard(file.Name) { PlaysFromBattlefield = true };
         if (Pay(board, ability.Costs) is not { } mana)
             return null;
         if (!SmokeScenario.Reads(board, ability.Do) || board.Empty || board.Targets > 1)
             return null;
+
+        // CR 106.4: the pool the activation leaves behind is only the ability's own mana when the
+        // pool it was paid from held exactly the cost, so an ability whose cost cannot be stocked
+        // to the symbol keeps its colour unasserted rather than asserting the deep pool.
+        if (colors is { Length: > 0 })
+        {
+            if (!board.PaysActivationExactly(mana))
+                return null;
+            board.Expect(new ManaPoolIs(SmokeScenario.Caster, colors));
+        }
 
         var taps = ability.Costs.Any(c => c is TapSelf);
         if (taps)
@@ -65,7 +79,8 @@ public static class SmokeActivation
             index,
             board.TargetNames(),
             mana.Contains("{X}", StringComparison.Ordinal) ? SmokeScenario.AnnouncedX : null,
-            CostObjects: board.CostObjects());
+            CostObjects: board.CostObjects(),
+            ManaColors: colors);
         return board.Build(
             IdFor(file.OracleId, index),
             $"activating an ability of {file.Name} does what its definition says",
@@ -118,6 +133,47 @@ public static class SmokeActivation
     /// <summary>CR 103.3: the life every scenario's players start on.</summary>
     [RuleRef("103.3")]
     private const int ScenarioRunnerLife = 20;
+
+    /// <summary>
+    /// CR 608.2d: a mana production the activation step can answer for — one mana, of any colour,
+    /// for the activator. Every other undecided production (a chosen colour, the commander's
+    /// identity, whatever a land could produce, one of a named pair) is a choice the step has no
+    /// field for, and the ability gets no scenario at all.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static bool Choosable(AddMana add) =>
+        add is
+        {
+            Who: null or You,
+            N: null,
+            Mana:
+            {
+                Fixed: null,
+                AnyColor: true,
+                OneOf: null,
+                CommanderIdentity: false,
+                ChosenColor: false,
+                ChosenColorKey: null,
+                ColorOfAttachedOrTarget: false,
+                LandCouldProduce: false,
+                AnyType: false,
+                Restriction: false,
+                RestrictedTo: null,
+            },
+        };
+
+    /// <summary>
+    /// The colours the step announces: one letter per "of any colour" the ability adds, in the
+    /// order the effect adds them (seam-requests/P12.md § 1). White every time — the choice is
+    /// the scenario's to make and one colour is as good as another — and null when the ability
+    /// prints every colour it produces, which is what every activation scenario meant before.
+    /// </summary>
+    [RuleRef("608.2d")]
+    private static string? Colors(IReadOnlyList<AddMana> additions)
+    {
+        var chosen = string.Concat(additions.Where(Choosable).Select(_ => "W"));
+        return chosen.Length == 0 ? null : chosen;
+    }
 
     /// <summary>A sequence is its parts; an activation asserts only what always happens.</summary>
     private static IEnumerable<Effect> Parts(Effect effect) =>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MtgEngine.Cards.Pipeline.Agree;
+using MtgEngine.Cards.Pipeline.Scenarios;
 using MtgEngine.Cards.Pipeline.Verify;
 using MtgEngine.Rules.Events;
 
@@ -129,6 +130,113 @@ public sealed class VerifyCommandTests : IDisposable
         var result = Assert.Single(outcome.Results);
         Assert.False(result.Passed);
         Assert.Contains("no arm for this", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The crash path: a play that throws out of the engine is that card's result and not the run's,
+    /// and the exception is the line the dispute queue reads. It used to be proved with a definition
+    /// the interpreter threw on; such a card is now refused before a game starts
+    /// (seam-requests/P12.md § 4), so the run is handed a runner that throws instead. What is under
+    /// test is the count and the message, never which effect happens to lack an arm.
+    /// </summary>
+    [Fact]
+    public void A_runner_that_throws_is_counted_as_a_crash_carrying_what_it_threw()
+    {
+        Write(Creature(Scribe));
+        var log = new StringWriter();
+
+        var summary = VerifyCommand.Verify(
+            CardDirectory.Load(_cards),
+            new CardFileWriter(_cards),
+            only: null,
+            log,
+            _ => new VerifyCommandTestsThrowingRunner("the engine fell over"));
+
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.Crashed);
+        Assert.Equal(0, summary.Verified);
+        Assert.Equal(0, summary.Failed);
+        Assert.Equal(0, summary.Unsupported);
+        var outcome = Assert.Single(summary.Outcomes);
+        var result = Assert.Single(outcome.Results);
+        Assert.False(result.Passed);
+        Assert.Contains("the engine fell over", result.Error, StringComparison.Ordinal);
+        Assert.Contains(nameof(InvalidOperationException), result.Error, StringComparison.Ordinal);
+        Assert.Contains("CRASHED", log.ToString(), StringComparison.Ordinal);
+        Assert.Contains("1 crashed", log.ToString(), StringComparison.Ordinal);
+        // A crash says nothing new about the card, so its file is left exactly as it was.
+        Assert.Equal(ImplementationStatus.Translated, Read(Scribe).Status);
+        Assert.Null(Read(Scribe).Verification);
+    }
+
+    /// <summary>A card that claimed to be verified and then crashed no longer claims it.</summary>
+    [Fact]
+    public void A_verified_card_whose_runner_throws_goes_back_to_translated()
+    {
+        Write(Creature(Scribe) with { Status = ImplementationStatus.Verified });
+
+        var summary = VerifyCommand.Verify(
+            CardDirectory.Load(_cards),
+            new CardFileWriter(_cards),
+            only: null,
+            new StringWriter(),
+            _ => new VerifyCommandTestsThrowingRunner("still broken"));
+
+        var outcome = Assert.Single(summary!.Outcomes);
+        Assert.Equal(ImplementationStatus.Translated, outcome.File.Status);
+    }
+
+    /// <summary>
+    /// The rulings round rehearsed without credits: a ruling goes through the batch client as a
+    /// prompt, comes back as a scenario, and is stored beside its card by the stage itself.
+    /// </summary>
+    [Fact]
+    public async Task The_rulings_stage_turns_a_ruling_into_a_scenario_sourced_from_it()
+    {
+        var client = new PilotFakeClient();
+        client.Answer(Sonnet, "ruling-0", Answer());
+        var stage = new RulingsStage(client, new RulingsStageOptions(Sonnet, PollSeconds: 0));
+
+        var scenarios = await stage.Run(
+            [new RulingRequest(Scribe, "Verify Scribe", "It draws two cards, not one.", "2020-01-01")],
+            CancellationToken.None);
+
+        var only = Assert.Single(scenarios);
+        Assert.Null(only.Error);
+        Assert.NotNull(only.Scenario);
+        var source = Assert.IsType<RulingSource>(only.Scenario!.Source);
+        Assert.Equal(Scribe, source.OracleId);
+        Assert.Single(client.Submissions);
+    }
+
+    /// <summary>
+    /// The whole round, end to end and off the network: submit, collect, and then <c>verify</c>
+    /// plays what the round wrote. The scenario a ruling produced is the card's evidence beside the
+    /// generated one — the generator does not overwrite it, and both are counted in the verdict.
+    /// </summary>
+    [Fact]
+    public async Task The_rulings_round_writes_a_scenario_the_card_is_then_verified_with()
+    {
+        Write(Creature(Scribe));
+        var client = new PilotFakeClient();
+        client.Answer(Sonnet, "ruling-0", Answer());
+        var environment = Rulings(client, new StringWriter(), Sonnet);
+        await RulingsCommand.SubmitAsync(environment, _cards, _out, CancellationToken.None);
+        Assert.Equal(0, await RulingsCommand.CollectAsync(environment, _out, CancellationToken.None));
+        var stored = Assert.Single(Read(Scribe).ScenarioList);
+        Assert.IsType<RulingSource>(stored.Source);
+
+        var log = new StringWriter();
+        var code = VerifyCommand.Run(_cards, only: null, log);
+
+        Assert.Equal(VerifyCommand.Completed, code);
+        var written = Read(Scribe);
+        Assert.Equal(ImplementationStatus.Verified, written.Status);
+        // Two scenarios ran: the ruling's, kept exactly as the round wrote it, and the generated one.
+        Assert.Equal(2, written.Verification!.Total);
+        Assert.Equal(2, written.Verification.Passed);
+        Assert.Contains(written.ScenarioList, s => s.Source is RulingSource);
+        Assert.Contains(written.ScenarioList, s => s.Source is GeneratedSource);
     }
 
     [Fact]
@@ -265,6 +373,13 @@ public sealed class VerifyCommandTests : IDisposable
     /// <summary>An instant whose only effect is one no smoke scenario can assert, so it gets no scenario at all.</summary>
     private static CardFile NoScenarios(string oracleId) =>
         Card(oracleId, "Verify Mute", [new SpellAbility(new Unsupported("nothing a cast can assert"))]);
+
+    /// <summary>A runner that throws whatever it is asked to play, so the crash path has a play that crashes.</summary>
+    private sealed class VerifyCommandTestsThrowingRunner(string message) : IScenarioRunner
+    {
+        public ScenarioResult Run(Scenario scenario, CancellationToken ct = default) =>
+            throw new InvalidOperationException(message);
+    }
 
     private static CardFile Card(string oracleId, string name, IReadOnlyList<Ability> abilities) => new(
         oracleId,
