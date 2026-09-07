@@ -126,8 +126,7 @@ try
 catch (Anthropic.Exceptions.AnthropicException refused)
 {
     var reason = System.Text.RegularExpressions.Regex.Match(refused.Message, "\"message\":\"([^\"]+)\"");
-    Console.Error.WriteLine("The Anthropic API refused the request: " + (reason.Success ? reason.Groups[1].Value : refused.Message.Split('
-')[0]));
+    Console.Error.WriteLine("The Anthropic API refused the request: " + (reason.Success ? reason.Groups[1].Value : refused.Message.Split('\n')[0]));
     Console.Error.WriteLine("Nothing was submitted. Add credits at Plans & Billing and run the command again.");
     return 75;
 }
