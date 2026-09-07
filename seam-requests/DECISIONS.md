@@ -145,4 +145,21 @@ report. "Now" landed in "Seams after wave 5".
 | V4 | `PlayerRestriction` has no Win/GainLife member | **Accepted**; the specific records are the spelling. |
 | P8 | a smoke scenario cannot answer the question a search asks; an Aura has nothing to enchant | **Wave 6 (P9)**: an "answer with the first legal option" step, and an enchant target placed from the Aura's `Enchant` filter. |
 | C3 | `VerificationDto.WithoutScenarios`; coverage keys stay enum names; filtered coverage answers the whole DTO | **Wave 6 (P9)** for the field; the other two are confirmed as they are. |
-| coordinator | the first full verify run over the 87 agreed pilot cards, on P8's base: 55 verified, 6 failed, 24 without a scenario, 2 crashed | **Recorded**; re-run on the wave-5 tip and committed with the card files. |
+| coordinator | the first full verify run over the 87 agreed pilot cards, on P8's base: 55 verified, 6 failed, 24 without a scenario, 2 crashed | **Recorded**; re-run on the wave-5 tip: 57 verified, 6 failed, 24 without a scenario, 0 crashed, committed with the card files. |
+
+# Seam decisions after wave 6
+
+Requests from `seam-requests/E8c.md`, `E0c.md`, `E9e.md`, `E3d.md` (P9's when it lands). "Now"
+landed in "Seams after wave 6" (`44b83fe`).
+
+| From | Request | Decision |
+|---|---|---|
+| E0c | `TurnHistory` keeps the departed `GameObject` for `Died`/`LeftBattlefield` | **Now.** Every reader retargeted (triggers, the seam test); morbid and revolt are qualified. |
+| E0c | a per-pair damage map `DamageDealtToPlayer` | **Now.** |
+| E0c | a per-turn resolution tally `AbilitiesResolvedThisTurn`, folded by `StackObjectResolved` | **Now.** `FirstTimeThisTurn` answers; `TriggeredAbility.OncePerTurn` reads it in **wave 7 (E6b)**. `TurnFacts` in the query is now redundant — delete it in wave 7. |
+| E3d | `ManaPool.Restricted` and the `ManaChanged` fold (CR 106.6a) | **Now.** The two casting-side pieces (`ManaFrom` emitting a block, `ManaSymbols.Pay` reporting the block that paid) are **wave 7 (E3e)**. |
+| E9e | `Wave2()` sets `interpreter.Casting` | **Now.** |
+| E9e | `CastSpell.WithoutPayingManaCost`, `CastPlan` recording `"free"` | **Now on the seam**; the may-cast arm's switch to it and its test's flip are **wave 7 (E9f)**. |
+| E9e | `RingTemptsYou`'s emblem has no spelling | **Wave 7 (V5)**: an `Emblem` effect record with the Ring's four abilities. |
+| E8c | combat damage never reaches the replacement system | **Wave 7 (E4b), first**: a settable `IReplacementSystem` handle on `CombatSystem`, the per-event propose loop in `DealCombatDamage`, lifelink after the damage actually dealt (702.15b), set in both compositions. |
+| coordinator | `GameEvent.cs` passed 500 lines | **Now**: the object-state events (`ObjectTurnedOver`, `ActiveEffectChanged`, `ObjectDesignated`, `StackTargetsChanged`) live in `Events/ObjectStateEvents.cs`. |
