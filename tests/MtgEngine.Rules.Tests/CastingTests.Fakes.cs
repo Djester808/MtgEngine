@@ -69,6 +69,16 @@ internal sealed class PrintedCharacteristics : ICharacteristics
     }
 
     public PlayerId ControllerOf(GameState state, ObjectId id) => state.Objects[id].InitialController;
+
+    /// <summary>
+    /// CR 613.10: the player limits a test puts in force by hand. Folding every player-scoped
+    /// continuous effect is the layer system's (E0e's), and none of these tests build one, so the
+    /// table stands in for the fold and the casting system still reads it through the seam.
+    /// </summary>
+    public Dictionary<PlayerId, PlayerLimits> Limits { get; } = [];
+
+    public PlayerLimits PlayerRestrictions(GameState state, PlayerId player) =>
+        Limits.TryGetValue(player, out var limits) ? limits : PlayerLimits.None;
 }
 
 internal sealed class RecordingInterpreter : IInterpreter

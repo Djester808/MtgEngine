@@ -42,13 +42,20 @@ public sealed partial class CastingSystem
         }
     }
 
-    /// <summary>The costs of the plan this cast would announce, CR 601.2b and 601.2c.</summary>
+    /// <summary>
+    /// The costs of the plan this cast would announce, CR 601.2b and 601.2c. The plan is read on
+    /// CR 608.2g's instructed road, because what a cost consumes is the same whichever road the
+    /// cast takes and neither CR 601.3's permission for the zone nor CR 117.1a's timing is what a
+    /// cost question asks about — a card a may-cast names in a graveyard has to be able to say what
+    /// its sacrifice wants before the answer that casts it. Nothing is authorised here:
+    /// <see cref="Check"/> and <see cref="CheckInstructed"/> are what refuse, each on its own road.
+    /// </summary>
     [RuleRef("601.2b")]
     private ImmutableList<CostChoice> OfCast(GameState state, CastSpell cast)
     {
         var card = Castable(state, cast.Card, cast.Player);
         var chars = characteristics.Of(state, card.Id);
-        var plan = CastPlan.For(state, card, cast, query);
+        var plan = CastPlan.For(state, card, cast, query, instructed: true);
         return Asked(state, new CostContext(card, chars, cast.Player, cast.X, zones, query), plan.NonMana);
     }
 
