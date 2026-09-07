@@ -14,7 +14,7 @@ namespace MtgEngine.Rules.Choices;
 /// that clears <see cref="GameState.Pending"/> — and only then resumed, by kind.
 /// </summary>
 [RuleRef("101.4")]
-public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IResumable? interpreter = null) : IChoiceSystem
+public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IResumable? interpreter = null, ICastingSystem? casting = null) : IChoiceSystem
 {
     private readonly IResumable resumable = interpreter ?? new UnbuiltResumable();
 

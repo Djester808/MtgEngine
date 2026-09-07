@@ -125,6 +125,12 @@ builder.Services.AddSingleton<DeckGate>();
 
 // The log store bridges a singleton session service to a scoped DbContext, so no live game
 // captures a context that has been disposed under it.
+// The status endpoints read the same generated files the pool reads, but the whole file —
+// scenarios, candidates, the last verification — which the deck gate has no business knowing.
+builder.Services.AddSingleton(new CardImplementationOptions(
+    Path.Combine(builder.Environment.ContentRootPath, "..", "cards")));
+builder.Services.AddSingleton<CardImplementationService>();
+
 builder.Services.AddSingleton<IGameLogStore, GameLogStore>();
 
 // Singleton: it holds the live tables. Wave2() is the engine as it stands, composed per table

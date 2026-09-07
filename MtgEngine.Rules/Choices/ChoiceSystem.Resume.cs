@@ -21,10 +21,36 @@ public sealed partial class ChoiceSystem
     {
         ChoiceKinds.Discard => Discard(state, chosen),
         ChoiceKinds.LegendRule => LegendRule(state, choice, chosen),
-        ChoiceKinds.Mulligan => Mulligan(state, choice, chosen),
-        ChoiceKinds.MulliganBottom => Bottom(state, chosen),
-        _ => resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context)),
+        ChoiceKinds.Mulligan => Mulligan(state, choice, chosen).Then(s => Next(s, choice.Player)),
+        ChoiceKinds.MulliganBottom => Bottom(state, chosen).Then(s => Next(s, choice.Player)),
+        _ => Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))),
     };
+
+    /// <summary>
+    /// CR 608.2m: an answer that finished a resolution (the interpreter says so with
+    /// <see cref="StackObjectResolved"/>) leaves the object on the stack until the casting system
+    /// takes it where it goes; without a casting system the object stays, which is what a test of
+    /// the choice system alone expects.
+    /// </summary>
+    [RuleRef("608.2m")]
+    private Outcome Resumed(Outcome resumed)
+    {
+        if (casting is null)
+            return resumed;
+        var outcome = resumed;
+        foreach (var finished in resumed.Events.OfType<StackObjectResolved>().Select(e => e.StackObject).Distinct())
+            outcome = outcome.Then(s => casting.FinishResolving(s, finished));
+        return outcome;
+    }
+
+    /// <summary>
+    /// CR 103.5: a finished declaration hands back to the turn system, which asks the next
+    /// player or begins turn 1. A question still open — the next declaration after a mulligan,
+    /// or the bottoming after a keep that cost cards — means this player is not finished yet.
+    /// </summary>
+    [RuleRef("103.5")]
+    private Outcome Next(GameState state, PlayerId finished) =>
+        state.Pending is null ? turn.AfterMulligans(state, finished) : Outcome.Unchanged(state);
 
     /// <summary>
     /// CR 514.1: the active player discards down to their maximum hand size, and CR 701.9a:

@@ -154,15 +154,9 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         var controller = characteristics.ControllerOf(state, top);
         var resolved = new StackObjectResolved(top);
 
-        if (StackZone.IsAbility(obj))
-        {
-            var ran = interpreter.Resolve(state, top);
-            var gone = new ObjectCeasedToExist(top);
-            ImmutableList<GameEvent> events = [.. ran.Events, gone, resolved];
-            return new Outcome(GameReducer.Apply(ran.State, [gone, resolved]), events);
-        }
-
-        if (IsPermanentSpell(characteristics.Of(state, top).Types))
+        // An ability on the stack keeps its source's definition (CR 602.2a), so it is asked
+        // before the permanent-spell test reads that definition's types.
+        if (!StackZone.IsAbility(obj) && IsPermanentSpell(characteristics.Of(state, top).Types))
         {
             var moved = zones.Move(state, top, ZoneKey.Of(CardZone.Battlefield, controller), controller: controller);
             var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true);
@@ -170,14 +164,40 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             return new Outcome(GameReducer.Apply(moved.State, [sick, resolved]), events);
         }
 
-        var effect = interpreter.Resolve(state, top);
+        // CR 101.4: a resolution that stopped to ask leaves its object on the stack; the answer
+        // finishes the walk and the choice system then asks for the leaving (FinishResolving).
+        var ran = interpreter.Resolve(state, top);
+        if (ran.State.Pending is not null)
+            return ran;
+
+        var left = FinishResolving(ran.State, top);
+        return new Outcome(left.State, ran.Events.AddRange(left.Events));
+    }
+
+    /// <summary>
+    /// The end of a resolution that the interpreter has finished: an ability ceases to exist
+    /// (CR 608.2n), a spell goes where CR 608.2m and its costs say. Called by ResolveTop when the
+    /// walk finished at once, and by the choice system when an answer finished it later.
+    /// </summary>
+    [RuleRef("608.2m")]
+    public Outcome FinishResolving(GameState state, ObjectId stackObject)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (!state.Objects.TryGetValue(stackObject, out var obj) || obj.Zone.Zone != CardZone.Stack)
+            return Outcome.Unchanged(state);
+
+        if (StackZone.IsAbility(obj))
+        {
+            var gone = new ObjectCeasedToExist(stackObject);
+            return new Outcome(gone.Apply(state), [gone]);
+        }
+
         var destination = Destination(obj);
-        var away = zones.Move(effect.State, top, ZoneKey.Of(destination, obj.Owner));
+        var away = zones.Move(state, stackObject, ZoneKey.Of(destination, obj.Owner));
 
         // CR 720.3d: an Omen goes into its owner's library and that library is shuffled.
         var shuffled = destination == CardZone.Library ? zones.Shuffle(away.State, obj.Owner) : Outcome.Unchanged(away.State);
-        ImmutableList<GameEvent> spell = [.. effect.Events, .. away.Events, .. shuffled.Events, resolved];
-        return new Outcome(GameReducer.Apply(shuffled.State, [resolved]), spell);
+        return new Outcome(shuffled.State, away.Events.AddRange(shuffled.Events));
     }
 
     /// <summary>

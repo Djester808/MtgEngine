@@ -46,6 +46,8 @@ report_lock $STATUS
 NAME="$(basename "$PROJECT")"
 NAME="${NAME%.csproj}"
 TESTS="tests/${NAME}.Tests/${NAME}.Tests.csproj"
+# A test project given directly is its own test project; appending .Tests again found nothing (E9b).
+case "$NAME" in *.Tests) TESTS="$PROJECT" ;; esac
 # The pipeline's test project drops the "Cards." from its name.
 [ "$NAME" = "MtgEngine.Cards.Pipeline" ] && TESTS="tests/MtgEngine.Pipeline.Tests/MtgEngine.Pipeline.Tests.csproj"
 

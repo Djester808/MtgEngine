@@ -4,7 +4,6 @@ using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
-using MtgEngine.Rules.Turn;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -29,13 +28,10 @@ internal sealed class MulliganTable
 
     internal MulliganTable(int players = 2, bool offerMulligans = true, string format = "test", ulong seed = 7)
     {
-        var wave = Subsystems.Wave1();
-        var turns = new TurnSystem(wave.Zones, wave.Casting, wave.Combat);
-        var subsystems = wave with
-        {
-            Turn = turns,
-            Choices = new MulliganChoices(new ChoiceSystem(wave.Zones, turns), turns),
-        };
+        // The real composition: the choice system hands a finished declaration back to the turn
+        // system through ITurnSystem.AfterMulligans (CR 103.5), so nothing here stands in for a
+        // join. Wave2() is the one with a real choice system.
+        var subsystems = Subsystems.Wave2();
 
         _game = new Game(subsystems, new MulliganDefinitions());
         var created = _game.Create(new GameSetup(
@@ -83,26 +79,6 @@ internal sealed class MulliganTable
     /// <summary>Ten cards, so a mulligan has something to shuffle back into and redraw from.</summary>
     private static ImmutableList<string> Deck() =>
         [.. Enumerable.Repeat(LandOracleId, 6), .. Enumerable.Repeat(BeastOracleId, 4)];
-
-    /// <summary>
-    /// The join CR 103.5 needs between the two subsystems: the choice system answers a mulligan
-    /// question, and when that leaves nothing pending the turn system says what happens next.
-    /// </summary>
-    [RuleRef("103.5")]
-    private sealed class MulliganChoices(IChoiceSystem inner, TurnSystem turns) : IChoiceSystem
-    {
-        public string Name => "choices, with the mulligan loop joined up";
-
-        public Outcome Answer(GameState state, AnswerChoice command)
-        {
-            var asked = state.Pending;
-            var answered = inner.Answer(state, command);
-            var mulligan = asked?.Kind is ChoiceKinds.Mulligan or ChoiceKinds.MulliganBottom;
-            return mulligan && answered.State.Pending is null
-                ? answered.Then(s => turns.AfterMulligans(s, asked!.Player))
-                : answered;
-        }
-    }
 
     /// <summary>Two made-up definitions: a land and a vanilla creature. No card in this test is a real one.</summary>
     private sealed class MulliganDefinitions : IDefinitionStore

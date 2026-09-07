@@ -76,3 +76,27 @@ builder that does it with the seam in place.
 | EINT | `ObjectId`/`PlayerId` as dictionary keys in the log | **Now.** Ids are bare numbers in the log; the exit test round-trips the whole log. |
 | EINT | CR 510.4 first-strike step always walked; CR 704.3 SBA after `Advance` | **Wave 3 (E2b).** |
 | coordinator | `Game.Settle` never saw the command's own events, so a cast spell's triggers were never collected | **Now.** `Settle(state, since)` collects them first (CR 603.3); `WaveTwoSeamTests` plays an enters-the-battlefield trigger to resolution through `Wave2()`. |
+
+# Seam decisions after wave 3
+
+Requests from `seam-requests/E9b.md`, `E8b.md`, `E3b.md`, `E2b.md`, `V2.md`, `EINT2.md`, `P4.md`,
+`E14.md` (carried over) and C2's report. "Now" landed in "Seams after wave 3".
+
+| From | Request | Decision |
+|---|---|---|
+| E9b, EINT2 | `Wave2()` passes the interpreter to `ChoiceSystem` | **Now.** A card's question resumes through `IResumable`; the wave-2 exit test answers a "may" and draws. |
+| coordinator | a resolution that stopped to ask was moved off the stack anyway | **Now.** `ResolveTop` leaves a halted object on the stack; `ICastingSystem.FinishResolving` does the leaving (608.2m/n) and the choice system calls it when an answer finishes the walk. |
+| E2b | `ITurnSystem.AfterMulligans` and the call in `ChoiceSystem.Resume` | **Now.** The mulligan fixture's decorator is gone; `MulliganTests` run on `Wave2()`. |
+| E2b | `TurnSystem` takes `ICharacteristics` | **Now.** Both compositions pass the layers: CR 510.4's first-strike step only when needed, CR 502.3 untap by computed controller. |
+| E2b, E14 | `ICombatSystem.CouldAttack`/`CouldBlock` | **Now on the seam** (defaults throw; `CombatSystem` implements). `LegalActions` still has its own reading — **wave 4** switches it to the seam. |
+| E2b | CR 103.5 simultaneity of mulligans | **No, for now.** One player at a time; revisit if a table notices. |
+| E3b | `PlayLand.FaceIndex` + `IZoneSystem.Move(faceIndex)` for modal land faces (712.12) | **Wave 4 (E1b).** |
+| E3b | multikicker count, escape's exile half, convoke/improvise/delve channel on `CastSpell` | **Wave 4 (V3 vocabulary, E3c casting).** |
+| E9b | `IZoneSystem.CreateToken` taking copiable values; `GameObject.Components` for meld; a `Flip` effect record; a question asked outside a resolution; a halting verb's progress marker | **Wave 4** (E1b, state, V3, E9c). The copy-token arm emits `ObjectCreated` directly meanwhile. |
+| EINT2 | **nothing offers a zone change to the replacement system** (614.1c): every "enters tapped / with counters / instead" is dead code in a game | **Wave 4, first (E1b).** `ZoneSystem` proposes its `ObjectMoved` (and `Draw` its `ObjectDrawn`) to `IReplacementSystem` through a handle set after construction, as the interpreter already does for damage; the interpreter proposes counters, life and tokens (E9c). |
+| V2 | `StateBasedActions.Permanents.HasSubtype` and `ViewProjector` ignore `EveryCreatureType` | **Wave 4** (small; E5b, E14b). |
+| V2 | `MtgEngine.Api` did not compile at `4e97e3f` | **Done** in `7e751ca`. |
+| P4 | `Program.cs` registration of `CardImplementationService` | **Now.** |
+| P4 | the pipeline cannot reach `EventLogSerializer.EngineHash()` | **Accepted**: the verify stage takes the hash as an argument; the `pipeline verify` command (wave 4, P7) passes it. |
+| C2 | `ImplementationStatus` serialised as the enum name; coverage's disputed shape; a batch implementations endpoint | **Now for the names** (the API's JSON options already write enum names — verify at the first live render); batch endpoint **wave 4 (P7)**. |
+| E9b | `tools/build.sh` appended `.Tests` to a test project's own name | **Now.** |

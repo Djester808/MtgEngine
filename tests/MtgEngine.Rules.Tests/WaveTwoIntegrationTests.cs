@@ -174,18 +174,19 @@ public sealed class WaveTwoIntegrationTests
         Assert.Empty(offered.Castable);
         Assert.False(table.Engine.Legal.For(table.State, P1).MustAnswerChoice);
 
-        // And answering it is refused rather than thrown: resuming a question a card asked needs
-        // the interpreter's IResumable, so until E9b lands the table is told, the answer is not
-        // taken, and the question still stands.
-        var unanswerable = table.Refuse(new AnswerChoice(P0, pending.Id, [pending.Options[0].Id]));
-        Assert.Equal("101.4", unanswerable.Rule);
-        Assert.Equal(pending.Id, table.State.Pending!.Id);
-
         // The other player is told the game is waiting and on whom, and nothing that was offered.
         var theirs = table.Engine.Views.Project(table.State, P1).Pending;
         Assert.NotNull(theirs);
         Assert.Equal(P0, theirs!.Player);
         Assert.Empty(theirs.Options);
+
+        // CR 608.2 and 101.4: the answer resumes the resolution through the interpreter's
+        // IResumable — "yes" draws the card, the question is gone and the stack is empty.
+        var answered = table.Do(new AnswerChoice(P0, pending.Id, [pending.Options[0].Id]));
+        Assert.Contains(answered, e => e is StackObjectResolved);
+        Assert.Null(table.State.Pending);
+        Assert.Empty(table.State.In(ZoneKey.Shared(Zone.Stack)));
+        Assert.Equal(handBefore + 1, table.State.In(ZoneKey.Of(Zone.Hand, P0)).Count);
 
         AssertTheLogIsTheGame(table);
     }

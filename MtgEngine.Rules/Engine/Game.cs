@@ -75,7 +75,7 @@ public sealed record Subsystems(
         var sba = new Sba.StateBasedActions(zones, layers, query);
         var triggers = new MtgEngine.Rules.Triggers.TriggerSystem(query, layers);
         // The interpreter implements IResumable, so a card's question resumes through it (CR 101.4).
-        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter);
+        var choices = new MtgEngine.Rules.Choices.ChoiceSystem(zones, turn, interpreter, casting);
         return new Subsystems(
             query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices,
             new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),

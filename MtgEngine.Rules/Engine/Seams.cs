@@ -107,6 +107,16 @@ public interface ICastingSystem : ISubsystem
     /// <summary>Resolve the top object of the stack, CR 608.</summary>
     Outcome ResolveTop(GameState state);
 
+    /// <summary>
+    /// CR 608.2m and 608.2n: where a resolved spell or ability goes once its walk is finished.
+    /// <see cref="ResolveTop"/> calls it when the resolution finished at once; a resolution that
+    /// stopped to ask (CR 101.4) leaves its object on the stack, and the choice system calls this
+    /// when the answer finished the walk.
+    /// </summary>
+    [RuleRef("608.2m")]
+    Outcome FinishResolving(GameState state, ObjectId stackObject) =>
+        throw new NotImplementedException("FinishResolving is not built in this casting system.");
+
     /// <summary>Whether the command would be legal now, with the rule when it would not.</summary>
     Refusal? Check(GameState state, Command command);
 }
@@ -121,6 +131,16 @@ public interface ICombatSystem : ISubsystem
     Outcome DealCombatDamage(GameState state, bool firstStrike);
 
     Outcome EndCombat(GameState state);
+
+    /// <summary>CR 508.1a: whether this creature could be declared as an attacker now — untapped, not summoning sick unless it has haste (302.6, 702.10b), no defender (702.3b). One reading, shared with the legal-actions view.</summary>
+    [RuleRef("508.1a")]
+    bool CouldAttack(GameState state, ObjectId creature) =>
+        throw new NotImplementedException("CouldAttack is not built in this combat system.");
+
+    /// <summary>CR 509.1a: whether this creature could block at all — untapped and a creature; which attacker it may block is the declaration's question.</summary>
+    [RuleRef("509.1a")]
+    bool CouldBlock(GameState state, ObjectId creature) =>
+        throw new NotImplementedException("CouldBlock is not built in this combat system.");
 }
 
 [RuleRef("704")]
