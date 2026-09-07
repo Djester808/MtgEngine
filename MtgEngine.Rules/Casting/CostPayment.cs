@@ -20,7 +20,8 @@ internal sealed record CostContext(
     IZoneSystem Zones,
     IQuery Query,
     Color? PayOnlyWith = null,
-    ChosenObjects? Chosen = null)
+    ChosenObjects? Chosen = null,
+    ObjectFilter? PayOnlyFrom = null)
 {
     /// <summary>The context an <see cref="Amount"/> or an <see cref="ObjectFilter"/> on a cost is read in.</summary>
     public EffectContext Effect => CostPayment.Context(Source?.Id, Player, X);
@@ -75,19 +76,26 @@ internal static class CostPayment
     /// The same payment made for a known spell or ability, so CR 106.6a's restricted mana can be
     /// offered to it: only the blocks whose filter matches what is being paid for are spendable,
     /// and ordinary mana is always. <see cref="RestrictedPool"/> reads the blocks off the pool.
+    /// CR 106.6b's other half is applied here too: a <see cref="CostContext.PayOnlyFrom"/> filter
+    /// narrows the spendable pool to the mana whose provenance names a permanent it matches, so
+    /// the payment can never reach for mana the ability does not accept.
     /// </summary>
     [RuleRef("106.6a")]
     public static PaidMana PaySymbols(GameState state, CostContext context, IReadOnlyList<ManaSymbol> symbols, string reason)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(context);
+        var held = state.Player(context.Player).Mana.Provenance;
         var offer = RestrictedPool.Pools.Offer(
             state,
             state.Player(context.Player).Mana,
             context.Query,
             context.Source?.Id,
             context.Effect);
-        return Spend(state, context.Player, offer.Pool, symbols, context.X, reason, context.PayOnlyWith, offer.Offered);
+        var spendable = context.PayOnlyFrom is { } from
+            ? ManaSources.From(offer.Pool, held, id => state.Objects.ContainsKey(id) && context.Query.Matches(state, from, id, context.Effect))
+            : offer.Pool;
+        return Spend(state, context.Player, spendable, symbols, context.X, reason, context.PayOnlyWith, offer.Offered, held, context.PayOnlyFrom is not null);
     }
 
     private static PaidMana Spend(
@@ -98,11 +106,17 @@ internal static class CostPayment
         int? x,
         string reason,
         Color? only,
-        ImmutableList<RestrictedBlock>? offered = null)
+        ImmutableList<RestrictedBlock>? offered = null,
+        ImmutableList<ManaProvenance>? held = null,
+        bool onlyFromSource = false)
     {
         var payment = ManaSymbols.Pay(only is null ? pool : ManaSymbols.Only(pool, only.Value), symbols, x);
         if (payment.Refused is { } refusal)
         {
+            // CR 106.6b: the rider is why the payment failed, so the refusal names that rule
+            // rather than an empty pool — the mana is there, it simply may not pay this cost.
+            if (onlyFromSource)
+                throw new RefusedException("That cost must be paid with mana produced by what this ability names.", "106.6b");
             throw only is null
                 ? new RefusedException(refusal.Reason, refusal.Rule)
                 : new RefusedException("That cost must be paid with mana this ability accepts.", "106.6b");
@@ -122,7 +136,10 @@ internal static class CostPayment
         // CR 106.6a: a spend comes out of the restricted block that was offered to it before it
         // comes out of the ordinary counts, so the block that paid is the block that empties.
         var delta = offered is { Count: > 0 } ? RestrictedPool.DeltaFor(spent, offered) : payment.Delta;
-        var changed = new ManaChanged(player, delta, reason);
+
+        // CR 106.6: the spend takes the provenance blocks along with the totals and reports them,
+        // so a "when that mana is spent" trigger can read which mana actually paid.
+        var changed = new ManaChanged(player, delta with { Provenance = ManaSources.Spend(held ?? [], spent) }, reason);
         return new PaidMana(new Outcome(changed.Apply(state), [changed]), spent);
     }
 
@@ -154,7 +171,7 @@ internal static class CostPayment
     }
 
     /// <summary>Several costs paid together are one list, CR 601.2f; a choice of costs is not in this slice.</summary>
-    private static IEnumerable<Cost> Flatten(IReadOnlyList<Cost> costs)
+    internal static IEnumerable<Cost> Flatten(IReadOnlyList<Cost> costs)
     {
         foreach (var cost in costs)
         {

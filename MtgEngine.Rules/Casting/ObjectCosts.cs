@@ -42,6 +42,49 @@ internal static class ObjectCosts
         };
     }
 
+    /// <summary>
+    /// What this cost is asking for, CR 601.2c, or null when it names no objects — a mana cost, a
+    /// life payment, a cost the source pays with itself. This is the same table
+    /// <see cref="Pay"/> switches on, read the other way round: the zone, the control-or-ownership
+    /// split, the filter and the count are stated once, so a question and the payment that
+    /// follows it cannot offer and accept different objects. The name is the one a refusal uses,
+    /// so a question can be worded from either.
+    /// </summary>
+    [RuleRef("601.2c")]
+    public static CostChoice? Choice(GameState state, CostContext context, Cost cost)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(context);
+        return cost switch
+        {
+            SacrificeCost sacrifice => Asked(state, context, CardZone.Battlefield, true, sacrifice.What, sacrifice.Count, "permanents to sacrifice"),
+            DiscardCost { Random: false } discard => Asked(state, context, CardZone.Hand, false, discard.What, discard.Count, "cards to discard"),
+            TapOther tap => Asked(state, context, CardZone.Battlefield, true, tap.What, tap.Count, "untapped permanents", untappedOnly: true),
+            ExileFromZoneCost exile => Asked(state, context, exile.From, exile.From == CardZone.Battlefield, exile.What, exile.Count, "cards to exile", excludeSource: true),
+            ReturnToHandCost hand => Asked(state, context, CardZone.Battlefield, true, hand.What, hand.Count, "permanents to return"),
+            _ => null,
+        };
+    }
+
+    /// <summary>One cost's ask, CR 601.2c: nothing is asked for when the cost takes no objects.</summary>
+    [RuleRef("601.2c")]
+    private static CostChoice? Asked(
+        GameState state,
+        CostContext context,
+        CardZone zone,
+        bool byControl,
+        ObjectFilter? filter,
+        Amount? count,
+        string what,
+        bool untappedOnly = false,
+        bool excludeSource = false)
+    {
+        var wanted = Count(state, context, count);
+        return wanted == 0
+            ? null
+            : new CostChoice(what, Candidates(state, context, zone, byControl, filter, untappedOnly, excludeSource), wanted);
+    }
+
     /// <summary>CR 701.17a: a player may sacrifice only a permanent they control, and it goes to its owner's graveyard.</summary>
     [RuleRef("701.17a")]
     private static Outcome Sacrifice(GameState state, CostContext context, SacrificeCost cost)

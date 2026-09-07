@@ -20,7 +20,7 @@ namespace MtgEngine.Rules.Casting;
 /// with the same code that performs the action so the two can never disagree.
 /// </summary>
 [RuleRef("601")]
-public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacteristics characteristics, IInterpreter interpreter) : ICastingSystem
+public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, ICharacteristics characteristics, IInterpreter interpreter) : ICastingSystem
 {
     /// <summary>CR 305.2: one land a turn. Effects that raise it are the layer system's to add.</summary>
     private const int LandsPerTurn = 1;
@@ -131,10 +131,10 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         if (ability.Timing == Timing.SorcerySpeed)
             RequireSorcerySpeed(state, command.Player, "602.2a");
 
-        // CR 106.6b: a printed rider on which mana may be spent travels with the payment.
+        // CR 106.6b: both printed riders on which mana may be spent travel with the payment.
         var paid = CostPayment.Pay(
             state,
-            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? [])),
+            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom),
             ability.Costs);
         var activated = new AbilityActivated(null, source.Id, command.AbilityIndex, command.Player);
         if (IsManaAbility(ability, command))
@@ -363,9 +363,9 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
             total = ManaSymbols.Add(total, once);
 
         // CR 106.6a: "spend this mana only on ..." adds a restricted block rather than ordinary
-        // mana, so only a cost the filter matches can be paid with it (CR 106.6b empties it with
-        // the rest at the end of the step either way).
-        return new ManaChanged(who, add.SpendOnlyOn is { } only ? RestrictedPool.AsRestricted(total, only) : total, "mana ability");
+        // mana, so only a cost the filter matches can be paid with it; CR 106.6: either way the
+        // mana remembers the permanent that produced it and the key the card gave it.
+        return new ManaChanged(who, ManaSources.Added(total, add.SpendOnlyOn, command.Source, add.Key), "mana ability");
     }
 
     private static ManaPool OneProduction(ManaProduction production, ActivateAbility command)
