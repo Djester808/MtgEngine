@@ -84,11 +84,11 @@ internal sealed class InterpreterTable
 {
     private int _next = 1;
 
-    public InterpreterTable(ICharacteristics? layers = null)
+    public InterpreterTable(ICharacteristics? layers = null, IZoneSystem? zones = null)
     {
         Characteristics = layers ?? Layers;
         State = GameReducer.Replay([new GameStarted([new PlayerStart("one", [], []), new PlayerStart("two", [], [])], 7, 20, "commander")]);
-        Subject = new EffectInterpreter(new Query.Query(Characteristics), new Zones.ZoneSystem(), Replacements, Characteristics);
+        Subject = new EffectInterpreter(new Query.Query(Characteristics), zones ?? new Zones.ZoneSystem(), Replacements, Characteristics);
     }
 
     public InterpreterFakeCharacteristics Layers { get; } = new();

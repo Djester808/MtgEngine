@@ -148,7 +148,10 @@ public sealed partial class EffectInterpreter
     /// <summary>
     /// CR 707.2 and 111.4: a token that is a copy of a permanent. It takes the copiable values —
     /// the definition and the face that is up — and none of the counters, damage or status the
-    /// thing it copies happens to have, because those were never copiable in the first place.
+    /// thing it copies happens to have, because those were never copiable in the first place. It
+    /// arrives through the zone system's copiable-values <c>CreateToken</c>, the same door as every
+    /// other token, so CR 614.1c reaches it and the interpreter is not a second place that knows
+    /// how an object enters the battlefield.
     /// </summary>
     [RuleRef("707.2")]
     private EffectRun CopyToken(EffectRun run, Cards.CreateToken token, Selector of)
@@ -164,9 +167,9 @@ public sealed partial class EffectInterpreter
                     continue;
                 for (var i = 0; i < count; i++)
                 {
-                    var made = New(run, CopyRules.CopyOf(source), player, ZoneKey.Shared(Zone.Battlefield), isToken: true);
-                    run = Emit(run, new ObjectCreated(made with { Tapped = token.Tapped }, -1));
-                    created.Add(made.Id);
+                    var before = run.State;
+                    run = Merge(run, zones.CreateToken(run.State, CopyRules.CopyOf(source), player, token.Tapped, token.Attacking));
+                    created.AddRange(run.State.Objects.Keys.Where(made => !before.Objects.ContainsKey(made)));
                 }
             }
         }

@@ -192,7 +192,8 @@ public sealed partial class EffectInterpreter(
         Resumption? Answer = null,
         string? AnswerPath = null,
         ImmutableDictionary<string, string>? Marks = null,
-        bool OffStack = false);
+        bool OffStack = false,
+        string? PayKey = null);
 
     private EffectRun Execute(EffectRun run, Effect effect)
     {
@@ -205,6 +206,7 @@ public sealed partial class EffectInterpreter(
             run = run with { Resume = null };
 
         return Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
+            ?? Backlog(run, effect)
             ?? throw new NotImplementedException($"no interpreter arm for {effect.GetType().Name}");
     }
 
