@@ -50,7 +50,11 @@ public sealed partial class CastingSystem
         var plan = CastPlan.For(state, card, command, query, instructed);
         if (!instructed)
             RequireCastingTiming(state, command.Player, plan, chars);
-        RequireLegalAuraTarget(chars, command);
+
+        // The enchant half is asked first: protection from everything sets both prohibitions, and
+        // "that player cannot be enchanted" is the nearer reason an Aura at one is refused.
+        RequireLegalAuraTarget(state, chars, command);
+        RequireLegalPlayerTargets(state, command, plan);
 
         // 601.2h before 601.2a in code only: nothing is emitted unless the whole cost is payable.
         // The costs that are not mana come first because each one moves objects, and the spell's
@@ -93,14 +97,76 @@ public sealed partial class CastingSystem
     /// player filter admits one, and one with neither filter admits anything (CR 702.5b).
     /// </summary>
     [RuleRef("601.2c")]
-    private static void RequireLegalAuraTarget(Characteristics chars, CastSpell command)
+    private void RequireLegalAuraTarget(GameState state, Characteristics chars, CastSpell command)
     {
-        if ((command.TargetPlayers ?? []).Count == 0 || !IsAura(chars))
+        var players = command.TargetPlayers ?? [];
+        if (players.Count == 0 || !IsAura(chars))
             return;
 
         var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
         if (enchant is { Of: not null, OfPlayer: null })
             throw new RefusedException("That Aura cannot enchant a player.", "601.2c");
+
+        // CR 702.16c with 702.16j: a player with protection can't be enchanted by an Aura with the
+        // stated quality, and protection from everything states every quality. The announcement is
+        // where that is answered — an Aura cast at such a player has no legal target (CR 601.2c),
+        // so it is refused here rather than cast and buried by CR 704.5m on the settle.
+        if (characteristics.PlayerRestrictions(state, players[0]).CantBeEnchanted)
+            throw new RefusedException("That player cannot be enchanted.", "702.16c");
+    }
+
+    /// <summary>
+    /// CR 115.6 with 601.2c and 702.16j: a player the spell's controller may not target is not a
+    /// legal choice, so naming one is refused as the spell is announced. The two spellings are read
+    /// differently on purpose. <see cref="PlayerRestriction.BeTargeted"/> is the card-text form,
+    /// "by spells or abilities your opponents control", so it is read from the caster's point of
+    /// view and a player may still name themselves; CR 702.16j's protection from everything carries
+    /// no such qualifier and no source targets through it.
+    /// <para>
+    /// CR 115.10: the opponent a gift is promised to is not a target. That promise is carried on
+    /// <see cref="CastSpell.TargetPlayers"/> because the command has no other channel for it
+    /// (CR 702.174b), so the player the plan read it as is skipped rather than refused.
+    /// </para>
+    /// </summary>
+    [RuleRef("115.6")]
+    private void RequireLegalPlayerTargets(GameState state, CastSpell command, CastPlan plan)
+    {
+        foreach (var player in command.TargetPlayers ?? [])
+        {
+            if (player == plan.GiftPromisedTo)
+                continue;
+
+            var limits = characteristics.PlayerRestrictions(state, player);
+            if (limits.ProtectionFromEverything || (limits.Has(PlayerRestriction.BeTargeted) && player != command.Player))
+                throw new RefusedException("That player cannot be targeted.", "115.6");
+        }
+    }
+
+    /// <summary>
+    /// CR 608.2g with 601.3a: the refusal an instructed cast would be given now, which is
+    /// <see cref="Check"/> without the two things the instruction itself grants — the permission
+    /// for the zone the card is in and CR 117.1a's timing. Every other refusal still stands, so a
+    /// cost that has not been named for still comes back by its own rule (CR 601.2c) and the
+    /// caller can ask for it instead of dropping the cast.
+    /// <para>
+    /// Not on <see cref="ICastingSystem"/> yet: <c>seam-requests/E3i.md</c> asks for it, and until
+    /// it lands the interpreter's pre-flight is <see cref="Check"/>, which refuses a graveyard
+    /// may-cast for the zone before this road is ever reached.
+    /// </para>
+    /// </summary>
+    [RuleRef("608.2g")]
+    public Refusal? CheckInstructed(GameState state, CastSpell command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        try
+        {
+            _ = CastInstructed(state, command);
+            return null;
+        }
+        catch (RefusedException refused)
+        {
+            return new Refusal(refused.Reason, refused.Rule);
+        }
     }
 
     /// <summary>

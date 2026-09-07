@@ -215,6 +215,132 @@ public sealed class CastingInstructedTests
         Assert.Equal("608.2d", casting.Check(table.State, new ActivateAbility(CastingTable.A, prism, 0))?.Rule);
         Assert.Equal("608.2d", casting.Check(table.State, new ActivateAbility(CastingTable.A, prism, 0, ManaColors: "Q"))?.Rule);
     }
+
+    [Fact]
+    [RuleRef("115.6")]
+    public void A_player_an_opponents_spells_cannot_target_is_refused_at_announcement()
+    {
+        // CR 115.6 with 601.2c: the choice of targets is part of the announcement, so a player who
+        // cannot be targeted is refused there. The flag is the card-text form — "by spells or
+        // abilities your opponents control" — so it is read from the caster's point of view: the
+        // protected player may still name themselves, and the unprotected one may be named at all.
+        var (system, table, _) = Limited(CastingTable.B, new PlayerLimits(PlayerRestriction.BeTargeted));
+        var mine = table.Add(CastingInstructedCards.TargetedInstant(), CastingTable.A, CardZone.Hand);
+        var theirs = table.Add(CastingInstructedCards.TargetedInstant(), CastingTable.B, CardZone.Hand);
+
+        Assert.Equal("115.6", system.Check(table.State, new CastSpell(CastingTable.A, mine, TargetPlayers: [CastingTable.B]))?.Rule);
+        Assert.Null(system.Check(table.State, new CastSpell(CastingTable.A, mine, TargetPlayers: [CastingTable.A])));
+
+        table.Priority(CastingTable.B);
+        Assert.Null(system.Check(table.State, new CastSpell(CastingTable.B, theirs, TargetPlayers: [CastingTable.B])));
+    }
+
+    [Fact]
+    [RuleRef("702.16j")]
+    public void Protection_from_everything_is_refused_to_its_own_controller_too()
+    {
+        // CR 702.16j carries no "your opponents control": a player with protection from everything
+        // can't be targeted by spells or abilities at all, so the reading that lets the flag be
+        // self-named must not let this one be. Same seam, two prohibitions, two readings.
+        var (system, table, _) = Limited(CastingTable.B, new PlayerLimits(ProtectionFromEverything: true));
+        var theirs = table.Add(CastingInstructedCards.TargetedInstant(), CastingTable.B, CardZone.Hand);
+        table.Priority(CastingTable.B);
+
+        Assert.Equal("115.6", system.Check(table.State, new CastSpell(CastingTable.B, theirs, TargetPlayers: [CastingTable.B]))?.Rule);
+    }
+
+    [Fact]
+    [RuleRef("702.16c")]
+    public void An_aura_is_refused_at_a_player_who_cannot_be_enchanted()
+    {
+        // CR 702.16c with 702.16j: protection from everything states every quality, so no Aura may
+        // be attached to that player. The announcement is refused for the enchanting and not for
+        // the targeting, because "cannot be enchanted" is the nearer reason this spell is illegal.
+        var (system, table, _) = Limited(CastingTable.B, new PlayerLimits(ProtectionFromEverything: true));
+        var aura = table.Add(CastingInstructedCards.PlayerAura(), CastingTable.A, CardZone.Hand);
+        table.AddMana(CastingTable.A, new ManaPool(0, 0, 0, 0, 1, 0));
+
+        Assert.Equal("702.16c", system.Check(table.State, new CastSpell(CastingTable.A, aura, TargetPlayers: [CastingTable.B]))?.Rule);
+        Assert.Equal(CardZone.Hand, table.State.Objects[aura].Zone.Zone);
+    }
+
+    [Fact]
+    [RuleRef("608.2b")]
+    public void An_aura_whose_player_became_protected_does_not_resolve()
+    {
+        // CR 608.2b: the protection arrived after the Aura was cast, so the only target is illegal
+        // as it resolves and the spell does not resolve — it goes to its owner's graveyard without
+        // ever entering the battlefield, which is not the same graveyard CR 704.5m would give it.
+        var (system, table, limits) = Limited(CastingTable.B, PlayerLimits.None);
+        var aura = table.Add(CastingInstructedCards.PlayerAura(), CastingTable.A, CardZone.Hand);
+        table.AddMana(CastingTable.A, new ManaPool(0, 0, 0, 0, 1, 0));
+        var cast = system.Cast(table.State, new CastSpell(CastingTable.A, aura, TargetPlayers: [CastingTable.B]));
+
+        var attached = system.ResolveTop(cast.State);
+        Assert.Contains(attached.State.Objects.Values, o => o.Zone.Zone == CardZone.Battlefield && o.AttachedToPlayer == CastingTable.B);
+
+        limits[CastingTable.B] = new PlayerLimits(ProtectionFromEverything: true);
+        var countered = system.ResolveTop(cast.State);
+
+        Assert.DoesNotContain(countered.State.Objects.Values, o => o.Zone.Zone == CardZone.Battlefield);
+        Assert.Contains(countered.State.Objects.Values, o => o.Zone.Zone == CardZone.Graveyard);
+    }
+
+    [Fact]
+    [RuleRef("601.3a")]
+    public void An_instructed_cast_from_a_graveyard_is_made_where_the_plain_one_is_refused()
+    {
+        // CR 601.3a: an effect that says a player may cast a card is itself the permission CR 601.3
+        // asks for, so the instruction casts from the zone the effect found the card in. The same
+        // command a player announced still has no permission and is refused for the zone.
+        var table = new CastingTable();
+        var spell = table.Add(TestFaces.Creature("{G}"), CastingTable.A, CardZone.Graveyard);
+        table.AddMana(CastingTable.A, new ManaPool(0, 0, 0, 0, 1, 0));
+
+        Assert.Equal("601.3", casting.Check(table.State, new CastSpell(CastingTable.A, spell))?.Rule);
+        Assert.Null(casting.CheckInstructed(table.State, new CastSpell(CastingTable.A, spell)));
+
+        var cast = casting.CastInstructed(table.State, new CastSpell(CastingTable.A, spell));
+
+        Assert.Single(cast.Events.OfType<SpellCastEvent>());
+        Assert.Equal(CardZone.Stack, cast.State.Objects[StackZone.Top(cast.State)!.Value].Zone.Zone);
+    }
+
+    [Fact]
+    [RuleRef("601.2c")]
+    public void The_cost_of_an_instructed_cast_from_a_graveyard_is_asked_for()
+    {
+        // CR 601.2b and 601.2c: the additional cost of a card a may-cast names in the graveyard has
+        // to be askable before the answer casts it, so CostChoices reads the plan on the instructed
+        // road. The refusal that stands in its place is the cost's own, not the zone's.
+        var table = new CastingTable();
+        var spell = table.Add(CastingInstructedCards.SacrificeInstant(), CastingTable.A, CardZone.Graveyard);
+        var land = table.Add(TestFaces.Land(), CastingTable.A, CardZone.Battlefield, summoningSick: false);
+        var other = table.Add(TestFaces.Land(), CastingTable.A, CardZone.Battlefield, summoningSick: false);
+
+        var asked = Assert.Single(casting.CostChoices(table.State, new CastSpell(CastingTable.A, spell)));
+        Assert.Equal([land, other], asked.Legal);
+        Assert.Equal(1, asked.Count);
+        Assert.Equal("601.2c", casting.CheckInstructed(table.State, new CastSpell(CastingTable.A, spell))?.Rule);
+
+        var cast = casting.CastInstructed(table.State, new CastSpell(CastingTable.A, spell, CostObjects: [land]));
+
+        Assert.Single(cast.Events.OfType<SpellCastEvent>());
+        Assert.Equal(land, Assert.Single(cast.Events.OfType<ObjectLeftBy>(), e => e.Verb == "sacrificed").Object);
+    }
+
+    /// <summary>
+    /// A casting system whose characteristics seam reports one player's limits, CR 613.10. The
+    /// table of limits comes back with it so a test can put one in force after a spell is cast,
+    /// which is what CR 608.2b's re-check is about.
+    /// </summary>
+    private static (CastingSystem System, CastingTable Table, Dictionary<PlayerId, PlayerLimits> Limits) Limited(PlayerId player, PlayerLimits limits)
+    {
+        var chars = new PrintedCharacteristics();
+        chars.Limits[player] = limits;
+        var system = new CastingSystem(new CastingFakeZones(), new CastingBacklogQuery(), chars, new RecordingInterpreter());
+        return (system, new CastingTable(), chars.Limits);
+    }
 }
 
 /// <summary>
@@ -237,6 +363,13 @@ internal static class CastingInstructedCards
                 null,
                 AdditionalCosts: [new SacrificeCost(new ObjectFilter(Types: CardType.Land), new Fixed(1))]),
         ]);
+
+    /// <summary>An instant with no cost whose command names a player, CR 115.4: what the announcement's target legality is asked of.</summary>
+    public static CardDefinition TargetedInstant() => new(
+        "CASTING INSTRUCTED SPARK",
+        "Casting Instructed Spark",
+        Layout.Normal,
+        [new Face("Casting Instructed Spark", FaceRole.Main, new TypeLine(CardType.Instant), null)]);
 
     /// <summary>"Enchant creature", CR 702.5b: an Aura that admits objects and no player.</summary>
     public static CardDefinition ObjectAura() => Aura(

@@ -285,7 +285,19 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         if (spell.Stack is not { } entry)
             return (null, null, false);
         if (entry.Targets.Count == 0)
-            return (null, entry.TargetPlayers.Count > 0 ? entry.TargetPlayers[0] : null, false);
+        {
+            if (entry.TargetPlayers.Count == 0)
+                return (null, null, false);
+
+            // CR 608.2b with 702.16c and 702.16j: the protection may have arrived after the Aura
+            // was cast, and a spell whose only target has become illegal does not resolve. The
+            // Aura never enters, so CR 704.5m never has an attachment to bury.
+            var enchanted = entry.TargetPlayers[0];
+            var limits = characteristics.PlayerRestrictions(state, enchanted);
+            var illegal = limits.CantBeEnchanted
+                || (limits.Has(PlayerRestriction.BeTargeted) && enchanted != chars.Controller);
+            return illegal ? (null, null, true) : (null, enchanted, false);
+        }
 
         var host = entry.Targets[0];
         if (!state.Objects.TryGetValue(host, out var target) || target.Zone.Zone != CardZone.Battlefield)
