@@ -25,6 +25,9 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
     /// <summary>CR 305.2: one land a turn. Effects that raise it are the layer system's to add.</summary>
     private const int LandsPerTurn = 1;
 
+    /// <summary>The subtype of CR 205.3h that makes an enchantment an Aura, CR 303.4.</summary>
+    private const string AuraSubtype = "Aura";
+
     public string Name => "mana, costs, casting and the stack";
 
     /// <summary>
@@ -169,10 +172,30 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
 
         // An ability on the stack keeps its source's definition (CR 602.2a), so it is asked
         // before the permanent-spell test reads that definition's types.
-        if (!StackZone.IsAbility(obj) && IsPermanentSpell(characteristics.Of(state, top).Types))
+        var chars = StackZone.IsAbility(obj) ? null : characteristics.Of(state, top);
+        if (chars is not null && IsPermanentSpell(chars.Types))
         {
+            ObjectId? attach = null;
+            if (IsAura(chars))
+            {
+                var (to, illegal) = AuraAttachment(state, obj, chars);
+
+                // CR 608.2b: a spell all of whose targets are illegal as it resolves does not
+                // resolve; it is removed from the stack and put where CR 608.2m sends it.
+                if (illegal)
+                {
+                    var away = FinishResolving(state, top);
+                    return new Outcome(GameReducer.Apply(away.State, [resolved]), away.Events.Add(resolved));
+                }
+
+                attach = to;
+            }
+
             var moved = zones.Move(state, top, ZoneKey.Of(CardZone.Battlefield, controller), controller: controller);
-            var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true);
+
+            // CR 303.4f: an Aura enters attached to what it was cast at, so the attachment is
+            // part of the permanent's arrival rather than something a later action does.
+            var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true, AttachedTo: attach);
             ImmutableList<GameEvent> events = [.. moved.Events, sick, resolved];
             return new Outcome(GameReducer.Apply(moved.State, [sick, resolved]), events);
         }
@@ -281,6 +304,42 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         && command.TargetPlayers is null or { Count: 0 }
         && !ability.Costs.Any(c => c is LoyaltyCost);
 
+    /// <summary>CR 303.4: an Aura is an enchantment with the Aura subtype, CR 205.3h.</summary>
+    [RuleRef("303.4")]
+    private static bool IsAura(Characteristics chars) =>
+        chars.Subtypes.Any(s => string.Equals(s, AuraSubtype, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// What an Aura spell enters attached to, CR 303.4f: the object it was cast at. That target is
+    /// re-checked as the spell resolves, CR 608.2b — an object that has left the battlefield, or
+    /// that no longer matches the enchant ability's filter (CR 702.5b), is illegal, and a spell
+    /// all of whose targets are illegal does not resolve.
+    /// <para>
+    /// An Aura cast at a player is the case this cannot do: <see cref="GameObject"/> has nowhere to
+    /// keep a player attachment (seam-requests/E3e.md, and the wave-1 decision that deferred
+    /// <c>AttachedToPlayer</c>). Its target is not illegal, so it is not countered here; it enters
+    /// attached to nothing and CR 704.5m buries it, which is what it did before this rule.
+    /// </para>
+    /// </summary>
+    [RuleRef("303.4f")]
+    private (ObjectId? To, bool Illegal) AuraAttachment(GameState state, GameObject spell, Characteristics chars)
+    {
+        if (spell.Stack is not { Targets.Count: > 0 } entry)
+            return (null, false);
+
+        var host = entry.Targets[0];
+        if (!state.Objects.TryGetValue(host, out var target) || target.Zone.Zone != CardZone.Battlefield)
+            return (null, true);
+
+        // CR 702.5b: "enchant [object]" is what a legal object is for this Aura. With no enchant
+        // ability there is nothing to be illegal about, so the attachment stands.
+        var enchant = chars.Abilities.OfType<KeywordAbility>().FirstOrDefault(k => k.Keyword == KeywordKind.Enchant);
+        var context = CostPayment.Context(spell.Id, chars.Controller, entry.X);
+        return enchant?.Of is { } filter && !query.Matches(state, filter, host, context)
+            ? (null, true)
+            : (host, false);
+    }
+
     /// <summary>CR 608.3: a permanent spell becomes a permanent as it resolves.</summary>
     [RuleRef("608.3")]
     private static bool IsPermanentSpell(CardType types) =>
@@ -298,7 +357,11 @@ public sealed class CastingSystem(IZoneSystem zones, IQuery query, ICharacterist
         var total = ManaPool.Empty;
         for (var i = 0; i < Math.Max(0, times); i++)
             total = ManaSymbols.Add(total, once);
-        return new ManaChanged(who, total, "mana ability");
+
+        // CR 106.6a: "spend this mana only on ..." adds a restricted block rather than ordinary
+        // mana, so only a cost the filter matches can be paid with it (CR 106.6b empties it with
+        // the rest at the end of the step either way).
+        return new ManaChanged(who, add.SpendOnlyOn is { } only ? RestrictedPool.AsRestricted(total, only) : total, "mana ability");
     }
 
     private static ManaPool OneProduction(ManaProduction production, ActivateAbility command)

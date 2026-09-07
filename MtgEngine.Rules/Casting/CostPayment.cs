@@ -81,16 +81,24 @@ internal static class CostPayment
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(context);
-        var spendable = RestrictedPool.Pools.Spendable(
+        var offer = RestrictedPool.Pools.Offer(
             state,
             state.Player(context.Player).Mana,
             context.Query,
             context.Source?.Id,
             context.Effect);
-        return Spend(state, context.Player, spendable, symbols, context.X, reason, context.PayOnlyWith);
+        return Spend(state, context.Player, offer.Pool, symbols, context.X, reason, context.PayOnlyWith, offer.Offered);
     }
 
-    private static PaidMana Spend(GameState state, PlayerId player, ManaPool pool, IReadOnlyList<ManaSymbol> symbols, int? x, string reason, Color? only)
+    private static PaidMana Spend(
+        GameState state,
+        PlayerId player,
+        ManaPool pool,
+        IReadOnlyList<ManaSymbol> symbols,
+        int? x,
+        string reason,
+        Color? only,
+        ImmutableList<RestrictedBlock>? offered = null)
     {
         var payment = ManaSymbols.Pay(only is null ? pool : ManaSymbols.Only(pool, only.Value), symbols, x);
         if (payment.Refused is { } refusal)
@@ -103,7 +111,6 @@ internal static class CostPayment
         if (payment.Delta.Total == 0)
             return new PaidMana(Outcome.Unchanged(state), ManaPool.Empty);
 
-        var changed = new ManaChanged(player, payment.Delta, reason);
         var spent = new ManaPool(
             -payment.Delta.White,
             -payment.Delta.Blue,
@@ -111,6 +118,11 @@ internal static class CostPayment
             -payment.Delta.Red,
             -payment.Delta.Green,
             -payment.Delta.Colorless);
+
+        // CR 106.6a: a spend comes out of the restricted block that was offered to it before it
+        // comes out of the ordinary counts, so the block that paid is the block that empties.
+        var delta = offered is { Count: > 0 } ? RestrictedPool.DeltaFor(spent, offered) : payment.Delta;
+        var changed = new ManaChanged(player, delta, reason);
         return new PaidMana(new Outcome(changed.Apply(state), [changed]), spent);
     }
 
