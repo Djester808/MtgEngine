@@ -83,6 +83,16 @@ public sealed record Scry(Amount N, PlayerRef? Who = null) : Effect;
 /// found goes to the same zone, and leave <paramref name="OthersTapped"/> false unless
 /// <paramref name="OthersTo"/> is the battlefield, because nothing is tapped in another zone.
 /// </para>
+/// <para>
+/// <paramref name="Instead"/> is one search whose destination depends on the card found: "search
+/// your library for a creature or land card, reveal it, and put it into your hand. If it's a land
+/// card, put it onto the battlefield tapped instead". It is still one search of one card (CR
+/// 701.23a); the card found is read against each entry's Matching filter in order, the first
+/// entry that admits it sends it to that entry's To, tapped as that entry says, and a card no
+/// entry admits goes to <paramref name="To"/> with <paramref name="Tapped"/>. Never two Searches
+/// and never an If around the Search: the condition is the card found, which nothing outside the
+/// search can name. An entry equal to the plain destination says nothing and is refused (L023).
+/// </para>
 /// </summary>
 [RuleRef("701.23")]
 public sealed record Search(
@@ -99,7 +109,18 @@ public sealed record Search(
     IReadOnlyList<Zone>? Zones = null,
     bool ShuffleOnlyIfFound = false,
     Zone? OthersTo = null,
-    bool OthersTapped = false) : Effect;
+    bool OthersTapped = false,
+    IReadOnlyList<SearchDestination>? Instead = null) : Effect;
+
+/// <summary>
+/// One "instead" destination of a Search, CR 701.23a: a card found that <paramref name="Matching"/>
+/// admits goes to <paramref name="To"/> rather than the search's own destination, tapped when
+/// <paramref name="Tapped"/> is set, which only the battlefield allows. The filter carries no zone:
+/// it is read against the one card found, wherever the search looked. It is a plain object of
+/// these three parameters and has no "kind".
+/// </summary>
+[RuleRef("701.23a")]
+public sealed record SearchDestination(ObjectFilter Matching, Zone To, bool Tapped = false);
 
 [RuleRef("701.24")]
 public sealed record Shuffle(PlayerRef? Who = null, Selector? IntoLibrary = null) : Effect;

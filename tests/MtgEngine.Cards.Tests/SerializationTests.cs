@@ -82,6 +82,19 @@ public sealed class SerializationTests
     }
 
     [Fact]
+    public void A_kind_on_a_face_is_a_parse_error_that_names_the_member()
+    {
+        // A Face is not polymorphic; fifteen third-reading answers gave it a "kind" anyway, and the
+        // strict parser refuses the member by name rather than reading past it.
+        const string json = """
+            {"oracleId": "00000000-0000-0000-0000-0000000000fa", "name": "Kinded", "layout": "Normal",
+             "faces": [{"kind": "Face", "name": "Kinded", "role": "Main", "types": {"types": ["Instant"]}}]}
+            """;
+        var error = Assert.ThrowsAny<JsonException>(() => CardFileSerializer.ReadDefinition(json));
+        Assert.Contains("'kind'", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Every_card_file_on_disk_still_reads()
     {
         // Top-level files only: cards/schema and cards/.lint are not card files.
