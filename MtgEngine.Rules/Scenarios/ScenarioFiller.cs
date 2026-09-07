@@ -44,6 +44,20 @@ public static class ScenarioFiller
     /// <summary>A sorcery that does nothing: what a search for a sorcery card finds.</summary>
     public const string Sorcery = "Scenario Filler Sorcery";
 
+    /// <summary>
+    /// A creature that costs nothing, and one that costs six. A filter can compare a mana value
+    /// (CR 202.3) — "a creature card with mana value X or less", "with mana value 5 or greater" —
+    /// and a library holding one printed cost answers neither comparison. These two stand at the
+    /// ends of the range so a search that names a bound finds a card on the right side of it; the
+    /// plain <see cref="Creature"/> at two is what everything else still gets.
+    /// </summary>
+    [RuleRef("202.3")]
+    public const string CheapCreature = "Scenario Filler Cheap Creature";
+
+    /// <inheritdoc cref="CheapCreature"/>
+    [RuleRef("202.3")]
+    public const string CostlyCreature = "Scenario Filler Costly Creature";
+
     /// <summary>The definition for one of the filler names, or null when the name is a real card's.</summary>
     public static CardDefinition? For(string? name) => name switch
     {
@@ -54,14 +68,43 @@ public static class ScenarioFiller
         Enchantment => EnchantmentDefinition,
         Spell => SpellDefinition,
         Sorcery => SorceryDefinition,
+        CheapCreature => CheapCreatureDefinition,
+        CostlyCreature => CostlyCreatureDefinition,
         _ => null,
     };
 
     /// <summary>Every filler, so a generator can ask which of them a filter describes.</summary>
-    public static IReadOnlyList<string> Names => [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery];
+    public static IReadOnlyList<string> Names =>
+        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature];
 
     /// <summary>The printed type line of one filler, so a generator need not repeat what is written here.</summary>
     public static TypeLine? TypesOf(string? name) => For(name)?.Faces[0].Types;
+
+    /// <summary>
+    /// CR 202.3: the mana value of one filler's printed cost — the total of its symbols, with a
+    /// generic symbol worth what it says and a coloured one worth one. Null when the name is not a
+    /// filler's; a card with no printed cost is worth nothing, which is a mana value of zero.
+    /// </summary>
+    [RuleRef("202.3")]
+    public static int? ManaValueOf(string? name)
+    {
+        if (For(name) is not { } definition)
+            return null;
+        var cost = definition.Faces[0].ManaCost;
+        if (cost is not { Length: > 0 })
+            return 0;
+
+        var total = 0;
+        foreach (var symbol in cost.Split('{', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var body = symbol.TrimEnd('}');
+            total += int.TryParse(body, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var generic)
+                ? generic
+                : 1;
+        }
+
+        return total;
+    }
 
     private static CardDefinition LandDefinition { get; } = new(
         "scenario-filler-land",
@@ -98,6 +141,18 @@ public static class ScenarioFiller
         Spell,
         Layout.Normal,
         [new Face(Spell, FaceRole.Main, new TypeLine(CardType.Instant), ManaCost: "{1}")]);
+
+    private static CardDefinition CheapCreatureDefinition { get; } = new(
+        "scenario-filler-cheap-creature",
+        CheapCreature,
+        Layout.Normal,
+        [new Face(CheapCreature, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: "{0}", Power: new PrintedStat("1"), Toughness: new PrintedStat("1"))]);
+
+    private static CardDefinition CostlyCreatureDefinition { get; } = new(
+        "scenario-filler-costly-creature",
+        CostlyCreature,
+        Layout.Normal,
+        [new Face(CostlyCreature, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: "{6}", Power: new PrintedStat("6"), Toughness: new PrintedStat("6"))]);
 
     private static CardDefinition SorceryDefinition { get; } = new(
         "scenario-filler-sorcery",

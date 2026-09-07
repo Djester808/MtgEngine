@@ -26,6 +26,9 @@ internal sealed class SmokeBoard(string card)
     /// <summary>The alias of the one hand card a printed discard cost eats, so the step can name it.</summary>
     private const string HandCost = "cost-hand";
 
+    /// <summary>How many bodies the printed cost ate: placed for the cast, and gone by the time anything is counted.</summary>
+    private int _costSacrifices;
+
     private bool _discards;
     private string? _pool;
     private string? _printed;
@@ -113,6 +116,14 @@ internal sealed class SmokeBoard(string card)
     internal void Printed(string? manaCost) => _printed = manaCost;
 
     /// <summary>
+    /// CR 601.2b: the value the cast announces for X, or null when the cost has no X. A filter
+    /// bounded by X ("with mana value X or less") is read against this, so the library is stocked
+    /// with a card on the right side of the bound the cast is going to name.
+    /// </summary>
+    [RuleRef("601.2b")]
+    internal int? AnnouncedX { get; set; }
+
+    /// <summary>
     /// CR 601.2f: stock the caster's pool with exactly what the spell costs instead of the deep
     /// pool, so the cast empties it and everything left afterwards is what the card itself
     /// produced. Only a cost of plain symbols can be stocked this way — a hybrid or a Phyrexian
@@ -139,6 +150,7 @@ internal sealed class SmokeBoard(string card)
         var alias = FormattableString.Invariant($"cost-{_costObjects.Count + 1}");
         _casterBattlefield.Add(new CardRef(card, Alias: alias));
         _costObjects.Add(alias);
+        _costSacrifices++;
         Caster(graveyard: 1);
     }
 
@@ -301,9 +313,14 @@ internal sealed class SmokeBoard(string card)
     private void Counts()
     {
         // The card itself is on the caster's battlefield when the play was an activation, so it
-        // counts towards what is there afterwards (CR 602.2 leaves the source where it was).
+        // counts towards what is there afterwards (CR 602.2 leaves the source where it was). What
+        // the printed cost ate does not: it was placed to be sacrificed and is in a graveyard by
+        // the time the spell resolves (CR 601.2h).
         if (_casterArrivals != 0)
-            _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Battlefield, _casterBattlefield.Count + (PlaysFromBattlefield ? 1 : 0) + _casterArrivals));
+            _expect.Add(new ZoneCount(
+                SmokeScenario.Caster,
+                Zone.Battlefield,
+                _casterBattlefield.Count - _costSacrifices + (PlaysFromBattlefield ? 1 : 0) + _casterArrivals));
 
         // The card under test left the caster's hand when it was played, and the filler stayed.
         if (_casterHand != 0)

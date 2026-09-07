@@ -14,7 +14,8 @@ public sealed record VerifySummary(
     int Failed,
     int NoScenarios,
     IReadOnlyList<VerifyOutcome> Outcomes,
-    int Crashed = 0);
+    int Crashed = 0,
+    int Unsupported = 0);
 
 /// <summary>
 /// <c>pipeline verify &lt;cardsDir&gt; [--only &lt;oracleId&gt;]</c>: the third rule of
@@ -86,10 +87,17 @@ public static class VerifyCommand
 
         var outcomes = new List<VerifyOutcome>();
         var crashes = new List<VerifyOutcome>();
+        var unsupported = new List<VerifyOutcome>();
         var noScenarios = 0;
         foreach (var file in candidates)
         {
             ct.ThrowIfCancellationRequested();
+            if (NotPlayable(file) is { } reason)
+            {
+                unsupported.Add(Refused(file, reason, log));
+                continue;
+            }
+
             CardFile ready;
             try
             {
@@ -130,11 +138,42 @@ public static class VerifyCommand
             outcomes.Count(o => o.Verified),
             outcomes.Count(o => !o.Verified),
             noScenarios,
-            [.. outcomes, .. crashes],
-            crashes.Count);
+            [.. outcomes, .. crashes, .. unsupported],
+            crashes.Count,
+            unsupported.Count);
         log.WriteLine(FormattableString.Invariant(
-            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios, {summary.Crashed} crashed; {engineHash}, run {runId}"));
+            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios, {summary.Unsupported} unsupported, {summary.Crashed} crashed; {engineHash}, run {runId}"));
         return summary;
+    }
+
+    /// <summary>
+    /// Why this card is not played at all: the first <see cref="MtgEngine.Cards.Unsupported"/> marker
+    /// anywhere in its definition, or null when it carries none.
+    /// </summary>
+    /// <remarks>
+    /// A marker is the translator saying, in the vocabulary's own words, that part of this card is
+    /// not expressed — so the definition is knowingly incomplete and a game played from it would be
+    /// a game of a card nobody wrote. Refusing before the game starts is not the same as the engine
+    /// throwing when it reaches the marker: the run has a reason to report rather than an exception,
+    /// and the count says how many cards are waiting on vocabulary rather than on the engine.
+    /// </remarks>
+    private static string? NotPlayable(CardFile file) =>
+        Linter.Walk(file.Definition).OfType<Unsupported>().FirstOrDefault() is { } marker
+            ? marker.Reason
+            : null;
+
+    /// <summary>
+    /// A card whose definition says part of it is unsupported. Its file is left exactly as it was —
+    /// the status it already has is still the truth about it — and the reason is recorded as the
+    /// first expectation's actual, the same place <see cref="Crashed"/> puts an exception, so the
+    /// dispute queue reads one shape whatever stopped the card from playing.
+    /// </summary>
+    private static VerifyOutcome Refused(CardFile file, string reason, TextWriter log)
+    {
+        var actual = nameof(Unsupported) + ": " + reason;
+        var results = (IReadOnlyList<ScenarioResult>)[new ScenarioResult("smoke-" + file.OracleId, false, [], actual)];
+        log.WriteLine(FormattableString.Invariant($"  unsupported   {file.Name} ({file.OracleId}): {reason}"));
+        return new VerifyOutcome(file, results, null);
     }
 
     /// <summary>

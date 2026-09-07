@@ -1,7 +1,6 @@
 using MtgEngine.Cards;
 using MtgEngine.Cards.Pipeline.Scenarios;
 using MtgEngine.Rules.Engine;
-using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Scenarios;
 
 namespace MtgEngine.Pipeline.Tests;
@@ -49,7 +48,7 @@ public sealed class ScenarioStageTestsFillers
         Assert.NotNull(stocked.Alias);
         // CR 701.19 and 701.20: the card the search found is in hand, and the library was shuffled.
         Assert.Contains(scenario.Expect, e => e is InZone found && found.Card == stocked.Alias && found.Zone == Zone.Hand);
-        Assert.Contains(scenario.Expect, e => e is EventLogged { EventKind: nameof(ZoneReordered) });
+        Assert.Contains(scenario.Expect, e => e is Shuffled { Player: SmokeScenario.Caster });
         Assert.Equal(SmokeScenario.LibrarySize, library.Count);
         Passes(scenario, file);
     }

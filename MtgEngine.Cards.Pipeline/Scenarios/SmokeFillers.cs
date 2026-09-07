@@ -32,6 +32,11 @@ internal static class SmokeFillers
         ScenarioFiller.Spell,
         ScenarioFiller.Sorcery,
         ScenarioFiller.Land,
+
+        // Last, so a search that says nothing about a mana value still finds what it always found;
+        // these two are here for the searches that do compare one (CR 202.3).
+        ScenarioFiller.CheapCreature,
+        ScenarioFiller.CostlyCreature,
     ];
 
     /// <summary>
@@ -44,7 +49,9 @@ internal static class SmokeFillers
     internal static IReadOnlyList<string> Bodies(ObjectFilter filter)
     {
         ArgumentNullException.ThrowIfNull(filter);
-        if (!Plain(filter) || filter.In is not (null or Zone.Battlefield) || filter.Spell is true)
+        // A mana-value bound is answered by stocking a library, not by placing a body: which filler
+        // to put on the battlefield would depend on the bound, and a target's is not read here.
+        if (!Plain(filter) || filter.ManaValue is not null || filter.In is not (null or Zone.Battlefield) || filter.Spell is true)
             return [];
         return [.. Permanents().Where(name => Matches(filter, name)).Take(Kinds)];
     }
@@ -54,14 +61,52 @@ internal static class SmokeFillers
     /// the filter describes a card the runner has not got. A search that says nothing about what it
     /// wants is answered with a basic land, which is a card like any other.
     /// </summary>
+    /// <param name="x">
+    /// CR 601.2b: what the scenario announced for X, so "with mana value X or less" is a bound the
+    /// board can satisfy. Null when the spell announced none, and a comparison against X is then a
+    /// comparison the board cannot read.
+    /// </param>
     [RuleRef("701.19")]
-    internal static string? Findable(ObjectFilter filter)
+    internal static string? Findable(ObjectFilter filter, int? x = null)
     {
         ArgumentNullException.ThrowIfNull(filter);
         if (!Plain(filter) || filter.In is not (null or Zone.Library))
             return null;
-        return Cards().FirstOrDefault(name => Matches(filter, name));
+        return Cards().FirstOrDefault(name => Matches(filter, name) && CostsRight(filter.ManaValue, name, x));
     }
+
+    /// <summary>
+    /// CR 202.3: whether this filler's printed mana value satisfies the filter's comparison. No
+    /// comparison is satisfied by anything; a comparison against an amount the scenario cannot put
+    /// a number to is satisfied by nothing, because guessing the bound would be inventing the card.
+    /// </summary>
+    [RuleRef("202.3")]
+    private static bool CostsRight(Comparison? comparison, string card, int? x)
+    {
+        if (comparison is null)
+            return true;
+        if (Bound(comparison.Value, x) is not { } bound || ScenarioFiller.ManaValueOf(card) is not { } value)
+            return false;
+        return comparison.Op switch
+        {
+            ComparisonOp.Eq => value == bound,
+            ComparisonOp.Ne => value != bound,
+            ComparisonOp.Lt => value < bound,
+            ComparisonOp.Le => value <= bound,
+            ComparisonOp.Gt => value > bound,
+            ComparisonOp.Ge => value >= bound,
+            _ => false,
+        };
+    }
+
+    /// <summary>The number a comparison is against: a printed one, or the X the scenario announced (CR 601.2b).</summary>
+    [RuleRef("601.2b")]
+    private static int? Bound(Amount amount, int? x) => amount switch
+    {
+        Fixed fixedAmount => fixedAmount.N,
+        X => x,
+        _ => null,
+    };
 
     /// <summary>
     /// The one kind a wipe destroys, or null when it names a class the board cannot fill. The
@@ -85,7 +130,8 @@ internal static class SmokeFillers
             Supertypes: filter.Supertypes,
             ControlledBy: filter.ControlledBy,
             Permanent: filter.Permanent,
-            Spell: filter.Spell);
+            Spell: filter.Spell,
+            ManaValue: filter.ManaValue);
 
     /// <summary>CR 205.1a: the printed type line answers the filter, because a filler has no ability that could change it.</summary>
     [RuleRef("205.1a")]

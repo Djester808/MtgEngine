@@ -84,8 +84,14 @@ public sealed class VerifyCommandTests : IDisposable
         Assert.Contains("no scenarios", log.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A definition carrying an <see cref="Unsupported"/> marker anywhere is refused before a game
+    /// starts. It used to reach the engine and throw there, which reported the translator's own
+    /// admission as an engine crash; the reason the translator wrote is a better answer than the
+    /// exception the interpreter would have raised on the way past it.
+    /// </summary>
     [Fact]
-    public void A_card_that_throws_inside_the_engine_is_reported_and_the_run_carries_on()
+    public void A_card_whose_definition_says_part_of_it_is_unsupported_is_never_played()
     {
         Write(Crasher(Scribe));
         Write(Creature(Mute, "Second Scribe"));
@@ -93,15 +99,36 @@ public sealed class VerifyCommandTests : IDisposable
 
         var code = VerifyCommand.Run(_cards, only: null, log);
 
-        // A crash is this card's result, not the run's: the run finished, so it exits zero.
+        // An unsupported card is this card's result, not the run's: the run finished, so it exits zero.
         Assert.Equal(VerifyCommand.Completed, code);
-        Assert.Contains("CRASHED", log.ToString(), StringComparison.Ordinal);
-        Assert.Contains(nameof(NotSupportedException), log.ToString(), StringComparison.Ordinal);
-        Assert.Contains("1 crashed", log.ToString(), StringComparison.Ordinal);
+        Assert.Contains("unsupported", log.ToString(), StringComparison.Ordinal);
+        // The reason the translator wrote is the line, so the dispute queue reads why and not "it failed".
+        Assert.Contains("no arm for this", log.ToString(), StringComparison.Ordinal);
+        Assert.Contains("1 unsupported", log.ToString(), StringComparison.Ordinal);
+        Assert.Contains("0 crashed", log.ToString(), StringComparison.Ordinal);
         // The card behind it in the directory still ran, which is the whole point.
         Assert.Equal(ImplementationStatus.Verified, Read(Mute).Status);
-        // Nothing was written for the card that threw: a crash says nothing about its content.
+        // Nothing was written for it: the status it already had is still the truth about it.
+        Assert.Equal(ImplementationStatus.Translated, Read(Scribe).Status);
         Assert.Null(Read(Scribe).Verification);
+        Assert.Empty(Read(Scribe).ScenarioList);
+    }
+
+    [Fact]
+    public void An_unsupported_card_carries_its_reason_where_a_failure_carries_one()
+    {
+        Write(Crasher(Scribe));
+        var log = new StringWriter();
+
+        var summary = VerifyCommand.Verify(CardDirectory.Load(_cards), new CardFileWriter(_cards), only: null, log);
+
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.Unsupported);
+        Assert.Equal(0, summary.Verified);
+        var outcome = Assert.Single(summary.Outcomes);
+        var result = Assert.Single(outcome.Results);
+        Assert.False(result.Passed);
+        Assert.Contains("no arm for this", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]

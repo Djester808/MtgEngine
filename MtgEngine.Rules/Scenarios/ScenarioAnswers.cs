@@ -40,12 +40,30 @@ public static class ScenarioAnswers
             // numbers are ordered as the effect wrote them.
             ChoiceKinds.Value => [Smallest(choice)],
 
-            // CR 701.23: a search finds one card. The question allows none (Min is zero), but a
-            // search that finds nothing asserts nothing, so the first match is the answer.
-            ChoiceKinds.Search => [choice.Options[0].Id],
+            // CR 701.23: a search finds as many cards as it may. The question allows none (Min is
+            // zero), but a search that finds nothing asserts nothing, so the answer is the first
+            // match and every further one the question's maximum still admits — "up to two basic
+            // land cards" finds two, and a scenario can then say where both of them went.
+            ChoiceKinds.Search => [.. choice.Options.Take(Finds(choice)).Select(o => o.Id)],
 
             _ => [.. choice.Options.Take(Count(choice)).Select(o => o.Id)],
         };
+    }
+
+    /// <summary>
+    /// CR 701.23b: a search whose zones hold nothing the effect describes finds nothing, and
+    /// finding nothing is a legal outcome rather than a question with no answer. The runner has to
+    /// tell the two apart, because <see cref="FirstLegal"/> says "nothing to name" with the same
+    /// empty list in both cases: a search offering no options at all, where naming none is within
+    /// what the question allows, is answered with an empty answer and the resolution goes on.
+    /// Anything else — a "sacrifice two" on a board holding one — is left standing, so the
+    /// expectations fail on the position the game is actually in.
+    /// </summary>
+    [RuleRef("701.23b")]
+    public static bool FailsToFind(PendingChoice choice)
+    {
+        ArgumentNullException.ThrowIfNull(choice);
+        return choice.Kind == ChoiceKinds.Search && choice.Options.Count == 0 && choice.Min <= 0;
     }
 
     /// <summary>
@@ -58,6 +76,15 @@ public static class ScenarioAnswers
         var most = choice.Max <= 0 ? choice.Options.Count : Math.Min(choice.Max, choice.Options.Count);
         return Math.Min(Math.Max(choice.Min, 1), most);
     }
+
+    /// <summary>
+    /// CR 701.23a: how many cards a search takes — every one its maximum admits. A question with no
+    /// maximum takes one, which is what a search for "a card" is and what every search took before
+    /// there was a scenario that needed both halves of an "up to two".
+    /// </summary>
+    [RuleRef("701.23a")]
+    private static int Finds(PendingChoice choice) =>
+        choice.Max <= 0 ? 1 : Math.Min(choice.Max, choice.Options.Count);
 
     private static string Prefer(PendingChoice choice, string id) =>
         choice.Options.FirstOrDefault(o => string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase))?.Id

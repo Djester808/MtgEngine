@@ -60,6 +60,10 @@ public static class SmokeScenario
             return null;
         board.Printed(face.ManaCost);
 
+        // CR 601.2b: X is announced before the spell resolves, so everything the resolution reads
+        // it for — a filter bounded by it above all — has the number the cast is going to name.
+        board.AnnouncedX = face.ManaCost is { Length: > 0 } printed && printed.Contains("{X}", StringComparison.Ordinal) ? AnnouncedX : null;
+
         var permanent = Permanent(face.Types.Types);
         if (permanent)
         {
@@ -81,7 +85,7 @@ public static class SmokeScenario
         if (board.Empty || board.Targets > 1)
             return null;
 
-        var x = face.ManaCost is { Length: > 0 } cost && cost.Contains("{X}", StringComparison.Ordinal) ? AnnouncedX : (int?)null;
+        var x = board.AnnouncedX;
         var cast = new CastStep(Caster, file.Name, board.TargetNames(), x, board.Modes(), CostObjects: board.CostObjects());
         var title = x is null
             ? $"casting {file.Name} does what its definition says"
@@ -181,7 +185,7 @@ public static class SmokeScenario
 
             // CR 701.19 and CR 701.20: a search takes the card it found out of the library and puts
             // it where the effect said, and then the library is shuffled.
-            case Search { From: Zone.Library, Who: null or You } search when Stock(board, search) is { } found:
+            case Search { From: Zone.Library, Who: null or You } search when Stock(board, search) is { Count: > 0 } found:
                 Found(board, search, found);
                 break;
 
@@ -350,10 +354,12 @@ public static class SmokeScenario
         {
             switch (cost)
             {
-                // CR 701.10: the cost sacrifices one creature of the caster's, and a filler creature is one.
+                // CR 701.10: the cost sacrifices one permanent of the caster's, of whatever kind it
+                // names — a creature, a land ("as an additional cost, sacrifice a land"), an
+                // artifact. The board places whichever filler the cost's own filter admits.
                 case SacrificeCost { Count: null or Fixed { N: 1 } } sacrifice
-                    when Simple(sacrifice.What) && sacrifice.What.Types is CardType.Creature && sacrifice.What.ControlledBy is null or You:
-                    board.Sacrificed(ScenarioFiller.Creature);
+                    when sacrifice.What.ControlledBy is null or You && SmokeFillers.Bodies(sacrifice.What) is [var eaten, ..]:
+                    board.Sacrificed(eaten);
                     break;
 
                 // CR 701.8: the cost discards one card, any card, and the hand is filler.
@@ -402,46 +408,62 @@ public static class SmokeScenario
         target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Bodies(target.Filter) : [];
 
     /// <summary>
-    /// CR 701.19: the library is stocked with the card this search is going to find, on top, and
-    /// the alias it was stocked under is returned so the expectation can name it. Null when the
-    /// search wants a card the runner has not got, or the library has no room left for another.
+    /// CR 701.19: the library is stocked with the cards this search is going to find, on top, and
+    /// the aliases they were stocked under are returned so the expectations can name them. A search
+    /// for "up to N" finds N, because the runner answers with as many as the question allows — so
+    /// the board stocks N and the scenario says where every one of them went, rather than asserting
+    /// one card and staying silent about the rest. Empty when the search wants a card the runner
+    /// has not got, or the library has no room left for them.
     /// </summary>
     [RuleRef("701.19")]
-    private static string? Stock(SmokeBoard board, Search search) =>
-        board.CanStock
-        && search.To is Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library
-        && SmokeFillers.Findable(search.For) is { } card
-            ? board.Stocks(card)
-            : null;
+    private static IReadOnlyList<string> Stock(SmokeBoard board, Search search)
+    {
+        if (search.To is not (Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library))
+            return [];
+        if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } card)
+            return [];
+
+        var wanted = search.UpTo is Fixed { N: > 0 and var n } ? n : 1;
+        var stocked = new List<string>(wanted);
+        for (var i = 0; i < wanted && board.CanStock; i++)
+            stocked.Add(board.Stocks(card));
+        return stocked;
+    }
 
     /// <summary>
-    /// Where the found card ended up, and CR 701.20's shuffle. A search that puts the card back on
-    /// top of the library moves nothing, so the shuffle is all there is to see — and it is worth
-    /// seeing, because a search that never shuffled would leave the library stacked.
+    /// Where each found card ended up, and CR 701.20's shuffle. A search that puts the cards back
+    /// on top of the library moves nothing, so the shuffle is all there is to see — and it is worth
+    /// seeing, because a search that never shuffled would leave the library stacked. The shuffle is
+    /// asserted as a shuffle and not as "something was reordered", which the backlog also logs.
     /// </summary>
     [RuleRef("701.20")]
-    private static void Found(SmokeBoard board, Search search, string found)
+    private static void Found(SmokeBoard board, Search search, IReadOnlyList<string> found)
     {
+        var n = found.Count;
         switch (search.To)
         {
             case Zone.Hand:
-                board.Caster(hand: 1, library: -1);
+                board.Caster(hand: n, library: -n);
                 break;
             case Zone.Graveyard:
-                board.Caster(graveyard: 1, library: -1);
+                board.Caster(graveyard: n, library: -n);
                 break;
             case Zone.Battlefield:
-                board.Caster(library: -1);
-                board.Arrives(1);
+                board.Caster(library: -n);
+                board.Arrives(n);
                 break;
             default:
                 break;
         }
 
         if (search.To is not Zone.Library)
-            board.Expect(new InZone(found, search.To));
+        {
+            foreach (var card in found)
+                board.Expect(new InZone(card, search.To));
+        }
+
         if (search.ShuffleAfter)
-            board.Expect(new EventLogged(nameof(ZoneReordered)));
+            board.Expect(new Shuffled(Caster));
     }
 
     /// <summary>A count the board can supply: the caster's own creatures, and nothing else about them.</summary>
