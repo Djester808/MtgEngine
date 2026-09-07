@@ -211,6 +211,71 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "27e9db49-7af7-4bef-ad4c-bf5dfb92030d",
+        "name": "Fog",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Fog",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Prevent all combat damage that would be dealt this turn."
+              }
+            ],
+            "oracleText": "Prevent all combat damage that would be dealt this turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "text": "Prevent all combat damage that would be dealt this turn."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

@@ -955,6 +955,225 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "3c1ef404-e2c6-486d-a5a2-d5779c71d498",
+        "name": "Archdruid\u0027s Charm",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Archdruid\u0027s Charm",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle.",
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "One search whose destination depends on the card found: onto the battlefield tapped if it is a land card, otherwise into the hand. Search has a single \u0027to\u0027 (and \u0027othersTo\u0027 only for further cards of the same search), so a type-conditional destination for the one card found cannot be said; putting it into the hand and then moving a land to the battlefield would be a different sequence of zone changes.",
+                        "text": "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle."
+                      }
+                    },
+                    {
+                      "text": "Put a \u002B1/\u002B1 counter on target creature you control. It deals damage equal to its power to target creature you don\u0027t control.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "PutCounters",
+                            "on": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              },
+                              "upTo": false,
+                              "key": "k1",
+                              "distinct": true
+                            },
+                            "counter": "\u002B1/\u002B1",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 1
+                            }
+                          },
+                          {
+                            "kind": "DealDamage",
+                            "n": {
+                              "kind": "PowerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "EachOpponent"
+                                }
+                              },
+                              "upTo": false,
+                              "distinct": true
+                            },
+                            "source": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            },
+                            "cantBePrevented": false
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "text": "Exile target artifact or enchantment.",
+                      "do": {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": false,
+                          "distinct": true
+                        },
+                        "faceDown": false
+                      }
+                    }
+                  ],
+                  "min": 1,
+                  "max": 1,
+                  "sameModeTwice": false
+                },
+                "text": "Choose one \u2014\n\u2022 Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle.\n\u2022 Put a \u002B1/\u002B1 counter on target creature you control. It deals damage equal to its power to target creature you don\u0027t control.\n\u2022 Exile target artifact or enchantment."
+              }
+            ],
+            "oracleText": "Choose one \u2014\n\u2022 Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle.\n\u2022 Put a \u002B1/\u002B1 counter on target creature you control. It deals damage equal to its power to target creature you don\u0027t control.\n\u2022 Exile target artifact or enchantment.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ChooseMode",
+                  "modes": [
+                    {
+                      "text": "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle.",
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "One search whose destination depends on the card found: onto the battlefield tapped if it is a land card, otherwise into the hand. Search has a single \u0027to\u0027 (and \u0027othersTo\u0027 only for further cards of the same search), so a type-conditional destination for the one card found cannot be said; putting it into the hand and then moving a land to the battlefield would be a different sequence of zone changes.",
+                        "text": "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle."
+                      }
+                    },
+                    {
+                      "text": "Put a \u002B1/\u002B1 counter on target creature you control. It deals damage equal to its power to target creature you don\u0027t control.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "PutCounters",
+                            "on": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              },
+                              "upTo": false,
+                              "key": "k1",
+                              "distinct": true
+                            },
+                            "counter": "\u002B1/\u002B1",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 1
+                            }
+                          },
+                          {
+                            "kind": "DealDamage",
+                            "n": {
+                              "kind": "PowerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "to": {
+                              "kind": "Target",
+                              "filter": {
+                                "types": [
+                                  "Creature"
+                                ],
+                                "controlledBy": {
+                                  "kind": "EachOpponent"
+                                }
+                              },
+                              "upTo": false,
+                              "distinct": true
+                            },
+                            "source": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            },
+                            "cantBePrevented": false
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "text": "Exile target artifact or enchantment.",
+                      "do": {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": false,
+                          "distinct": true
+                        },
+                        "faceDown": false
+                      }
+                    }
+                  ],
+                  "min": 1,
+                  "max": 1,
+                  "sameModeTwice": false
+                },
+                "text": "Choose one \u2014\n\u2022 Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it\u0027s a land card. Otherwise, put it into your hand. Then shuffle.\n\u2022 Put a \u002B1/\u002B1 counter on target creature you control. It deals damage equal to its power to target creature you don\u0027t control.\n\u2022 Exile target artifact or enchantment."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

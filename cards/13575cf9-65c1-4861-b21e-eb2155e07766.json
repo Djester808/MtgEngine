@@ -565,6 +565,201 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "13575cf9-65c1-4861-b21e-eb2155e07766",
+        "name": "Sensei\u0027s Divining Top",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sensei\u0027s Divining Top",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}",
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "zone": "Library"
+                      }
+                    },
+                    {
+                      "kind": "Reorder",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "zone": "Library"
+                      },
+                      "where": "AnyOrder"
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}: Look at the top three cards of your library, then put them back in any order."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": "Library",
+                      "where": "Top",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Draw a card, then put this artifact on top of its owner\u0027s library."
+              }
+            ],
+            "oracleText": "{1}: Look at the top three cards of your library, then put them back in any order.\n{T}: Draw a card, then put this artifact on top of its owner\u0027s library.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LookAt",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "zone": "Library"
+                      }
+                    },
+                    {
+                      "kind": "Reorder",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "zone": "Library"
+                      },
+                      "where": "AnyOrder"
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}: Look at the top three cards of your library, then put them back in any order."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": "Library",
+                      "where": "Top",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Draw a card, then put this artifact on top of its owner\u0027s library."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

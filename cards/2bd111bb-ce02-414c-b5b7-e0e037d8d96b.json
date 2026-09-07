@@ -47,7 +47,8 @@
               },
               "from": "Library",
               "topOfLibraryOnly": true,
-              "withoutPayingManaCost": false
+              "withoutPayingManaCost": false,
+              "payLifeEqualToManaValueInstead": false
             },
             "players": {
               "kind": "You"
@@ -133,7 +134,8 @@
               },
               "from": "Library",
               "topOfLibraryOnly": true,
-              "withoutPayingManaCost": false
+              "withoutPayingManaCost": false,
+              "payLifeEqualToManaValueInstead": false
             },
             "players": {
               "kind": "You"
@@ -252,7 +254,8 @@
                   },
                   "from": "Library",
                   "topOfLibraryOnly": true,
-                  "withoutPayingManaCost": false
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
                 },
                 "players": {
                   "kind": "You"
@@ -338,7 +341,8 @@
                   },
                   "from": "Library",
                   "topOfLibraryOnly": true,
-                  "withoutPayingManaCost": false
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
                 },
                 "players": {
                   "kind": "You"
@@ -438,7 +442,8 @@
                   "kind": "MayPlayFromZone",
                   "from": "Library",
                   "topOfLibraryOnly": true,
-                  "withoutPayingManaCost": false
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
@@ -508,7 +513,8 @@
                   "kind": "MayPlayFromZone",
                   "from": "Library",
                   "topOfLibraryOnly": true,
-                  "withoutPayingManaCost": false
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
@@ -520,6 +526,201 @@
                   "kind": "UnsupportedContinuous",
                   "reason": "SpellsCostLifeInsteadOfMana(who, colors) has no way to scope the substitution to spells cast under this specific permission: it names a player and a set of colors, not a source of the permission to cast. Applying it unscoped would let every spell that player casts from any zone be paid for with life instead of mana, which is not what this card does \u2014 the life payment applies only to spells cast from the top of the library via this ability.",
                   "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+        "name": "Bolas\u0027s Citadel",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bolas\u0027s Citadel",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "An alternative cost of paying life equal to the spell\u0027s mana value in place of its mana cost, for spells cast from the top of the library under this permission. MayPlayFromZone can waive the mana cost (withoutPayingManaCost) but cannot substitute a life payment equal to mana value, and no ContinuousEffect names an alternative cost.",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "notTypes": [
+                        "Land"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                ],
+                "do": {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 10
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life."
+              }
+            ],
+            "oracleText": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\n{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may look at the top card of your library any time."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "An alternative cost of paying life equal to the spell\u0027s mana value in place of its mana cost, for spells cast from the top of the library under this permission. MayPlayFromZone can waive the mana cost (withoutPayingManaCost) but cannot substitute a life payment equal to mana value, and no ContinuousEffect names an alternative cost.",
+                  "text": "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+                },
+                "players": {
+                  "kind": "You"
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,

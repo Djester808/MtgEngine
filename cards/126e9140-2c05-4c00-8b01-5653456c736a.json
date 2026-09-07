@@ -153,7 +153,7 @@
               "left": {
                 "kind": "X"
               },
-              "op": "Gt",
+              "op": "Ne",
               "right": {
                 "kind": "Fixed",
                 "n": 0
@@ -299,7 +299,7 @@
               "left": {
                 "kind": "X"
               },
-              "op": "Gt",
+              "op": "Ne",
               "right": {
                 "kind": "Fixed",
                 "n": 0
@@ -312,642 +312,901 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "126e9140-2c05-4c00-8b01-5653456c736a",
-        "name": "Lair of the Hydra",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-126e9140-2c05-4c00-8b01-5653456c736a",
+      "title": "playing Lair of the Hydra puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Lair of the Hydra",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Ge",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "If you control two or more other lands, this land enters tapped."
+                "name": "Lair of the Hydra",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{X}{G}"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Hydra"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetColors",
-                        "colors": [
-                          "Green"
-                        ]
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "X"
-                        },
-                        "toughness": {
-                          "kind": "X"
-                        }
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "X"
-                  },
-                  "op": "Gt",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 0
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "If you control two or more other lands, this land enters tapped.\n{T}: Add {G}.\n{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Ge",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "If you control two or more other lands, this land enters tapped."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{X}{G}"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Hydra"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetColors",
-                        "colors": [
-                          "Green"
-                        ]
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "X"
-                        },
-                        "toughness": {
-                          "kind": "X"
-                        }
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "X"
-                  },
-                  "op": "Gt",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 0
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Lair of the Hydra"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Lair of the Hydra",
+          "zone": "Battlefield"
+        }
+      ]
     },
     {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "126e9140-2c05-4c00-8b01-5653456c736a",
-        "name": "Lair of the Hydra",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-activate-126e9140-2c05-4c00-8b01-5653456c736a-1",
+      "title": "activating an ability of Lair of the Hydra does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Lair of the Hydra",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Ge",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "If you control two or more other lands, this land enters tapped."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{X}{G}"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Hydra"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetColors",
-                        "colors": [
-                          "Green"
-                        ]
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "X"
-                        },
-                        "toughness": {
-                          "kind": "X"
-                        }
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "X"
-                  },
-                  "op": "Ne",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 0
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
+                "name": "Lair of the Hydra",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "If you control two or more other lands, this land enters tapped.\n{T}: Add {G}.\n{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Ge",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "If you control two or more other lands, this land enters tapped."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {G}."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{X}{G}"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Hydra"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetColors",
-                        "colors": [
-                          "Green"
-                        ]
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "X"
-                        },
-                        "toughness": {
-                          "kind": "X"
-                        }
-                      },
-                      "to": {
-                        "kind": "Self"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "X"
-                  },
-                  "op": "Ne",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 0
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It\u0027s still a land. X can\u0027t be 0."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Lair of the Hydra",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Lair of the Hydra",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T220526-f21f02",
+    "passed": 2,
+    "total": 2,
+    "at": "2026-09-07T22:05:26.7808377+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-126e9140-2c05-4c00-8b01-5653456c736a",
+      "title": "playing Lair of the Hydra puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Lair of the Hydra",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Lair of the Hydra"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Lair of the Hydra",
+          "zone": "Battlefield"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-126e9140-2c05-4c00-8b01-5653456c736a-1",
+      "title": "activating an ability of Lair of the Hydra does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Lair of the Hydra",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Lair of the Hydra",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ManaChanged"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "Lair of the Hydra",
+          "tapped": true
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

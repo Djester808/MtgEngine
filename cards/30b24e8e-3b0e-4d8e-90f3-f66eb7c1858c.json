@@ -46,27 +46,30 @@
               }
             },
             "do": {
-              "kind": "Move",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "in": "Graveyard",
-                  "ownedBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "to": "Hand",
-              "where": "Default",
-              "tapped": false,
-              "faceDown": false,
-              "attacking": false,
-              "transformed": false,
-              "ownersChoiceOfOrder": true
+                "to": "Hand",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "When this creature enters, you may return target card from your graveyard to your hand."
@@ -85,27 +88,30 @@
               }
             },
             "do": {
-              "kind": "Move",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "in": "Graveyard",
-                  "ownedBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "to": "Hand",
-              "where": "Default",
-              "tapped": false,
-              "faceDown": false,
-              "attacking": false,
-              "transformed": false,
-              "ownersChoiceOfOrder": true
+                "to": "Hand",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "When this creature enters, you may return target card from your graveyard to your hand."
@@ -114,252 +120,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
-        "name": "Eternal Witness",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
+      "title": "casting Eternal Witness does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Eternal Witness",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Human",
-                "Shaman"
-              ],
-              "subtypeList": [
-                "Human",
-                "Shaman"
-              ]
-            },
-            "manaCost": "{1}{G}{G}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Graveyard",
-                      "ownedBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may return target card from your graveyard to your hand."
+                "name": "Eternal Witness",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "When this creature enters, you may return target card from your graveyard to your hand.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Graveyard",
-                      "ownedBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may return target card from your graveyard to your hand."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
-        "name": "Eternal Witness",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Eternal Witness",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Human",
-                "Shaman"
-              ],
-              "subtypeList": [
-                "Human",
-                "Shaman"
-              ]
-            },
-            "manaCost": "{1}{G}{G}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "in": "Graveyard",
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "to": "Hand",
-                    "where": "Default",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may return target card from your graveyard to your hand."
-              }
-            ],
-            "oracleText": "When this creature enters, you may return target card from your graveyard to your hand.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "in": "Graveyard",
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "to": "Hand",
-                    "where": "Default",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may return target card from your graveyard to your hand."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Eternal Witness"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Eternal Witness",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T220526-f21f02",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T22:05:26.7808377+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c",
+      "title": "casting Eternal Witness does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Eternal Witness",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Eternal Witness"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Eternal Witness",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

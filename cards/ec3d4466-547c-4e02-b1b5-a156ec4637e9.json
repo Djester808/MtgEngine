@@ -471,6 +471,163 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "ec3d4466-547c-4e02-b1b5-a156ec4637e9",
+        "name": "Chrome Mox",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Chrome Mox",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{0}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "notTypes": [
+                          "Artifact",
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "imprinted"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+              }
+            ],
+            "oracleText": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand.\n{T}: Add one mana of any of the exiled card\u0027s colors.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "notTypes": [
+                          "Artifact",
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile a nonartifact, nonland card from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false,
+                    "colorsOfRemembered": "imprinted"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any of the exiled card\u0027s colors."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

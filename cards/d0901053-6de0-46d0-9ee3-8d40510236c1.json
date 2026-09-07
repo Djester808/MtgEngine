@@ -780,6 +780,262 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "d0901053-6de0-46d0-9ee3-8d40510236c1",
+        "name": "Sword of Feast and Famine",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sword of Feast and Famine",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Protection",
+                  "of": {
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Protection",
+                  "of": {
+                    "colors": [
+                      "Green"
+                    ]
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "A trigger describes its source with an ObjectFilter, and no filter field or predicate names the creature this Equipment is attached to: AttachedTo runs the other way (the candidate is the attachment hanging on To), and the Attached selector cannot stand in a filter position.",
+                      "text": "Whenever equipped creature deals combat damage to a player"
+                    },
+                    {
+                      "kind": "Discard",
+                      "who": {
+                        "kind": "TriggeringPlayer"
+                      },
+                      "by": "Owner",
+                      "wholeHand": false
+                    },
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "repeatable": false,
+                "text": "Equip {2}"
+              }
+            ],
+            "oracleText": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green.\nWhenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control.\nEquip {2}",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ModifyPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Protection",
+                  "of": {
+                    "colors": [
+                      "Black"
+                    ]
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Protection",
+                  "of": {
+                    "colors": [
+                      "Green"
+                    ]
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature gets \u002B2/\u002B2 and has protection from black and from green."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "A trigger describes its source with an ObjectFilter, and no filter field or predicate names the creature this Equipment is attached to: AttachedTo runs the other way (the candidate is the attachment hanging on To), and the Attached selector cannot stand in a filter position.",
+                      "text": "Whenever equipped creature deals combat damage to a player"
+                    },
+                    {
+                      "kind": "Discard",
+                      "who": {
+                        "kind": "TriggeringPlayer"
+                      },
+                      "by": "Owner",
+                      "wholeHand": false
+                    },
+                    {
+                      "kind": "Untap",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{2}",
+                "repeatable": false,
+                "text": "Equip {2}"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

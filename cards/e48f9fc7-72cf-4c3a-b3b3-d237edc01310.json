@@ -31,24 +31,27 @@
               }
             },
             "do": {
-              "kind": "Exile",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "faceDown": false,
-              "rememberAs": "k1"
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -109,24 +112,27 @@
               }
             },
             "do": {
-              "kind": "Exile",
-              "what": {
-                "kind": "Target",
-                "filter": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
                 },
-                "upTo": false,
-                "distinct": true
-              },
-              "faceDown": false,
-              "rememberAs": "k1"
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
@@ -177,382 +183,465 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Imprint"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e48f9fc7-72cf-4c3a-b3b3-d237edc01310",
-        "name": "Extraplanar Lens",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-e48f9fc7-72cf-4c3a-b3b3-d237edc01310",
+      "title": "casting Extraplanar Lens does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Extraplanar Lens",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{3}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k1"
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
+                "name": "Extraplanar Lens",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "chosenColorKey": "k2",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Imprint \u2014 When this artifact enters, you may exile target land you control.\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Exile",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "faceDown": false,
-                  "rememberAs": "k1"
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "chosenColorKey": "k2",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e48f9fc7-72cf-4c3a-b3b3-d237edc01310",
-        "name": "Extraplanar Lens",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Extraplanar Lens",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{3}",
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Exile",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "types": [
-                          "Land"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "faceDown": false,
-                    "rememberAs": "k1"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "chosenColorKey": "k2",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
-              }
-            ],
-            "oracleText": "Imprint \u2014 When this artifact enters, you may exile target land you control.\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Exile",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "types": [
-                          "Land"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "faceDown": false,
-                    "rememberAs": "k1"
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Imprint \u2014 When this artifact enters, you may exile target land you control."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "types": [
-                      "Land"
-                    ],
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "chosenColorKey": "k2",
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Extraplanar Lens"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Extraplanar Lens",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T220526-f21f02",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T22:05:26.7808377+00:00"
+  },
   "keywordList": [
     "Imprint"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-e48f9fc7-72cf-4c3a-b3b3-d237edc01310",
+      "title": "casting Extraplanar Lens does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Extraplanar Lens",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Extraplanar Lens"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Extraplanar Lens",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

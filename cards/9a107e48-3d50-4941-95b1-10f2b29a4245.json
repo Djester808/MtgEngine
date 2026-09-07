@@ -133,278 +133,523 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-fable-5-1"
     ],
     "promptVersion": "pilot-f0e1d635d3a8",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "9a107e48-3d50-4941-95b1-10f2b29a4245",
-        "name": "Stroke of Midnight",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-9a107e48-3d50-4941-95b1-10f2b29a4245",
+      "title": "casting Stroke of Midnight does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Stroke of Midnight",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ],
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Human",
-                        "colors": [
-                          "White"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Human"
-                        ],
-                        "supertypes": [],
-                        "power": 1,
-                        "toughness": 1,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token."
+                "name": "Stroke of Midnight",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ],
-                          "permanent": true
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Human",
-                        "colors": [
-                          "White"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Human"
-                        ],
-                        "supertypes": [],
-                        "power": 1,
-                        "toughness": 1,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Artifact",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "aim-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "9a107e48-3d50-4941-95b1-10f2b29a4245",
-        "name": "Stroke of Midnight",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Stroke of Midnight",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ]
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Human",
-                        "colors": [
-                          "White"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Human"
-                        ],
-                        "supertypes": [],
-                        "power": 1,
-                        "toughness": 1,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "ThisSpellsTargets"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token."
-              }
-            ],
-            "oracleText": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ]
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Human",
-                        "colors": [
-                          "White"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Human"
-                        ],
-                        "supertypes": [],
-                        "power": 1,
-                        "toughness": 1,
-                        "isPredefined": false
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "ThisSpellsTargets"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Destroy target nonland permanent. Its controller creates a 1/1 white Human creature token."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Stroke of Midnight",
+          "targets": [
+            "aim-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "aim-1",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Stroke of Midnight",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260907T220526-f21f02",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-07T22:05:26.7808377+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-9a107e48-3d50-4941-95b1-10f2b29a4245",
+      "title": "casting Stroke of Midnight does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Stroke of Midnight",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Artifact",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "aim-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Stroke of Midnight",
+          "targets": [
+            "aim-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "aim-1",
+          "zone": "Graveyard",
+          "owner": "B"
+        },
+        {
+          "kind": "InZone",
+          "card": "Stroke of Midnight",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

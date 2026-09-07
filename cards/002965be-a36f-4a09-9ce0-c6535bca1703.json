@@ -695,6 +695,237 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "002965be-a36f-4a09-9ce0-c6535bca1703",
+        "name": "Veil of Summer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Veil of Summer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "SpellsCastThisTurn",
+                          "by": {
+                            "kind": "EachOpponent"
+                          },
+                          "matching": {
+                            "anyColor": [
+                              "Blue",
+                              "Black"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      },
+                      "then": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "CantBeCountered"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "spell": true
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "CantBeTargeted",
+                        "bySpells": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        },
+                        "byPlayers": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof",
+                        "of": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        }
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)"
+              }
+            ],
+            "oracleText": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "SpellsCastThisTurn",
+                          "by": {
+                            "kind": "EachOpponent"
+                          },
+                          "matching": {
+                            "anyColor": [
+                              "Blue",
+                              "Black"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      },
+                      "then": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "CantBeCountered"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          },
+                          "spell": true
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "ApplyToPlayer",
+                      "what": {
+                        "kind": "CantBeTargeted",
+                        "bySpells": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        },
+                        "byPlayers": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "who": {
+                        "kind": "You"
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof",
+                        "of": {
+                          "anyColor": [
+                            "Blue",
+                            "Black"
+                          ]
+                        }
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

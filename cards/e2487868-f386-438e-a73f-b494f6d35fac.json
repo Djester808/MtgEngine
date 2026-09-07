@@ -545,6 +545,215 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "e2487868-f386-438e-a73f-b494f6d35fac",
+        "name": "Genesis Wave",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Genesis Wave",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{X}{G}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Library",
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
+                            }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "CountOf",
+                          "filter": {
+                            "in": "Library",
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            },
+                            "permanent": true,
+                            "also": {
+                              "kind": "IsRemembered",
+                              "key": "k1"
+                            }
+                          }
+                        },
+                        "upTo": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Library",
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ],
+            "oracleText": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Reveal",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "X"
+                        },
+                        "zone": "Library"
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Library",
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "X"
+                            }
+                          },
+                          "permanent": true,
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "count": {
+                          "kind": "CountOf",
+                          "filter": {
+                            "in": "Library",
+                            "manaValue": {
+                              "op": "Le",
+                              "value": {
+                                "kind": "X"
+                              }
+                            },
+                            "permanent": true,
+                            "also": {
+                              "kind": "IsRemembered",
+                              "key": "k1"
+                            }
+                          }
+                        },
+                        "upTo": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Library",
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": "Graveyard",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren\u0027t put onto the battlefield into your graveyard."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],
