@@ -27,6 +27,14 @@ internal sealed record CastPlan(
     ImmutableList<Cost> NonMana,
     PlayerId? GiftPromisedTo = null)
 {
+    /// <summary>
+    /// How a spell that paid life for its mana value (CR 118.9, a permission's
+    /// <see cref="MayPlayFromZone.PayLifeEqualToManaValueInstead"/>) is recorded on its stack
+    /// entry's <see cref="StackEntry.OptionalCostsPaid"/>, beside <c>"free"</c> for a waived one, so
+    /// "if you cast a spell this way" can be asked of the spell as it resolves.
+    /// </summary>
+    internal const string PaidLifeForManaValue = "life";
+
     /// <summary>The types the spell has on the stack, CR 712.11c: only the chosen face is evaluated.</summary>
     public CardType Types => Printed.Types.Types;
 
@@ -108,9 +116,10 @@ internal sealed record CastPlan(
     /// itself comes back rather than a bool, because CR 118.9's half of the same permission —
     /// "without paying its mana cost" — is read off it.
     /// <para>
-    /// A permission limited to the top card of a library (<see cref="MayPlayFromZone.TopOfLibraryOnly"/>)
-    /// grants nothing here: nothing in this system can say which card is on top, and a permission
-    /// whose bound cannot be checked would be widened to the whole library rather than honoured.
+    /// A permission limited to the top card of a library (<see cref="MayPlayFromZone.TopOfLibraryOnly"/>,
+    /// "from the top of your library") holds for one card: the state keeps every library top-first
+    /// (<see cref="GameState.Zones"/>), so it is read as the card being the first in its library
+    /// and grants nothing to any card beneath it, or to a card anywhere else.
     /// </para>
     /// </summary>
     [RuleRef("601.3a")]
@@ -124,7 +133,9 @@ internal sealed record CastPlan(
         {
             if (active.Effect is not MayPlayFromZone permission)
                 continue;
-            if (permission.From != card.Zone.Zone || permission.TopOfLibraryOnly)
+            if (permission.From != card.Zone.Zone)
+                continue;
+            if (permission.TopOfLibraryOnly && !IsTopOfLibrary(state, card))
                 continue;
 
             // The cards the resolution named, or the filter a static permission carries; an effect
@@ -139,6 +150,20 @@ internal sealed record CastPlan(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// CR 601.3a's "from the top of your library": the card is in a library and is the first card
+    /// of it, libraries being kept top-first in <see cref="GameState.Zones"/> (CR 401.2 forbids
+    /// reordering one, so the order the state keeps is the order the permission reads).
+    /// </summary>
+    [RuleRef("601.3a")]
+    private static bool IsTopOfLibrary(GameState state, GameObject card)
+    {
+        if (card.Zone.Zone != CardZone.Library)
+            return false;
+        var library = state.In(card.Zone);
+        return library.Count > 0 && library[0] == card.Id;
     }
 
     /// <summary>CR 715.3d: the card exiled on an adventure is the one card its owner may cast from exile.</summary>
@@ -188,6 +213,22 @@ internal sealed record CastPlan(
         // rather than honoured — the mana cost is not a player's to set aside.
         if (command.WithoutPayingManaCost)
             throw new RefusedException("Nothing lets that spell be cast without paying its mana cost.", "118.9");
+
+        // CR 118.9 with 601.2f: "if you cast a spell this way, pay life equal to its mana value
+        // rather than pay its mana cost" is an alternative cost the permission carries, so a cast
+        // the permission allowed sets the mana cost aside and announces a life payment of the
+        // spell's mana value among its costs — X as announced (CR 202.3e) — which CostPayment pays
+        // at CR 601.2h and refuses when the player has less life than that (CR 119.4). Every
+        // additional cost is still paid (CR 601.2b). A keyword alternative cost the command
+        // announces is a different cast (CR 118.9c: one alternative cost per spell), and a card in
+        // hand has no such permission, so it pays as printed.
+        if (permission is { PayLifeEqualToManaValueInstead: true } && command.AlternativeCost is null)
+        {
+            var life = ManaSymbols.ManaValue(ManaSymbols.Parse(printed.ManaCost), command.X ?? 0);
+            extra.Add(new PayLife(new Fixed(life)));
+            paid.Add(PaidLifeForManaValue);
+            return [];
+        }
 
         if (command.AlternativeCost is not { } kind)
             return null;
