@@ -193,9 +193,17 @@ public sealed record BecomeMonarch(PlayerRef? Who = null) : Effect;
 [RuleRef("725")]
 public sealed record TakeInitiative(PlayerRef? Who = null) : Effect;
 
+/// <summary>
+/// A player gets an emblem (CR 114): an object in the command zone with no characteristics but
+/// the abilities the card gave it. Use this only when the card's own text prints those abilities,
+/// which is nearly always a planeswalker's ultimate ("You get an emblem with …"). An emblem the
+/// rules define rather than the card — the Ring, CR 701.54b — is <c>RingTemptsYou</c>, and
+/// the engine supplies its abilities; see that record's remarks.
+/// </summary>
 [RuleRef("114")]
 public sealed record CreateEmblem(EmblemSpec Emblem, PlayerRef? Who = null) : Effect;
 
+/// <summary>The emblem an effect creates, CR 114.1: a name for the log and the abilities it has.</summary>
 public sealed record EmblemSpec(string Name, IReadOnlyList<Ability> Abilities);
 
 [RuleRef("506.4")]
