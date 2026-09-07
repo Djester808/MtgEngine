@@ -1,5 +1,4 @@
 using MtgEngine.Cards;
-using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Engine;
 
@@ -56,19 +55,3 @@ public sealed record PlayerLimits(
     public bool CantGainLifeNow => CantGainLife || LifeTotalCantChange;
 }
 
-/// <summary>
-/// The player-scoped half of the layer system: the continuous effects of CR 613.10, which apply
-/// to a player rather than to an object and so are not part of computing characteristics.
-/// <para>
-/// This is a seam in waiting. <see cref="ICharacteristics"/> is where the question belongs — every
-/// caller already holds one — and <c>seam-requests/E7b.md</c> asks for the member to be hoisted
-/// onto it. Until then the layer system answers here and callers ask through this interface, so
-/// the behaviour is live in a real game rather than waiting on the hoist.
-/// </para>
-/// </summary>
-[RuleRef("613.10")]
-public interface IPlayerLimits
-{
-    /// <summary>Every player-scoped prohibition in force on this player right now.</summary>
-    PlayerLimits PlayerRestrictions(GameState state, PlayerId player);
-}

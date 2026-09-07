@@ -15,7 +15,7 @@ namespace MtgEngine.Rules.Layers;
 /// <see cref="StaticAbility.Players"/>.
 /// </para>
 /// </summary>
-public sealed partial class LayerSystem : IPlayerLimits
+public sealed partial class LayerSystem
 {
     /// <inheritdoc/>
     [RuleRef("613.10")]

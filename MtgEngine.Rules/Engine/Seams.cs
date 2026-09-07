@@ -178,6 +178,10 @@ public interface ICharacteristics : ISubsystem
     Characteristics Of(GameState state, ObjectId id);
 
     PlayerId ControllerOf(GameState state, ObjectId id);
+
+    /// <summary>Every player-scoped prohibition in force on this player right now, CR 613.10: can't lose, can't be dealt damage, a life total that can't change, protection from everything. The default is none, for a characteristics source that computes no player effects.</summary>
+    [RuleRef("613.10")]
+    PlayerLimits PlayerRestrictions(GameState state, PlayerId player) => PlayerLimits.None;
 }
 
 /// <summary>What an object is right now, after every layer.</summary>

@@ -151,16 +151,9 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
             : null;
     }
 
-    /// <summary>
-    /// The player-scoped continuous effects in force on this player, CR 613.10. The question
-    /// belongs on <see cref="ICharacteristics"/> — <c>seam-requests/E7b.md</c> asks for the hoist —
-    /// and until it lands the layer system answers it through <see cref="IPlayerLimits"/>. A
-    /// composition whose characteristics do not answer reports no restrictions, which is exactly
-    /// what these actions did before.
-    /// </summary>
+    /// <summary>The player-scoped continuous effects in force on this player, CR 613.10, from the characteristics seam.</summary>
     [RuleRef("613.10")]
-    private PlayerLimits LimitsOn(GameState state, PlayerId player) =>
-        characteristics is IPlayerLimits limits ? limits.PlayerRestrictions(state, player) : PlayerLimits.None;
+    private PlayerLimits LimitsOn(GameState state, PlayerId player) => characteristics.PlayerRestrictions(state, player);
 
     /// <summary>
     /// Whether the game is over: 104.2a, the last player who has not lost wins; 104.4a, a game
