@@ -283,8 +283,8 @@ public sealed record DealsDamageAsToughness : ContinuousEffect;
 
 public sealed record AssignDamageAsThoughUnblocked : ContinuousEffect;
 
-/// <summary>"You may play lands from your graveyard", "you may cast spells from the top of your library".</summary>
-public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false) : ContinuousEffect;
+/// <summary>"You may play lands from your graveyard", "you may cast spells from the top of your library". With WithoutPayingManaCost, "you may cast it this turn without paying its mana cost" (CR 118.9): the permission also waives the mana cost of the cast it allows.</summary>
+public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false) : ContinuousEffect;
 
 public sealed record MayLookAtTopCard(PlayerRef Who, bool AnyTime = true) : ContinuousEffect;
 

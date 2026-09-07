@@ -35,6 +35,10 @@ public sealed record GameObject(
 
     public ObjectId? AttachedTo { get; init; }
 
+    /// <summary>An Aura attached to a player, CR 303.4f: it entered attached to the player it was cast at. CR 704.5m buries an Aura attached to neither an object nor a player.</summary>
+    [RuleRef("303.4f")]
+    public PlayerId? AttachedToPlayer { get; init; }
+
     /// <summary>A commander stays one through every zone change, CR 903.3; the zone system sets this at creation and carries it on every move.</summary>
     [RuleRef("903.3")]
     public bool IsCommander { get; init; }

@@ -155,6 +155,17 @@ public interface ICombatSystem : ISubsystem
     [RuleRef("509.1a")]
     bool CouldBlock(GameState state, ObjectId creature) =>
         throw new NotImplementedException("CouldBlock is not built in this combat system.");
+
+    /// <summary>
+    /// CR 510.2 and 616.1: deal the rest of a combat damage batch that a replacement-order
+    /// question stopped. The batch is a pure function of the state the step began on, so the
+    /// question carries the step and the index of the assignment it was asked about, and the
+    /// step is re-run from <paramref name="from"/> once the choice system has resumed that one
+    /// event through <see cref="IReplacementSystem.Resume"/>.
+    /// </summary>
+    [RuleRef("510.2")]
+    Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from) =>
+        throw new NotImplementedException("Resuming a halted combat damage step is not built in this combat system: wave 8, agent E4c.");
 }
 
 [RuleRef("704")]

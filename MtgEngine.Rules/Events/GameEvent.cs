@@ -150,8 +150,8 @@ public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, Gam
     }
 }
 
-/// <summary>A stored property of an object changed: tapped, face down, phased out, summoning sickness, damage, attachment.</summary>
-public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceDown = null, bool? PhasedOut = null, bool? SummoningSick = null, int? Damage = null, ObjectId? AttachedTo = null, bool ClearAttachment = false, bool? DealtDeathtouchDamage = null) : GameEvent
+/// <summary>A stored property of an object changed: tapped, face down, phased out, summoning sickness, damage, attachment. An attachment to an object and one to a player (CR 303.4f) exclude each other; <paramref name="ClearAttachment"/> clears both.</summary>
+public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceDown = null, bool? PhasedOut = null, bool? SummoningSick = null, int? Damage = null, ObjectId? AttachedTo = null, bool ClearAttachment = false, bool? DealtDeathtouchDamage = null, PlayerId? AttachedToPlayer = null) : GameEvent
 {
     public override GameState Apply(GameState state)
     {
@@ -164,7 +164,8 @@ public sealed record ObjectChanged(ObjectId Id, bool? Tapped = null, bool? FaceD
             PhasedOut = PhasedOut ?? obj.PhasedOut,
             SummoningSick = SummoningSick ?? obj.SummoningSick,
             Damage = Damage ?? obj.Damage,
-            AttachedTo = ClearAttachment ? null : (AttachedTo ?? obj.AttachedTo),
+            AttachedTo = ClearAttachment || AttachedToPlayer is not null ? null : (AttachedTo ?? obj.AttachedTo),
+            AttachedToPlayer = ClearAttachment || AttachedTo is not null ? null : (AttachedToPlayer ?? obj.AttachedToPlayer),
             DealtDeathtouchDamage = DealtDeathtouchDamage ?? obj.DealtDeathtouchDamage,
         };
         return state with { Objects = state.Objects.SetItem(Id, updated) };

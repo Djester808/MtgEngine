@@ -12979,6 +12979,9 @@
         },
         "topOfLibraryOnly": {
           "type": "boolean"
+        },
+        "withoutPayingManaCost": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -12987,7 +12990,7 @@
         "who",
         "from"
       ],
-      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022."
+      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022. With WithoutPayingManaCost, \u0022you may cast it this turn without paying its mana cost\u0022 (CR 118.9): the permission also waives the mana cost of the cast it allows."
     },
     "ModifyPt": {
       "type": "object",
