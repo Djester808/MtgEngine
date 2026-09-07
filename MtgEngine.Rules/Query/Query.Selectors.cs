@@ -107,13 +107,29 @@ public sealed partial class Query
 
             // CR 724.2: there is at most one monarch, and the state keeps who it is.
             Cards.Monarch => state.Monarch is { } monarch ? [monarch] : [],
-            // CR 303.4f: "enchanted player" — the player this source is attached to — has no
-            // record in the vocabulary, so a card that says it cannot be written at all. The state
-            // and the view carry the attachment; the arm is one line the day the record lands.
-            // seam-requests/E5c.md.
-            ChoosePlayer => throw Unanswerable(nameof(ChoosePlayer), NoPlayerMemory),
-            ChosenPlayer => throw Unanswerable(nameof(ChosenPlayer), NoPlayerMemory),
-            RememberedPlayer => throw Unanswerable(nameof(RememberedPlayer), NoPlayerMemory),
+
+            // CR 608.2h: an effect determines its information once, so a step that named a player
+            // is read back by a later step of the same resolution rather than asked of the board
+            // again. The memory is EffectContext.RememberedPlayers, which the interpreter seeds
+            // from the stack entry — the trigger system writes the triggering player there
+            // (CR 603.6), and a target player's key is written on casting (CR 601.2c).
+            // A key that is present but names nobody is an answer, not a gap: "up to one target
+            // player" with none chosen remembers an empty list. Only a key no step ever wrote is
+            // unanswerable, and it is refused rather than read as "nobody" so the effect is not
+            // silently dropped.
+            RememberedPlayer remembered => context.RememberedPlayers is { } players
+                && players.TryGetValue(remembered.Key, out var those)
+                ? those
+                : throw Unanswerable(nameof(RememberedPlayer), NoSuchPlayerKey, "608.2h"),
+
+            // The query layer reads; it never chooses (CR 608.2). Asking a player to pick a player
+            // is a question, and questions belong to the choice system, which records the answer
+            // where RememberedPlayer above can read it.
+            ChoosePlayer => throw Unanswerable(nameof(ChoosePlayer), NoPlayerChoice, "601.2b"),
+            // CR 607.2d: "the chosen player" is a choice a *different*, linked ability made and the
+            // object kept. GameObject.Chosen holds those, and it maps a key to a string — a name, a
+            // type, a colour — with nowhere to put a player. seam-requests/E0g.md.
+            ChosenPlayer => throw Unanswerable(nameof(ChosenPlayer), NoChosenPlayer, "607.2d"),
             _ => throw Unanswerable(player.GetType().Name, "no arm in the query layer"),
         };
     }
@@ -150,8 +166,17 @@ public sealed partial class Query
         return filter.Also is null || Holds(state, filter.Also, context with { Controller = candidate });
     }
 
-    private const string NoPlayerMemory =
-        "EffectContext remembers objects by key but not players; see seam-requests/E0.md";
+    private const string NoSuchPlayerKey =
+        "no step of this resolution remembered a player under that key, so reading it as \"nobody\" " +
+        "would drop the rest of the effect instead of naming what is missing";
+
+    private const string NoPlayerChoice =
+        "choosing a player is a question and the query layer only reads; the choice system asks it " +
+        "and records the answer under the key";
+
+    private const string NoChosenPlayer =
+        "the values an object keeps from a linked ability are strings, so a chosen player has " +
+        "nowhere to live; see seam-requests/E0g.md";
 
     /// <summary>Players still in the game, CR 800.4a: one who has lost is no longer a player.</summary>
     private static ImmutableList<PlayerId> InGame(GameState state) =>
