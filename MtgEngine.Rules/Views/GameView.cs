@@ -41,7 +41,15 @@ public sealed record ObjectView(
     ImmutableList<string> Keywords,
     ImmutableList<string> Types,
     ImmutableList<string> Subtypes,
-    bool Enforced);
+    bool Enforced,
+
+    /// <summary>
+    /// CR 205.3d: this object is every creature type, which is what changeling grants
+    /// (CR 702.72a). The names are not in <see cref="Subtypes"/> — CR 205.3m's list changes with
+    /// every set — so a client that asks "is this a Goblin" reads this flag beside the list, as
+    /// the engine's own readers do.
+    /// </summary>
+    bool EveryCreatureType = false);
 
 /// <summary>What a player may do now. The client enables controls from this and reasons about nothing.</summary>
 public sealed record LegalActions(

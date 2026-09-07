@@ -11,15 +11,25 @@ namespace MtgEngine.Rules.Legal;
 /// What a player may do now, answered by the code that would do it: every castable card,
 /// playable land and activatable ability is one <see cref="ICastingSystem.Check"/> allows, so
 /// an offer and the command it stands for can never disagree (CR 305, 601, 602). Attackers and
-/// blockers are read from the rules here, because declaring them is a turn-based action the
-/// combat system judges only once the declaration arrives, CR 508.1 and 509.1.
+/// blockers are the same bargain: <see cref="ICombatSystem.CouldAttack"/> and
+/// <see cref="ICombatSystem.CouldBlock"/> are the one reading of CR 508.1a and 509.1a, so a
+/// restriction the combat system enforces on a declaration is one this view never offers. What
+/// stays here is what the combat system is not asked: the step, whose declaration it is, and
+/// whether it has been made already (CR 508.1, 509.1).
 /// </summary>
 [RuleRef("117")]
-public sealed class LegalActions(ICastingSystem casting, ICharacteristics characteristics) : ILegalActions
+public sealed class LegalActions(ICastingSystem casting, ICharacteristics characteristics, ICombatSystem? combat = null) : ILegalActions
 {
     private readonly ICastingSystem _casting = casting;
 
     private readonly ICharacteristics _characteristics = characteristics;
+
+    /// <summary>
+    /// The combat system, or null when the game was composed without one. A view that cannot ask
+    /// CR 508.1a offers no attackers and no blockers rather than guessing at the rule: a second
+    /// reading here is exactly the drift this seam removed.
+    /// </summary>
+    private readonly ICombatSystem? _combat = combat;
 
     public string Name => "legal actions";
 
@@ -77,46 +87,44 @@ public sealed class LegalActions(ICastingSystem casting, ICharacteristics charac
     }
 
     /// <summary>
-    /// CR 508.1a: the active player declares attackers in the declare attackers step, from
-    /// untapped creatures they control that have been controlled since the turn began
-    /// (CR 302.6) or have haste (CR 702.10b), and that do not have defender (CR 702.3b).
-    /// Declaring is a turn-based action, CR 508.1, taken before any player receives priority in
-    /// the step, so this never asks who holds it. Restrictions an effect adds ("can't attack
-    /// unless") are the combat system's to enforce on the declaration; see seam-requests/E14.md
-    /// for the check this would rather call.
+    /// CR 508.1: the active player declares attackers in the declare attackers step, and does so
+    /// once. Declaring is a turn-based action taken before any player receives priority in the
+    /// step, so this never asks who holds it. Which of that player's creatures could be declared
+    /// — untapped, controlled since the turn began (CR 302.6) or hasty (CR 702.10b), without
+    /// defender (CR 702.3b), and unrestricted by any "can't attack" — is
+    /// <see cref="ICombatSystem.CouldAttack"/>'s single reading of CR 508.1a, the same one the
+    /// declaration itself is judged by.
     /// </summary>
-    [RuleRef("508.1a")]
+    [RuleRef("508.1")]
     private ImmutableList<ObjectId> EligibleAttackers(GameState state, PlayerId player)
     {
+        if (_combat is null)
+            return [];
         if (state.Turn.Step != Step.DeclareAttackers || state.Turn.ActivePlayer != player || state.Combat is { AttackersDeclared: true })
             return [];
 
-        return
-        [
-            .. Creatures(state, player)
-                .Where(c => !c.Object.Tapped
-                    && (!c.Object.SummoningSick || c.Chars.Has(KeywordKind.Haste))
-                    && !c.Chars.Has(KeywordKind.Defender))
-                .Select(c => c.Object.Id),
-        ];
+        return [.. Creatures(state, player).Where(c => _combat.CouldAttack(state, c.Object.Id)).Select(c => c.Object.Id)];
     }
 
     /// <summary>
-    /// CR 509.1a: in the declare blockers step, each defending player declares blockers from
-    /// untapped creatures they control. Which attacker each one may block, and every evasion
-    /// the attackers have, is judged when the declaration arrives; this is the set a client may
-    /// offer. A player defends when an attacker attacks them or a permanent they control,
-    /// CR 506.2.
+    /// CR 509.1: in the declare blockers step, each defending player declares blockers once. A
+    /// player defends when an attacker attacks them or a permanent they control, CR 506.2.
+    /// Which of their creatures could block at all is
+    /// <see cref="ICombatSystem.CouldBlock"/>'s reading of CR 509.1a; which attacker each one may
+    /// block, and every evasion the attackers have, needs the attacker and so is judged when the
+    /// declaration arrives.
     /// </summary>
-    [RuleRef("509.1a")]
+    [RuleRef("509.1")]
     private ImmutableList<ObjectId> EligibleBlockers(GameState state, PlayerId player)
     {
+        if (_combat is null)
+            return [];
         if (state.Turn.Step != Step.DeclareBlockers || state.Combat is not { AttackersDeclared: true, BlockersDeclared: false } combat)
             return [];
         if (!combat.Attackers.Values.Any(target => Defends(state, target, player)))
             return [];
 
-        return [.. Creatures(state, player).Where(c => !c.Object.Tapped).Select(c => c.Object.Id)];
+        return [.. Creatures(state, player).Where(c => _combat.CouldBlock(state, c.Object.Id)).Select(c => c.Object.Id)];
     }
 
     [RuleRef("506.2")]

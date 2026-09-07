@@ -189,11 +189,134 @@ public sealed class LegalActionsTests
         Assert.False(mine.MustAnswerChoice);
     }
 
-    private static Views.LegalActions Actions(GameState state, PlayerId player)
+    /// <summary>
+    /// CR 508.1a and 509.1a are read once, by the combat system. Every attacker this view offers
+    /// is one <see cref="ICombatSystem.CouldAttack"/> accepts and every blocker one
+    /// <see cref="ICombatSystem.CouldBlock"/> accepts, over a whole real board, so a restriction
+    /// added to the combat system can never be missing from the view.
+    /// </summary>
+    [Fact]
+    [RuleRef("508.1a")]
+    public void An_offered_attacker_is_exactly_one_the_combat_system_would_accept()
+    {
+        var (game, state) = Start(BearOracle);
+        var main = AtStep(game, state, Step.PrecombatMain);
+        var (one, settled) = Play(main, Me);
+        var (two, sick) = Play(one, Me);
+        var (three, theirs) = Play(two, Them);
+        var board = Settled(three, settled, sick: false);
+        var declaring = board with { Turn = board.Turn with { Step = Step.DeclareAttackers } };
+
+        var combat = game.Engine.Combat;
+        var offered = Actions(declaring, Me).EligibleAttackers;
+
+        Assert.Equal([settled], offered);
+        Assert.All(offered, id => Assert.True(combat.CouldAttack(declaring, id)));
+
+        // The two the view withheld: one is summoning sick (CR 302.6), the other is not this
+        // player's creature, and the combat system agrees about the first.
+        Assert.False(combat.CouldAttack(declaring, sick));
+        Assert.DoesNotContain(theirs, offered);
+    }
+
+    /// <summary>
+    /// The view asks; it does not decide. A combat system that refuses one creature makes that
+    /// creature disappear from the offer with no change here, which is what "one reading" means.
+    /// </summary>
+    [Fact]
+    [RuleRef("508.1a")]
+    public void A_creature_the_combat_system_refuses_is_not_offered()
+    {
+        var (game, state) = Start(BearOracle);
+        var main = AtStep(game, state, Step.PrecombatMain);
+        var (one, first) = Play(main, Me);
+        var (two, second) = Play(one, Me);
+        var board = Settled(Settled(two, first, sick: false), second, sick: false);
+        var declaring = board with { Turn = board.Turn with { Step = Step.DeclareAttackers } };
+
+        var refusing = new LegalActionsFakeCombat(game.Engine.Combat, second);
+
+        Assert.Equal([first, second], Actions(declaring, Me).EligibleAttackers);
+        Assert.Equal([first], Actions(declaring, Me, refusing).EligibleAttackers);
+    }
+
+    /// <summary>
+    /// CR 509.1a is the combat system's too: a blocker it refuses is not offered, and the step,
+    /// the declaration and CR 506.2's "who is defending" stay the view's own gates.
+    /// </summary>
+    [Fact]
+    [RuleRef("509.1a")]
+    public void A_blocker_the_combat_system_refuses_is_not_offered()
+    {
+        var (game, state) = Start(BearOracle);
+        var main = AtStep(game, state, Step.PrecombatMain);
+        var (mine, attacker) = Play(main, Me);
+        var (withOne, first) = Play(mine, Them);
+        var (board, second) = Play(withOne, Them);
+        var settled = Settled(board, attacker, sick: false);
+
+        var attacking = game.Engine.Combat.DeclareAttackers(
+            settled with { Turn = settled.Turn with { Step = Step.DeclareAttackers } },
+            new DeclareAttackers(Me, [new AttackDeclaration(attacker, new CombatTarget(Them, null))])).State;
+        var blocking = attacking with { Turn = attacking.Turn with { Step = Step.DeclareBlockers } };
+
+        Assert.Equal([first, second], Actions(blocking, Them).EligibleBlockers);
+
+        var refusing = new LegalActionsFakeCombat(game.Engine.Combat, first);
+        Assert.Equal([second], Actions(blocking, Them, refusing).EligibleBlockers);
+    }
+
+    /// <summary>
+    /// A composition with no combat system cannot read CR 508.1a, so it offers nothing rather
+    /// than a second, drifting reading of the rule. Everything else it can answer, it still does.
+    /// </summary>
+    [Fact]
+    [RuleRef("508.1")]
+    public void With_no_combat_system_no_attacker_and_no_blocker_is_offered()
+    {
+        var (game, state) = Start(BearOracle);
+        var main = AtStep(game, state, Step.PrecombatMain);
+        var (board, bear) = Play(main, Me);
+        var settled = Settled(board, bear, sick: false);
+        var declaring = settled with { Turn = settled.Turn with { Step = Step.DeclareAttackers } };
+
+        var layers = new LayerSystem();
+        var query = new Query.Query(layers);
+        var casting = new Casting.CastingSystem(new ZoneSystem(), query, layers, new Stubs.Interpreter());
+        var blind = new LegalActionsSubsystem(casting, layers).For(declaring, Me);
+
+        Assert.Empty(blind.EligibleAttackers);
+        Assert.Empty(blind.EligibleBlockers);
+        Assert.Equal([bear], Actions(declaring, Me).EligibleAttackers);
+    }
+
+    private static Views.LegalActions Actions(GameState state, PlayerId player, ICombatSystem? combat = null)
     {
         var layers = new LayerSystem();
         var query = new Query.Query(layers);
-        return new LegalActionsSubsystem(new Casting.CastingSystem(new ZoneSystem(), query, layers, new Stubs.Interpreter()), layers).For(state, player);
+        var casting = new Casting.CastingSystem(new ZoneSystem(), query, layers, new Stubs.Interpreter());
+        return new LegalActionsSubsystem(casting, layers, combat ?? new Combat.CombatSystem(layers, query)).For(state, player);
+    }
+
+    /// <summary>
+    /// A real combat system with one creature struck out. It exists to prove the view asks
+    /// rather than decides, so everything except the two questions is delegated untouched.
+    /// </summary>
+    private sealed class LegalActionsFakeCombat(ICombatSystem inner, ObjectId refused) : ICombatSystem
+    {
+        public string Name => "legal-actions fake combat";
+
+        public Outcome DeclareAttackers(GameState state, DeclareAttackers command) => inner.DeclareAttackers(state, command);
+
+        public Outcome DeclareBlockers(GameState state, DeclareBlockers command) => inner.DeclareBlockers(state, command);
+
+        public Outcome DealCombatDamage(GameState state, bool firstStrike) => inner.DealCombatDamage(state, firstStrike);
+
+        public Outcome EndCombat(GameState state) => inner.EndCombat(state);
+
+        public bool CouldAttack(GameState state, ObjectId creature) => creature != refused && inner.CouldAttack(state, creature);
+
+        public bool CouldBlock(GameState state, ObjectId creature) => creature != refused && inner.CouldBlock(state, creature);
     }
 
     private static (Game Game, GameState State) Start(string oracleId)

@@ -487,12 +487,75 @@ public sealed class StateBasedActionTests
         Assert.Empty(sba.Check(board.State).Events);
     }
 
-    private static CardDefinition Aura() =>
+    /// <summary>
+    /// CR 704.5m with 205.3d: an Aura that enchants one creature type is legally attached to a
+    /// changeling, which is every creature type (CR 702.72a) without carrying any of the names.
+    /// The Equipment beside it is the other half of 205.3d: being every creature type is not
+    /// being every subtype, so the changeling is a legal host for 704.5n and not an Aura itself.
+    /// </summary>
+    [Fact]
+    [RuleRef("704.5m")]
+    public void An_aura_enchanting_one_creature_type_stays_on_a_changeling()
+    {
+        var board = new Board();
+        var host = board.Put(Changeling());
+        board.Put(Aura(new ObjectFilter(Subtypes: ["Goblin"])), attachedTo: host);
+        board.Put(Board.Definition("sba blade", CardType.Artifact, subtypes: ["Equipment"]), attachedTo: host);
+
+        Assert.Empty(sba.Check(board.State).Events);
+    }
+
+    /// <summary>
+    /// CR 205.3m: "loses all creature types" takes exactly those away, so the changeling shares
+    /// no creature type with anything and its Aura's enchant ability is no longer satisfied —
+    /// 704.5m then buries the Aura like any other illegally attached one.
+    /// </summary>
+    [Fact]
+    [RuleRef("704.5m")]
+    public void An_aura_enchanting_one_creature_type_is_buried_when_its_changeling_loses_them_all()
+    {
+        var board = new Board();
+        var host = board.Put(ChangelingThatLostEveryCreatureType());
+        board.Put(Aura(new ObjectFilter(Subtypes: ["Goblin"])), attachedTo: host);
+
+        var outcome = sba.Check(board.State);
+
+        Assert.Equal("put into graveyard", Assert.Single(outcome.Events.OfType<ObjectLeftBy>()).Verb);
+        Assert.Equal(Zone.Graveyard, Zoned(outcome.State, "sba binding"));
+        // The host itself is untouched: it is still a creature, just one with no creature type.
+        Assert.Equal(Zone.Battlefield, outcome.State.Objects[host].Zone.Zone);
+    }
+
+    private static CardDefinition Aura(ObjectFilter? enchants = null) =>
         Board.Definition(
             "sba binding",
             CardType.Enchantment,
             subtypes: ["Aura"],
-            abilities: [new KeywordAbility(KeywordKind.Enchant, Of: new ObjectFilter(Types: CardType.Creature))]);
+            abilities: [new KeywordAbility(KeywordKind.Enchant, Of: enchants ?? new ObjectFilter(Types: CardType.Creature))]);
+
+    /// <summary>CR 702.72a: written as the vocabulary writes it, an <see cref="AddTypes"/> on itself.</summary>
+    private static CardDefinition Changeling() =>
+        Board.Definition(
+            "sba mimic",
+            CardType.Creature,
+            2,
+            2,
+            subtypes: ["Shapeshifter"],
+            abilities: [new StaticAbility(new AddTypes(AllCreatureTypes: true), To: new Self(), CharacteristicDefining: true)]);
+
+    /// <summary>The same creature under an effect that removes every creature type, CR 205.3m.</summary>
+    private static CardDefinition ChangelingThatLostEveryCreatureType() =>
+        Board.Definition(
+            "sba mimic",
+            CardType.Creature,
+            2,
+            2,
+            subtypes: ["Shapeshifter"],
+            abilities:
+            [
+                new StaticAbility(new AddTypes(AllCreatureTypes: true), To: new Self(), CharacteristicDefining: true),
+                new StaticAbility(new RemoveTypes(AllCreatureTypes: true), To: new Self()),
+            ]);
 
     private static Zone? Zoned(GameState state, string name) =>
         state.Objects.Values.FirstOrDefault(o => string.Equals(o.Face.Name, name, StringComparison.Ordinal))?.Zone.Zone;
