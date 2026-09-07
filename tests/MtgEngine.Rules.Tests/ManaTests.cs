@@ -44,11 +44,110 @@ public sealed class ManaTests
     [Fact]
     public void A_symbol_the_slice_cannot_pay_is_refused_naming_the_rule()
     {
-        // CR 107.4f: Phyrexian mana may be paid with life. Until that lands, the parser says so.
-        Assert.False(ManaSymbols.TryParse("{G/P}", out _, out var error));
-        Assert.Contains("Phyrexian", error!, StringComparison.Ordinal);
         Assert.False(ManaSymbols.TryParse("{Q}", out _, out _));
         Assert.False(ManaSymbols.TryParse("2G", out _, out _));
+        Assert.False(ManaSymbols.TryParse("{P}", out _, out _));
+    }
+
+    [Theory]
+    [InlineData("{G/P}", Color.Green)]
+    [InlineData("{G/U/P}", Color.Green | Color.Blue)]
+    [InlineData("{1}{W/P}", Color.White)]
+    public void A_phyrexian_symbol_parses_to_its_colors_and_counts_as_one(string printed, Color colors)
+    {
+        // CR 107.4f: the symbol names a colour and a 2-life alternative. CR 202.3d: it counts as
+        // one towards the mana value however it is paid; CR 202.2: its colours are the card's.
+        var parsed = ManaSymbols.Parse(printed);
+        var phyrexian = Assert.Single(parsed, s => s.IsPhyrexian);
+        Assert.Equal(colors, phyrexian.Colors);
+        Assert.Equal(printed == "{1}{W/P}" ? 2 : 1, ManaSymbols.ManaValue(parsed));
+    }
+
+    [Fact]
+    public void A_phyrexian_symbol_is_paid_with_its_color_when_the_pool_has_it()
+    {
+        // CR 107.4f: one mana of the colour is the first of the two ways to pay it, and the life
+        // the payer has is not touched when the mana is there.
+        var payment = ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/P}"), life: 20);
+        Assert.True(payment.Paid);
+        Assert.Equal(Pool(g: -1), payment.Delta);
+        Assert.Equal(0, payment.LifePaid);
+    }
+
+    [Fact]
+    public void A_phyrexian_symbol_is_paid_with_two_life_when_the_pool_cannot()
+    {
+        // CR 107.4f: 2 life is the other way, and a spell whose whole cost is Phyrexian is then
+        // cast for no mana at all.
+        var payment = ManaSymbols.Pay(ManaPool.Empty, ManaSymbols.Parse("{G/P}"), life: 20);
+        Assert.True(payment.Paid);
+        Assert.Equal(ManaPool.Empty, payment.Delta);
+        Assert.Equal(2, payment.LifePaid);
+    }
+
+    [Fact]
+    public void A_player_with_less_than_two_life_cannot_choose_the_life_half()
+    {
+        // CR 119.4: a player can pay life only if they have that much, so a payer at 1 with an
+        // empty pool has neither way to pay and the refusal names CR 107.4f rather than the pool.
+        var refused = ManaSymbols.Pay(ManaPool.Empty, ManaSymbols.Parse("{G/P}"), life: 1);
+        Assert.False(refused.Paid);
+        Assert.Equal("107.4f", refused.Refused?.Rule);
+
+        // The same payer with the colour in the pool pays it with mana and is not refused.
+        Assert.True(ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/P}"), life: 1).Paid);
+    }
+
+    [Fact]
+    public void A_hybrid_phyrexian_symbol_is_paid_from_either_of_its_colors()
+    {
+        // CR 107.4e with 107.4f: "{G/U/P}" is one green, one blue, or 2 life.
+        Assert.Equal(Pool(u: -1), ManaSymbols.Pay(Pool(u: 1), ManaSymbols.Parse("{G/U/P}"), life: 20).Delta);
+        Assert.Equal(Pool(g: -1), ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/U/P}"), life: 20).Delta);
+        Assert.Equal(2, ManaSymbols.Pay(Pool(r: 1), ManaSymbols.Parse("{G/U/P}"), life: 20).LifePaid);
+    }
+
+    [Fact]
+    public void An_announced_life_payment_keeps_the_mana_in_the_pool()
+    {
+        // CR 601.2h: the payer chooses per symbol, and the announcement travels with the command.
+        var announced = ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/P}"), life: 20, preferLife: true);
+        Assert.Equal(2, announced.LifePaid);
+        Assert.Equal(ManaPool.Empty, announced.Delta);
+
+        // CR 119.4: an announcement the payer cannot afford still takes the mana rather than
+        // refusing a cost the pool can pay.
+        var unaffordable = ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/P}"), life: 1, preferLife: true);
+        Assert.Equal(0, unaffordable.LifePaid);
+        Assert.Equal(Pool(g: -1), unaffordable.Delta);
+    }
+
+    [Fact]
+    public void A_phyrexian_symbol_gives_its_mana_back_when_the_generic_part_needs_it()
+    {
+        // CR 601.2h: partial payments are not allowed, so the payer must find a payment whenever
+        // one exists. One white mana can pay either the {W/P} or the {1}, and only the split that
+        // pays the {1} with it and the {W/P} with life pays the whole cost.
+        var payment = ManaSymbols.Pay(Pool(w: 1), ManaSymbols.Parse("{1}{W/P}"), life: 20);
+        Assert.True(payment.Paid);
+        Assert.Equal(Pool(w: -1), payment.Delta);
+        Assert.Equal(2, payment.LifePaid);
+
+        // With one life there is no such split, and the refusal says the pool is short.
+        var refused = ManaSymbols.Pay(Pool(w: 1), ManaSymbols.Parse("{1}{W/P}"), life: 1);
+        Assert.False(refused.Paid);
+        Assert.Equal("601.2h", refused.Refused?.Rule);
+    }
+
+    [Fact]
+    public void A_phyrexian_symbol_never_takes_the_mana_another_symbol_needs()
+    {
+        // CR 601.2h: a Phyrexian symbol has one more way to be paid than any other, so it is
+        // taken last — the {G/U} gets the green and the {G/P} pays life.
+        var payment = ManaSymbols.Pay(Pool(g: 1), ManaSymbols.Parse("{G/U}{G/P}"), life: 20);
+        Assert.True(payment.Paid);
+        Assert.Equal(Pool(g: -1), payment.Delta);
+        Assert.Equal(2, payment.LifePaid);
     }
 
     [Fact]

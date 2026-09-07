@@ -21,8 +21,18 @@ internal sealed record CostContext(
     IQuery Query,
     Color? PayOnlyWith = null,
     ChosenObjects? Chosen = null,
-    ObjectFilter? PayOnlyFrom = null)
+    ObjectFilter? PayOnlyFrom = null,
+    bool PayPhyrexianWithLife = false)
 {
+    /// <summary>
+    /// The word a command's <c>CostChoices</c> carries to announce CR 107.4f's other half: every
+    /// Phyrexian symbol in this cost is paid with 2 life rather than with mana. It is announced
+    /// with the command like every other cost choice (CR 601.2h), so no payment is suspended; a
+    /// player who does not say it pays the colour whenever the pool has it.
+    /// </summary>
+    [RuleRef("107.4f")]
+    public const string PayWithLife = "life";
+
     /// <summary>The context an <see cref="Amount"/> or an <see cref="ObjectFilter"/> on a cost is read in.</summary>
     public EffectContext Effect => CostPayment.Context(Source?.Id, Player, X);
 
@@ -95,7 +105,7 @@ internal static class CostPayment
         var spendable = context.PayOnlyFrom is { } from
             ? ManaSources.From(offer.Pool, held, id => state.Objects.ContainsKey(id) && context.Query.Matches(state, from, id, context.Effect))
             : offer.Pool;
-        return Spend(state, context.Player, spendable, symbols, context.X, reason, context.PayOnlyWith, offer.Offered, held, context.PayOnlyFrom is not null);
+        return Spend(state, context.Player, spendable, symbols, context.X, reason, context.PayOnlyWith, offer.Offered, held, context.PayOnlyFrom is not null, context.PayPhyrexianWithLife);
     }
 
     private static PaidMana Spend(
@@ -108,9 +118,17 @@ internal static class CostPayment
         Color? only,
         ImmutableList<RestrictedBlock>? offered = null,
         ImmutableList<ManaProvenance>? held = null,
-        bool onlyFromSource = false)
+        bool onlyFromSource = false,
+        bool phyrexianWithLife = false)
     {
-        var payment = ManaSymbols.Pay(only is null ? pool : ManaSymbols.Only(pool, only.Value), symbols, x);
+        // CR 107.4f with 119.4: the life half of a Phyrexian symbol is capped by the life the
+        // payer actually has, so the payer's total is what the plan is allowed to spend.
+        var payment = ManaSymbols.Pay(
+            only is null ? pool : ManaSymbols.Only(pool, only.Value),
+            symbols,
+            x,
+            state.Player(player).Life,
+            phyrexianWithLife);
         if (payment.Refused is { } refusal)
         {
             // CR 106.6b: the rider is why the payment failed, so the refusal names that rule
@@ -122,8 +140,15 @@ internal static class CostPayment
                 : new RefusedException("That cost must be paid with mana this ability accepts.", "106.6b");
         }
 
+        // CR 107.4f: the life that paid the Phyrexian symbols leaves the payer as part of the same
+        // payment, so it is one more event on the outcome and no mana is recorded as having paid.
+        var life = payment.LifePaid > 0 ? new LifeChanged(player, -payment.LifePaid, reason) : null;
         if (payment.Delta.Total == 0)
-            return new PaidMana(Outcome.Unchanged(state), ManaPool.Empty);
+        {
+            return life is null
+                ? new PaidMana(Outcome.Unchanged(state), ManaPool.Empty)
+                : new PaidMana(new Outcome(life.Apply(state), [life]), ManaPool.Empty);
+        }
 
         var spent = new ManaPool(
             -payment.Delta.White,
@@ -140,7 +165,10 @@ internal static class CostPayment
         // CR 106.6: the spend takes the provenance blocks along with the totals and reports them,
         // so a "when that mana is spent" trigger can read which mana actually paid.
         var changed = new ManaChanged(player, delta with { Provenance = ManaSources.Spend(held ?? [], spent) }, reason);
-        return new PaidMana(new Outcome(changed.Apply(state), [changed]), spent);
+        var after = changed.Apply(state);
+        if (life is null)
+            return new PaidMana(new Outcome(after, [changed]), spent);
+        return new PaidMana(new Outcome(life.Apply(after), [changed, life]), spent);
     }
 
     /// <summary>

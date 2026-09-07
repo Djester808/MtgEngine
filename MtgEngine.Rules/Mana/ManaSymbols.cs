@@ -28,6 +28,14 @@ public sealed record ManaSymbol
     /// <summary>"{S}": one mana of any type from a snow source, CR 107.4h. Snow sources are not tracked in this slice.</summary>
     public bool IsSnow { get; init; }
 
+    /// <summary>
+    /// "{G/P}": a Phyrexian symbol, CR 107.4f — one mana of the colours in <see cref="Colors"/>,
+    /// or 2 life. It counts as one towards the mana value (CR 202.3d) and its colours are the
+    /// card's (CR 202.2), which is why the flag rides beside <see cref="Colors"/> rather than
+    /// replacing them.
+    /// </summary>
+    public bool IsPhyrexian { get; init; }
+
     /// <summary>The generic half of a monocoloured hybrid symbol, CR 107.4e: "{2/B}" is 2.</summary>
     public int HybridGeneric { get; init; }
 
@@ -35,20 +43,15 @@ public sealed record ManaSymbol
     public bool IsAnyType => Colors == Color.Colorless && !AllowsColorless && HybridGeneric == 0;
 }
 
-/// <summary>What paying a mana cost did: the delta for <see cref="ManaChanged"/>, or why it could not be paid.</summary>
-public sealed record ManaPayment(ManaPool Delta, Refusal? Refused)
-{
-    public bool Paid => Refused is null;
-}
-
 /// <summary>
 /// Printed mana, parsed and paid. The parser reads a cost exactly as it is printed; the payer
-/// spends it out of a <see cref="ManaPool"/> — coloured symbols from their colour, generic from
-/// anything, hybrid either way, X from the announcement — and refuses naming CR 601.2h when
-/// the pool cannot cover it, because partial payments are not allowed.
+/// (<see cref="Pay"/>, in the sibling file) spends it out of a <see cref="ManaPool"/> — coloured
+/// symbols from their colour, generic from anything, hybrid either way, Phyrexian from the colour
+/// or from 2 life, X from the announcement — and refuses naming CR 601.2h when nothing the player
+/// has can cover it, because partial payments are not allowed.
 /// </summary>
 [RuleRef("106")]
-public static class ManaSymbols
+public static partial class ManaSymbols
 {
     /// <summary>Pool slots in WUBRG order, then colorless, CR 106.1.</summary>
     private const int Colorless = 5;
@@ -100,7 +103,12 @@ public static class ManaSymbols
         return true;
     }
 
-    /// <summary>The mana value of a parsed cost, CR 202.3: generic plus one per other symbol, with X counted as announced.</summary>
+    /// <summary>
+    /// The mana value of a parsed cost, CR 202.3: generic plus one per other symbol, with X
+    /// counted as announced. CR 202.3d: a Phyrexian symbol counts as one however it is paid, so
+    /// it is read before the shape of the rest of the symbol is.
+    /// </summary>
+    [RuleRef("202.3d")]
     public static int ManaValue(IReadOnlyList<ManaSymbol> cost, int x = 0)
     {
         ArgumentNullException.ThrowIfNull(cost);
@@ -109,6 +117,8 @@ public static class ManaSymbols
         {
             if (symbol.IsX)
                 total += x;
+            else if (symbol.IsPhyrexian)
+                total++;                        // CR 202.3d: {G/P} counts as 1, paid either way.
             else if (symbol.HybridGeneric > 0)
                 total += symbol.HybridGeneric;  // CR 202.3f: {2/B} counts as 2.
             else if (symbol.IsSnow)
@@ -120,50 +130,6 @@ public static class ManaSymbols
         }
 
         return total;
-    }
-
-    /// <summary>
-    /// Spend a cost out of a pool, CR 601.2h. The order is forced: symbols with the fewest ways
-    /// to pay them go first, so a pool that can cover the cost always does. Generic mana spends
-    /// colorless first and then WUBRG, which never makes a later coloured symbol unpayable
-    /// because the coloured symbols were already paid.
-    /// </summary>
-    [RuleRef("601.2h")]
-    public static ManaPayment Pay(ManaPool pool, IReadOnlyList<ManaSymbol> cost, int? x = null)
-    {
-        ArgumentNullException.ThrowIfNull(pool);
-        ArgumentNullException.ThrowIfNull(cost);
-        if (cost.Any(s => s.IsX) && x is null)
-            return Refuse("X was not announced.", "601.2b");
-
-        int[] available = [pool.White, pool.Blue, pool.Black, pool.Red, pool.Green, pool.Colorless];
-        var spent = new int[6];
-        var generic = 0;
-
-        // Restrictive symbols first: {C} can only be colorless, a single colour only that colour,
-        // a hybrid either of two, CR 107.4e. Then what any type can pay.
-        foreach (var symbol in cost.Where(s => !s.IsAnyType).OrderBy(Options))
-        {
-            if (symbol.HybridGeneric > 0)
-            {
-                // "{2/B}": one mana of the colour, or the generic half, CR 107.4e.
-                if (!TakeOne(available, spent, Slots(symbol)))
-                    generic += symbol.HybridGeneric;
-                continue;
-            }
-
-            if (!TakeOne(available, spent, Slots(symbol)))
-                return Refuse($"The pool has no mana that can pay {Print(symbol)}.", "601.2h");
-        }
-
-        generic += cost.Where(s => s.IsAnyType).Sum(s => s.IsX ? x!.Value : s.IsSnow ? 1 : s.Generic);
-        for (var paid = 0; paid < generic; paid++)
-        {
-            if (!TakeOne(available, spent, [Colorless, 0, 1, 2, 3, 4]))
-                return Refuse($"The pool is {generic - paid} mana short of the generic cost.", "601.2h");
-        }
-
-        return new ManaPayment(new ManaPool(-spent[0], -spent[1], -spent[2], -spent[3], -spent[4], -spent[Colorless]), null);
     }
 
     /// <summary>
@@ -307,13 +273,6 @@ public static class ManaSymbols
             return false;
         }
 
-        if (body.Contains('P', StringComparison.OrdinalIgnoreCase))
-        {
-            // CR 107.4f: a Phyrexian symbol may be paid with 2 life. Not in this slice.
-            error = $"Phyrexian mana {{{body}}} is not supported yet.";
-            return false;
-        }
-
         if (body.Contains('/', StringComparison.Ordinal))
             return TryHybrid(body, out symbol, out error);
 
@@ -351,18 +310,28 @@ public static class ManaSymbols
         return false;
     }
 
+    /// <summary>
+    /// A symbol written as halves divided by slashes: a hybrid (CR 107.4e), a monocoloured hybrid
+    /// ("{2/B}"), or a Phyrexian symbol (CR 107.4f), whose "P" half is the 2-life alternative and
+    /// so joins a symbol that already names one colour ("{G/P}") or two ("{G/U/P}").
+    /// </summary>
+    [RuleRef("107.4e")]
     private static bool TryHybrid(string body, out ManaSymbol? symbol, out string? error)
     {
         symbol = null;
         error = null;
-        var halves = body.Split('/');
-        if (halves.Length != 2)
+        var parts = body.Split('/');
+        var phyrexian = parts.Any(p => p.Length == 1 && char.ToUpperInvariant(p[0]) == 'P');
+        string[] halves = phyrexian
+            ? [.. parts.Where(p => p.Length != 1 || char.ToUpperInvariant(p[0]) != 'P')]
+            : parts;
+        if (halves.Length != 2 && !(phyrexian && halves.Length == 1))
         {
             error = $"Unknown hybrid symbol {{{body}}}.";
             return false;
         }
 
-        var built = new ManaSymbol();
+        var built = new ManaSymbol { IsPhyrexian = phyrexian };
         foreach (var half in halves)
         {
             if (half.All(char.IsAsciiDigit) && half.Length > 0)
@@ -380,37 +349,6 @@ public static class ManaSymbols
 
         symbol = built;
         return true;
-    }
-
-    /// <summary>How many pool slots could pay this symbol; the payer takes the tightest first.</summary>
-    private static int Options(ManaSymbol symbol) => Slots(symbol).Count;
-
-    private static List<int> Slots(ManaSymbol symbol)
-    {
-        var slots = new List<int>();
-        for (var i = 0; i < Wubrg.Length; i++)
-        {
-            if (symbol.Colors.HasFlag(Wubrg[i]) && symbol.Colors != Color.Colorless)
-                slots.Add(i);
-        }
-
-        if (symbol.AllowsColorless)
-            slots.Add(Colorless);
-        return slots;
-    }
-
-    private static bool TakeOne(int[] available, int[] spent, IReadOnlyList<int> slots)
-    {
-        foreach (var slot in slots)
-        {
-            if (available[slot] <= 0)
-                continue;
-            available[slot]--;
-            spent[slot]++;
-            return true;
-        }
-
-        return false;
     }
 
     private static int? SingleColor(Color color)
@@ -463,8 +401,8 @@ public static class ManaSymbols
             parts.Add("C");
         if (symbol.IsSnow)
             parts.Add("S");
+        if (symbol.IsPhyrexian)
+            parts.Add("P");
         return "{" + string.Join("/", parts) + "}";
     }
-
-    private static ManaPayment Refuse(string reason, string rule) => new(ManaPool.Empty, new Refusal(reason, rule));
 }

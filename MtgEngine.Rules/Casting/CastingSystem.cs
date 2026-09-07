@@ -90,7 +90,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         // CR 106.6b: both printed riders on which mana may be spent travel with the payment.
         var paid = CostPayment.Pay(
             state,
-            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom),
+            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom, PaysWithLife(command.CostChoices)),
             ability.Costs);
         // CR 106.6a: what the activation cost was spent on is the ability's source, so a
         // "when that mana is spent" trigger can tell this payment from any other.
@@ -385,6 +385,17 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     [RuleRef("608.2d")]
     private static ImmutableDictionary<string, string>? Carried(ImmutableDictionary<string, string>? first, ImmutableDictionary<string, string>? second) =>
         first is null ? second : second is null ? first : first.SetItems(second);
+
+    /// <summary>
+    /// CR 107.4f with 601.2h: whether the command announced that this cost's Phyrexian symbols are
+    /// paid with 2 life each. The announcement travels in <c>CostChoices</c>, the list a command
+    /// already carries for every other choice a cost needs, so nothing new has to reach the seam;
+    /// a command that says nothing pays the colour whenever the pool has it, which is a legal
+    /// choice and never a dropped one.
+    /// </summary>
+    [RuleRef("107.4f")]
+    private static bool PaysWithLife(ImmutableList<string>? choices) =>
+        choices?.Any(c => string.Equals(c, CostContext.PayWithLife, StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>A zone change makes a new object, CR 400.7; the move's event carries the new id.</summary>
     private static ObjectId NewIdOf(IEnumerable<GameEvent> events, ObjectId from) =>
