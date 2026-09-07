@@ -134,6 +134,15 @@ internal static class SmokeFillers
         ArgumentNullException.ThrowIfNull(filter);
         if (filter.In is not Zone.Graveyard || !Plain(filter with { In = null, OwnedBy = null }))
             return null;
+
+        // CR 110.4c: a permanent card in a graveyard is a card with a permanent card type, so a
+        // land card there answers "permanent" and the board could stock one. The engine's query
+        // reads the field as being on the battlefield instead (CR 110.1), so nothing in a graveyard
+        // matches and the spell has no legal target — a scenario staged against it reports the
+        // engine's reading as the card failing. No body until it reads CR 110.4c
+        // (seam-requests/P20.md § 1).
+        if (filter.Permanent is not null)
+            return null;
         return Cards().FirstOrDefault(name => Matches(filter, name) && CostsRight(filter.ManaValue, name, x));
     }
 

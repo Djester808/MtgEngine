@@ -300,14 +300,71 @@ internal sealed class SmokeBoard(string card)
     [RuleRef("400.1")]
     internal void Arrives(int n) => _casterArrivals += n;
 
-    /// <summary>CR 601: a spell on the stack for a counterspell to be aimed at, cast by the other player.</summary>
+    /// <summary>
+    /// CR 601: a spell on the stack for a counterspell to be aimed at, cast by the other player.
+    /// </summary>
+    /// <param name="withNothingLeftToPay">
+    /// CR 118.6: the opponent's pool is stocked with exactly what the filler spell costs, so it is
+    /// empty by the time an "unless its controller pays" asks — the payment cannot be made and the
+    /// scenario can say what happens when it is not. Without it the opponent keeps the deep pool
+    /// and would simply pay, which is a different half of the card.
+    /// </param>
     [RuleRef("601")]
-    internal string SpellOnTheStack()
+    internal string SpellOnTheStack(bool withNothingLeftToPay = false)
     {
         _opponentActs = true;
+        _opponentPaysNothing = withNothingLeftToPay;
         _before.Add(new CastStep(SmokeScenario.Opponent, ScenarioFiller.Spell));
         _targets.Add(ScenarioFiller.Spell);
         return ScenarioFiller.Spell;
+    }
+
+    /// <summary>Whether the opponent's pool holds only the filler spell's own cost (CR 118.6).</summary>
+    private bool _opponentPaysNothing;
+
+    /// <summary>
+    /// CR 602.2a: the pool the opponent casts the filler spell out of — the deep pool, or exactly
+    /// the filler's printed cost when the scenario needs them unable to pay for anything else.
+    /// </summary>
+    [RuleRef("602.2a")]
+    private string? OpponentPool() => (_opponentActs, _opponentPaysNothing) switch
+    {
+        (false, _) => null,
+        (true, false) => SmokeScenario.DeepPool,
+        (true, true) => Plain(ScenarioFiller.For(ScenarioFiller.Spell)?.Faces[0].ManaCost) ?? SmokeScenario.DeepPool,
+    };
+
+    /// <summary>
+    /// CR 110.6 with CR 400.7: the zone the source moved itself to, when its own effect took it off
+    /// the battlefield. A card in a library, a hand, a graveyard or exile is neither tapped nor
+    /// untapped, so nothing asserts a tap of it — the zone is the whole of what the play shows.
+    /// </summary>
+    [RuleRef("110.6")]
+    internal Zone? MovedItselfTo { get; private set; }
+
+    /// <summary>The source leaves the battlefield for the zone its own effect named, and the counts follow it.</summary>
+    [RuleRef("400.7")]
+    internal void MovesItselfTo(Zone destination)
+    {
+        MovedItselfTo = destination;
+        Expect(new InZone(card, destination, SmokeScenario.Caster));
+
+        // One fewer permanent than the setup put there, which is what says it actually left.
+        _casterArrivals--;
+        switch (destination)
+        {
+            case Zone.Library:
+                Caster(library: 1);
+                break;
+            case Zone.Hand:
+                Caster(hand: 1);
+                break;
+            case Zone.Graveyard:
+                Caster(graveyard: 1);
+                break;
+            default:
+                break;
+        }
     }
 
     /// <summary>CR 111.1: tokens arrive on the caster's battlefield, beside whatever the setup put there.</summary>
@@ -368,7 +425,7 @@ internal sealed class SmokeBoard(string card)
                         Battlefield: _opponentBattlefield,
                         Hand: _opponentActs ? [new CardRef(ScenarioFiller.Spell), .. Filler(HandSize)] : Filler(HandSize),
                         Library: Filler(LibrarySize),
-                        ManaPool: _opponentActs ? SmokeScenario.DeepPool : null),
+                        ManaPool: OpponentPool()),
                 ],
                 SmokeScenario.Caster,
                 AutoAnswer: true),

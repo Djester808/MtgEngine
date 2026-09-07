@@ -69,8 +69,11 @@ public static class SmokeActivation
             board.Expect(new ManaPoolIs(SmokeScenario.Caster, colors));
         }
 
-        var taps = ability.Costs.Any(c => c is TapSelf);
-        if (taps)
+        // CR 110.6: only an object on the battlefield can be tapped or untapped, so an ability whose
+        // own effect takes its source away leaves nothing there to be tapped — the zone the source
+        // went to is what that scenario says instead (<see cref="SmokeScenario"/>). Asserting the
+        // tap of a departed source is what failed Sensei's Divining Top's activation in wave 18.
+        if (ability.Costs.Any(c => c is TapSelf) && !MovesItself(ability.Do))
             board.Expect(new TappedIs(file.Name, true));
 
         var step = new ActivateStep(
@@ -174,6 +177,15 @@ public static class SmokeActivation
         var chosen = string.Concat(additions.Where(Choosable).Select(_ => "W"));
         return chosen.Length == 0 ? null : chosen;
     }
+
+    /// <summary>
+    /// CR 400.7: whether the ability's own effect takes its source off the battlefield — a move, a
+    /// shuffle of itself into a library, or an exile of itself. A departed source is neither tapped
+    /// nor untapped (CR 110.6), so no scenario asserts a tap of one.
+    /// </summary>
+    [RuleRef("400.7")]
+    private static bool MovesItself(Effect effect) =>
+        Parts(effect).Any(part => part is Move { What: Self } or Shuffle { IntoLibrary: Self } or Exile { What: Self });
 
     /// <summary>A sequence is its parts; an activation asserts only what always happens.</summary>
     private static IEnumerable<Effect> Parts(Effect effect) =>
