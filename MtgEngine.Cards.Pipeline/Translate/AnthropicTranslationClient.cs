@@ -42,7 +42,10 @@ public sealed class AnthropicTranslationClient(AnthropicClient client) : ITransl
     {
         var status = await client.Messages.Batches.Retrieve(batchId, cancellationToken: ct);
         var counts = status.RequestCounts;
-        var ended = string.Equals(status.ProcessingStatus.ToString(), "ended", StringComparison.OrdinalIgnoreCase);
+        // ProcessingStatus is the SDK's ApiEnum wrapper; its ToString is not the wire value, and
+        // comparing it to "ended" kept two finished batches "in_progress" for hours. Raw() is the
+        // wire string and survives a status the SDK's enum does not know.
+        var ended = string.Equals(status.ProcessingStatus.Raw(), "ended", StringComparison.OrdinalIgnoreCase);
         return new BatchStatus(
             ended,
             System.Convert.ToInt64(counts.Succeeded, CultureInfo.InvariantCulture),

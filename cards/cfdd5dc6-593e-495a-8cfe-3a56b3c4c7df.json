@@ -1,0 +1,357 @@
+{
+  "oracleId": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+  "name": "Temple of the False God",
+  "oracleHash": "sha256:d88b5bff23f3caffa63c8a5d62f2a6a6c2800cc1b0dff3c036076be9c6607118",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+    "name": "Temple of the False God",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Temple of the False God",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "in": "Battlefield",
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 5
+                }
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+          }
+        ],
+        "oracleText": "{T}: Add {C}{C}. Activate only if you control five or more lands.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "in": "Battlefield",
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 5
+                }
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-269e4b99b4fe",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+        "name": "Temple of the False God",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Temple of the False God",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+              }
+            ],
+            "oracleText": "{T}: Add {C}{C}. Activate only if you control five or more lands.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "in": "Battlefield",
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+        "name": "Temple of the False God",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Temple of the False God",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+              }
+            ],
+            "oracleText": "{T}: Add {C}{C}. Activate only if you control five or more lands.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}{C}. Activate only if you control five or more lands."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

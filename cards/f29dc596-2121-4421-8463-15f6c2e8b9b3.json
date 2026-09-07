@@ -1,0 +1,164 @@
+{
+  "oracleId": "f29dc596-2121-4421-8463-15f6c2e8b9b3",
+  "name": "Rogue\u0027s Passage",
+  "oracleHash": "sha256:676c36326c266ddbf34fe189f965f8a33e2f8fdfa1b52cae5f5d4285d946ac9d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f29dc596-2121-4421-8463-15f6c2e8b9b3",
+    "name": "Rogue\u0027s Passage",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Rogue\u0027s Passage",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "CantBeBlocked",
+                "exceptByTwoOrMore": false
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}, {T}: Target creature can\u0027t be blocked this turn."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{4}, {T}: Target creature can\u0027t be blocked this turn.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{4}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "CantBeBlocked",
+                "exceptByTwoOrMore": false
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{4}, {T}: Target creature can\u0027t be blocked this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-269e4b99b4fe",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

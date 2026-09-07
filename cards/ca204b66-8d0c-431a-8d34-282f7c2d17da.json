@@ -1,0 +1,116 @@
+{
+  "oracleId": "ca204b66-8d0c-431a-8d34-282f7c2d17da",
+  "name": "Lightning Greaves",
+  "oracleHash": "sha256:badf1b1153288d704f59239ed8e9ed3ef48101cdac50c79a93aedbd8a14a6e8a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ca204b66-8d0c-431a-8d34-282f7c2d17da",
+    "name": "Lightning Greaves",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Lightning Greaves",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Equipment"
+          ],
+          "subtypeList": [
+            "Equipment"
+          ]
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Haste"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has haste and shroud."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Shroud"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has haste and shroud."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{0}",
+            "text": "Equip {0}"
+          }
+        ],
+        "oracleText": "Equipped creature has haste and shroud. (It can\u0027t be the target of spells or abilities.)\nEquip {0}",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Haste"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has haste and shroud."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Shroud"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has haste and shroud."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{0}",
+            "text": "Equip {0}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-269e4b99b4fe",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Equip"
+  ],
+  "keywordList": [
+    "Equip"
+  ],
+  "scenarioList": []
+}
