@@ -128,14 +128,13 @@ public sealed class ScenarioCostTests
 
     [Fact]
     [RuleRef("303.4f")]
-    public void An_aura_cast_at_a_creature_is_not_attached_yet_and_the_message_says_where_it_went()
+    public void An_aura_cast_at_a_creature_resolves_attached_to_it()
     {
-        // CR 303.4f is not implemented: an Aura cast at a legal object resolves attached to
-        // nothing and CR 704.5m buries it. This test documents the position the engine is in
-        // rather than the one it should be in, and turns over when the attachment lands.
+        // CR 303.4f: an Aura cast at a legal object enters attached to it, and the expectation
+        // reads the attachment back from the permanent the resolution made.
         var scenario = new Scenario(
-            "costs-unattached",
-            "an Aura cast at a creature is not attached to it",
+            "costs-attached",
+            "an Aura cast at a creature resolves attached to it",
             new GeneratedSource("test"),
             new ScenarioSetup(
                 [
@@ -151,8 +150,8 @@ public sealed class ScenarioCostTests
 
         Assert.Null(result.Error);
         var attachment = Assert.Single(result.Results);
-        Assert.False(attachment.Passed);
-        Assert.Equal("not attached, in Graveyard", attachment.Actual);
+        Assert.True(attachment.Passed, attachment.Actual);
+        Assert.StartsWith("attached to", attachment.Actual, StringComparison.Ordinal);
     }
 
     private static Scenario Cast(string card, CardRef body, IReadOnlyList<string>? costObjects, Expectation[] expect, bool mine = true) =>
