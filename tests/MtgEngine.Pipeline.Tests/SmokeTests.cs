@@ -1,5 +1,3 @@
-using MtgEngine.Cards.Pipeline;
-
 namespace MtgEngine.Cards.Pipeline.Tests;
 
 /// <summary>The test project exists before the stages do, so each stage's builder adds tests here rather than creating the project.</summary>

@@ -51,16 +51,22 @@ git worktree list --porcelain | awk '/^worktree /{wt=$2} /^branch /{print wt" "$
       BOUNCED=$((BOUNCED + 1))
       continue
     fi
-    if sh tools/gate.sh; then
+    # The gate's output goes to a log per merge so a red run can be read afterwards; a stopped
+    # queue otherwise takes the reason with it. One retry, because a parallel worktree's build
+    # can abort this checkout's test host, and that is contention, not a regression.
+    mkdir -p .agents/merge-logs
+    LOG=".agents/merge-logs/$ID-$(date -u +%Y%m%dT%H%M%SZ).log"
+    if sh tools/gate.sh >"$LOG" 2>&1 || { echo "   gate red once; re-running alone" >&2; sh tools/gate.sh >>"$LOG" 2>&1; }; then
       node tools/ledger.js set "$ID" merged "$(git rev-parse --short HEAD)" >/dev/null
       rm -f "$MARKER"
       MERGED=$((MERGED + 1))
-      echo "   merged as $(git rev-parse --short HEAD)"
+      echo "   merged as $(git rev-parse --short HEAD)  (gate log $LOG)"
     else
       git reset --hard HEAD~1 >/dev/null
-      node tools/ledger.js set "$ID" blocked "gate red after merge; see the gate output above" >/dev/null
+      node tools/ledger.js set "$ID" blocked "gate red twice after merge; see $LOG" >/dev/null
       BOUNCED=$((BOUNCED + 1))
-      echo "   gate red; reset to $(git rev-parse --short HEAD); bounced" >&2
+      echo "   gate red twice; reset to $(git rev-parse --short HEAD); bounced (see $LOG)" >&2
+      grep -aE 'error|Failed!|FAIL|over 500' "$LOG" | head -12 >&2
     fi
   done
 done
