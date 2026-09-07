@@ -76,6 +76,8 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
             CounterRemoved removed => Counter(state, removed.From, removed.Counter, null, happened, ctx, window, added: false),
             Cards.LandPlayed land => Played(state, land, happened, ctx),
             TokenCreated token => Token(state, token, happened, ctx),
+            TappedForMana forMana => TappedFor(state, forMana, happened, ctx),
+            ManaSpent spent => SpentMana(spent, happened),
             Sacrifices sacrifices => LeftBy(state, "sacrificed", sacrifices.Who, sacrifices.What, happened, ctx),
             Discards discards => LeftBy(state, "discarded", discards.Who, discards.What, happened, ctx),
             _ => [],
@@ -337,6 +339,107 @@ internal sealed class TriggerMatching(IQuery query, ICharacteristics layers)
         if (trigger.What is { } what && !_query.Matches(state, what, id, ctx))
             return [];
         return [TriggerSubject.Of(id, created.Object.InitialController)];
+    }
+
+    /// <summary>
+    /// CR 106.12a: "an ability that triggers whenever a permanent 'is tapped for mana' … triggers
+    /// whenever such a mana ability resolves and produces mana". So the event is the mana arriving
+    /// and never the permanent becoming tapped — a permanent tapped by a <see cref="BecomesTapped"/>
+    /// event, or tapped for a cost that produces nothing, triggers nothing here. CR 106.12 is what
+    /// "tap for mana" means: activating a mana ability whose cost includes {T}; the pool's
+    /// <see cref="Mana.ManaProvenance"/> block is the only handle on the permanent that produced,
+    /// because mana is not an object (CR 106.1).
+    ///
+    /// One firing per producing permanent the filter describes, not one per mana: the rule speaks
+    /// of the ability resolving, and an ability that made two green mana resolved once. The
+    /// triggering object is that permanent, so "add an additional one mana of that color" has
+    /// something to point at.
+    /// </summary>
+    [RuleRef("106.12a")]
+    private ImmutableList<TriggerSubject> TappedFor(GameState state, TappedForMana trigger, Ev.GameEvent happened, EffectContext ctx)
+    {
+        if (happened is not Ev.ManaChanged changed || !Wanted(trigger.OfColor, trigger.OfChosenColorKey, ctx, out var wanted))
+            return [];
+        var subjects = ImmutableList.CreateBuilder<TriggerSubject>();
+        var seen = new HashSet<ObjectId>();
+        foreach (var block in changed.Delta.Provenance.OrderBy(b => b.Source.Value))
+        {
+            // A negative block is mana leaving the pool, CR 106.6a's spend, not a production.
+            if (block.Amount <= 0)
+                continue;
+            if (wanted is { } color && block.Color != color)
+                continue;
+            if (!seen.Add(block.Source) || !_query.Matches(state, trigger.What, block.Source, ctx))
+                continue;
+            subjects.Add(TriggerSubject.Of(block.Source, Controller(state, block.Source)));
+        }
+
+        return subjects.ToImmutable();
+    }
+
+    /// <summary>
+    /// The colour the trigger asks for, CR 106.12a: the printed one, or the one the same card
+    /// stored under a <c>ChooseValue</c> key, which is how <c>IsChosenColor</c> and
+    /// <c>Devotion.ChosenColorKey</c> read a chosen colour. The answer is false when a key names a
+    /// colour nothing has been stored for: a card that has not chosen has no "chosen color" to be
+    /// tapped for, and firing for every colour would be a different card. Both fields set is a lint
+    /// error (L015), so the printed one wins rather than being read as an "and" no card asked for.
+    /// <see cref="Color.Colorless"/> is zero in the flag enum, so the colour is compared by equality
+    /// and never by a mask — a block is one colour, which is how the pool stores it (CR 106.1b).
+    /// </summary>
+    [RuleRef("106.12a")]
+    private static bool Wanted(Color? printed, string? chosenKey, EffectContext ctx, out Color? wanted)
+    {
+        if (printed is { } color)
+        {
+            wanted = color;
+            return true;
+        }
+
+        if (chosenKey is not { } key)
+        {
+            wanted = null;
+            return true;
+        }
+
+        if (ctx.Chosen.TryGetValue(key, out var chosen) && Mana.ManaSymbols.ColorFromChoice(chosen) is { } named)
+        {
+            wanted = named;
+            return true;
+        }
+
+        wanted = null;
+        return false;
+    }
+
+    /// <summary>
+    /// CR 106.6: "when that mana is spent" — a delayed ability (CR 603.7a) created by the same
+    /// instruction that produced the mana, watching the key its <c>AddMana</c> gave it. The channel
+    /// is the pool's provenance again: a spend folds a block of the same key with a negative
+    /// amount, so the spend is the <see cref="Ev.ManaChanged"/> that carries it. The subject is the
+    /// permanent that produced the mana, because mana is not an object and there is nothing else to
+    /// point at.
+    ///
+    /// <c>OnSpell</c> is not answered: <see cref="Ev.ManaChanged"/> names no spell, only a free-text
+    /// reason, so an ability that restricts the spend to a kind of spell is not fired rather than
+    /// fired wrongly. seam-requests/E6c.md asks for the spell on the spend event.
+    /// </summary>
+    [RuleRef("106.6")]
+    private static ImmutableList<TriggerSubject> SpentMana(ManaSpent trigger, Ev.GameEvent happened)
+    {
+        if (happened is not Ev.ManaChanged changed || trigger.OnSpell is not null)
+            return [];
+        var subjects = ImmutableList.CreateBuilder<TriggerSubject>();
+        var seen = new HashSet<ObjectId>();
+        foreach (var block in changed.Delta.Provenance.OrderBy(b => b.Source.Value))
+        {
+            if (block.Amount >= 0 || !string.Equals(block.Key, trigger.ManaKey, StringComparison.Ordinal))
+                continue;
+            if (seen.Add(block.Source))
+                subjects.Add(TriggerSubject.Of(block.Source, changed.Player));
+        }
+
+        return subjects.ToImmutable();
     }
 
     /// <summary>Sacrificed and discarded are named on the event that says why the object left, CR 701.17 and 701.9.</summary>

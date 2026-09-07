@@ -1,5 +1,7 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Triggers;
 
@@ -310,6 +312,137 @@ public sealed class TriggeredAbilityTests
 
         Assert.Single(outcome.Events.OfType<TriggerFired>());
         Assert.Empty(outcome.State.DelayedTriggers);
+    }
+
+    /// <summary>A land you control, which is what "whenever a land you control is tapped for mana" describes.</summary>
+    private static ObjectFilter LandYouControl { get; } = new(Types: CardType.Land, ControlledBy: new You());
+
+    /// <summary>
+    /// CR 106.12a: a mana ability resolved and produced. The event is the <see cref="ManaChanged"/>
+    /// whose <see cref="ManaProvenance"/> block names the permanent that produced it (CR 106.6) —
+    /// the mana subsystem writes those blocks; a test builds one by hand.
+    /// </summary>
+    private static ManaChanged TappedFor(ObjectId source, Color color, string? key = null) =>
+        new(
+            new PlayerId(0),
+            ManaSymbols.OfColor(color) with { Provenance = [new ManaProvenance(color, 1, source, key)] },
+            "mana ability");
+
+    /// <summary>The same block leaving the pool, CR 106.6a: a spend is a negative amount on the key.</summary>
+    private static ManaChanged Spend(ObjectId source, Color color, string key)
+    {
+        var made = ManaSymbols.OfColor(color);
+        var delta = new ManaPool(-made.White, -made.Blue, -made.Black, -made.Red, -made.Green, -made.Colorless)
+        {
+            Provenance = [new ManaProvenance(color, -1, source, key)],
+        };
+        return new ManaChanged(new PlayerId(0), delta, "paid");
+    }
+
+    [Fact]
+    [RuleRef("106.12a")]
+    public void ALandTappedForManaFiresAndACreaturesManaDoesNot()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Put(TriggeredAbilityBoard.Definition(
+            "watcher",
+            CardType.Enchantment,
+            [Ability(new TappedForMana(LandYouControl))]));
+        var land = board.Put(TriggeredAbilityBoard.Definition("bog", CardType.Land));
+        var elf = board.Put(TriggeredAbilityBoard.Creature("elf"));
+
+        var fromLand = board.Collect(TappedFor(board.Id(land), Color.Green));
+        var fromCreature = board.Collect(TappedFor(board.Id(elf), Color.Green));
+
+        var fired = Assert.Single(fromLand.Events.OfType<TriggerFired>());
+        Assert.Equal(board.Id(land), Assert.Single(fired.Subjects));
+        Assert.Empty(fromCreature.Events.OfType<TriggerFired>());
+    }
+
+    [Fact]
+    [RuleRef("106.12a")]
+    public void BecomingTappedWithoutProducingManaFiresNothing()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Put(TriggeredAbilityBoard.Definition(
+            "watcher",
+            CardType.Enchantment,
+            [Ability(new TappedForMana(LandYouControl))]));
+        var land = board.Put(TriggeredAbilityBoard.Definition("bog", CardType.Land));
+
+        var tapped = board.Collect(new ObjectChanged(board.Id(land), Tapped: true));
+        var nothingProduced = board.Collect(new ManaChanged(new PlayerId(0), ManaPool.Empty, "mana ability"));
+
+        Assert.Empty(tapped.Events.OfType<TriggerFired>());
+        Assert.Empty(nothingProduced.Events.OfType<TriggerFired>());
+    }
+
+    [Fact]
+    [RuleRef("106.12a")]
+    public void ATriggerRestrictedToTheChosenColourFiresForThatColourOnly()
+    {
+        var board = new TriggeredAbilityBoard();
+        var land = board.Put(TriggeredAbilityBoard.Definition("bog", CardType.Land));
+        var trigger = new TappedForMana(LandYouControl, OfChosenColorKey: "color");
+
+        var green = MatchWithChosenColor(board, trigger, TappedFor(board.Id(land), Color.Green), "green");
+        var red = MatchWithChosenColor(board, trigger, TappedFor(board.Id(land), Color.Red), "green");
+        var unchosen = MatchWithChosenColor(board, trigger, TappedFor(board.Id(land), Color.Green), chosen: null);
+
+        Assert.Equal(board.Id(land), Assert.Single(Assert.Single(green).Objects));
+        Assert.Empty(red);
+        Assert.Empty(unchosen);
+    }
+
+    [Fact]
+    [RuleRef("106.6")]
+    public void ManaSpentFiresOnTheSpendOfItsKeyedManaAndNotOnItsProduction()
+    {
+        var board = new TriggeredAbilityBoard();
+        board.Fold(new TurnBegan(1, new PlayerId(0), false));
+        var land = board.Put(TriggeredAbilityBoard.Definition("bog", CardType.Land));
+        board.Fold(new DelayedForTest(new DelayedTriggerState(
+            1,
+            new ManaSpent("ritual"),
+            Gain,
+            null,
+            new PlayerId(0),
+            Once: true,
+            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty)));
+
+        var produced = board.Collect(TappedFor(board.Id(land), Color.Green, key: "ritual"));
+        var spentOther = board.Collect(Spend(board.Id(land), Color.Green, "other"));
+        var spent = board.Collect(Spend(board.Id(land), Color.Green, "ritual"));
+
+        Assert.Empty(produced.Events.OfType<TriggerFired>());
+        Assert.Empty(spentOther.Events.OfType<TriggerFired>());
+        Assert.Single(spent.Events.OfType<TriggerFired>());
+    }
+
+    /// <summary>
+    /// The matcher on its own, in a context that carries a chosen colour. Nothing in the state
+    /// stores the colour a card chose — <c>ChooseValue</c> writes it into the resolution's own
+    /// <see cref="EffectContext"/> and it is gone when that resolution ends — so
+    /// <see cref="TriggerSystem"/> builds the trigger's context with an empty <c>Chosen</c> and
+    /// cannot answer <c>OfChosenColorKey</c> end to end. seam-requests/E6c.md asks for the store.
+    /// The arm under test is the one the collector calls.
+    /// </summary>
+    private static ImmutableList<TriggerSubject> MatchWithChosenColor(TriggeredAbilityBoard board, Trigger trigger, GameEvent happened, string? chosen)
+    {
+        var layers = TriggeredAbilityBoard.Layers;
+        var matching = new TriggerMatching(new Query.Query(layers), layers);
+        var context = new EffectContext(
+            null,
+            new PlayerId(0),
+            [],
+            [],
+            null,
+            ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty,
+            chosen is null ? ImmutableDictionary<string, string>.Empty : ImmutableDictionary<string, string>.Empty.SetItem("color", chosen),
+            ImmutableDictionary<string, int>.Empty,
+            [],
+            null);
+        return matching.Match(trigger, happened, context, new TriggerWindow(board.State, [happened], 0));
     }
 
     /// <summary>Puts a delayed trigger into the state; the effect that creates one is the interpreter's, CR 603.7a.</summary>
