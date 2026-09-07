@@ -111,6 +111,15 @@ public interface ITurnSystem : ISubsystem
 
     /// <summary>Advance to the next step or turn, performing turn-based actions, CR 703.</summary>
     Outcome Advance(GameState state);
+
+    /// <summary>
+    /// CR 117.3b and 510.3: a turn-based action or a resolution that finished out of band (after a
+    /// question was answered) opens the step again by giving the active player priority. The default
+    /// changes nothing; a turn system that grants priority implements it so the choice system does
+    /// not duplicate the grant.
+    /// </summary>
+    [RuleRef("117.3b")]
+    Outcome OpenStep(GameState state) => Outcome.Unchanged(state);
 }
 
 /// <summary>Mana, costs, casting, activating and the stack, CR 601–608 and 106.</summary>

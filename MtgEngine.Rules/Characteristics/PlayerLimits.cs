@@ -31,8 +31,8 @@ public sealed record PlayerLimits(
     [RuleRef("104.3")]
     public bool CantLose => Has(PlayerRestriction.Lose);
 
-    /// <summary>"Your life total can't change", CR 119.3 read as a prohibition: no gain, no loss, no setting.</summary>
-    [RuleRef("119.3")]
+    /// <summary>"Your life total can't change": no gain (CR 119.7), no loss (CR 119.8) and no setting, for as long as the effect says.</summary>
+    [RuleRef("119.7")]
     public bool LifeTotalCantChange => Has(PlayerRestriction.LifeTotalChanges);
 
     /// <summary>
@@ -50,8 +50,8 @@ public sealed record PlayerLimits(
     [RuleRef("702.16j")]
     public bool CantBeTargeted => Has(PlayerRestriction.BeTargeted) || ProtectionFromEverything;
 
-    /// <summary>A life total that can't change can't go up either, so the two readings are joined here.</summary>
-    [RuleRef("119.3")]
+    /// <summary>A life total that can't change can't go up either, so the two readings are joined here (CR 119.7).</summary>
+    [RuleRef("119.7")]
     public bool CantGainLifeNow => CantGainLife || LifeTotalCantChange;
 
     /// <summary>
