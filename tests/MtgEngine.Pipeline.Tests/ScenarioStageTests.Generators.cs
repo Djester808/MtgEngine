@@ -70,11 +70,84 @@ public sealed class ScenarioStageTestsGenerators
 
     [Fact]
     [RuleRef("106.4")]
-    public void A_ritual_asserts_the_mana_the_engine_logged()
+    public void A_ritual_asserts_the_mana_it_left_in_the_pool()
     {
         var scenario = Generate("ritual", new AddMana(new ManaProduction("{R}{R}{R}")), CardType.Instant);
 
+        // The pool is stocked at exactly the printed cost, so the cast empties it and what is left
+        // is the card's own production — the event alone is logged just as loudly by a ritual that
+        // produced the wrong colour.
+        Assert.Equal("1", scenario.Setup.Players[0].ManaPool);
+        Assert.Equal("{R}{R}{R}", Assert.Single(scenario.Expect.OfType<ManaPoolIs>()).Mana);
+        Assert.Empty(scenario.Expect.OfType<EventLogged>());
+    }
+
+    [Fact]
+    [RuleRef("106.4")]
+    public void A_ritual_whose_cost_is_a_choice_keeps_the_event_and_the_deep_pool()
+    {
+        // A hybrid symbol is a choice, and which half of it the engine spends is not a generated
+        // scenario's to predict, so the pool cannot be stocked exactly and a total means nothing.
+        var scenario = Generate("hybrid ritual", new AddMana(new ManaProduction("{R}{R}{R}")), CardType.Instant, manaCost: "{B/R}");
+
         Assert.Equal(nameof(ManaChanged), Assert.Single(scenario.Expect.OfType<EventLogged>()).EventKind);
+        Assert.Empty(scenario.Expect.OfType<ManaPoolIs>());
+    }
+
+    [Fact]
+    [RuleRef("101.4")]
+    public void A_generated_scenario_asks_for_its_own_questions_to_be_answered()
+    {
+        // The opt-in is the scenario's and not the runner's, so a card file's hand-written
+        // scenario keeps its own answers beside a generated one that has never seen the objects.
+        Assert.True(Generate("draw", new Draw(new Fixed(1)), CardType.Sorcery).Setup.AutoAnswer);
+    }
+
+    [Fact]
+    [RuleRef("601.2c")]
+    public void A_printed_sacrifice_cost_places_a_body_and_the_step_names_it()
+    {
+        var scenario = Generate("rites", new Draw(new Fixed(2)), CardType.Instant, costs: [new SacrificeCost(ObjectFilter.Creature)]);
+
+        var eaten = Assert.Single(Assert.IsType<CastStep>(scenario.Steps[0]).CostObjects!);
+        var body = Assert.Single(scenario.Setup.Players[0].Battlefield!, c => c.Name == ScenarioFiller.Creature);
+        // Under an alias of its own: a filler creature another generator placed may be the
+        // opponent's, and the step has to name one particular body (CR 601.2c).
+        Assert.Equal(body.Alias, eaten);
+        // The sacrificed body joins the spell in the caster's graveyard.
+        Assert.Equal(2, Assert.Single(scenario.Expect.OfType<ZoneCount>(), z => z.Zone == Zone.Graveyard).Count);
+    }
+
+    [Fact]
+    [RuleRef("701.8")]
+    public void A_printed_discard_cost_names_the_one_hand_card_the_setup_aliased()
+    {
+        var scenario = Generate("thirst", new Draw(new Fixed(1)), CardType.Instant, costs: [new DiscardCost()]);
+
+        var discarded = Assert.Single(Assert.IsType<CastStep>(scenario.Steps[0]).CostObjects!);
+        Assert.Contains(scenario.Setup.Players[0].Hand!, c => c.Alias == discarded);
+        Assert.Equal(2, Assert.Single(scenario.Expect.OfType<ZoneCount>(), z => z.Zone == Zone.Graveyard).Count);
+    }
+
+    [Fact]
+    [RuleRef("601.2c")]
+    public void A_sacrifice_cost_the_board_cannot_place_a_body_for_gets_no_scenario()
+    {
+        // The board has no card to sacrifice a land, and the engine would refuse the cast for want
+        // of one (CR 601.2h) — a failure that would read as the card's rather than the board's.
+        var file = File("land rites", new SpellAbility(new Draw(new Fixed(1))), CardType.Instant, costs: [new SacrificeCost(new ObjectFilter(Types: CardType.Land))]);
+
+        Assert.Null(SmokeScenario.Of(file));
+    }
+
+    [Fact]
+    [RuleRef("601.2c")]
+    public void A_printed_cost_that_names_no_object_is_left_to_the_engine()
+    {
+        // Paying life needs nothing placed and nothing named, so the scenario is what it always was.
+        var scenario = Generate("deluge", new Draw(new Fixed(1)), CardType.Sorcery, costs: [new PayLife(new Fixed(3))]);
+
+        Assert.Null(Assert.IsType<CastStep>(scenario.Steps[0]).CostObjects);
     }
 
     [Fact]
@@ -111,8 +184,10 @@ public sealed class ScenarioStageTestsGenerators
         var cast = Assert.IsType<CastStep>(scenario.Steps[0]);
         Assert.Equal([ScenarioFiller.Creature], cast.Targets);
         Assert.Contains(scenario.Setup.Players[0].Battlefield!, c => c.Name == ScenarioFiller.Creature);
-        // The Aura stays on the battlefield only because it is attached: CR 704.5m buries it otherwise.
-        Assert.Contains(scenario.Expect, e => e is InZone { Zone: Zone.Battlefield });
+        // The attachment is the assertion and not the zone: CR 303.4f puts the Aura onto the
+        // battlefield attached to what it was cast at, and CR 704.5m buries it when it is not.
+        Assert.Equal(ScenarioFiller.Creature, Assert.Single(scenario.Expect.OfType<AttachedToIs>()).To);
+        Assert.DoesNotContain(scenario.Expect, e => e is InZone { Zone: Zone.Battlefield });
     }
 
     [Fact]
@@ -134,23 +209,23 @@ public sealed class ScenarioStageTestsGenerators
         Assert.Null(SmokeScenario.Of(file));
     }
 
-    private static Scenario Generate(string name, Effect effect, CardType types) =>
-        Generate(name, new SpellAbility(effect), types);
+    private static Scenario Generate(string name, Effect effect, CardType types, IReadOnlyList<Cost>? costs = null, string manaCost = "{1}") =>
+        Generate(name, new SpellAbility(effect), types, costs, manaCost);
 
-    private static Scenario Generate(string name, Ability ability, CardType types)
+    private static Scenario Generate(string name, Ability ability, CardType types, IReadOnlyList<Cost>? costs = null, string manaCost = "{1}")
     {
-        var scenario = SmokeScenario.Of(File(name, ability, types));
+        var scenario = SmokeScenario.Of(File(name, ability, types, costs, manaCost));
         Assert.NotNull(scenario);
         return scenario!;
     }
 
-    private static CardFile File(string name, Ability ability, CardType types) => new(
+    private static CardFile File(string name, Ability ability, CardType types, IReadOnlyList<Cost>? costs = null, string manaCost = "{1}") => new(
         "oracle-" + name.Replace(' ', '-'),
         name,
         OracleHashing.Of([name]),
         IrVersion.Current,
         new CardDefinition("oracle-" + name.Replace(' ', '-'), name, Layout.Normal,
-            [new Face(name, FaceRole.Main, new TypeLine(types), ManaCost: "{1}", Abilities: [ability])]),
+            [new Face(name, FaceRole.Main, new TypeLine(types), ManaCost: manaCost, Abilities: [ability], AdditionalCosts: costs)]),
         ImplementationStatus.Translated,
         new TemplateProvenance("test"));
 }

@@ -20,7 +20,14 @@ internal sealed class SmokeBoard(string card)
     private readonly List<Expectation> _expect = [];
 
     private readonly List<int> _modes = [];
+    private readonly List<string> _costObjects = [];
 
+    /// <summary>The alias of the one hand card a printed discard cost eats, so the step can name it.</summary>
+    private const string HandCost = "cost-hand";
+
+    private bool _discards;
+    private string? _pool;
+    private string? _printed;
     private int _casterArrivals;
     private int _casterHand;
     private int _casterLibrary;
@@ -58,6 +65,61 @@ internal sealed class SmokeBoard(string card)
         _targets.Add(card);
         return card;
     }
+
+    /// <summary>What an Aura was cast at, so the scenario asserts the attachment and not the zone (CR 303.4f).</summary>
+    internal string? Enchanted { get; private set; }
+
+    /// <summary>
+    /// CR 702.5b: the object an Aura's "enchant" restriction describes, placed and aimed at, and
+    /// remembered so the scenario can say what it must end up attached to.
+    /// </summary>
+    [RuleRef("303.4f")]
+    internal string Enchants(bool mine, string card) => Enchanted = Aimed(mine, card);
+
+    /// <summary>What the spell is printed to cost, read before a mana effect asks to be paid exactly.</summary>
+    internal void Printed(string? manaCost) => _printed = manaCost;
+
+    /// <summary>
+    /// CR 601.2f: stock the caster's pool with exactly what the spell costs instead of the deep
+    /// pool, so the cast empties it and everything left afterwards is what the card itself
+    /// produced. Only a cost of plain symbols can be stocked this way — a hybrid or a Phyrexian
+    /// symbol is a choice, and which half of it the engine spends is not a generated scenario's to
+    /// predict; a card whose cost it cannot read keeps the deep pool and asserts less.
+    /// </summary>
+    [RuleRef("601.2f")]
+    internal bool PaysExactly()
+    {
+        if (Plain(_printed) is not { } exact)
+            return false;
+        _pool = exact;
+        return true;
+    }
+
+    /// <summary>
+    /// CR 601.2c: a permanent the printed cost sacrifices, placed on the caster's battlefield under
+    /// an alias of its own — the step has to name one particular body, and a filler creature the
+    /// board placed for some other generator may belong to the opponent.
+    /// </summary>
+    [RuleRef("601.2c")]
+    internal void Sacrificed(string card)
+    {
+        var alias = FormattableString.Invariant($"cost-{_costObjects.Count + 1}");
+        _casterBattlefield.Add(new CardRef(card, Alias: alias));
+        _costObjects.Add(alias);
+        Caster(graveyard: 1);
+    }
+
+    /// <summary>CR 701.8: a printed discard cost eats one card from the caster's hand, which the setup aliases for it.</summary>
+    [RuleRef("701.8")]
+    internal void Discarded()
+    {
+        _discards = true;
+        _costObjects.Add(HandCost);
+        Caster(hand: -1, graveyard: 1);
+    }
+
+    /// <summary>The objects the cast step names as the body of its printed costs (CR 601.2c).</summary>
+    internal IReadOnlyList<string>? CostObjects() => _costObjects.Count == 0 ? null : _costObjects;
 
     /// <summary>Permanents that nothing points at: bodies for a wipe to destroy, or for a count to count.</summary>
     internal void Place(bool mine, string card, int n)
@@ -138,9 +200,9 @@ internal sealed class SmokeBoard(string card)
                     new PlayerSetup(
                         SmokeScenario.Caster,
                         Battlefield: _casterBattlefield,
-                        Hand: [new CardRef(card), .. Filler(HandSize)],
+                        Hand: [new CardRef(card), .. CasterHand()],
                         Library: Filler(LibrarySize),
-                        ManaPool: SmokeScenario.DeepPool),
+                        ManaPool: _pool ?? SmokeScenario.DeepPool),
                     new PlayerSetup(
                         SmokeScenario.Opponent,
                         Battlefield: _opponentBattlefield,
@@ -148,9 +210,43 @@ internal sealed class SmokeBoard(string card)
                         Library: Filler(LibrarySize),
                         ManaPool: _opponentActs ? SmokeScenario.DeepPool : null),
                 ],
-                SmokeScenario.Caster),
+                SmokeScenario.Caster,
+                AutoAnswer: true),
             [.. _before, action, new ResolveAllStep()],
             _expect);
+    }
+
+    /// <summary>
+    /// The filler beside the card under test. The first card carries an alias only when a printed
+    /// discard cost has to name one, so every other card file's scenario reads as it did.
+    /// </summary>
+    private List<CardRef> CasterHand() =>
+        _discards ? [new CardRef(ScenarioFiller.Land, Alias: HandCost), .. Filler(HandSize - 1)] : Filler(HandSize);
+
+    /// <summary>
+    /// A mana cost written as the runner's pool string, or null when a symbol is a choice rather
+    /// than a symbol: <c>{2}{B}</c> reads as <c>"2B"</c>, <c>{B/R}</c> and <c>{X}</c> read as
+    /// nothing at all.
+    /// </summary>
+    [RuleRef("107.4")]
+    private static string? Plain(string? manaCost)
+    {
+        if (manaCost is not { Length: > 0 })
+            return null;
+        var pool = new System.Text.StringBuilder();
+        foreach (var symbol in manaCost.Split('{', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!symbol.EndsWith('}'))
+                return null;
+            // One character, because the runner reads a pool string a symbol at a time: "{10}"
+            // would stock one mana and not ten, so a cost that big keeps the deep pool.
+            var body = symbol[..^1];
+            if (body.Length != 1 || !(char.IsAsciiDigit(body[0]) || "WUBRGC".Contains(body[0], StringComparison.Ordinal)))
+                return null;
+            pool.Append(body);
+        }
+
+        return pool.Length == 0 ? null : pool.ToString();
     }
 
     /// <summary>The step the card is played with, carrying whatever targets the generators asked for.</summary>

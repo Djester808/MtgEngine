@@ -1,4 +1,4 @@
-using MtgEngine.Cards;
+﻿using MtgEngine.Cards;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Scenarios;
@@ -23,9 +23,9 @@ public sealed class ScenarioAnswerTests
     [RuleRef("701.23")]
     public void A_search_is_answered_with_the_first_card_it_may_take()
     {
-        var scenario = Play(Tutor, [new ZoneCount("A", Zone.Hand, 1), new ZoneCount("A", Zone.Library, 2), new StackEmpty()]);
+        var scenario = Play(Tutor, [new ZoneCount("A", Zone.Hand, 1), new ZoneCount("A", Zone.Library, 2), new StackEmpty()], autoAnswer: true);
 
-        var answered = Runner(autoAnswer: true).Run(scenario);
+        var answered = Runner().Run(scenario);
 
         Assert.Null(answered.Error);
         Assert.True(answered.Passed, Why(answered));
@@ -38,9 +38,9 @@ public sealed class ScenarioAnswerTests
     {
         // The failure this whole file exists for: the spell resolves as far as the search, the
         // game stops to ask, and the card is reported as failing when the scenario is what fell short.
-        var scenario = Play(Tutor, [new StackEmpty()]);
+        var scenario = Play(Tutor, [new StackEmpty()], autoAnswer: false);
 
-        var unanswered = Runner(autoAnswer: false).Run(scenario);
+        var unanswered = Runner().Run(scenario);
 
         Assert.False(unanswered.Passed);
         Assert.Equal("1 on the stack", Assert.Single(unanswered.Results).Actual);
@@ -50,9 +50,9 @@ public sealed class ScenarioAnswerTests
     [RuleRef("608.2")]
     public void A_may_is_answered_yes_so_the_optional_effect_happens()
     {
-        var scenario = Play(Maybe, [new ZoneCount("A", Zone.Hand, 1), new StackEmpty()]);
+        var scenario = Play(Maybe, [new ZoneCount("A", Zone.Hand, 1), new StackEmpty()], autoAnswer: true);
 
-        var answered = Runner(autoAnswer: true).Run(scenario);
+        var answered = Runner().Run(scenario);
 
         Assert.Null(answered.Error);
         Assert.True(answered.Passed, Why(answered));
@@ -63,9 +63,9 @@ public sealed class ScenarioAnswerTests
     public void A_mode_is_answered_with_the_first_mode()
     {
         // Mode 0 draws and mode 1 gains life, so a hand of one says which mode was taken.
-        var scenario = Play(Modal, [new ZoneCount("A", Zone.Hand, 1), new Life("A", 20), new StackEmpty()]);
+        var scenario = Play(Modal, [new ZoneCount("A", Zone.Hand, 1), new Life("A", 20), new StackEmpty()], autoAnswer: true);
 
-        var answered = Runner(autoAnswer: true).Run(scenario);
+        var answered = Runner().Run(scenario);
 
         Assert.Null(answered.Error);
         Assert.True(answered.Passed, Why(answered));
@@ -76,12 +76,12 @@ public sealed class ScenarioAnswerTests
     public void A_scenario_that_answers_its_own_questions_is_left_alone()
     {
         // Mode 1 is the scenario's own choice; the runner must not overrule it with mode 0.
-        var scenario = Play(Modal, [new Life("A", 23), new StackEmpty()]);
+        var scenario = Play(Modal, [new Life("A", 23), new StackEmpty()], autoAnswer: true);
         // The question is asked while the spell resolves, so the scenario's answer comes after
         // the first ResolveAll — which is where the runner would otherwise have answered it.
         scenario = scenario with { Steps = [.. scenario.Steps, new AnswerStep("A", ["1"]), new ResolveAllStep()] };
 
-        var answered = Runner(autoAnswer: true).Run(scenario);
+        var answered = Runner().Run(scenario);
 
         Assert.Null(answered.Error);
         Assert.True(answered.Passed, Why(answered));
@@ -124,7 +124,7 @@ public sealed class ScenarioAnswerTests
             new ChoiceContext(null, null, null, ImmutableDictionary<string, string>.Empty));
 
     /// <summary>Cast the card with a library to search and nothing else in hand, then let it resolve.</summary>
-    private static Scenario Play(string card, Expectation[] expect) =>
+    private static Scenario Play(string card, Expectation[] expect, bool autoAnswer = false) =>
         new(
             "answers-" + card,
             "the runner answers the question this card asks",
@@ -134,15 +134,16 @@ public sealed class ScenarioAnswerTests
                     new PlayerSetup("A", Hand: [new CardRef(card)], Library: [new CardRef(ScenarioFiller.Land), new CardRef(ScenarioFiller.Land), new CardRef(ScenarioFiller.Land)], ManaPool: "999"),
                     new PlayerSetup("B"),
                 ],
-                "A"),
+                "A",
+                AutoAnswer: autoAnswer),
             [new CastStep("A", card), new ResolveAllStep()],
             expect);
 
     private static string Why(ScenarioResult result) =>
         string.Join(" | ", result.Results.Where(r => !r.Passed).Select(r => $"{r.Expectation.GetType().Name}: {r.Actual}"));
 
-    private static ScenarioRunner Runner(bool autoAnswer) =>
-        new(new Game(Subsystems.Wave2(), new ScenarioAnswerDefinitions(TutorCard(), MayCard(), ModalCard())), autoAnswer);
+    private static ScenarioRunner Runner() =>
+        new(new Game(Subsystems.Wave2(), new ScenarioAnswerDefinitions(TutorCard(), MayCard(), ModalCard())));
 
     private static CardDefinition TutorCard() =>
         new(Tutor, Tutor, Layout.Normal,

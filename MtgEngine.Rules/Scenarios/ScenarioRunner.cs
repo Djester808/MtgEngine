@@ -19,25 +19,32 @@ namespace MtgEngine.Rules.Scenarios;
 /// Everything after the setup is the engine's: a step is a <see cref="Command"/> through
 /// <see cref="Game.Apply"/>, and a refusal is the engine's refusal.
 /// </remarks>
-public sealed class ScenarioRunner(Game game, bool autoAnswer = false) : IScenarioRunner
+public sealed class ScenarioRunner(Game game) : IScenarioRunner
 {
     public Game Game { get; } = game;
 
     /// <summary>
-    /// Answer every question the game stops to ask with its first legal option
-    /// (<see cref="ScenarioAnswers"/>), for scenarios that could not name an option id when they
-    /// were written. A scenario that carries an <see cref="AnswerStep"/> of its own is left alone
-    /// whatever this says: a scenario about a choice must still make it.
+    /// Whether this scenario's questions are answered with the first legal option
+    /// (<see cref="ScenarioAnswers"/>). The opt-in is the scenario's own
+    /// (<see cref="ScenarioSetup.AutoAnswer"/>) and not the runner's, so one card file can hold a
+    /// generated scenario that answers itself beside a hand-written one that does not — a run used
+    /// to be all one way or all the other. A scenario that carries an <see cref="AnswerStep"/> is
+    /// left alone whatever the flag says: a scenario about a choice must still make it, and
+    /// interleaving first-legal answers with its own would erase the point of the test.
     /// </summary>
     [RuleRef("101.4")]
-    public bool AutoAnswer { get; } = autoAnswer;
+    public static bool AutoAnswers(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        return scenario.Setup.AutoAnswer && !scenario.Steps.OfType<AnswerStep>().Any();
+    }
 
     public ScenarioResult Run(Scenario scenario, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         ct.ThrowIfCancellationRequested();
 
-        var run = new ScenarioRun(Game, scenario, AutoAnswer && !scenario.Steps.OfType<AnswerStep>().Any());
+        var run = new ScenarioRun(Game, scenario, AutoAnswers(scenario));
         try
         {
             run.Build(ct);
@@ -238,10 +245,11 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
     {
         CastStep c => new CastSpell(
             Player(c.Player), Object(c.Card), 0, TargetObjects(c.Targets), TargetPlayers(c.Targets),
-            c.Modes is null ? null : [.. c.Modes], c.X, c.CostChoices is null ? null : [.. c.CostChoices], Keyword(c.AlternativeCost)),
+            c.Modes is null ? null : [.. c.Modes], c.X, c.CostChoices is null ? null : [.. c.CostChoices], Keyword(c.AlternativeCost),
+            CostObjects: CostObjects(c.CostObjects)),
         ActivateStep a => new ActivateAbility(
             Player(a.Player), Object(a.Card), a.AbilityIndex, TargetObjects(a.Targets), TargetPlayers(a.Targets),
-            null, a.X, a.CostChoices is null ? null : [.. a.CostChoices]),
+            null, a.X, a.CostChoices is null ? null : [.. a.CostChoices], CostObjects(a.CostObjects)),
         PlayLandStep p => new PlayLand(Player(p.Player), Object(p.Card)),
         AttackStep a => new DeclareAttackers(Player(a.Player), [.. a.Attacks.Select(at => new AttackDeclaration(Object(at.Attacker), Defender(at.Defender)))]),
         BlockStep b => new DeclareBlockers(Player(b.Player), [.. b.Blocks.Select(bl => new BlockDeclaration(Object(bl.Blocker), Object(bl.Attacker)))]),
@@ -372,6 +380,19 @@ internal sealed class ScenarioRun(Game game, Scenario scenario, bool autoAnswer 
     private ImmutableList<ObjectId>? TargetObjects(IReadOnlyList<string>? targets)
     {
         var chosen = (targets ?? []).Where(t => !IsPlayer(t)).Select(Object).ToImmutableList();
+        return chosen.IsEmpty ? null : chosen;
+    }
+
+    /// <summary>
+    /// CR 601.2c: the objects a printed cost eats, chosen as the spell is cast and paid for at
+    /// CR 601.2h. Named by alias first and card name second, exactly as a target is, and resolved
+    /// through the same table, so an object the scenario placed is still found after it has
+    /// changed zones (CR 400.7).
+    /// </summary>
+    [RuleRef("601.2c")]
+    private ImmutableList<ObjectId>? CostObjects(IReadOnlyList<string>? objects)
+    {
+        var chosen = (objects ?? []).Select(Object).ToImmutableList();
         return chosen.IsEmpty ? null : chosen;
     }
 
