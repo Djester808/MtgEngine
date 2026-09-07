@@ -20,7 +20,7 @@ public static class VocabularyReference
         sb.AppendLine();
         OneSpelling(sb);
 
-        Section(sb, "CardDefinition (the root)", [typeof(CardDefinition), typeof(Face), typeof(TypeLine), typeof(PrintedStat), typeof(TokenSpec), typeof(EmblemSpec), typeof(ClassLevel), typeof(LevelBand), typeof(Mode), typeof(CounterSpec), typeof(ManaProduction), typeof(Comparison), typeof(ObjectFilter), typeof(PlayerFilter)]);
+        Section(sb, "CardDefinition (the root)", [typeof(CardDefinition), typeof(Face), typeof(TypeLine), typeof(PrintedStat), typeof(TokenSpec), typeof(EmblemSpec), typeof(ClassLevel), typeof(LevelBand), typeof(Mode), typeof(CounterSpec), typeof(ManaProduction), typeof(Comparison), typeof(SearchDestination), typeof(ObjectFilter), typeof(PlayerFilter)]);
 
         foreach (var baseType in CardFileSerializer.PolymorphicBases)
         {
