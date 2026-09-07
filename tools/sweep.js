@@ -66,6 +66,34 @@ const trees = worktrees();
 /** git lists the main checkout first, whichever worktree you ask from. */
 const mainCheckout = trees[0] || process.cwd();
 
+/**
+ * The ledger's last word on each id. A merged, killed or blocked agent is finished: its
+ * heartbeat is stale forever, and reporting it as "kill" every sweep buried the live rows
+ * under a dozen dead ones (wave 1). Those worktrees are for pruning, not killing.
+ */
+function ledgerStates() {
+  const states = new Map();
+  let text = '';
+  try {
+    text = fs.readFileSync(path.join(mainCheckout, '.agents', 'ledger.jsonl'), 'utf8');
+  } catch {
+    return states;
+  }
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line);
+      if (entry.id && entry.state) states.set(String(entry.id), String(entry.state));
+    } catch {
+      /* a torn line at the tail while the ledger is being written */
+    }
+  }
+  return states;
+}
+
+const FINISHED = new Set(['merged', 'killed', 'blocked']);
+const states = ledgerStates();
+
 const rows = [];
 for (const wt of trees) {
   let manifest;
@@ -84,8 +112,11 @@ for (const wt of trees) {
   const ready = fs.existsSync(path.join(wt, 'ready', id));
   const sinceCall = lastCall ? minutesSince(lastCall) : null;
   const sinceLaunch = manifest.launchedAt ? minutesSince(manifest.launchedAt) : null;
-  const [action, why] = verdict({ ready, sinceCall, sinceLaunch });
-  rows.push({ id, role: String(manifest.role || '?'), sinceCall, sinceLaunch, ready, action, why, wt });
+  const state = states.get(id) || null;
+  const [action, why] = FINISHED.has(state)
+    ? ['prune', `ledger ${state}: finished — git worktree remove --force when its branch is no longer needed`]
+    : verdict({ ready, sinceCall, sinceLaunch });
+  rows.push({ id, role: String(manifest.role || '?'), sinceCall, sinceLaunch, ready, action, why, wt, state });
 }
 
 /** Registered by the coordinator, and no worktree is carrying that manifest. */
@@ -106,7 +137,8 @@ for (const f of registryFiles) {
     /* unreadable registration — still worth naming, by its file */
   }
   const id = String((m && m.id) || path.basename(f, path.extname(f)));
-  if (!claimed.has(id)) unclaimed.push({ id, role: String((m && m.role) || '?') });
+  // A finished agent whose worktree was pruned still has its registration; that is history, not a lost launch.
+  if (!claimed.has(id) && !FINISHED.has(states.get(id) || null)) unclaimed.push({ id, role: String((m && m.role) || '?') });
 }
 unclaimed.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -127,13 +159,16 @@ for (const r of unclaimed) {
     `${pad(r.id, 8)}${pad(r.role, 11)}${pad('  -  ', 7)}${pad('  -  ', 7)}${pad('no', 7)}${pad('check', 9)}registered, not claimed — no worktree carries this manifest`
   );
 }
-const acting = rows.filter((r) => r.action !== 'nothing');
+const acting = rows.filter((r) => r.action !== 'nothing' && r.action !== 'prune');
+const prunable = rows.filter((r) => r.action === 'prune');
 console.log('');
 const tail = unclaimed.length ? `, ${unclaimed.length} registered, not claimed` : '';
+const pruneTail = prunable.length ? `, ${prunable.length} finished (prune)` : '';
 console.log(
-  `sweep: ${rows.length} agent(s), ${acting.length} needing action${tail}. Read-only — nothing was killed.`
+  `sweep: ${rows.length} agent(s), ${acting.length} needing action${tail}${pruneTail}. Read-only — nothing was killed.`
 );
 for (const r of acting) console.log(`  ${r.action} ${r.id}  (${r.wt})`);
+if (prunable.length) console.log(`  prune: ${prunable.map((r) => r.id).join(' ')}`);
 for (const r of unclaimed) {
   console.log(`  check ${r.id}  (registered, not claimed — it never ran, or died before its first command)`);
 }
