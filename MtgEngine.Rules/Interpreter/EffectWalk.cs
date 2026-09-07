@@ -39,6 +39,41 @@ internal static class EffectWalk
     public static ContinuousEffect Freeze(ContinuousEffect effect, Func<Amount, int> evaluate) =>
         (ContinuousEffect)Rewrite(effect, evaluate)!;
 
+    /// <summary>
+    /// The <see cref="Choose"/> selectors this one node reads, in reading order, CR 700.2: every
+    /// one reachable from it without entering another <see cref="Effect"/>. A child effect is its
+    /// own node of the walk and asks its own choices when the walk reaches it, which is what keeps
+    /// "reveal, then choose from among them" asking after the reveal has been remembered.
+    /// </summary>
+    [RuleRef("700.2")]
+    public static ImmutableList<Choose> ChoicesIn(Effect effect) =>
+        [.. Own(effect, effect, new HashSet<object>(ReferenceEqualityComparer.Instance)).OfType<Choose>()];
+
+    private static IEnumerable<object> Own(object? node, object root, HashSet<object> seen)
+    {
+        if (node is null or string)
+            yield break;
+
+        if (node is System.Collections.IEnumerable items)
+        {
+            foreach (var item in items)
+                foreach (var found in Own(item, root, seen))
+                    yield return found;
+            yield break;
+        }
+
+        var type = node.GetType();
+        if (type.Namespace != Vocabulary || type.IsEnum || !type.IsClass || !seen.Add(node))
+            yield break;
+        if (node is Effect && !ReferenceEquals(node, root))
+            yield break;
+
+        yield return node;
+        foreach (var property in Readable(type))
+            foreach (var found in Own(property.GetValue(node), root, seen))
+                yield return found;
+    }
+
     private static IEnumerable<object> Nodes(object? node, HashSet<object> seen)
     {
         if (node is null or string)

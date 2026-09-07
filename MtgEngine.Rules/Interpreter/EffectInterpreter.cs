@@ -309,6 +309,11 @@ public sealed partial class EffectInterpreter(
         if (run.Resume is { } target && string.Equals(target, run.Path, StringComparison.Ordinal))
             run = run with { Resume = null };
 
+        // CR 700.2: a choice the node reads is made before the node runs, and it may have to ask.
+        run = Choosing(run, effect);
+        if (run.Halted)
+            return run;
+
         return Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
             ?? Backlog(run, effect)
             ?? throw new NotImplementedException($"no interpreter arm for {effect.GetType().Name}");
@@ -382,6 +387,15 @@ public sealed partial class EffectInterpreter(
         if (storeAs is not null)
             extra = extra.SetItem("storeAs", storeAs);
 
+        // CR 608.2h with 101.4: what the steps before the question remembered is not on the stack
+        // entry, and those steps are skipped when the walk resumes; so it rides on the question,
+        // the way a loop's marks do, and Bind puts it back before the walk needs it.
+        foreach (var (key, ids) in run.Context.Remembered)
+        {
+            if (!string.Equals(key, "triggering", StringComparison.Ordinal))
+                extra = extra.SetItem(RememberedPrefix + key, Joined(ids.Select(id => id.Value)));
+        }
+
         // CR 101.4: a question raised outside a resolution has no stack object to rebuild the
         // context from, so what the walk was running in travels with the question instead.
         if (run.OffStack)
@@ -405,8 +419,16 @@ public sealed partial class EffectInterpreter(
         return Emit(run, new ChoiceRequested(choice)) with { Halted = true };
     }
 
-    private ImmutableList<ObjectId> Objects(EffectRun run, Selector? selector) =>
-        selector is null ? [] : query.Resolve(run.State, selector, run.Context);
+    /// <summary>
+    /// The objects a selector names now. A <see cref="Choose"/> was asked before its node ran (CR
+    /// 700.2): a keyed one is read through the query, a keyless one under the path it was asked at.
+    /// </summary>
+    private ImmutableList<ObjectId> Objects(EffectRun run, Selector? selector) => selector switch
+    {
+        null => [],
+        Choose { Key: null } choose => run.Context.Remembered.GetValueOrDefault(ChooseKey(choose, run), []),
+        _ => query.Resolve(run.State, selector, run.Context),
+    };
 
     /// <summary>A player reference that may be omitted, which always means the controller, CR 109.5.</summary>
     private ImmutableList<PlayerId> PlayersOrYou(EffectRun run, PlayerRef? who) =>
