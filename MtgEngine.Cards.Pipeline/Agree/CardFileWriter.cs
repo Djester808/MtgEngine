@@ -22,7 +22,9 @@ public enum CardWrite
 ///   the same oracle text. Verification is a verified play (CARD_ENGINE_PLAN.md rule 3) and a
 ///   later Translated reading is not new information about it. When the incoming
 ///   <c>OracleHash</c> differs the card was errata'd or re-printed with new text, the old
-///   verification no longer describes it, and the write goes through.
+///   verification no longer describes it, and the write goes through. So does a write over a
+///   Verified file whose definition carries an Unsupported marker: that file never verified in
+///   truth, and the re-translation is the first reading that could.
 ///
 /// The linter's report lands beside the file under <c>cards/.lint/&lt;oracleId&gt;.json</c>, so
 /// the dashboard can count files by cause without re-linting the corpus. Everything is under an
@@ -98,8 +100,18 @@ public sealed class CardFileWriter(string directory)
 
     private static bool Lowers(CardFile existing, CardFile incoming) =>
         existing.Status == ImplementationStatus.Verified
+        && !CarriesUnsupported(existing.Definition)
         && incoming.Status is ImplementationStatus.Untranslated or ImplementationStatus.Translated or ImplementationStatus.Disputed
         && string.Equals(existing.OracleHash, incoming.OracleHash, StringComparison.Ordinal);
+
+    /// <summary>
+    /// A definition carrying an <see cref="Unsupported"/> or <see cref="UnsupportedContinuous"/>
+    /// marker was never played whole: the marker is reported rather than played, so a Verified on
+    /// such a file is not a verified play of the card. Keeping it over a re-translation kept Myriad
+    /// Landscape and Nyx Lotus stale after the vocabulary had closed their gaps.
+    /// </summary>
+    private static bool CarriesUnsupported(CardDefinition definition) =>
+        Linter.Walk(definition).Any(node => node is Unsupported or UnsupportedContinuous);
 
     private static void WriteAtomic(string path, string content)
     {

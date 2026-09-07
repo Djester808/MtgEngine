@@ -34,6 +34,11 @@ public static class CardFileSerializer
             AllowOutOfOrderMetadataProperties = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
+
+            // A member no record has is a parse error naming it, never silently dropped. Before
+            // this, an Unsupported marker written into an ObjectFilter slot — which has no
+            // discriminator — read as an empty filter, matched everything, and linted clean.
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         };
         options.Converters.Add(new FlagsArrayConverter<Color>());
         options.Converters.Add(new FlagsArrayConverter<CardType>());
