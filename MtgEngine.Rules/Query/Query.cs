@@ -149,12 +149,11 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false; // CR 201.2
         if (f.Has is { } keyword && !c.Has(keyword))
             return false; // CR 702.1
-        if (f.IsCommander is not null)
-        {
-            throw Unanswerable(
-                nameof(ObjectFilter.IsCommander),
-                "no state records which object is a player's commander (CR 903.3); see seam-requests/E0.md");
-        }
+        // CR 903.3: a commander is designated as the game begins and stays one in every zone it
+        // visits, so the flag the zone system sets at creation travels with the new object each
+        // zone change makes, CR 400.7, and reading it is the whole answer.
+        if (f.IsCommander is { } commander && commander != obj.IsCommander)
+            return false;
 
         return true;
     }

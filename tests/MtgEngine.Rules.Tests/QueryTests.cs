@@ -239,6 +239,21 @@ public sealed class QueryTests
         Assert.Contains("Monarch", monarch.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [RuleRef("903.3")]
+    public void A_commander_is_matched_by_the_designation_the_object_carries()
+    {
+        // CR 903.3: the designation is made as the game begins and travels with the object
+        // through every zone change, CR 400.7, so the query layer reads it rather than deducing
+        // it. Combat damage asks this of every source that hits a player, CR 903.10a.
+        var world = World.New().Commander(1, Alice).Creature(2, Alice, 2, 2);
+
+        Assert.Equal(1, world.Count(new ObjectFilter(IsCommander: true)));
+        Assert.True(world.Query.Matches(world.State, new ObjectFilter(IsCommander: true), new ObjectId(1), world.Context));
+        Assert.False(world.Query.Matches(world.State, new ObjectFilter(IsCommander: true), new ObjectId(2), world.Context));
+        Assert.True(world.Query.Matches(world.State, new ObjectFilter(IsCommander: false), new ObjectId(2), world.Context));
+    }
+
     private static Comparison Ge(int n) => new(ComparisonOp.Ge, new Fixed(n));
 
     /// <summary>A state built out of events, with a fake layer system that says what each object is.</summary>
@@ -281,19 +296,28 @@ public sealed class QueryTests
                 $"Object {id}", CardType.Land, Supertype.None, ["Forest"], Color.Colorless,
                 null, null, null, null, null, [], owner));
 
+        /// <summary>An object designated a commander as the game began, CR 903.3, and still one wherever it is.</summary>
+        public World Commander(int id, PlayerId owner) =>
+            Put(
+                id,
+                owner,
+                Cards.Zone.Battlefield,
+                new Characteristics($"Object {id}", CardType.Creature, Supertype.None, ["Beast"], Color.Green, 3, 3, null, null, null, [], owner),
+                commander: true);
+
         public World Library(int id, PlayerId owner) =>
             Put(id, owner, Cards.Zone.Library, new Characteristics(
                 $"Object {id}", CardType.Creature, Supertype.None, ["Beast"], Color.Green,
                 1, 1, null, null, null, [], owner));
 
-        private World Put(int id, PlayerId owner, Cards.Zone zone, Characteristics characteristics)
+        private World Put(int id, PlayerId owner, Cards.Zone zone, Characteristics characteristics, bool commander = false)
         {
             var definition = new CardDefinition(
                 $"oracle-{id}",
                 $"Object {id}",
                 Layout.Normal,
                 [new Face($"Object {id}", FaceRole.Main, new TypeLine(characteristics.Types))]);
-            var obj = new GameObject(new ObjectId(id), definition, 0, owner, owner, new ZoneKey(zone, zone == Cards.Zone.Battlefield ? null : (PlayerId?)owner), id);
+            var obj = new GameObject(new ObjectId(id), definition, 0, owner, owner, new ZoneKey(zone, zone == Cards.Zone.Battlefield ? null : (PlayerId?)owner), id) { IsCommander = commander };
             Layers.Set(new ObjectId(id), characteristics);
             return this with { State = new ObjectCreated(obj, -1).Apply(State) };
         }
