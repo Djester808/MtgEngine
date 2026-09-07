@@ -114,7 +114,7 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -140,7 +140,15 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Song of the Dryads",
@@ -321,13 +329,17 @@
         "activePlayer": "A",
         "startAt": "PrecombatMain",
         "seed": 1,
-        "turn": 1
+        "turn": 1,
+        "autoAnswer": true
       },
       "steps": [
         {
           "kind": "CastStep",
           "player": "A",
-          "card": "Song of the Dryads"
+          "card": "Song of the Dryads",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
         },
         {
           "kind": "ResolveAllStep"
@@ -335,9 +347,9 @@
       ],
       "expect": [
         {
-          "kind": "InZone",
+          "kind": "AttachedToIs",
           "card": "Song of the Dryads",
-          "zone": "Battlefield"
+          "to": "Scenario Filler Creature"
         },
         {
           "kind": "StackEmpty"
@@ -347,10 +359,10 @@
   ],
   "verification": {
     "engineHash": "engine:0813f37cabbabed6",
-    "runId": "verify-20260907T074239-831868",
-    "passed": 0,
+    "runId": "verify-20260907T131245-182247",
+    "passed": 1,
     "total": 1,
-    "at": "2026-09-07T07:42:39.2344491+00:00"
+    "at": "2026-09-07T13:12:45.6447306+00:00"
   },
   "keywordList": [
     "Enchant"
@@ -368,7 +380,15 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Song of the Dryads",
@@ -549,13 +569,17 @@
         "activePlayer": "A",
         "startAt": "PrecombatMain",
         "seed": 1,
-        "turn": 1
+        "turn": 1,
+        "autoAnswer": true
       },
       "steps": [
         {
           "kind": "CastStep",
           "player": "A",
-          "card": "Song of the Dryads"
+          "card": "Song of the Dryads",
+          "targets": [
+            "Scenario Filler Creature"
+          ]
         },
         {
           "kind": "ResolveAllStep"
@@ -563,9 +587,9 @@
       ],
       "expect": [
         {
-          "kind": "InZone",
+          "kind": "AttachedToIs",
           "card": "Song of the Dryads",
-          "zone": "Battlefield"
+          "to": "Scenario Filler Creature"
         },
         {
           "kind": "StackEmpty"
