@@ -79,6 +79,37 @@ public sealed class EventLogTests
         Assert.Equal(graveyard, Assert.IsType<ObjectMoved>(back[1]).LeftFrom);
     }
 
+    /// <summary>
+    /// CR 701.23a with 701.23f: a search of a library is a logged event so that an ability which
+    /// triggers on a library being searched has something to match, and because looking at a
+    /// library changes nothing, folding the event returns the state untouched. The owner of the
+    /// library and the searcher are separate fields — an effect can send a player into another
+    /// player's library — so a stored game keeps both.
+    /// </summary>
+    [Fact]
+    [RuleRef("701.23")]
+    public void A_library_search_round_trips_and_folds_to_the_same_state()
+    {
+        var started = new GameStarted([new PlayerStart("A", [], []), new PlayerStart("B", [], [])], Seed: 9, StartingLife: 20, Format: "test");
+        var own = new LibrarySearched(new PlayerId(0), new PlayerId(0));
+        var theirs = new LibrarySearched(new PlayerId(1), new PlayerId(0));
+
+        var json = EventLogSerializer.Write([started, own, theirs]);
+        var back = EventLogSerializer.Read(json);
+
+        Assert.Contains("LibrarySearched", json, StringComparison.Ordinal);
+        Assert.Equal(own, Assert.IsType<LibrarySearched>(back[1]));
+        var other = Assert.IsType<LibrarySearched>(back[2]);
+        Assert.Equal(new PlayerId(1), other.Player);
+        Assert.Equal(new PlayerId(0), other.Searcher);
+
+        // CR 701.23a: the search itself is not a change to the game, so the fold is the identity —
+        // a replay of a log that carries it lands where a log without it lands.
+        var state = GameReducer.Replay([started]);
+        Assert.Same(state, own.Apply(state));
+        Assert.Same(state, other.Apply(state));
+    }
+
     [Fact]
     public void Concession_ends_a_two_player_game()
     {
