@@ -222,14 +222,18 @@ public sealed partial class InterpreterTests
     }
 
     [Fact]
+    [RuleRef("608.2")]
     public void An_effect_with_no_arm_names_the_record_it_could_not_run()
     {
+        // CR 608.2: the dispatch fallback refuses by name. It threw a NotImplementedException until
+        // wave 22 — a crash the caller cannot tell from a bug in the engine.
         var table = new InterpreterTable();
 
-        var missing = Assert.Throws<NotImplementedException>(
+        var missing = Assert.Throws<RefusedException>(
             () => table.Run(new Investigate(), table.Context()));
 
-        Assert.Contains(nameof(Investigate), missing.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(Investigate), missing.Reason, StringComparison.Ordinal);
+        Assert.Equal("608.2", missing.Rule);
     }
 
     /* ---------------------------------------------------------------------------------------- *

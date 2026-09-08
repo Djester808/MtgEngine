@@ -179,6 +179,14 @@ public sealed partial class EffectInterpreter
             case Cards.Shuffle shuffle:
                 return Shuffling(run, shuffle);
 
+            // CR 701.3: the two records the vocabulary spells attaching with are one meaning and
+            // reach one arm; seam-requests/E9q.md asks the linter to keep AttachAction.
+            case Cards.Attach attach:
+                return Attaching(run, attach.What, attach.To);
+
+            case AttachAction attach:
+                return Attaching(run, attach.What, attach.To);
+
             default:
                 return null;
         }

@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Faces;
 using MtgEngine.Rules.State;
@@ -112,9 +113,10 @@ public sealed partial class EffectInterpreter
             if (!FaceRules.Meld(first.Definition, second.Definition).Success)
                 continue;
 
-            throw new NotImplementedException(
-                "a melded permanent needs GameObject.Components: CR 701.42a makes it one object represented by two cards, "
-                + "and CR 712.4b unmelds them when it leaves; the seam is asked for in seam-requests/E9b.md");
+            throw new RefusedException(
+                "A melded permanent needs GameObject.Components: CR 701.42a makes it one object represented by two cards, "
+                + "and CR 712.4b unmelds them when it leaves; the seam is asked for in seam-requests/E9b.md",
+                "701.42a");
         }
 
         return run;
