@@ -1,6 +1,7 @@
 using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Casting;
@@ -48,7 +49,7 @@ public static class ModeAnnouncement
 
         var ceiling = Ceiling(state, query, modal, context);
         if (modes.Count > 0)
-            Require(modal, ceiling, modes);
+            Require(state, query, modal, ceiling, modes, context);
         return modal.MaxIf is null
             ? null
             : ImmutableDictionary<string, string>.Empty.Add(CeilingKey, ceiling.ToString(CultureInfo.InvariantCulture));
@@ -84,18 +85,59 @@ public static class ModeAnnouncement
 
     /// <summary>
     /// CR 700.2: the count within the bounds and every index a mode; CR 700.2d: no mode twice
-    /// unless the card says a mode may be chosen more than once.
+    /// unless the card says a mode may be chosen more than once. A card that prices its modes
+    /// (<see cref="ChooseMode.Budget"/> with <see cref="Mode.Cost"/>) is held to the budget instead
+    /// of to <see cref="ChooseMode.Max"/> — the indices and CR 700.2d's repeat rule are read the same
+    /// way either road.
     /// </summary>
     [RuleRef("700.2")]
-    private static void Require(ChooseMode modal, int ceiling, IReadOnlyList<int> modes)
+    private static void Require(GameState state, IQuery query, ChooseMode modal, int ceiling, IReadOnlyList<int> modes, EffectContext context)
     {
-        if (modes.Count > ceiling)
-            throw new RefusedException("More modes were chosen than this allows.", "700.2");
         if (modes.Count < modal.Min)
             throw new RefusedException("Too few modes were chosen.", "700.2");
         if (modes.Any(m => m < 0 || m >= modal.Modes.Count))
             throw new RefusedException("That is not one of the modes.", "700.2");
+        if (modal.Budget is { } budget)
+            Afford(state, query, modal, modes, budget, context);
+        else if (modes.Count > ceiling)
+            throw new RefusedException("More modes were chosen than this allows.", "700.2");
         if (!modal.SameModeTwice && modes.Distinct().Count() != modes.Count)
             throw new RefusedException("The same mode cannot be chosen twice.", "700.2d");
+    }
+
+    /// <summary>
+    /// CR 700.2: "choose up to five {P} worth of modes" — the prices of the modes announced total no
+    /// more than the budget, read once in the announcing player's context. Nothing is actually paid:
+    /// <see cref="Mode.Cost"/> never reaches the spell's cost, and the budget is the only thing it is
+    /// read against, so a mode taken twice under <see cref="ChooseMode.SameModeTwice"/> spends its
+    /// price twice. <see cref="ChooseMode.Min"/> 0 is "up to", so announcing none is legal and costs
+    /// nothing.
+    /// </summary>
+    /// <exception cref="RefusedException">CR 700.2 when the prices total more than the budget.</exception>
+    [RuleRef("700.2")]
+    private static void Afford(GameState state, IQuery query, ChooseMode modal, IReadOnlyList<int> modes, Amount budget, EffectContext context)
+    {
+        var allowance = query.Evaluate(state, budget, context);
+        var spent = 0;
+        foreach (var index in modes)
+            spent += Price(modal.Modes[index]);
+        if (spent > allowance)
+            throw new RefusedException("Those modes cost more than this allows.", "700.2");
+    }
+
+    /// <summary>
+    /// What one mode costs against the budget, CR 700.2: the printed symbols of its
+    /// <see cref="Mode.Cost"/> counted as a mana value (CR 202.3d, so a {P}{P} mode costs two of the
+    /// five). A budget with an unpriced mode, or a mode priced in something the budget cannot count,
+    /// is refused naming the rule rather than treated as free.
+    /// </summary>
+    [RuleRef("700.2")]
+    private static int Price(Mode mode)
+    {
+        if (mode.Cost is not ManaCost printed)
+            throw new RefusedException("That mode has no price a budget can count.", "700.2");
+        if (!ManaSymbols.TryParse(printed.Mana, out var symbols, out _))
+            throw new RefusedException("That mode's price cannot be read yet.", "700.2");
+        return ManaSymbols.ManaValue(symbols);
     }
 }
