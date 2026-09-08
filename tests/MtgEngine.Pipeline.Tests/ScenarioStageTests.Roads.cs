@@ -164,13 +164,18 @@ public sealed class ScenarioStageTestsRoads
 
     [Fact]
     [RuleRef("115.7")]
-    public void Changing_the_target_of_a_spell_gets_no_scenario()
+    public void Changing_the_target_of_a_spell_moves_its_damage_to_the_caster()
     {
-        // The runner has no filler spell that targets, so there is nothing on the stack whose
-        // target could change; a scenario that always passed would be worse than none.
+        // Withheld until the runner had a filler spell that targets and the engine could offer a
+        // player as a new target (E9r): the bolt is announced at the opponent, the card under test
+        // retargets it, and the caster's own life total is what says the target moved.
         var file = File("bend it", new SpellAbility(new ChangeTarget(new Target(new ObjectFilter(In: Zone.Stack)))), CardType.Instant);
 
-        Assert.Null(SmokeScenario.Of(file));
+        var scenario = SmokeScenario.Of(file);
+
+        Assert.NotNull(scenario);
+        Assert.Contains(scenario!.Expect, e => e is Life { Player: "A", Value: 19 });
+        Passes(scenario, file);
     }
 
     /// <summary>The generated scenario has to pass in the real engine, or it is not a scenario, it is a claim.</summary>
