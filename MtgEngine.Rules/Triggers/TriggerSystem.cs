@@ -239,6 +239,15 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
         return chosen;
     }
 
+    /// <summary>
+    /// The values the stack entry carries, CR 603.3c: what the firing itself named, with the
+    /// announcement's own values written over them. Nothing is added when the announcement had
+    /// nothing conditional to record, so an ordinary trigger's entry is what it always was.
+    /// </summary>
+    [RuleRef("603.3c")]
+    private static ImmutableDictionary<string, string> Carried(ImmutableDictionary<string, string> firing, ImmutableDictionary<string, string>? announced) =>
+        announced is null ? firing : announced.Aggregate(firing, (all, pair) => all.SetItem(pair.Key, pair.Value));
+
     /// <summary>The key the triggering objects are remembered under, so "that creature" finds them.</summary>
     public const string Triggering = "triggering";
 
@@ -298,7 +307,7 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     /// from the state's own bookkeeping rather than from a permanent.
     /// </summary>
     [RuleRef("603.3")]
-    private static Ev.ObjectCreated Create(GameState state, Firing firing)
+    private Ev.ObjectCreated Create(GameState state, Firing firing)
     {
         var source = firing.Source is { } id && state.Objects.TryGetValue(id, out var found) ? found : null;
         var definition = source?.Definition ?? EmptyDefinition;
@@ -311,6 +320,14 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
         // the instruction was dropped, not deferred. The stack object carries the ability itself.
         if (index < 0)
             (definition, index) = WithDelayed(definition, faceIndex, firing.Ability);
+
+        // CR 603.3c with 700.2b: a modal triggered ability's modes are chosen as it is put on the
+        // stack, so a ceiling that depends on the game (ChooseMode.MaxIf) is read here, once, in
+        // the controller's own context — the same announcement a spell's modes get, CR 601.2b. The
+        // trigger system has no channel for announced modes, so none are named and the number the
+        // ceiling came to rides on the entry for the resolution's question to offer.
+        var announced = Casting.ModeAnnouncement.Announce(state, _query, [firing.Ability.Do], Context(state, firing.Source, firing.Controller, firing.Subject), []);
+        var chosen = Carried(firing.Chosen, announced);
 
         // The stack object carries what it triggered on, so the interpreter builds its context
         // from the object alone (CR 603.3d) rather than from the log.
@@ -327,7 +344,7 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
                 ? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty.SetItem(Triggering, [player])
                 : null,
             Triggering: firing.Subject.Objects,
-            Chosen: firing.Chosen.IsEmpty ? null : firing.Chosen);
+            Chosen: chosen.IsEmpty ? null : chosen);
         if (source is not null)
             return StackZone.CreateAbilityOnStack(state, source with { Definition = definition }, firing.Controller, entry);
 

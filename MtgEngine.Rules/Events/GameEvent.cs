@@ -132,10 +132,24 @@ public sealed record ObjectCeasedToExist(ObjectId Id) : GameEvent
 /// <paramref name="Departed"/> is the old object as it last existed, for the abilities that look back
 /// at it (CR 603.10) and for a trigger on "from" a zone that is not the battlefield.
 /// <paramref name="Position"/> is the index in the destination, or -1 for the end.
+/// <paramref name="FromZone"/> is the zone it left, for a mover that knows the zone but carries no
+/// departed object (CR 603.6); a move that carries one already says it, so it is defaulted and no
+/// existing site changes.
 /// </summary>
 [RuleRef("400.7")]
-public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, GameObject? Departed = null) : GameEvent
+public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, GameObject? Departed = null, ZoneKey? FromZone = null) : GameEvent
 {
+    /// <summary>
+    /// The zone the object left, CR 603.6, or none when the site that made the move did not say.
+    /// <see cref="FromZone"/> is what the mover recorded; a move that carries <see cref="Departed"/>
+    /// says it by that object's own zone, which is why the zone system's moves answer already. A
+    /// trigger that names a source zone is refused rather than guessed when this is none, because a
+    /// guessed source fires abilities that should not fire (CR 603.6).
+    /// </summary>
+    [RuleRef("603.6")]
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ZoneKey? LeftFrom => FromZone ?? Departed?.Zone;
+
     public override GameState Apply(GameState state)
     {
         var fromZone = state.Objects.TryGetValue(From, out var old) ? old.Zone.Zone : (Zone?)null;

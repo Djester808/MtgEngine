@@ -49,6 +49,36 @@ public sealed class EventLogTests
         Assert.Equal(42UL, replayed.Rng.Seed);
     }
 
+    /// <summary>
+    /// CR 603.6: the zone an object left is part of the move, so a stored game answers a
+    /// zone-change trigger the same way a live one does. <c>ObjectMoved.LeftFrom</c> is derived and
+    /// must not be written, or a log would carry two spellings of one fact.
+    /// </summary>
+    [Fact]
+    [RuleRef("603.6")]
+    public void A_move_round_trips_the_zone_it_left()
+    {
+        var definition = new CardDefinition("c", "c", Layout.Normal, [new Face("c", FaceRole.Main, new TypeLine(CardType.Creature))]);
+        var owner = new PlayerId(0);
+        var graveyard = ZoneKey.Of(Zone.Graveyard, owner);
+        var departed = new GameObject(new ObjectId(1), definition, 0, owner, owner, graveyard, 1);
+        var arrived = new GameObject(new ObjectId(2), definition, 0, owner, owner, ZoneKey.Of(Zone.Exile, owner), 2);
+        var recorded = new ObjectMoved(new ObjectId(1), arrived, -1, FromZone: graveyard);
+        var carried = new ObjectMoved(new ObjectId(1), arrived, -1, Departed: departed);
+
+        var json = EventLogSerializer.Write([recorded, carried]);
+        var back = EventLogSerializer.Read(json);
+
+        Assert.DoesNotContain("leftFrom", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(graveyard, Assert.IsType<ObjectMoved>(back[0]).FromZone);
+        Assert.Equal(graveyard, Assert.IsType<ObjectMoved>(back[0]).LeftFrom);
+
+        // A move that carries the object that left says the zone by that object, which is why every
+        // move the zone system makes already answers and no site had to change.
+        Assert.Null(Assert.IsType<ObjectMoved>(back[1]).FromZone);
+        Assert.Equal(graveyard, Assert.IsType<ObjectMoved>(back[1]).LeftFrom);
+    }
+
     [Fact]
     public void Concession_ends_a_two_player_game()
     {
