@@ -232,7 +232,7 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
             ManualMove m when state.Objects.TryGetValue(m.Object, out var obj) =>
             [
                 new ManualActionTaken(m.Player, "move", m.Object, $"{obj.Zone.Zone} to {m.To.Zone}"),
-                new ObjectMoved(m.Object, obj with { Id = new ObjectId(state.NextObjectId), Zone = m.To, Tapped = m.Tapped, Timestamp = state.NextTimestamp, Damage = 0, Counters = ImmutableDictionary<string, int>.Empty, AttachedTo = null }, m.Position),
+                new ObjectMoved(m.Object, obj with { Id = new ObjectId(state.NextObjectId), Zone = m.To, Tapped = m.Tapped, Timestamp = state.NextTimestamp, Damage = 0, Counters = ImmutableDictionary<string, int>.Empty, AttachedTo = null }, m.Position, Departed: obj),
             ],
             ManualTap t when state.Objects.ContainsKey(t.Object) =>
             [

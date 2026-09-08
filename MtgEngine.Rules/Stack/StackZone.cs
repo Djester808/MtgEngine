@@ -50,7 +50,8 @@ public static class StackZone
             AttachedTo = null,
             Stack = entry,
         };
-        return new ObjectMoved(card.Id, spell, -1);
+        // CR 603.6: the zone the card left rides on the event, so a "leaves your graveyard" trigger sees a cast from there.
+        return new ObjectMoved(card.Id, spell, -1, Departed: card);
     }
 
     /// <summary>
