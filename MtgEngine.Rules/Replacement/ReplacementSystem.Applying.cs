@@ -34,8 +34,10 @@ public sealed partial class ReplacementSystem
         // "existing damage prevention shields won't be reduced by damage that can't be prevented" —
         // so no amount is written back and the shield is still there for the next damage. Applying
         // it once and no more is CR 615.12a, which the caller's used set already holds.
+        // CR 615.12 with 615: it prevented nothing, and nothing is a real amount for the rest of the
+        // effect to read — not the absence of one (seam-requests/E5l.md § 1).
         if (Unpreventable(state, damage))
-            return new Applied(current, state, []);
+            return new Applied(current, state, [], 0);
 
         if (shield.Amount is null)
             return Prevent(state, current, null, candidate);
@@ -46,11 +48,11 @@ public sealed partial class ReplacementSystem
         var remaining = available - prevented;
 
         var change = new ActiveEffectChanged(active.Id, remaining == 0 ? null : shield with { Amount = new Fixed(remaining) });
-        var applied = new Applied(left == 0 ? null : damage with { Amount = left }, change.Apply(state), [change]);
+        var applied = new Applied(left == 0 ? null : damage with { Amount = left }, change.Apply(state), [change], prevented);
         return Recorded(applied, damage, prevented, candidate);
     }
 
-    private Applied Perform(GameState state, GameEvent current, Effect effect, Candidate candidate)
+    private Applied Perform(GameState state, GameEvent current, Effect effect, Candidate candidate, int? prevented = null)
     {
         switch (effect)
         {
@@ -81,17 +83,32 @@ public sealed partial class ReplacementSystem
             // entering, not a replacement of it, so the event still happens; reading it as
             // CR 614.1a's "instead" drops the move and the permanent never arrives at all.
             case ChooseValue or Sequence when Arriving(current) && Chooses(effect):
-                return Choosing(state, effect, candidate, current);
+                return Choosing(state, effect, candidate, current, prevented);
 
             case Sequence sequence:
                 {
-                    var applied = new Applied(current, state, []);
+                    var applied = new Applied(current, state, [], prevented);
+                    var carried = prevented;
                     foreach (var step in sequence.Steps)
                     {
                         if (applied.Event is null)
-                            return applied;
-                        var next = Perform(applied.State, applied.Event, step, candidate);
-                        applied = new Applied(next.Event, next.State, applied.Extra.AddRange(next.Extra));
+                        {
+                            // CR 615.12 with 614.1a: a prevention that took the whole event leaves
+                            // nothing to modify, but "any additional effects they have will take
+                            // place" — so the rest of the same effect runs, with what was prevented.
+                            // Without a prevention this is the old reading: nothing is left and the
+                            // steps beside it are not run in place of an event that is simply gone.
+                            if (carried is null)
+                                return applied;
+
+                            var rest = Instead(applied.State, step, candidate, current, carried);
+                            applied = new Applied(null, rest.State, applied.Extra.AddRange(rest.Extra), carried);
+                            continue;
+                        }
+
+                        var next = Perform(applied.State, applied.Event, step, candidate, carried);
+                        carried = next.Prevented ?? carried;
+                        applied = new Applied(next.Event, next.State, applied.Extra.AddRange(next.Extra), carried);
                     }
 
                     return applied;
@@ -99,10 +116,10 @@ public sealed partial class ReplacementSystem
 
             // CR 614.1a: the event does not happen, and what the effect says happens instead.
             case ReplaceWith replacement:
-                return Instead(state, replacement.Do, candidate, current);
+                return Instead(state, replacement.Do, candidate, current, prevented);
 
             default:
-                return Instead(state, effect, candidate, current);
+                return Instead(state, effect, candidate, current, prevented);
         }
     }
 
@@ -114,14 +131,14 @@ public sealed partial class ReplacementSystem
     /// until it is answered: the loop sees no event left and stops with the question raised.
     /// </summary>
     [RuleRef("614.1a")]
-    private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current)
+    private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current, int? prevented = null)
     {
         // CR 614.1a with 400.7: the event does not happen, so the object that was entering never
         // exists outside the probe; a question this walk raises has to travel under the card as it
         // still is, or no answer could find the effect that asked (CR 101.4).
         var source = Leaving(state, current, candidate);
-        var outcome = _interpreter.Run(state, effect, Context(source, candidate.Controller, current), IndexOf(state, current, candidate, source));
-        return new Applied(null, outcome.State, outcome.Events);
+        var outcome = _interpreter.Run(state, effect, Context(source, candidate.Controller, current, prevented), IndexOf(state, current, candidate, source));
+        return new Applied(null, outcome.State, outcome.Events, prevented);
     }
 
     /// <summary>
@@ -132,12 +149,12 @@ public sealed partial class ReplacementSystem
     /// ability of that permanent reads it there.
     /// </summary>
     [RuleRef("614.1c")]
-    private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current)
+    private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current, int? prevented = null)
     {
         // The entering happens, so by the time an answer arrives the object exists under the id it
         // was probed with; that id is what the question carries and what CR 608.2d writes on.
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate, candidate.Source));
-        return new Applied(current, outcome.State, outcome.Events);
+        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current, prevented), IndexOf(state, current, candidate, candidate.Source));
+        return new Applied(current, outcome.State, outcome.Events, prevented);
     }
 
     /// <summary>
@@ -212,8 +229,9 @@ public sealed partial class ReplacementSystem
         if (current is not DamageDealt damage)
             return new Applied(current, state, []);
 
+        // CR 615.12 with 615: nothing was prevented, and the rest of the effect reads that zero.
         if (Unpreventable(state, damage))
-            return new Applied(current, state, []);
+            return new Applied(current, state, [], 0);
 
         var asked = amount is null
             ? damage.Amount
@@ -222,7 +240,7 @@ public sealed partial class ReplacementSystem
         // CR 615.13: what this prevented is what came off the event, not what the effect offered.
         var prevented = Math.Min(Math.Max(0, asked), Math.Max(0, damage.Amount));
         var left = damage.Amount - prevented;
-        return Recorded(new Applied(left <= 0 ? null : damage with { Amount = left }, state, []), damage, prevented, candidate);
+        return Recorded(new Applied(left <= 0 ? null : damage with { Amount = left }, state, [], prevented), damage, prevented, candidate);
     }
 
     /// <summary>CR 614.1: an effect that scales what happens rather than replacing it outright.</summary>
