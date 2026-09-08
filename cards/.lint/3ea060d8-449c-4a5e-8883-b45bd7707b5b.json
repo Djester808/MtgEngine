@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: Modes are paid for with a budget of five pawprint symbols and each printed mode has its own pawprint cost. Mode carries no cost and ChooseMode counts modes rather than symbols, so the budget cannot be stated.",
+      "message": "Unsupported: ChooseMode only counts a fixed number of modes (min/max, optionally raised by a single maxIf condition); it has no way to express a point-buy budget where each mode costs a different number of points ({P}, {P}{P}, {P}{P}{P}) totalling up to five, with unlimited repeats of the same mode.",
       "path": "faces[0].abilities[0]"
     }
   ],

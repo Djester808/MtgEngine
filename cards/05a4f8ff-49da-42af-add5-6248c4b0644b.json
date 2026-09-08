@@ -564,6 +564,190 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "05a4f8ff-49da-42af-add5-6248c4b0644b",
+        "name": "Darksteel Mutation",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Darksteel Mutation",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Aura"
+              ],
+              "subtypeList": [
+                "Aura"
+              ]
+            },
+            "manaCost": "{1}{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Artifact",
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Insect"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 0
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              }
+            ],
+            "oracleText": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Enchant",
+                "of": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Enchant creature"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetTypes",
+                  "types": [
+                    "Artifact",
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Insect"
+                  ],
+                  "keepSubtypes": false
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "SetPt",
+                  "power": {
+                    "kind": "Fixed",
+                    "n": 0
+                  },
+                  "toughness": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "LoseAllAbilities"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

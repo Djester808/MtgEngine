@@ -105,234 +105,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
-        "name": "Burgeoning",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+      "title": "casting Burgeoning does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Burgeoning",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "LandPlayed",
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "types": [
-                        "Land"
-                      ],
-                      "ownedBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": false
-                  },
-                  "to": "Battlefield",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+                "name": "Burgeoning",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "LandPlayed",
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "types": [
-                        "Land"
-                      ],
-                      "ownedBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": false
-                  },
-                  "to": "Battlefield",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
-        "name": "Burgeoning",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Burgeoning",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "LandPlayed",
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "types": [
-                          "Land"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "chooser": {
-                        "kind": "You"
-                      },
-                      "upTo": false
-                    },
-                    "to": "Battlefield",
-                    "where": "Default",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
-              }
-            ],
-            "oracleText": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "LandPlayed",
-                  "by": {
-                    "kind": "EachOpponent"
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Choose",
-                      "filter": {
-                        "in": "Hand",
-                        "types": [
-                          "Land"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "chooser": {
-                        "kind": "You"
-                      },
-                      "upTo": false
-                    },
-                    "to": "Battlefield",
-                    "where": "Default",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Burgeoning"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Burgeoning",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260908T005007-29d6bc",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T00:50:07.2401205+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+      "title": "casting Burgeoning does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Burgeoning",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Burgeoning"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Burgeoning",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }
