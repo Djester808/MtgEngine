@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No amount counts the number of times a commander has been cast from the command zone this game (commander tax), and a delayed trigger\u0027s effect has no way to make the spell it watches enter the battlefield with additional counters: EntersWithCounters only lives inside a replacement ability.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

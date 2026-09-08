@@ -63,7 +63,8 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              }
+              },
+              "keepOnePerPermanentType": false
             },
             "optional": false,
             "where": "Battlefield",
@@ -145,7 +146,8 @@
               "n": {
                 "kind": "Fixed",
                 "n": 2
-              }
+              },
+              "keepOnePerPermanentType": false
             },
             "optional": false,
             "where": "Battlefield",
@@ -210,7 +212,24 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Land",
+                "alias": "stood-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "alias": "stood-2",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Lotus Field",
@@ -409,16 +428,34 @@
           "kind": "InZone",
           "card": "Lotus Field",
           "zone": "Battlefield"
+        },
+        {
+          "kind": "InZone",
+          "card": "stood-1",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "InZone",
+          "card": "stood-2",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 2
         }
       ]
     }
   ],
   "verification": {
-    "engineHash": "engine:9781a597f8c8ddfa",
-    "runId": "verify-20260908T042913-3e3c94",
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-08T04:29:13.1180643+00:00"
+    "at": "2026-09-08T07:33:40.0356296+00:00"
   },
   "keywordList": [
     "Hexproof"
@@ -436,7 +473,24 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Land",
+                "alias": "stood-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "alias": "stood-2",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Lotus Field",
@@ -635,6 +689,24 @@
           "kind": "InZone",
           "card": "Lotus Field",
           "zone": "Battlefield"
+        },
+        {
+          "kind": "InZone",
+          "card": "stood-1",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "InZone",
+          "card": "stood-2",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 2
         }
       ]
     }

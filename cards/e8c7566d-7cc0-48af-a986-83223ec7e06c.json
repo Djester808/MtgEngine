@@ -1,0 +1,586 @@
+{
+  "oracleId": "e8c7566d-7cc0-48af-a986-83223ec7e06c",
+  "name": "Midnight Reaper",
+  "oracleHash": "sha256:f60135c990921fadecea413433b71206f3c9d52030068394890e4c9fefb55fbb",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e8c7566d-7cc0-48af-a986-83223ec7e06c",
+    "name": "Midnight Reaper",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Midnight Reaper",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Zombie",
+            "Knight"
+          ],
+          "subtypeList": [
+            "Zombie",
+            "Knight"
+          ]
+        },
+        "manaCost": "{2}{B}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "You"
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a nontoken creature you control dies, this creature deals 1 damage to you and you draw a card."
+          }
+        ],
+        "oracleText": "Whenever a nontoken creature you control dies, this creature deals 1 damage to you and you draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "toPlayer": {
+                    "kind": "You"
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a nontoken creature you control dies, this creature deals 1 damage to you and you draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "scenarios": [
+    {
+      "id": "smoke-e8c7566d-7cc0-48af-a986-83223ec7e06c",
+      "title": "casting Midnight Reaper does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Midnight Reaper",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Midnight Reaper"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Midnight Reaper",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T07:33:40.0356296+00:00"
+  },
+  "keywordList": [],
+  "scenarioList": [
+    {
+      "id": "smoke-e8c7566d-7cc0-48af-a986-83223ec7e06c",
+      "title": "casting Midnight Reaper does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Midnight Reaper",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Midnight Reaper"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Midnight Reaper",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Warning",
+      "code": "L006",
+      "message": "Counter kind \u0027deathtouch\u0027 is not in Counters.Known.",
+      "path": "faces[0].abilities[0]"
+    },
+    {
+      "severity": "Warning",
+      "code": "L006",
+      "message": "Counter kind \u0027reach\u0027 is not in Counters.Known.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": false
+}

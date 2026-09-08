@@ -1,0 +1,759 @@
+{
+  "oracleId": "8a3ad2ef-8bcb-40c0-85de-f03328c2b644",
+  "name": "Springheart Nantuko",
+  "oracleHash": "sha256:7d4c1655447a74ab1f2871dacc281b7d44fbba5040ae1880de6a1e44f89d73b8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8a3ad2ef-8bcb-40c0-85de-f03328c2b644",
+    "name": "Springheart Nantuko",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Springheart Nantuko",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature",
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Insect",
+            "Monk"
+          ],
+          "subtypeList": [
+            "Insect",
+            "Monk"
+          ]
+        },
+        "manaCost": "{1}{G}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Bestow",
+            "cost": "{1}{G}",
+            "repeatable": false,
+            "text": "Bestow {1}{G}"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets \u002B1/\u002B1."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "underControlOf": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Matches",
+                "of": {
+                  "kind": "Attached"
+                },
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "then": {
+                "kind": "MayPay",
+                "paid": {
+                  "kind": "ManaCost",
+                  "mana": "{1}{G}"
+                },
+                "then": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Attached"
+                  }
+                },
+                "else": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Insect",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Insect"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              },
+              "else": {
+                "kind": "CreateToken",
+                "token": {
+                  "name": "Insect",
+                  "colors": [
+                    "Green"
+                  ],
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Insect"
+                  ],
+                  "supertypes": [],
+                  "power": 1,
+                  "toughness": 1,
+                  "isPredefined": false
+                },
+                "tapped": false,
+                "attacking": false
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that\u0027s a copy of that creature. If you didn\u0027t create a token this way, create a 1/1 green Insect creature token."
+          }
+        ],
+        "oracleText": "Bestow {1}{G}\nEnchanted creature gets \u002B1/\u002B1.\nLandfall \u2014 Whenever a land you control enters, you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that\u0027s a copy of that creature. If you didn\u0027t create a token this way, create a 1/1 green Insect creature token.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Bestow",
+            "cost": "{1}{G}",
+            "repeatable": false,
+            "text": "Bestow {1}{G}"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets \u002B1/\u002B1."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "underControlOf": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Matches",
+                "of": {
+                  "kind": "Attached"
+                },
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "then": {
+                "kind": "MayPay",
+                "paid": {
+                  "kind": "ManaCost",
+                  "mana": "{1}{G}"
+                },
+                "then": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Attached"
+                  }
+                },
+                "else": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Insect",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Insect"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              },
+              "else": {
+                "kind": "CreateToken",
+                "token": {
+                  "name": "Insect",
+                  "colors": [
+                    "Green"
+                  ],
+                  "types": [
+                    "Creature"
+                  ],
+                  "subtypes": [
+                    "Insect"
+                  ],
+                  "supertypes": [],
+                  "power": 1,
+                  "toughness": 1,
+                  "isPredefined": false
+                },
+                "tapped": false,
+                "attacking": false
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that\u0027s a copy of that creature. If you didn\u0027t create a token this way, create a 1/1 green Insect creature token."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Bestow",
+    "Landfall"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-8a3ad2ef-8bcb-40c0-85de-f03328c2b644",
+      "title": "casting Springheart Nantuko does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Springheart Nantuko",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Springheart Nantuko"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Springheart Nantuko",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T07:33:40.0356296+00:00"
+  },
+  "keywordList": [
+    "Bestow",
+    "Landfall"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-8a3ad2ef-8bcb-40c0-85de-f03328c2b644",
+      "title": "casting Springheart Nantuko does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Springheart Nantuko",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Springheart Nantuko"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Springheart Nantuko",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

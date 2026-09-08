@@ -1,0 +1,1295 @@
+{
+  "oracleId": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a",
+  "name": "Necromancy",
+  "oracleHash": "sha256:a28f0f691f532b7b6d3ff0d7fa962b639a04b7da67fd761ccc6cf355d5fd6777",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a",
+    "name": "Necromancy",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Necromancy",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayCastAsThoughFlash",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "where": "Hand",
+            "characteristicDefining": false,
+            "text": "You may cast this spell as though it had flash."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "There is no condition for \u0022you cast it any time a sorcery couldn\u0027t have been cast\u0022 and no way to set up, at cast time, a delayed sacrifice at the next cleanup step by the controller of the permanent the spell becomes.",
+              "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "subtypes": [
+                      "Aura"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No ObjectFilter can describe \u0022a creature put onto the battlefield with Necromancy\u0022, so the enchant ability the permanent gains when it becomes an Aura cannot be spelled.",
+                  "text": "it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022"
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  }
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "LeavesBattlefield",
+                    "what": {
+                      "also": {
+                        "kind": "IsThisObject"
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "what": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "keepOnePerPermanentType": false
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "if": {
+              "kind": "IsOnBattlefield",
+              "of": {
+                "kind": "Self"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+          }
+        ],
+        "oracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "MayCastAsThoughFlash",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "where": "Hand",
+            "characteristicDefining": false,
+            "text": "You may cast this spell as though it had flash."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "There is no condition for \u0022you cast it any time a sorcery couldn\u0027t have been cast\u0022 and no way to set up, at cast time, a delayed sacrifice at the next cleanup step by the controller of the permanent the spell becomes.",
+              "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "subtypes": [
+                      "Aura"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No ObjectFilter can describe \u0022a creature put onto the battlefield with Necromancy\u0022, so the enchant ability the permanent gains when it becomes an Aura cannot be spelled.",
+                  "text": "it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022"
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  }
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "LeavesBattlefield",
+                    "what": {
+                      "also": {
+                        "kind": "IsThisObject"
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "what": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "keepOnePerPermanentType": false
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "if": {
+              "kind": "IsOnBattlefield",
+              "of": {
+                "kind": "Self"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a",
+        "name": "Necromancy",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Necromancy",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "There is no condition for \u0022you cast it any time a sorcery couldn\u0027t have been cast\u0022 and no way to set up, at cast time, a delayed sacrifice at the next cleanup step by the controller of the permanent the spell becomes.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No ObjectFilter can describe \u0022a creature put onto the battlefield with Necromancy\u0022, so the enchant ability the permanent gains when it becomes an Aura cannot be spelled.",
+                      "text": "it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022"
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "LeavesBattlefield",
+                        "what": {
+                          "also": {
+                            "kind": "IsThisObject"
+                          }
+                        }
+                      },
+                      "do": {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ],
+            "oracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "There is no condition for \u0022you cast it any time a sorcery couldn\u0027t have been cast\u0022 and no way to set up, at cast time, a delayed sacrifice at the next cleanup step by the controller of the permanent the spell becomes.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No ObjectFilter can describe \u0022a creature put onto the battlefield with Necromancy\u0022, so the enchant ability the permanent gains when it becomes an Aura cannot be spelled.",
+                      "text": "it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022"
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "LeavesBattlefield",
+                        "what": {
+                          "also": {
+                            "kind": "IsThisObject"
+                          }
+                        }
+                      },
+                      "do": {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a",
+        "name": "Necromancy",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Necromancy",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No condition in the vocabulary tests whether this spell was cast at a time a sorcery could not have been cast, which is what gates the delayed sacrifice at the next cleanup step.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Enchant",
+                        "of": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LeavesBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sacrifice",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ],
+            "oracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No condition in the vocabulary tests whether this spell was cast at a time a sorcery could not have been cast, which is what gates the delayed sacrifice at the next cleanup step.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Enchant",
+                        "of": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LeavesBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sacrifice",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a",
+        "name": "Necromancy",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Necromancy",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No condition expresses \u0022any time a sorcery couldn\u0027t have been cast\u0022 \u2014 the timing a spell was cast at is not a question this vocabulary can ask \u2014 so the delayed sacrifice at the next cleanup step cannot be gated on it.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Enchant",
+                        "of": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "LeavesBattlefield",
+                        "what": {
+                          "also": {
+                            "kind": "IsThisObject"
+                          }
+                        }
+                      },
+                      "do": {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ],
+            "oracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayCastAsThoughFlash",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "where": "Hand",
+                "characteristicDefining": false,
+                "text": "You may cast this spell as though it had flash."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No condition expresses \u0022any time a sorcery couldn\u0027t have been cast\u0022 \u2014 the timing a spell was cast at is not a question this vocabulary can ask \u2014 so the delayed sacrifice at the next cleanup step cannot be gated on it.",
+                  "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "subtypes": [
+                          "Aura"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Enchant",
+                        "of": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      "to": {
+                        "kind": "Self"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Attach",
+                      "what": {
+                        "kind": "Self"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "LeavesBattlefield",
+                        "what": {
+                          "also": {
+                            "kind": "IsThisObject"
+                          }
+                        }
+                      },
+                      "do": {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "IsOnBattlefield",
+                  "of": {
+                    "kind": "Self"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

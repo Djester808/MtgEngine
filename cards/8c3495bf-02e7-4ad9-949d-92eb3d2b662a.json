@@ -1,0 +1,612 @@
+{
+  "oracleId": "8c3495bf-02e7-4ad9-949d-92eb3d2b662a",
+  "name": "Torbran, Thane of Red Fell",
+  "oracleHash": "sha256:4d6401a865424a645660cbd195c70c33b9cfde37d9966c0b4eba80a9c597e4a9",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8c3495bf-02e7-4ad9-949d-92eb3d2b662a",
+    "name": "Torbran, Thane of Red Fell",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Torbran, Thane of Red Fell",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Dwarf",
+            "Noble"
+          ],
+          "subtypeList": [
+            "Dwarf",
+            "Noble"
+          ]
+        },
+        "manaCost": "{1}{R}{R}{R}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "PlayerWouldBeDealtDamage",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "by": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Red"
+                ]
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 1,
+              "add": 2
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldBeDealtDamage",
+              "to": {
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "by": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Red"
+                ]
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 1,
+              "add": 2
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead."
+          }
+        ],
+        "oracleText": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "PlayerWouldBeDealtDamage",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "by": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Red"
+                ]
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 1,
+              "add": 2
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldBeDealtDamage",
+              "to": {
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "by": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Red"
+                ]
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 1,
+              "add": 2
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "scenarios": [
+    {
+      "id": "smoke-8c3495bf-02e7-4ad9-949d-92eb3d2b662a",
+      "title": "casting Torbran, Thane of Red Fell does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Torbran, Thane of Red Fell",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Torbran, Thane of Red Fell"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Torbran, Thane of Red Fell",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T07:33:40.0356296+00:00"
+  },
+  "keywordList": [],
+  "scenarioList": [
+    {
+      "id": "smoke-8c3495bf-02e7-4ad9-949d-92eb3d2b662a",
+      "title": "casting Torbran, Thane of Red Fell does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Torbran, Thane of Red Fell",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Torbran, Thane of Red Fell"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Torbran, Thane of Red Fell",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

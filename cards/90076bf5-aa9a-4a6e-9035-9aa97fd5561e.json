@@ -1,0 +1,193 @@
+{
+  "oracleId": "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
+  "name": "Luminarch Ascension",
+  "oracleHash": "sha256:e0893d9b54b39f9d882cb9fc58fcd5b58e9c50c1f4863a5a532f89198d0eadea",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
+    "name": "Luminarch Ascension",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Luminarch Ascension",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No condition asks whether a player lost life this turn. Life lost is not damage, so no damage amount can say it, and there is no LostLifeThisTurn condition or amount to compare; the whole ability is gated on that clause.",
+              "text": "if you didn\u0027t lose life this turn, you may put a quest counter on this enchantment"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if you didn\u0027t lose life this turn, you may put a quest counter on this enchantment."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{W}"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Angel",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Angel"
+                ],
+                "supertypes": [],
+                "power": 4,
+                "toughness": 4,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Flying",
+                    "repeatable": false
+                  }
+                ],
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "quest"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 4
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "{1}{W}: Create a 4/4 white Angel creature token with flying. Activate only if this enchantment has four or more quest counters on it."
+          }
+        ],
+        "oracleText": "At the beginning of each opponent\u0027s end step, if you didn\u0027t lose life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\n{1}{W}: Create a 4/4 white Angel creature token with flying. Activate only if this enchantment has four or more quest counters on it.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No condition asks whether a player lost life this turn. Life lost is not damage, so no damage amount can say it, and there is no LostLifeThisTurn condition or amount to compare; the whole ability is gated on that clause.",
+              "text": "if you didn\u0027t lose life this turn, you may put a quest counter on this enchantment"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if you didn\u0027t lose life this turn, you may put a quest counter on this enchantment."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{W}"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Angel",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Angel"
+                ],
+                "supertypes": [],
+                "power": 4,
+                "toughness": 4,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Flying",
+                    "repeatable": false
+                  }
+                ],
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "quest"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 4
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "{1}{W}: Create a 4/4 white Angel creature token with flying. Activate only if this enchantment has four or more quest counters on it."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

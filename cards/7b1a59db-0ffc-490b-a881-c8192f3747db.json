@@ -1,0 +1,195 @@
+{
+  "oracleId": "7b1a59db-0ffc-490b-a881-c8192f3747db",
+  "name": "Gift of the Viper",
+  "oracleHash": "sha256:d69701498f1aef99a6822943c18835b8626a77b30e664896a7efe56627c550e2",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7b1a59db-0ffc-490b-a881-c8192f3747db",
+    "name": "Gift of the Viper",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Gift of the Viper",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "reach",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "deathtouch",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                }
+              ]
+            },
+            "text": "Put a \u002B1/\u002B1 counter, a reach counter, and a deathtouch counter on target creature. Untap it."
+          }
+        ],
+        "oracleText": "Put a \u002B1/\u002B1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "reach",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "counter": "deathtouch",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                }
+              ]
+            },
+            "text": "Put a \u002B1/\u002B1 counter, a reach counter, and a deathtouch counter on target creature. Untap it."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

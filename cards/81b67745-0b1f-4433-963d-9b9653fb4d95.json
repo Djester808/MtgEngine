@@ -1,0 +1,1127 @@
+{
+  "oracleId": "81b67745-0b1f-4433-963d-9b9653fb4d95",
+  "name": "Ride the Shoopuf",
+  "oracleHash": "sha256:f61ab3fb4b81a5e88b84101b3e0976e6adaa14a8ba72e33e44a3629b7d2b39c8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "81b67745-0b1f-4433-963d-9b9653fb4d95",
+    "name": "Ride the Shoopuf",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ride the Shoopuf",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "underControlOf": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, put a \u002B1/\u002B1 counter on target creature you control."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{5}{G}{G}"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Beast"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "SetPt",
+                    "power": {
+                      "kind": "Fixed",
+                      "n": 7
+                    },
+                    "toughness": {
+                      "kind": "Fixed",
+                      "n": 7
+                    }
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{5}{G}{G}: This enchantment becomes a 7/7 Beast creature in addition to its other types."
+          }
+        ],
+        "oracleText": "Landfall \u2014 Whenever a land you control enters, put a \u002B1/\u002B1 counter on target creature you control.\n{5}{G}{G}: This enchantment becomes a 7/7 Beast creature in addition to its other types.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "underControlOf": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, put a \u002B1/\u002B1 counter on target creature you control."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{5}{G}{G}"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "AddTypes",
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Beast"
+                    ],
+                    "allCreatureTypes": false
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "SetPt",
+                    "power": {
+                      "kind": "Fixed",
+                      "n": 7
+                    },
+                    "toughness": {
+                      "kind": "Fixed",
+                      "n": 7
+                    }
+                  },
+                  "to": {
+                    "kind": "Self"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{5}{G}{G}: This enchantment becomes a 7/7 Beast creature in addition to its other types."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Landfall"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-81b67745-0b1f-4433-963d-9b9653fb4d95",
+      "title": "casting Ride the Shoopuf does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Ride the Shoopuf",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Ride the Shoopuf"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Ride the Shoopuf",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-81b67745-0b1f-4433-963d-9b9653fb4d95-1",
+      "title": "activating an ability of Ride the Shoopuf does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Ride the Shoopuf",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Ride the Shoopuf",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
+    "passed": 2,
+    "total": 2,
+    "at": "2026-09-08T07:33:40.0356296+00:00"
+  },
+  "keywordList": [
+    "Landfall"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-81b67745-0b1f-4433-963d-9b9653fb4d95",
+      "title": "casting Ride the Shoopuf does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Ride the Shoopuf",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Ride the Shoopuf"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Ride the Shoopuf",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    },
+    {
+      "id": "smoke-activate-81b67745-0b1f-4433-963d-9b9653fb4d95-1",
+      "title": "activating an ability of Ride the Shoopuf does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Ride the Shoopuf",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "ActivateStep",
+          "player": "A",
+          "card": "Ride the Shoopuf",
+          "abilityIndex": 1
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

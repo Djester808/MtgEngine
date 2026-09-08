@@ -1,0 +1,650 @@
+{
+  "oracleId": "e2cd65f6-7cbc-497c-bdc9-698ff17da31e",
+  "name": "Cosmogrand Zenith",
+  "oracleHash": "sha256:d86845812c08956e40c3ee60e4b27d65aacf7cfbf1e9d39d37ab81f8e832dbae",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e2cd65f6-7cbc-497c-bdc9-698ff17da31e",
+    "name": "Cosmogrand Zenith",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cosmogrand Zenith",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Soldier"
+          ],
+          "subtypeList": [
+            "Human",
+            "Soldier"
+          ]
+        },
+        "manaCost": "{2}{W}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "You"
+              },
+              "nth": 2
+            },
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Create two 1/1 white Human Soldier creature tokens.",
+                  "do": {
+                    "kind": "CreateToken",
+                    "token": {
+                      "name": "Human Soldier",
+                      "colors": [
+                        "White"
+                      ],
+                      "types": [
+                        "Creature"
+                      ],
+                      "subtypes": [
+                        "Human",
+                        "Soldier"
+                      ],
+                      "supertypes": [],
+                      "power": 1,
+                      "toughness": 1,
+                      "isPredefined": false
+                    },
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "tapped": false,
+                    "attacking": false
+                  }
+                },
+                {
+                  "text": "Put a \u002B1/\u002B1 counter on each creature you control.",
+                  "do": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast your second spell each turn, choose one \u2014\n\u2022 Create two 1/1 white Human Soldier creature tokens.\n\u2022 Put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ],
+        "oracleText": "Whenever you cast your second spell each turn, choose one \u2014\n\u2022 Create two 1/1 white Human Soldier creature tokens.\n\u2022 Put a \u002B1/\u002B1 counter on each creature you control.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "You"
+              },
+              "nth": 2
+            },
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Create two 1/1 white Human Soldier creature tokens.",
+                  "do": {
+                    "kind": "CreateToken",
+                    "token": {
+                      "name": "Human Soldier",
+                      "colors": [
+                        "White"
+                      ],
+                      "types": [
+                        "Creature"
+                      ],
+                      "subtypes": [
+                        "Human",
+                        "Soldier"
+                      ],
+                      "supertypes": [],
+                      "power": 1,
+                      "toughness": 1,
+                      "isPredefined": false
+                    },
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "tapped": false,
+                    "attacking": false
+                  }
+                },
+                {
+                  "text": "Put a \u002B1/\u002B1 counter on each creature you control.",
+                  "do": {
+                    "kind": "PutCounters",
+                    "on": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "counter": "\u002B1/\u002B1",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast your second spell each turn, choose one \u2014\n\u2022 Create two 1/1 white Human Soldier creature tokens.\n\u2022 Put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "scenarios": [
+    {
+      "id": "smoke-e2cd65f6-7cbc-497c-bdc9-698ff17da31e",
+      "title": "casting Cosmogrand Zenith does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Cosmogrand Zenith",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Cosmogrand Zenith"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Cosmogrand Zenith",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T073340-a548b5",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T07:33:40.0356296+00:00"
+  },
+  "keywordList": [],
+  "scenarioList": [
+    {
+      "id": "smoke-e2cd65f6-7cbc-497c-bdc9-698ff17da31e",
+      "title": "casting Cosmogrand Zenith does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Cosmogrand Zenith",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Cosmogrand Zenith"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Cosmogrand Zenith",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

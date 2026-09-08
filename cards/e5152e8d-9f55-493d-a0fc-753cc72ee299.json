@@ -1,0 +1,261 @@
+{
+  "oracleId": "e5152e8d-9f55-493d-a0fc-753cc72ee299",
+  "name": "Emeritus of Abundance // Regrowth",
+  "oracleHash": "sha256:74f3ae518e45e9c689e4a4f0dc9c50c3a8a29d1bb05e945152820070af07f8f7",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e5152e8d-9f55-493d-a0fc-753cc72ee299",
+    "name": "Emeritus of Abundance // Regrowth",
+    "layout": "Prepare",
+    "faces": [
+      {
+        "name": "Emeritus of Abundance",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Elf",
+            "Druid"
+          ],
+          "subtypeList": [
+            "Elf",
+            "Druid"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "repeatable": false,
+            "text": "Vigilance"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "No record for entering the battlefield already carrying the Prepared designation: EntersAs, EntersTapped and EntersWithCounters are the only as-enters modifiers, and a Prepare effect in the replacement\u0027s slot would replace the entering itself rather than accompany it.",
+              "text": "This creature enters prepared."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This creature enters prepared."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Prepare",
+              "what": {
+                "kind": "Self"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 8
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever this creature attacks, if you control eight or more lands, this creature becomes prepared."
+          }
+        ],
+        "oracleText": "Vigilance\nThis creature enters prepared.\nWhenever this creature attacks, if you control eight or more lands, this creature becomes prepared.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "repeatable": false,
+            "text": "Vigilance"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "No record for entering the battlefield already carrying the Prepared designation: EntersAs, EntersTapped and EntersWithCounters are the only as-enters modifiers, and a Prepare effect in the replacement\u0027s slot would replace the entering itself rather than accompany it.",
+              "text": "This creature enters prepared."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This creature enters prepared."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Prepare",
+              "what": {
+                "kind": "Self"
+              }
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 8
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever this creature attacks, if you control eight or more lands, this creature becomes prepared."
+          }
+        ]
+      },
+      {
+        "name": "Regrowth",
+        "role": "PrepareSpell",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target card from your graveyard to your hand."
+          }
+        ],
+        "oracleText": "Return target card from your graveyard to your hand.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target card from your graveyard to your hand."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Vigilance",
+    "Prepared"
+  ],
+  "keywordList": [
+    "Vigilance",
+    "Prepared"
+  ],
+  "scenarioList": []
+}

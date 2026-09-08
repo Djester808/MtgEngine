@@ -1,0 +1,99 @@
+{
+  "oracleId": "f586ecb8-310c-4f40-a766-6a7ca46a254d",
+  "name": "Flare of Duplication",
+  "oracleHash": "sha256:0566cbac981a7ee4a582faef936eca5dfb259085f720a4693ec31d975d47a21a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f586ecb8-310c-4f40-a766-6a7ca46a254d",
+    "name": "Flare of Duplication",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Flare of Duplication",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{R}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "CopySpell",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "mayChooseNewTargets": true
+            },
+            "text": "Copy target instant or sorcery spell. You may choose new targets for the copy."
+          }
+        ],
+        "oracleText": "You may sacrifice a nontoken red creature rather than pay this spell\u0027s mana cost.\nCopy target instant or sorcery spell. You may choose new targets for the copy.",
+        "alternativeCosts": [
+          {
+            "cost": {
+              "kind": "SacrificeCost",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "colors": [
+                  "Red"
+                ],
+                "token": false
+              }
+            }
+          }
+        ],
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "CopySpell",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "mayChooseNewTargets": true
+            },
+            "text": "Copy target instant or sorcery spell. You may choose new targets for the copy."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-3deff551702f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}
