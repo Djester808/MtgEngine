@@ -121,7 +121,22 @@ public sealed record PutCounters(Selector On, string Counter, Amount N) : Effect
 [RuleRef("122")]
 public sealed record RemoveCounters(Selector From, string? Counter, Amount? N = null, bool All = false) : Effect;
 
-public sealed record MoveCounters(Selector From, Selector To, string? Counter, Amount? N = null, bool All = false) : Effect;
+/// <summary>
+/// "Move a +1/+1 counter from target creature onto another target creature", CR 122.5: one action
+/// that removes the counter and puts it on the second object, and if either half is impossible
+/// nothing moves at all — which is why it is this record and never a RemoveCounters beside a
+/// PutCounters, a pair that would strip the first object and then fail.
+/// <para>
+/// <paramref name="N"/> is a printed number ("move two"), <paramref name="All"/> is "move all of
+/// them", and <paramref name="AnyNumber"/> is "move any number of +1/+1 counters" — a choice the
+/// controller makes as the effect resolves, from none up to however many are there. The three are
+/// three different printed lines: a fixed count that cannot be met moves nothing, "all" is not a
+/// choice at all, and a reading that writes "any number" as All takes counters the player did not
+/// choose to move. At most one of them is set (L043); all three absent is one counter.
+/// </para>
+/// </summary>
+[RuleRef("122.5")]
+public sealed record MoveCounters(Selector From, Selector To, string? Counter, Amount? N = null, bool All = false, bool AnyNumber = false) : Effect;
 
 /// <summary>Poison, energy, experience, rad and ticket counters on a player; negative amounts remove.</summary>
 [RuleRef("122.1")]

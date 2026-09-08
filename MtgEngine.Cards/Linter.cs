@@ -134,8 +134,12 @@ public static partial class Linter
         foreach (var face in file.Definition.Faces)
         {
             // A key one ability produces ("as this enters, choose a color") is read by another on the
-            // same face, so the face's keys are what a reference is checked against.
-            var faceProduced = ProducedKeys(face.AbilityList.SelectMany(Walk));
+            // same face, so the face's keys are what a reference is checked against. The face's own
+            // additional costs produce keys too (CR 601.2f–601.2h): "as an additional cost to cast
+            // this spell, sacrifice a creature" is a Cost on the face and not on any ability, and
+            // "the sacrificed creature's power" is read by one — so a walk over the abilities alone
+            // sees the reader and never the producer, and calls a correct card L003.
+            var faceProduced = ProducedKeys(face.AbilityList.SelectMany(Walk).Concat(FaceCosts(face).SelectMany(Walk)));
             CheckAlternativeCosts(face, $"faces[{faceIndex}]", findings);
             var abilityIndex = 0;
             foreach (var ability in face.AbilityList)
@@ -259,6 +263,10 @@ public static partial class Linter
     /// <summary>The five colours of CR 105.1, in the runner's pool spelling: one letter each.</summary>
     private const string ManaColorLetters = "WUBRG";
 
+    /// <summary>The costs a face carries in its own right: the additional costs of CR 118.8 and the alternative costs of CR 118.9, neither of which hangs off an ability.</summary>
+    private static IEnumerable<object> FaceCosts(Face face) =>
+        (face.AdditionalCosts ?? []).Cast<object>().Concat((face.AlternativeCosts ?? []).Cast<object>());
+
     /// <summary>The keys these nodes produce: every RememberAs, StoreAs, Key and their kin on a record that is not itself a reader of one.</summary>
     private static HashSet<string> ProducedKeys(IEnumerable<object> nodes)
     {
@@ -348,6 +356,7 @@ public static partial class Linter
         CheckWave22(nodes, path, findings);
         CheckWave23(nodes, path, findings);
         CheckWave25(ability, nodes, path, findings);
+        CheckWave26(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));

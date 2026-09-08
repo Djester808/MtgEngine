@@ -143,7 +143,16 @@ public enum FaceRole
     MeldResult,
 }
 
-/// <summary>Where a card goes inside a zone that is ordered.</summary>
+/// <summary>
+/// Where a card goes inside a zone that is ordered, CR 401.4: when an effect puts two or more cards
+/// somewhere at once the owner arranges them, and a printed line that says otherwise overrides that.
+/// <see cref="BottomRandomOrder"/> is the one printed line that says both halves at once — "put the
+/// rest on the bottom of your library in a random order", the wording discover, cascade and hideaway
+/// all print (CR 701.57a, 702.85a, 702.75a). It is one member and not <see cref="Bottom"/> beside
+/// <see cref="RandomOrder"/>, because a placement is one value: a reading that keeps only
+/// <see cref="Bottom"/> lets the owner order the cards they were told not to, and one that keeps
+/// only <see cref="RandomOrder"/> loses the end of the library the cards go to.
+/// </summary>
 public enum Placement
 {
     Default,
@@ -151,6 +160,7 @@ public enum Placement
     Bottom,
     AnyOrder,
     RandomOrder,
+    BottomRandomOrder,
 }
 
 /// <summary>Comparison operators for amounts.</summary>

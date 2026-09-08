@@ -58,8 +58,23 @@ public sealed record PlayerWouldBeDealtDamage(PlayerRef Who, ObjectFilter? By = 
 
 public sealed record WouldDealDamage(ObjectFilter Source, bool? Combat = null) : ReplacedEvent;
 
+/// <summary>
+/// "If a player would draw a card, instead …", CR 121.4 with CR 614 — the draw as an event that can
+/// be replaced. <paramref name="FirstEachTurn"/> is "the first card they draw each turn";
+/// <paramref name="ExceptFirstInDrawStep"/> is the printed exception "except the first one they
+/// draw in each of their draw steps", which admits every draw <b>but</b> that one (CR 121.1, where
+/// the draw step's draw is a turn-based action).
+/// <para>
+/// The field mirrors <c>Draws.ExceptFirstInDrawStep</c> exactly, because the two are the same
+/// printed clause on the two sides of one card ("whenever you draw a card, except the first…" and
+/// "if you would draw a card, except the first…"), and a replacement written without it replaces the
+/// draw step's own draw — which the card does not say. It is not <paramref name="FirstEachTurn"/>
+/// false: that one admits the first draw alone or refuses only it in the turn, and this one is
+/// scoped to the draw step. Setting both is refused (L043).
+/// </para>
+/// </summary>
 [RuleRef("121.4")]
-public sealed record WouldDraw(PlayerRef Who, bool? FirstEachTurn = null) : ReplacedEvent;
+public sealed record WouldDraw(PlayerRef Who, bool? FirstEachTurn = null, bool ExceptFirstInDrawStep = false) : ReplacedEvent;
 
 public sealed record WouldGainLife(PlayerRef Who) : ReplacedEvent;
 
