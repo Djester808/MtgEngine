@@ -1,0 +1,121 @@
+{
+  "oracleId": "02070488-9203-4304-9392-a111d20218c5",
+  "name": "Flashback",
+  "oracleHash": "sha256:eab2ab895585ab34841abb035fac1431e2ed7eec02db2e4b278fc273c796ffa8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "02070488-9203-4304-9392-a111d20218c5",
+    "name": "Flashback",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Flashback",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flashback"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "GrantKeyword\u0027s cost is a printed mana string, so a granted flashback cost derived from the card\u0027s own mana cost cannot be expressed; no Amount or expression may stand in that field.",
+                  "text": "The flashback cost is equal to its mana cost."
+                }
+              ]
+            },
+            "text": "Target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost."
+          }
+        ],
+        "oracleText": "Target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Flashback"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "GrantKeyword\u0027s cost is a printed mana string, so a granted flashback cost derived from the card\u0027s own mana cost cannot be expressed; no Amount or expression may stand in that field.",
+                  "text": "The flashback cost is equal to its mana cost."
+                }
+              ]
+            },
+            "text": "Target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

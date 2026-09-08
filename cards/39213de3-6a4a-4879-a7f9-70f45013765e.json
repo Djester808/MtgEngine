@@ -1,0 +1,213 @@
+{
+  "oracleId": "39213de3-6a4a-4879-a7f9-70f45013765e",
+  "name": "Everybody Lives!",
+  "oracleHash": "sha256:c4e8151686ff23fd824730587bdb3033ea0984f029dfeaec28c9776471e4f675",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "39213de3-6a4a-4879-a7f9-70f45013765e",
+    "name": "Everybody Lives!",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Everybody Lives!",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No record grants hexproof to a player. Player-scoped abilities have their own records (PlayerProtectionFromEverything, CantLoseGame), and there is none for hexproof; PlayerCant with BeTargeted would forbid every spell and ability targeting that player, while hexproof only stops those an opponent controls.",
+                  "text": "Players gain hexproof until end of turn."
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No continuous effect or PlayerRestriction says \u0022can\u0027t lose life\u0022. CantGainLife is the other half, and LifeTotalChanges also forbids gaining life, which this line allows.",
+                  "text": "Players can\u0027t lose life this turn"
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantLoseGame",
+                    "who": {
+                      "kind": "EachPlayer"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantWinGame",
+                    "who": {
+                      "kind": "EachPlayer"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can\u0027t lose life this turn and players can\u0027t lose the game or win the game this turn."
+          }
+        ],
+        "oracleText": "All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can\u0027t lose life this turn and players can\u0027t lose the game or win the game this turn.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No record grants hexproof to a player. Player-scoped abilities have their own records (PlayerProtectionFromEverything, CantLoseGame), and there is none for hexproof; PlayerCant with BeTargeted would forbid every spell and ability targeting that player, while hexproof only stops those an opponent controls.",
+                  "text": "Players gain hexproof until end of turn."
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No continuous effect or PlayerRestriction says \u0022can\u0027t lose life\u0022. CantGainLife is the other half, and LifeTotalChanges also forbids gaining life, which this line allows.",
+                  "text": "Players can\u0027t lose life this turn"
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantLoseGame",
+                    "who": {
+                      "kind": "EachPlayer"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "CantWinGame",
+                    "who": {
+                      "kind": "EachPlayer"
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can\u0027t lose life this turn and players can\u0027t lose the game or win the game this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

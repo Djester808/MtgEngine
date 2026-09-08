@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No continuous effect or PlayerRestriction says \u0022can\u0027t lose life\u0022. CantGainLife is the other half, and LifeTotalChanges also forbids gaining life, which this line allows.",
+      "path": "faces[0].abilities[0]"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No record grants hexproof to a player. Player-scoped abilities have their own records (PlayerProtectionFromEverything, CantLoseGame), and there is none for hexproof; PlayerCant with BeTargeted would forbid every spell and ability targeting that player, while hexproof only stops those an opponent controls.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

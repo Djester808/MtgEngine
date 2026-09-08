@@ -113,7 +113,7 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -341,13 +341,13 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
-          "count": 6
+          "count": 4
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Library",
-          "count": 5
+          "count": 7
         },
         {
           "kind": "ZoneCount",
@@ -363,10 +363,10 @@
   ],
   "verification": {
     "engineHash": "engine:0f74a03de66e7d38",
-    "runId": "verify-20260908T073340-a548b5",
-    "passed": 0,
+    "runId": "verify-20260908T083154-f39c64",
+    "passed": 1,
     "total": 1,
-    "at": "2026-09-08T07:33:40.0356296+00:00"
+    "at": "2026-09-08T08:31:54.9509005+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -586,13 +586,13 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
-          "count": 6
+          "count": 4
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Library",
-          "count": 5
+          "count": 7
         },
         {
           "kind": "ZoneCount",

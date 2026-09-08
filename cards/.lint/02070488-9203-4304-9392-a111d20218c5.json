@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: GrantKeyword\u0027s cost is a printed mana string, so a granted flashback cost derived from the card\u0027s own mana cost cannot be expressed; no Amount or expression may stand in that field.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

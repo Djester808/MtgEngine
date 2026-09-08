@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: AbilitiesTriggerTwice cannot say which event caused the trigger: it takes only the player and a filter of the sources, so it would double every triggered ability of the permanents rather than only the ones a land entering the battlefield caused to trigger.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

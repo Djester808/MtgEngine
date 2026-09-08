@@ -1,0 +1,87 @@
+{
+  "oracleId": "08becc07-28bc-4a2f-a6b0-28a2998d2f50",
+  "name": "Windfall",
+  "oracleHash": "sha256:da40d57a51263ff9d55ef2822c3809ba6883510de3fd7c47199275c8e13c4b9d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "08becc07-28bc-4a2f-a6b0-28a2998d2f50",
+    "name": "Windfall",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Windfall",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Discard",
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "by": "Owner",
+                  "wholeHand": true
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount reads the greatest number of cards any one player discarded this way: Discard stores objects under rememberAs and no count, a CountOf over those objects would total every player\u0027s discards, and GreatestAmong reads a characteristic off objects rather than folding a per-player count.",
+                  "text": "then draws cards equal to the greatest number of cards a player discarded this way"
+                }
+              ]
+            },
+            "text": "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."
+          }
+        ],
+        "oracleText": "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Discard",
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "by": "Owner",
+                  "wholeHand": true
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount reads the greatest number of cards any one player discarded this way: Discard stores objects under rememberAs and no count, a CountOf over those objects would total every player\u0027s discards, and GreatestAmong reads a characteristic off objects rather than folding a per-player count.",
+                  "text": "then draws cards equal to the greatest number of cards a player discarded this way"
+                }
+              ]
+            },
+            "text": "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

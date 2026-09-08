@@ -1,0 +1,688 @@
+{
+  "oracleId": "dbcbdf37-c40f-4068-b4a7-a849cab1056c",
+  "name": "Six",
+  "oracleHash": "sha256:2bbd4ed7eea7afe4830f83c130911d241509cc0ec2bcb5b4a2958a0734864f0a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "dbcbdf37-c40f-4068-b4a7-a849cab1056c",
+    "name": "Six",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Six",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Treefolk"
+          ],
+          "subtypeList": [
+            "Treefolk"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false,
+                      "among": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "to": "Hand",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Six attacks, mill three cards. You may put a land card from among them into your hand."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Retrace"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Graveyard",
+                "notTypes": [
+                  "Land"
+                ],
+                "ownedBy": {
+                  "kind": "You"
+                },
+                "permanent": true
+              }
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, nonland permanent cards in your graveyard have retrace."
+          }
+        ],
+        "oracleText": "Reach\nWhenever Six attacks, mill three cards. You may put a land card from among them into your hand.\nDuring your turn, nonland permanent cards in your graveyard have retrace. (You may cast permanent cards from your graveyard by discarding a land card in addition to paying their other costs.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Attacks",
+              "who": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 3
+                  },
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false,
+                      "among": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "to": "Hand",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Six attacks, mill three cards. You may put a land card from among them into your hand."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Retrace"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Graveyard",
+                "notTypes": [
+                  "Land"
+                ],
+                "ownedBy": {
+                  "kind": "You"
+                },
+                "permanent": true
+              }
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, nonland permanent cards in your graveyard have retrace."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Reach",
+    "Mill"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-dbcbdf37-c40f-4068-b4a7-a849cab1056c",
+      "title": "casting Six does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Six",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Six"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Six",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T083154-f39c64",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T08:31:54.9509005+00:00"
+  },
+  "keywordList": [
+    "Reach",
+    "Mill"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-dbcbdf37-c40f-4068-b4a7-a849cab1056c",
+      "title": "casting Six does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Six",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Six"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Six",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

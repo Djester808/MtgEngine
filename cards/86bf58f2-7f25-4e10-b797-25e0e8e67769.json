@@ -37,7 +37,8 @@
                   },
                   "upTo": false,
                   "distinct": true
-                }
+                },
+                "where": "Default"
               },
               "paid": {
                 "kind": "ManaCost",
@@ -87,7 +88,8 @@
                   },
                   "upTo": false,
                   "distinct": true
-                }
+                },
+                "where": "Default"
               },
               "paid": {
                 "kind": "ManaCost",
@@ -121,7 +123,7 @@
       }
     ]
   },
-  "status": "Verified",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -244,7 +246,7 @@
             "battlefield": [],
             "hand": [
               {
-                "name": "Scenario Filler Spell",
+                "name": "Scenario Filler Bolt",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -330,7 +332,7 @@
                 "faceDown": false
               }
             ],
-            "manaPool": "1"
+            "manaPool": "R"
           }
         ],
         "activePlayer": "A",
@@ -343,14 +345,17 @@
         {
           "kind": "CastStep",
           "player": "B",
-          "card": "Scenario Filler Spell"
+          "card": "Scenario Filler Bolt",
+          "targets": [
+            "B"
+          ]
         },
         {
           "kind": "CastStep",
           "player": "A",
           "card": "Flusterstorm",
           "targets": [
-            "Scenario Filler Spell"
+            "Scenario Filler Bolt"
           ]
         },
         {
@@ -360,7 +365,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Spell",
+          "card": "Scenario Filler Bolt",
           "zone": "Graveyard",
           "owner": "B"
         },
@@ -376,17 +381,22 @@
           "count": 1
         },
         {
+          "kind": "Life",
+          "player": "B",
+          "value": 20
+        },
+        {
           "kind": "StackEmpty"
         }
       ]
     }
   ],
   "verification": {
-    "engineHash": "engine:9781a597f8c8ddfa",
-    "runId": "verify-20260908T042913-3e3c94",
-    "passed": 1,
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T083154-f39c64",
+    "passed": 0,
     "total": 1,
-    "at": "2026-09-08T04:29:13.1180643+00:00"
+    "at": "2026-09-08T08:31:54.9509005+00:00"
   },
   "keywordList": [
     "Storm"
@@ -501,7 +511,7 @@
             "battlefield": [],
             "hand": [
               {
-                "name": "Scenario Filler Spell",
+                "name": "Scenario Filler Bolt",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -587,7 +597,7 @@
                 "faceDown": false
               }
             ],
-            "manaPool": "1"
+            "manaPool": "R"
           }
         ],
         "activePlayer": "A",
@@ -600,14 +610,17 @@
         {
           "kind": "CastStep",
           "player": "B",
-          "card": "Scenario Filler Spell"
+          "card": "Scenario Filler Bolt",
+          "targets": [
+            "B"
+          ]
         },
         {
           "kind": "CastStep",
           "player": "A",
           "card": "Flusterstorm",
           "targets": [
-            "Scenario Filler Spell"
+            "Scenario Filler Bolt"
           ]
         },
         {
@@ -617,7 +630,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Spell",
+          "card": "Scenario Filler Bolt",
           "zone": "Graveyard",
           "owner": "B"
         },
@@ -631,6 +644,11 @@
           "player": "A",
           "zone": "Graveyard",
           "count": 1
+        },
+        {
+          "kind": "Life",
+          "player": "B",
+          "value": 20
         },
         {
           "kind": "StackEmpty"

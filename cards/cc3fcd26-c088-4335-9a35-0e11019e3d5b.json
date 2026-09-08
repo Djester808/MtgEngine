@@ -1,0 +1,863 @@
+{
+  "oracleId": "cc3fcd26-c088-4335-9a35-0e11019e3d5b",
+  "name": "Revel in Riches",
+  "oracleHash": "sha256:16d5858b8d938521524331a3262202d5fa8cd7723092e757d9e589dfd097a5b1",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cc3fcd26-c088-4335-9a35-0e11019e3d5b",
+    "name": "Revel in Riches",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Revel in Riches",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "abilities": [
+                  {
+                    "kind": "ActivatedAbility",
+                    "costs": [
+                      {
+                        "kind": "TapSelf"
+                      },
+                      {
+                        "kind": "SacrificeSelf"
+                      }
+                    ],
+                    "do": {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    "timing": "Any",
+                    "where": "Battlefield",
+                    "anyPlayerMayActivate": false,
+                    "text": "{T}, Sacrifice this token: Add one mana of any color."
+                  }
+                ],
+                "isPredefined": true
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature an opponent controls dies, create a Treasure token."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "WinGame"
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "subtypes": [
+                  "Treasure"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 10
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+          }
+        ],
+        "oracleText": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nAt the beginning of your upkeep, if you control ten or more Treasures, you win the game.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "abilities": [
+                  {
+                    "kind": "ActivatedAbility",
+                    "costs": [
+                      {
+                        "kind": "TapSelf"
+                      },
+                      {
+                        "kind": "SacrificeSelf"
+                      }
+                    ],
+                    "do": {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    "timing": "Any",
+                    "where": "Battlefield",
+                    "anyPlayerMayActivate": false,
+                    "text": "{T}, Sacrifice this token: Add one mana of any color."
+                  }
+                ],
+                "isPredefined": true
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a creature an opponent controls dies, create a Treasure token."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "WinGame"
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "subtypes": [
+                  "Treasure"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 10
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Treasure"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "cc3fcd26-c088-4335-9a35-0e11019e3d5b",
+        "name": "Revel in Riches",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Revel in Riches",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{B}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": true
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ],
+            "oracleText": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nAt the beginning of your upkeep, if you control ten or more Treasures, you win the game.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": true
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "cc3fcd26-c088-4335-9a35-0e11019e3d5b",
+        "name": "Revel in Riches",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Revel in Riches",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{B}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "isPredefined": true
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ],
+            "oracleText": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nAt the beginning of your upkeep, if you control ten or more Treasures, you win the game.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "isPredefined": true
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "cc3fcd26-c088-4335-9a35-0e11019e3d5b",
+        "name": "Revel in Riches",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Revel in Riches",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{B}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ],
+            "oracleText": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nAt the beginning of your upkeep, if you control ten or more Treasures, you win the game.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a creature an opponent controls dies, create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "WinGame"
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "subtypes": [
+                      "Treasure"
+                    ]
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 10
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control ten or more Treasures, you win the game."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Treasure"
+  ],
+  "scenarioList": []
+}

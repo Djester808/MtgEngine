@@ -1,0 +1,818 @@
+{
+  "oracleId": "dcbcbf42-4654-487a-acad-21f2606d229b",
+  "name": "Druid Class",
+  "oracleHash": "sha256:215f673a8ebac49915e9b41f27786d16b8fcba52a1a79ec3b78f065fd0545f13",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "dcbcbf42-4654-487a-acad-21f2606d229b",
+    "name": "Druid Class",
+    "layout": "Class",
+    "faces": [
+      {
+        "name": "Druid Class",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Class"
+          ],
+          "subtypeList": [
+            "Class"
+          ]
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+          }
+        ],
+        "classLevels": [
+          {
+            "level": 2,
+            "cost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play an additional land on each of your turns."
+              }
+            ]
+          },
+          {
+            "level": 3,
+            "cost": "{4}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LevelReached",
+                  "level": 3
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "AddTypes",
+                        "types": [
+                          "Creature"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Haste"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantAbility",
+                        "ability": {
+                          "kind": "StaticAbility",
+                          "effect": {
+                            "kind": "SetPt",
+                            "power": {
+                              "kind": "CountOf",
+                              "filter": {
+                                "types": [
+                                  "Land"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "toughness": {
+                              "kind": "CountOf",
+                              "filter": {
+                                "types": [
+                                  "Land"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            }
+                          },
+                          "where": "Battlefield",
+                          "characteristicDefining": true,
+                          "text": "This creature\u0027s power and toughness are each equal to the number of lands you control."
+                        }
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land."
+              }
+            ]
+          }
+        ],
+        "oracleText": "(Gain the next level as a sorcery to add its ability.)\nLandfall \u2014 Whenever a land you control enters, you gain 1 life.\n{2}{G}: Level 2\nYou may play an additional land on each of your turns.\n{4}{G}: Level 3\nWhen this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "GainLife",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-d0cec0c6e145",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Landfall"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "dcbcbf42-4654-487a-acad-21f2606d229b",
+        "name": "Druid Class",
+        "layout": "Class",
+        "faces": [
+          {
+            "name": "Druid Class",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Class"
+              ],
+              "subtypeList": [
+                "Class"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+              }
+            ],
+            "classLevels": [
+              {
+                "level": 2,
+                "cost": "{2}{G}",
+                "abilities": [
+                  {
+                    "kind": "StaticAbility",
+                    "effect": {
+                      "kind": "ExtraLandDrops",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    "where": "Battlefield",
+                    "characteristicDefining": false,
+                    "text": "You may play an additional land on each of your turns."
+                  }
+                ]
+              },
+              {
+                "level": 3,
+                "cost": "{4}{G}",
+                "abilities": [
+                  {
+                    "kind": "TriggeredAbility",
+                    "when": {
+                      "kind": "LevelReached",
+                      "level": 3
+                    },
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "AddTypes",
+                            "types": [
+                              "Creature"
+                            ],
+                            "allCreatureTypes": false
+                          },
+                          "to": {
+                            "kind": "Target",
+                            "filter": {
+                              "types": [
+                                "Land"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            },
+                            "upTo": false,
+                            "key": "k1",
+                            "distinct": true
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Haste"
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantAbility",
+                            "ability": {
+                              "kind": "StaticAbility",
+                              "effect": {
+                                "kind": "SetPt",
+                                "power": {
+                                  "kind": "CountOf",
+                                  "filter": {
+                                    "types": [
+                                      "Land"
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                },
+                                "toughness": {
+                                  "kind": "CountOf",
+                                  "filter": {
+                                    "types": [
+                                      "Land"
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                }
+                              },
+                              "where": "Battlefield",
+                              "characteristicDefining": true,
+                              "text": "This creature\u0027s power and toughness are each equal to the number of lands you control."
+                            }
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        }
+                      ]
+                    },
+                    "optional": false,
+                    "where": "Battlefield",
+                    "oncePerTurn": false,
+                    "text": "When this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land."
+                  }
+                ]
+              }
+            ],
+            "oracleText": "(Gain the next level as a sorcery to add its ability.)\nLandfall \u2014 Whenever a land you control enters, you gain 1 life.\n{2}{G}: Level 2\nYou may play an additional land on each of your turns.\n{4}{G}: Level 3\nWhen this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "dcbcbf42-4654-487a-acad-21f2606d229b",
+        "name": "Druid Class",
+        "layout": "Class",
+        "faces": [
+          {
+            "name": "Druid Class",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Class"
+              ],
+              "subtypeList": [
+                "Class"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "classLevels": [
+              {
+                "level": 1,
+                "abilities": [
+                  {
+                    "kind": "TriggeredAbility",
+                    "when": {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "underControlOf": {
+                        "kind": "You"
+                      }
+                    },
+                    "do": {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    "optional": false,
+                    "where": "Battlefield",
+                    "oncePerTurn": false,
+                    "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+                  }
+                ]
+              },
+              {
+                "level": 2,
+                "cost": "{2}{G}",
+                "abilities": [
+                  {
+                    "kind": "StaticAbility",
+                    "effect": {
+                      "kind": "ExtraLandDrops",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    "where": "Battlefield",
+                    "characteristicDefining": false,
+                    "text": "You may play an additional land on each of your turns."
+                  }
+                ]
+              },
+              {
+                "level": 3,
+                "cost": "{4}{G}",
+                "abilities": [
+                  {
+                    "kind": "TriggeredAbility",
+                    "when": {
+                      "kind": "LevelReached",
+                      "level": 3
+                    },
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "AddTypes",
+                            "types": [
+                              "Creature"
+                            ],
+                            "allCreatureTypes": false
+                          },
+                          "to": {
+                            "kind": "Target",
+                            "filter": {
+                              "types": [
+                                "Land"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            },
+                            "upTo": false,
+                            "key": "k1",
+                            "distinct": true
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Haste"
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "SetPt",
+                            "power": {
+                              "kind": "CountOf",
+                              "filter": {
+                                "types": [
+                                  "Land"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            },
+                            "toughness": {
+                              "kind": "CountOf",
+                              "filter": {
+                                "types": [
+                                  "Land"
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
+                              }
+                            }
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        }
+                      ]
+                    },
+                    "optional": false,
+                    "where": "Battlefield",
+                    "oncePerTurn": false,
+                    "text": "When this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land."
+                  }
+                ]
+              }
+            ],
+            "oracleText": "(Gain the next level as a sorcery to add its ability.)\nLandfall \u2014 Whenever a land you control enters, you gain 1 life.\n{2}{G}: Level 2\nYou may play an additional land on each of your turns.\n{4}{G}: Level 3\nWhen this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land.",
+            "abilityList": []
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "dcbcbf42-4654-487a-acad-21f2606d229b",
+        "name": "Druid Class",
+        "layout": "Class",
+        "faces": [
+          {
+            "name": "Druid Class",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Class"
+              ],
+              "subtypeList": [
+                "Class"
+              ]
+            },
+            "manaCost": "{1}{G}",
+            "classLevels": [
+              {
+                "level": 1,
+                "abilities": [
+                  {
+                    "kind": "TriggeredAbility",
+                    "when": {
+                      "kind": "EntersBattlefield",
+                      "what": {
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      }
+                    },
+                    "do": {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    "optional": false,
+                    "where": "Battlefield",
+                    "oncePerTurn": false,
+                    "text": "Landfall \u2014 Whenever a land you control enters, you gain 1 life."
+                  }
+                ]
+              },
+              {
+                "level": 2,
+                "cost": "{2}{G}",
+                "abilities": [
+                  {
+                    "kind": "StaticAbility",
+                    "effect": {
+                      "kind": "ExtraLandDrops",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    "where": "Battlefield",
+                    "characteristicDefining": false,
+                    "text": "You may play an additional land on each of your turns."
+                  }
+                ]
+              },
+              {
+                "level": 3,
+                "cost": "{4}{G}",
+                "abilities": [
+                  {
+                    "kind": "TriggeredAbility",
+                    "when": {
+                      "kind": "LevelReached",
+                      "level": 3
+                    },
+                    "do": {
+                      "kind": "Sequence",
+                      "steps": [
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "AddTypes",
+                            "types": [
+                              "Creature"
+                            ],
+                            "allCreatureTypes": false
+                          },
+                          "to": {
+                            "kind": "Target",
+                            "filter": {
+                              "types": [
+                                "Land"
+                              ],
+                              "controlledBy": {
+                                "kind": "You"
+                              }
+                            },
+                            "upTo": false,
+                            "key": "k1",
+                            "distinct": true
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantKeyword",
+                            "keyword": "Haste"
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        },
+                        {
+                          "kind": "Apply",
+                          "what": {
+                            "kind": "GrantAbility",
+                            "ability": {
+                              "kind": "StaticAbility",
+                              "effect": {
+                                "kind": "SetPt",
+                                "power": {
+                                  "kind": "CountOf",
+                                  "filter": {
+                                    "types": [
+                                      "Land"
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                },
+                                "toughness": {
+                                  "kind": "CountOf",
+                                  "filter": {
+                                    "types": [
+                                      "Land"
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
+                                  }
+                                }
+                              },
+                              "where": "Battlefield",
+                              "characteristicDefining": true,
+                              "text": "This creature\u0027s power and toughness are each equal to the number of lands you control."
+                            }
+                          },
+                          "to": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          },
+                          "until": {
+                            "kind": "Permanently"
+                          }
+                        }
+                      ]
+                    },
+                    "optional": false,
+                    "where": "Battlefield",
+                    "oncePerTurn": false,
+                    "text": "When this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land."
+                  }
+                ]
+              }
+            ],
+            "oracleText": "(Gain the next level as a sorcery to add its ability.)\nLandfall \u2014 Whenever a land you control enters, you gain 1 life.\n{2}{G}: Level 2\nYou may play an additional land on each of your turns.\n{4}{G}: Level 3\nWhen this Class becomes level 3, target land you control becomes a creature with haste and \u0022This creature\u0027s power and toughness are each equal to the number of lands you control.\u0022 It\u0027s still a land.",
+            "abilityList": []
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Landfall"
+  ],
+  "scenarioList": []
+}
