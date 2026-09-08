@@ -450,6 +450,132 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "078def07-ae5d-4591-8db6-d156834aab97",
+        "name": "Etali, Primal Storm",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Etali, Primal Storm",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elder",
+                "Dinosaur"
+              ],
+              "subtypeList": [
+                "Elder",
+                "Dinosaur"
+              ]
+            },
+            "manaCost": "{4}{R}{R}",
+            "power": {
+              "text": "6",
+              "number": 6
+            },
+            "toughness": {
+              "text": "6",
+              "number": 6
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "EachPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": true,
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
+              }
+            ],
+            "oracleText": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Attacks",
+                  "who": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "EachPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": true,
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

@@ -607,6 +607,213 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "ab1cc360-b9de-48d9-9983-4dfe4a7d2a37",
+        "name": "Arcane Denial",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Arcane Denial",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{U}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AtStep",
+                        "step": "Upkeep",
+                        "whose": {
+                          "kind": "ActivePlayer"
+                        }
+                      },
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "ChooseValue",
+                            "what": "Number",
+                            "key": "k2",
+                            "who": {
+                              "kind": "ControllerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "options": [
+                              "0",
+                              "1",
+                              "2"
+                            ]
+                          },
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "ChosenNumber",
+                              "key": "k2"
+                            },
+                            "who": {
+                              "kind": "ControllerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn\u0027s upkeep."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "AtStep",
+                    "step": "Upkeep",
+                    "whose": {
+                      "kind": "ActivePlayer"
+                    }
+                  },
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "once": true
+                },
+                "text": "You draw a card at the beginning of the next turn\u0027s upkeep."
+              }
+            ],
+            "oracleText": "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn\u0027s upkeep.\nYou draw a card at the beginning of the next turn\u0027s upkeep.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AtStep",
+                        "step": "Upkeep",
+                        "whose": {
+                          "kind": "ActivePlayer"
+                        }
+                      },
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "ChooseValue",
+                            "what": "Number",
+                            "key": "k2",
+                            "who": {
+                              "kind": "ControllerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "options": [
+                              "0",
+                              "1",
+                              "2"
+                            ]
+                          },
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "ChosenNumber",
+                              "key": "k2"
+                            },
+                            "who": {
+                              "kind": "ControllerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn\u0027s upkeep."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "AtStep",
+                    "step": "Upkeep",
+                    "whose": {
+                      "kind": "ActivePlayer"
+                    }
+                  },
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  },
+                  "once": true
+                },
+                "text": "You draw a card at the beginning of the next turn\u0027s upkeep."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

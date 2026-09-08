@@ -202,6 +202,76 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
+        "name": "Drannith Magistrate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Drannith Magistrate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Wizard"
+              ],
+              "subtypeList": [
+                "Human",
+                "Wizard"
+              ]
+            },
+            "manaCost": "{1}{W}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "A casting restriction that excludes one zone cannot be said. CantCastSpells narrows the spells it forbids with an ObjectFilter, whose In names a single zone positively and has no negative form, and no Predicate asks about the zone an object is in, so \u0022from anywhere other than their hands\u0022 has no spelling. CantCastSpells with no filter forbids every cast, and one with In Hand forbids exactly the casts this card allows.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ],
+            "oracleText": "Your opponents can\u0027t cast spells from anywhere other than their hands.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "A casting restriction that excludes one zone cannot be said. CantCastSpells narrows the spells it forbids with an ObjectFilter, whose In names a single zone positively and has no negative form, and no Predicate asks about the zone an object is in, so \u0022from anywhere other than their hands\u0022 has no spelling. CantCastSpells with no filter forbids every cast, and one with In Hand forbids exactly the casts this card allows.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

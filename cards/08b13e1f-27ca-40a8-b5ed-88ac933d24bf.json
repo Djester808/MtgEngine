@@ -240,6 +240,82 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
+        "name": "Archivist of Oghma",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Archivist of Oghma",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Halfling",
+                "Cleric"
+              ],
+              "subtypeList": [
+                "Halfling",
+                "Cleric"
+              ]
+            },
+            "manaCost": "{1}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No Trigger record watches a player searching a library (CR 701.19): the list has Scries, Surveils, Mills and the rest but nothing for a search, and there is no unsupported Trigger, so the whole triggered ability is marked here and the StaticAbility is only the slot that can carry the marker. It needs a SearchesLibrary(who) trigger; the effect half, GainLife 1 then Draw 1, is already sayable.",
+                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+              }
+            ],
+            "oracleText": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No Trigger record watches a player searching a library (CR 701.19): the list has Scries, Surveils, Mills and the rest but nothing for a search, and there is no unsupported Trigger, so the whole triggered ability is marked here and the StaticAbility is only the slot that can carry the marker. It needs a SearchesLibrary(who) trigger; the effect half, GainLife 1 then Draw 1, is already sayable.",
+                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [
