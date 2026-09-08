@@ -1,0 +1,427 @@
+{
+  "oracleId": "6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1",
+  "name": "Momentous Fall",
+  "oracleHash": "sha256:cc2141e1fef203cc67ab5823de1d4b372f56606962b525c4ee81b4dc8656a37a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1",
+    "name": "Momentous Fall",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Momentous Fall",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PayCost",
+              "cost": {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "rememberAs": "k1"
+              },
+              "then": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "ToughnessOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "text": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+          }
+        ],
+        "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PayCost",
+              "cost": {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "rememberAs": "k1"
+              },
+              "then": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "ToughnessOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "text": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1",
+        "name": "Momentous Fall",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Momentous Fall",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "ToughnessOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "rememberAs": "k1"
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "ToughnessOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1",
+        "name": "Momentous Fall",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Momentous Fall",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "PayCost",
+                  "cost": {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "rememberAs": "k1"
+                  },
+                  "then": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      {
+                        "kind": "GainLife",
+                        "n": {
+                          "kind": "ToughnessOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "text": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "PayCost",
+                  "cost": {
+                    "kind": "SacrificeCost",
+                    "what": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "rememberAs": "k1"
+                  },
+                  "then": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        }
+                      },
+                      {
+                        "kind": "GainLife",
+                        "n": {
+                          "kind": "ToughnessOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "text": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1",
+        "name": "Momentous Fall",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Momentous Fall",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "ToughnessOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "SacrificeCost",
+                "what": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "rememberAs": "k1"
+              }
+            ],
+            "oracleText": "As an additional cost to cast this spell, sacrifice a creature.\nYou draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "ToughnessOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "You draw cards equal to the sacrificed creature\u0027s power, then you gain life equal to its toughness."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,157 @@
+{
+  "oracleId": "05849bd6-8f38-4031-be2b-e2aa03beb8cc",
+  "name": "Pongify",
+  "oracleHash": "sha256:a876460742318bc7d84de8481f481f49390c35a3b56b4f84dd188023b6e5fd10",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "05849bd6-8f38-4031-be2b-e2aa03beb8cc",
+    "name": "Pongify",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Pongify",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": true
+                },
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Ape",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Ape"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 3,
+                    "isPredefined": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              ]
+            },
+            "text": "Destroy target creature. It can\u0027t be regenerated. Its controller creates a 3/3 green Ape creature token."
+          }
+        ],
+        "oracleText": "Destroy target creature. It can\u0027t be regenerated. Its controller creates a 3/3 green Ape creature token.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": true
+                },
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Ape",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Ape"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 3,
+                    "isPredefined": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              ]
+            },
+            "text": "Destroy target creature. It can\u0027t be regenerated. Its controller creates a 3/3 green Ape creature token."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

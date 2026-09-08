@@ -1,0 +1,137 @@
+{
+  "oracleId": "ace8e88e-ca6a-4bdf-8c6d-1b914fc00259",
+  "name": "Monologue Tax",
+  "oracleHash": "sha256:8ebfa28331b40c7e05ef3dd2263a6b472e1aa51acdd5e4cb1da5bfd43024d527",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ace8e88e-ca6a-4bdf-8c6d-1b914fc00259",
+    "name": "Monologue Tax",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Monologue Tax",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "isPredefined": true
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "SpellsCastThisTurn",
+                "by": {
+                  "kind": "TriggeringPlayer"
+                }
+              },
+              "op": "Eq",
+              "right": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent casts their second spell each turn, you create a Treasure token."
+          }
+        ],
+        "oracleText": "Whenever an opponent casts their second spell each turn, you create a Treasure token.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "isPredefined": true
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "SpellsCastThisTurn",
+                "by": {
+                  "kind": "TriggeringPlayer"
+                }
+              },
+              "op": "Eq",
+              "right": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent casts their second spell each turn, you create a Treasure token."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Treasure"
+  ],
+  "keywordList": [
+    "Treasure"
+  ],
+  "scenarioList": []
+}

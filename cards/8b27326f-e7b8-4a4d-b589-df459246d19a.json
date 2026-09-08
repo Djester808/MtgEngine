@@ -1,0 +1,268 @@
+{
+  "oracleId": "8b27326f-e7b8-4a4d-b589-df459246d19a",
+  "name": "Shadowspear",
+  "oracleHash": "sha256:e77e656a13e52212b35986d890fd57bf32d04bbcfbf7d8c9cbfd9285f4ce1762",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8b27326f-e7b8-4a4d-b589-df459246d19a",
+    "name": "Shadowspear",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Shadowspear",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Equipment"
+          ],
+          "subtypeList": [
+            "Equipment"
+          ]
+        },
+        "manaCost": "{1}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Trample"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Lifelink"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "LoseAbility",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "LoseAbility",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}: Permanents your opponents control lose hexproof and indestructible until end of turn."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{2}",
+            "repeatable": false,
+            "text": "Equip {2}"
+          }
+        ],
+        "oracleText": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Trample"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Lifelink"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature gets \u002B1/\u002B1 and has trample and lifelink."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "LoseAbility",
+                    "keyword": "Hexproof"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "LoseAbility",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}: Permanents your opponents control lose hexproof and indestructible until end of turn."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{2}",
+            "repeatable": false,
+            "text": "Equip {2}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Equip"
+  ],
+  "keywordList": [
+    "Equip"
+  ],
+  "scenarioList": []
+}

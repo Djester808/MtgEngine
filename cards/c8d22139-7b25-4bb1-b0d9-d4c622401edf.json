@@ -1,0 +1,110 @@
+{
+  "oracleId": "c8d22139-7b25-4bb1-b0d9-d4c622401edf",
+  "name": "Germination Practicum",
+  "oracleHash": "sha256:6f808f4d8739ea380dc02f16449d42209a8eab00fe5db0271ffccee93208816d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c8d22139-7b25-4bb1-b0d9-d4c622401edf",
+    "name": "Germination Practicum",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Germination Practicum",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Lesson"
+          ],
+          "subtypeList": [
+            "Lesson"
+          ]
+        },
+        "manaCost": "{3}{G}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "text": "Put two \u002B1/\u002B1 counters on each creature you control."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Paradigm",
+            "repeatable": false,
+            "text": "Paradigm"
+          }
+        ],
+        "oracleText": "Put two \u002B1/\u002B1 counters on each creature you control.\nParadigm (Then exile this spell. After you first resolve a spell with this name, you may cast a copy of it from exile without paying its mana cost at the beginning of each of your first main phases.)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 2
+              }
+            },
+            "text": "Put two \u002B1/\u002B1 counters on each creature you control."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Paradigm",
+            "repeatable": false,
+            "text": "Paradigm"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Paradigm"
+  ],
+  "keywordList": [
+    "Paradigm"
+  ],
+  "scenarioList": []
+}

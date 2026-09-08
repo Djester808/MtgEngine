@@ -1,0 +1,159 @@
+{
+  "oracleId": "fb868840-09fa-49b1-85cb-b08ad065e972",
+  "name": "Bitterblossom",
+  "oracleHash": "sha256:b61f4ea9d9b6519fcee05035e9cb3f89deca92cb4d5bfa20d24964e79d72321b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "fb868840-09fa-49b1-85cb-b08ad065e972",
+    "name": "Bitterblossom",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Bitterblossom",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment",
+            "Kindred"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Faerie"
+          ],
+          "subtypeList": [
+            "Faerie"
+          ]
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Faerie Rogue",
+                    "colors": [
+                      "Black"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Faerie",
+                      "Rogue"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Flying",
+                        "repeatable": false
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying."
+          }
+        ],
+        "oracleText": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Faerie Rogue",
+                    "colors": [
+                      "Black"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Faerie",
+                      "Rogue"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Flying",
+                        "repeatable": false
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

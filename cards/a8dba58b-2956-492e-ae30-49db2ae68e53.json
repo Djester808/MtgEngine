@@ -1,0 +1,101 @@
+{
+  "oracleId": "a8dba58b-2956-492e-ae30-49db2ae68e53",
+  "name": "Mana Geyser",
+  "oracleHash": "sha256:ab0f0554db0da518f7002abde13295065f444946e8efd5bc194c04ff0c5a5138",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "a8dba58b-2956-492e-ae30-49db2ae68e53",
+    "name": "Mana Geyser",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mana Geyser",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{R}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "tapped": true
+                }
+              }
+            },
+            "text": "Add {R} for each tapped land your opponents control."
+          }
+        ],
+        "oracleText": "Add {R} for each tapped land your opponents control.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "tapped": true
+                }
+              }
+            },
+            "text": "Add {R} for each tapped land your opponents control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

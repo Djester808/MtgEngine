@@ -1,0 +1,111 @@
+{
+  "oracleId": "53236dd7-845a-444c-96d5-f41ed7325d8f",
+  "name": "Rhystic Study",
+  "oracleHash": "sha256:b01edb4edf239cd0b4116ab58ea2fb90152ed9b83b068b6ea34ccbe8d67fd03c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "53236dd7-845a-444c-96d5-f41ed7325d8f",
+    "name": "Rhystic Study",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Rhystic Study",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{U}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "May",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "TriggeringPlayer"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."
+          }
+        ],
+        "oracleText": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "May",
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "TriggeringPlayer"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,196 @@
+{
+  "oracleId": "cc6a83c7-e645-4a53-9550-be79b42cd851",
+  "name": "Loyal Warhound",
+  "oracleHash": "sha256:446bcfecdb8d47eeaa0c89f5bc5e4f1ea678d2709e99ff6851ff9d3f244d01e6",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cc6a83c7-e645-4a53-9550-be79b42cd851",
+    "name": "Loyal Warhound",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Loyal Warhound",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Dog"
+          ],
+          "subtypeList": [
+            "Dog"
+          ]
+        },
+        "manaCost": "{1}{W}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "repeatable": false,
+            "text": "Vigilance"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ],
+                "subtypes": [
+                  "Plains"
+                ]
+              },
+              "to": "Battlefield",
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Gt",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Vigilance",
+            "repeatable": false,
+            "text": "Vigilance"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ],
+                "subtypes": [
+                  "Plains"
+                ]
+              },
+              "to": "Battlefield",
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": true,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "if": {
+              "kind": "Controls",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "what": {
+                "types": [
+                  "Land"
+                ]
+              },
+              "count": {
+                "op": "Gt",
+                "value": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Vigilance"
+  ],
+  "keywordList": [
+    "Vigilance"
+  ],
+  "scenarioList": []
+}

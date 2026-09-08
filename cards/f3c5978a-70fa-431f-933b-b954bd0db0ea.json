@@ -1,0 +1,197 @@
+{
+  "oracleId": "f3c5978a-70fa-431f-933b-b954bd0db0ea",
+  "name": "Mox Diamond",
+  "oracleHash": "sha256:7f7fe82fa9f24d4f58a32583e94ae68cd1a55c47e655a3d0c8722b82979996de",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f3c5978a-70fa-431f-933b-b954bd0db0ea",
+    "name": "Mox Diamond",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mox Diamond",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{0}",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "MayPay",
+              "paid": {
+                "kind": "DiscardCost",
+                "what": {
+                  "types": [
+                    "Land"
+                  ]
+                },
+                "random": false
+              },
+              "then": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Self"
+                },
+                "to": "Battlefield",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              },
+              "else": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Self"
+                },
+                "to": "Graveyard",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don\u0027t, put it into its owner\u0027s graveyard."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ],
+        "oracleText": "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don\u0027t, put it into its owner\u0027s graveyard.\n{T}: Add one mana of any color.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "MayPay",
+              "paid": {
+                "kind": "DiscardCost",
+                "what": {
+                  "types": [
+                    "Land"
+                  ]
+                },
+                "random": false
+              },
+              "then": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Self"
+                },
+                "to": "Battlefield",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              },
+              "else": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Self"
+                },
+                "to": "Graveyard",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don\u0027t, put it into its owner\u0027s graveyard."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "anyColor": true,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

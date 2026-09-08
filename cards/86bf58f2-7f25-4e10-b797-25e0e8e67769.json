@@ -1,0 +1,141 @@
+{
+  "oracleId": "86bf58f2-7f25-4e10-b797-25e0e8e67769",
+  "name": "Flusterstorm",
+  "oracleHash": "sha256:46234390c2969f697a3dd9f5fdcaae6502bcfe9ce0150abbf67ede6cf6b21c9e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "86bf58f2-7f25-4e10-b797-25e0e8e67769",
+    "name": "Flusterstorm",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Flusterstorm",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "Counter",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Counter target instant or sorcery spell unless its controller pays {1}."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Storm",
+            "repeatable": false,
+            "text": "Storm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)"
+          }
+        ],
+        "oracleText": "Counter target instant or sorcery spell unless its controller pays {1}.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unless",
+              "do": {
+                "kind": "Counter",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              },
+              "paid": {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              "who": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "spell": true
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Counter target instant or sorcery spell unless its controller pays {1}."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Storm",
+            "repeatable": false,
+            "text": "Storm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Storm"
+  ],
+  "keywordList": [
+    "Storm"
+  ],
+  "scenarioList": []
+}

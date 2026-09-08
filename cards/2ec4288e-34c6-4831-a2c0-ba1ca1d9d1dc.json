@@ -1,0 +1,256 @@
+{
+  "oracleId": "2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc",
+  "name": "Ghost Quarter",
+  "oracleHash": "sha256:888ee97ca201f2bd870a8aae10831de94f9fb29c88944638ad13a682f65e07a8",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc",
+    "name": "Ghost Quarter",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ghost Quarter",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice this land: Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Search",
+                    "for": {
+                      "types": [
+                        "Land"
+                      ],
+                      "supertypes": [
+                        "Basic"
+                      ]
+                    },
+                    "to": "Battlefield",
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    "from": "Library",
+                    "where": "Default",
+                    "reveal": false,
+                    "tapped": false,
+                    "shuffleAfter": true,
+                    "shuffleOnlyIfFound": false,
+                    "othersTapped": false
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}, Sacrifice this land: Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,109 @@
+{
+  "oracleId": "ea750169-1f6f-40c2-96e9-55719e103a63",
+  "name": "Throne of the God-Pharaoh",
+  "oracleHash": "sha256:fc0bd47404fe0623f7253cdbcbeddcb3c0143a992675eca4f8aff57883c80316",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ea750169-1f6f-40c2-96e9-55719e103a63",
+    "name": "Throne of the God-Pharaoh",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Throne of the God-Pharaoh",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "tapped": true
+                }
+              },
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your end step, each opponent loses life equal to the number of tapped creatures you control."
+          }
+        ],
+        "oracleText": "At the beginning of your end step, each opponent loses life equal to the number of tapped creatures you control.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "LoseLife",
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  },
+                  "tapped": true
+                }
+              },
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your end step, each opponent loses life equal to the number of tapped creatures you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

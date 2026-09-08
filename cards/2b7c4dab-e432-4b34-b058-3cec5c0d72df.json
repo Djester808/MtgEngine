@@ -1,0 +1,177 @@
+{
+  "oracleId": "2b7c4dab-e432-4b34-b058-3cec5c0d72df",
+  "name": "Martial Coup",
+  "oracleHash": "sha256:1bbf5fa95456c2c21471bf79c48e12b1efc90200b56119504b89625c882f9d0b",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2b7c4dab-e432-4b34-b058-3cec5c0d72df",
+    "name": "Martial Coup",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Martial Coup",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{X}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "X"
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  },
+                  "then": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ]
+            },
+            "text": "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures."
+          }
+        ],
+        "oracleText": "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Soldier",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Soldier"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "isPredefined": false
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "X"
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 5
+                    }
+                  },
+                  "then": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        }
+                      }
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ]
+            },
+            "text": "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

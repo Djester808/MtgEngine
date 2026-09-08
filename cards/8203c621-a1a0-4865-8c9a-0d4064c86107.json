@@ -1,0 +1,91 @@
+{
+  "oracleId": "8203c621-a1a0-4865-8c9a-0d4064c86107",
+  "name": "Buried Alive",
+  "oracleHash": "sha256:fc3914d543ae25a2a57b4f6d82ca1706ba6d2570f678d17f9ef39931d7a41b55",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8203c621-a1a0-4865-8c9a-0d4064c86107",
+    "name": "Buried Alive",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Buried Alive",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "to": "Graveyard",
+              "upTo": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "text": "Search your library for up to three creature cards, put them into your graveyard, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for up to three creature cards, put them into your graveyard, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "to": "Graveyard",
+              "upTo": {
+                "kind": "Fixed",
+                "n": 3
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": false,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "text": "Search your library for up to three creature cards, put them into your graveyard, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,184 @@
+{
+  "oracleId": "066cd584-773c-4623-be53-8f6feda5a26a",
+  "name": "Cabal Stronghold",
+  "oracleHash": "sha256:07d51f232eec3ecc4d949af6b1b234fee861c6af3bb03cbd3b1eefca47189778",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "066cd584-773c-4623-be53-8f6feda5a26a",
+    "name": "Cabal Stronghold",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cabal Stronghold",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ],
+                  "subtypes": [
+                    "Swamp"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{3}, {T}: Add {B} for each basic Swamp you control."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{3}, {T}: Add {B} for each basic Swamp you control.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              },
+              "n": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ],
+                  "subtypes": [
+                    "Swamp"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{3}, {T}: Add {B} for each basic Swamp you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

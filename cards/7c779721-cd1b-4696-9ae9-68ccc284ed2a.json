@@ -1,0 +1,89 @@
+{
+  "oracleId": "7c779721-cd1b-4696-9ae9-68ccc284ed2a",
+  "name": "Aetherize",
+  "oracleHash": "sha256:5f6e42d648b5836ccee6c5d5fb0f6b4d21eb45ff93e53e35077b1abdb7dc58e4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "7c779721-cd1b-4696-9ae9-68ccc284ed2a",
+    "name": "Aetherize",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Aetherize",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "attacking": true
+                }
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return all attacking creatures to their owner\u0027s hand."
+          }
+        ],
+        "oracleText": "Return all attacking creatures to their owner\u0027s hand.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "attacking": true
+                }
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return all attacking creatures to their owner\u0027s hand."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

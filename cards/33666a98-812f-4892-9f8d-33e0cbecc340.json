@@ -1,0 +1,206 @@
+{
+  "oracleId": "33666a98-812f-4892-9f8d-33e0cbecc340",
+  "name": "Niv-Mizzet, Parun",
+  "oracleHash": "sha256:3d20e8880dca28136abc7012541f8da9a23361d9220f92cd89320621f6b59662",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "33666a98-812f-4892-9f8d-33e0cbecc340",
+    "name": "Niv-Mizzet, Parun",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Niv-Mizzet, Parun",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Dragon",
+            "Wizard"
+          ],
+          "subtypeList": [
+            "Dragon",
+            "Wizard"
+          ]
+        },
+        "manaCost": "{U}{U}{U}{R}{R}{R}",
+        "power": {
+          "text": "5",
+          "number": 5
+        },
+        "toughness": {
+          "text": "5",
+          "number": 5
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantBeCountered"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell can\u0027t be countered."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flying",
+            "repeatable": false,
+            "text": "Flying"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "You"
+              },
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
+            },
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "to": {
+                "kind": "AnyTarget",
+                "upTo": false
+              },
+              "cantBePrevented": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you draw a card, Niv-Mizzet deals 1 damage to any target."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "anyTypes": [
+                  "Instant",
+                  "Sorcery"
+                ]
+              },
+              "by": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a player casts an instant or sorcery spell, you draw a card."
+          }
+        ],
+        "oracleText": "This spell can\u0027t be countered.\nFlying\nWhenever you draw a card, Niv-Mizzet deals 1 damage to any target.\nWhenever a player casts an instant or sorcery spell, you draw a card.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantBeCountered"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell can\u0027t be countered."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flying",
+            "repeatable": false,
+            "text": "Flying"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Draws",
+              "who": {
+                "kind": "You"
+              },
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
+            },
+            "do": {
+              "kind": "DealDamage",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              },
+              "to": {
+                "kind": "AnyTarget",
+                "upTo": false
+              },
+              "cantBePrevented": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you draw a card, Niv-Mizzet deals 1 damage to any target."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "anyTypes": [
+                  "Instant",
+                  "Sorcery"
+                ]
+              },
+              "by": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a player casts an instant or sorcery spell, you draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Flying"
+  ],
+  "keywordList": [
+    "Flying"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,136 @@
+{
+  "oracleId": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28",
+  "name": "Dualcaster Mage",
+  "oracleHash": "sha256:a7e193cb6b04235f593bb0ee263a888ef662312d16d009f97aeed7737aa9841d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28",
+    "name": "Dualcaster Mage",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Dualcaster Mage",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Wizard"
+          ],
+          "subtypeList": [
+            "Human",
+            "Wizard"
+          ]
+        },
+        "manaCost": "{1}{R}{R}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "CopySpell",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "mayChooseNewTargets": true
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy."
+          }
+        ],
+        "oracleText": "Flash\nWhen this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "CopySpell",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "mayChooseNewTargets": true
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Flash"
+  ],
+  "keywordList": [
+    "Flash"
+  ],
+  "scenarioList": []
+}

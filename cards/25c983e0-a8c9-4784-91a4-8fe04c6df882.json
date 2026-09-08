@@ -1,0 +1,107 @@
+{
+  "oracleId": "25c983e0-a8c9-4784-91a4-8fe04c6df882",
+  "name": "Tocasia\u0027s Welcome",
+  "oracleHash": "sha256:887718c4606f985bcfb59b35f02191d2398e3d9d0e5fcb2655758e323d72df14",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "25c983e0-a8c9-4784-91a4-8fe04c6df882",
+    "name": "Tocasia\u0027s Welcome",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Tocasia\u0027s Welcome",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "manaValue": {
+                  "op": "Le",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever one or more creatures you control with mana value 3 or less enter, draw a card. This ability triggers only once each turn."
+          }
+        ],
+        "oracleText": "Whenever one or more creatures you control with mana value 3 or less enter, draw a card. This ability triggers only once each turn.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "manaValue": {
+                  "op": "Le",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                }
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever one or more creatures you control with mana value 3 or less enter, draw a card. This ability triggers only once each turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

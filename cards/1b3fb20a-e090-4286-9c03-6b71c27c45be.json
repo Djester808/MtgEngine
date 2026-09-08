@@ -1,0 +1,212 @@
+{
+  "oracleId": "1b3fb20a-e090-4286-9c03-6b71c27c45be",
+  "name": "Mortuary Mire",
+  "oracleHash": "sha256:9e67a49a0f16c2317b78c8fcc4e74d0e29b0e9a883e5032b1692a3f3bcdd4338",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "1b3fb20a-e090-4286-9c03-6b71c27c45be",
+    "name": "Mortuary Mire",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mortuary Mire",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "to": "Library",
+                "where": "Top",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this land enters, you may put target creature card from your graveyard on top of your library."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {B}."
+          }
+        ],
+        "oracleText": "This land enters tapped.\nWhen this land enters, you may put target creature card from your graveyard on top of your library.\n{T}: Add {B}.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "to": "Library",
+                "where": "Top",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this land enters, you may put target creature card from your graveyard on top of your library."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{B}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {B}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

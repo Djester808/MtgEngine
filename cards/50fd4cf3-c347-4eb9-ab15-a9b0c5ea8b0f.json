@@ -1,0 +1,89 @@
+{
+  "oracleId": "50fd4cf3-c347-4eb9-ab15-a9b0c5ea8b0f",
+  "name": "Soul\u0027s Majesty",
+  "oracleHash": "sha256:bf5d87ad40cd4e161a9fb84409e02676b229742b7ba75f9060ac2c57fe3d6148",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "50fd4cf3-c347-4eb9-ab15-a9b0c5ea8b0f",
+    "name": "Soul\u0027s Majesty",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Soul\u0027s Majesty",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "PowerOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Draw cards equal to the power of target creature you control."
+          }
+        ],
+        "oracleText": "Draw cards equal to the power of target creature you control.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "PowerOf",
+                "of": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Draw cards equal to the power of target creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

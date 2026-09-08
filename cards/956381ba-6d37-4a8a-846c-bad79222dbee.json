@@ -1,0 +1,98 @@
+{
+  "oracleId": "956381ba-6d37-4a8a-846c-bad79222dbee",
+  "name": "Force of Will",
+  "oracleHash": "sha256:ef4bc3cbd197c18d37c884ed19bdd52422dd9e44a9087486f268f3598ce04182",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "956381ba-6d37-4a8a-846c-bad79222dbee",
+    "name": "Force of Will",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Force of Will",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{U}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target spell."
+          }
+        ],
+        "oracleText": "You may pay 1 life and exile a blue card from your hand rather than pay this spell\u0027s mana cost.\nCounter target spell.",
+        "alternativeCosts": [
+          {
+            "cost": {
+              "kind": "Costs",
+              "all": [
+                {
+                  "kind": "PayLife",
+                  "amount": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "ExileFromZoneCost",
+                  "from": "Hand",
+                  "what": {
+                    "colors": [
+                      "Blue"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target spell."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,105 @@
+{
+  "oracleId": "d5c4d36c-54b3-4149-906b-a57a670260fc",
+  "name": "Alhammarret\u0027s Archive",
+  "oracleHash": "sha256:08617e6709c5c54822dbbc1c1840e0abd944542d4b6269f6a7013bcc02158542",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d5c4d36c-54b3-4149-906b-a57a670260fc",
+    "name": "Alhammarret\u0027s Archive",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Alhammarret\u0027s Archive",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{5}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "If you would gain life, you gain twice that much life instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldDraw",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "WouldDraw carries only firstEachTurn, so the printed exception \u0027except the first one you draw in each of your draw steps\u0027 cannot be said: firstEachTurn false is a different set of draws (a draw taken before the draw step is the first draw of the turn but is not the first draw of the draw step), and no condition names the first draw of a draw step. The Draws trigger has exceptFirstInDrawStep; the ReplacedEvent has no counterpart.",
+              "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
+          }
+        ],
+        "oracleText": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "If you would gain life, you gain twice that much life instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldDraw",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "Unsupported",
+              "reason": "WouldDraw carries only firstEachTurn, so the printed exception \u0027except the first one you draw in each of your draw steps\u0027 cannot be said: firstEachTurn false is a different set of draws (a draw taken before the draw step is the first draw of the turn but is not the first draw of the draw step), and no condition names the first draw of a draw step. The Draws trigger has exceptFirstInDrawStep; the ReplacedEvent has no counterpart.",
+              "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

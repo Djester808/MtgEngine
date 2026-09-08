@@ -1,0 +1,213 @@
+{
+  "oracleId": "17b60106-a4c7-410a-8ac3-ec8e74e29a7c",
+  "name": "Mystic Sanctuary",
+  "oracleHash": "sha256:e2e5754dc3586608dbd95e64552ebd5ecafc034190772473abe56c492df7c578",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "17b60106-a4c7-410a-8ac3-ec8e74e29a7c",
+    "name": "Mystic Sanctuary",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mystic Sanctuary",
+        "role": "Main",
+        "types": {
+          "types": [],
+          "supertypes": [],
+          "subtypes": [
+            "Island"
+          ],
+          "subtypeList": [
+            "Island"
+          ]
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "if": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "Controls",
+                "who": {
+                  "kind": "You"
+                },
+                "what": {
+                  "subtypes": [
+                    "Island"
+                  ],
+                  "other": true
+                },
+                "count": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped unless you control three or more other Islands."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "tapped": false,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "to": "Library",
+                "where": "Top",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this land enters untapped, you may put target instant or sorcery card from your graveyard on top of your library."
+          }
+        ],
+        "oracleText": "({T}: Add {U}.)\nThis land enters tapped unless you control three or more other Islands.\nWhen this land enters untapped, you may put target instant or sorcery card from your graveyard on top of your library.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "if": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "Controls",
+                "who": {
+                  "kind": "You"
+                },
+                "what": {
+                  "subtypes": [
+                    "Island"
+                  ],
+                  "other": true
+                },
+                "count": {
+                  "op": "Ge",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped unless you control three or more other Islands."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "tapped": false,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "in": "Graveyard",
+                    "anyTypes": [
+                      "Instant",
+                      "Sorcery"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "upTo": false,
+                  "distinct": true
+                },
+                "to": "Library",
+                "where": "Top",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this land enters untapped, you may put target instant or sorcery card from your graveyard on top of your library."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

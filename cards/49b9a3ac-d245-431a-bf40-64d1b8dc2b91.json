@@ -1,0 +1,310 @@
+{
+  "oracleId": "49b9a3ac-d245-431a-bf40-64d1b8dc2b91",
+  "name": "Keeper of the Accord",
+  "oracleHash": "sha256:00b3e51325deeacde63c44de4892cbf4c9c1df02643bfb4fd845f0e9c7bae917",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "49b9a3ac-d245-431a-bf40-64d1b8dc2b91",
+    "name": "Keeper of the Accord",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Keeper of the Accord",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Soldier"
+          ],
+          "subtypeList": [
+            "Human",
+            "Soldier"
+          ]
+        },
+        "manaCost": "{3}{W}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Soldier",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Soldier"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "TriggeringPlayer"
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if that player controls more creatures than you, create a 1/1 white Soldier creature token."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ],
+                  "subtypes": [
+                    "Plains"
+                  ]
+                },
+                "to": "Battlefield",
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": true,
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false,
+                "othersTapped": false
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "TriggeringPlayer"
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if that player controls more lands than you, you may search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "At the beginning of each opponent\u0027s end step, if that player controls more creatures than you, create a 1/1 white Soldier creature token.\nAt the beginning of each opponent\u0027s end step, if that player controls more lands than you, you may search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Soldier",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Soldier"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "TriggeringPlayer"
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if that player controls more creatures than you, create a 1/1 white Soldier creature token."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Search",
+                "for": {
+                  "types": [
+                    "Land"
+                  ],
+                  "supertypes": [
+                    "Basic"
+                  ],
+                  "subtypes": [
+                    "Plains"
+                  ]
+                },
+                "to": "Battlefield",
+                "from": "Library",
+                "where": "Default",
+                "reveal": false,
+                "tapped": true,
+                "shuffleAfter": true,
+                "shuffleOnlyIfFound": false,
+                "othersTapped": false
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "TriggeringPlayer"
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each opponent\u0027s end step, if that player controls more lands than you, you may search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

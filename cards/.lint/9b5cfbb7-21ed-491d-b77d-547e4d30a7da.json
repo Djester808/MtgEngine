@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No trigger watches damage being prevented, so the reflexive trigger and its \u0027that much damage\u0027 cannot be said inside a replacement; AnyTarget also cannot exclude this creature to say \u0027any other target\u0027.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

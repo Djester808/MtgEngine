@@ -1,0 +1,145 @@
+{
+  "oracleId": "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
+  "name": "Heliod\u0027s Intervention",
+  "oracleHash": "sha256:9c077d90c3d3c59a525d95604f02ed09656815d339a5c2c419fe9b0bbb8e32cf",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
+    "name": "Heliod\u0027s Intervention",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Heliod\u0027s Intervention",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{X}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy X target artifacts and/or enchantments.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Enchantment"
+                        ]
+                      },
+                      "count": {
+                        "kind": "X"
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Target player gains twice X life.",
+                  "do": {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": 2
+                    },
+                    "who": {
+                      "kind": "TargetPlayer",
+                      "filter": {},
+                      "upTo": false
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Destroy X target artifacts and/or enchantments.\n\u2022 Target player gains twice X life."
+          }
+        ],
+        "oracleText": "Choose one \u2014\n\u2022 Destroy X target artifacts and/or enchantments.\n\u2022 Target player gains twice X life.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Destroy X target artifacts and/or enchantments.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "anyTypes": [
+                          "Artifact",
+                          "Enchantment"
+                        ]
+                      },
+                      "count": {
+                        "kind": "X"
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                },
+                {
+                  "text": "Target player gains twice X life.",
+                  "do": {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "Times",
+                      "value": {
+                        "kind": "X"
+                      },
+                      "factor": 2
+                    },
+                    "who": {
+                      "kind": "TargetPlayer",
+                      "filter": {},
+                      "upTo": false
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Destroy X target artifacts and/or enchantments.\n\u2022 Target player gains twice X life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

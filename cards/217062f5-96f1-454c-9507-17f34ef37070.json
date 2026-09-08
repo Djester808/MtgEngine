@@ -1,0 +1,155 @@
+{
+  "oracleId": "217062f5-96f1-454c-9507-17f34ef37070",
+  "name": "Sheoldred\u0027s Edict",
+  "oracleHash": "sha256:de22312abb799c58c6d837d12d78cb5a31d7fcfa9e56e08100c6a1ea79d86a7d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "217062f5-96f1-454c-9507-17f34ef37070",
+    "name": "Sheoldred\u0027s Edict",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sheoldred\u0027s Edict",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Each opponent sacrifices a nontoken creature of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "token": false
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                {
+                  "text": "Each opponent sacrifices a creature token of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "token": true
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                {
+                  "text": "Each opponent sacrifices a planeswalker of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Planeswalker"
+                      ]
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Each opponent sacrifices a nontoken creature of their choice.\n\u2022 Each opponent sacrifices a creature token of their choice.\n\u2022 Each opponent sacrifices a planeswalker of their choice."
+          }
+        ],
+        "oracleText": "Choose one \u2014\n\u2022 Each opponent sacrifices a nontoken creature of their choice.\n\u2022 Each opponent sacrifices a creature token of their choice.\n\u2022 Each opponent sacrifices a planeswalker of their choice.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Each opponent sacrifices a nontoken creature of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "token": false
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                {
+                  "text": "Each opponent sacrifices a creature token of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "token": true
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                {
+                  "text": "Each opponent sacrifices a planeswalker of their choice.",
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "types": [
+                        "Planeswalker"
+                      ]
+                    },
+                    "who": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Each opponent sacrifices a nontoken creature of their choice.\n\u2022 Each opponent sacrifices a creature token of their choice.\n\u2022 Each opponent sacrifices a planeswalker of their choice."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

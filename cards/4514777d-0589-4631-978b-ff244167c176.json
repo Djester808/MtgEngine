@@ -1,0 +1,133 @@
+{
+  "oracleId": "4514777d-0589-4631-978b-ff244167c176",
+  "name": "Vexing Bauble",
+  "oracleHash": "sha256:9c7bc679ddfd6d7e5bfddcbf423a7cec6c119385c1023e31753d6b3bbc340d85",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "4514777d-0589-4631-978b-ff244167c176",
+    "name": "Vexing Bauble",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Vexing Bauble",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No condition or amount expresses \u0022if no mana was spent to cast it\u0022 about the spell that triggered this ability. ManaSpentOnThis reads only the mana spent on this object\u0027s own casting, and this trigger\u0027s spell is another object; nothing in the vocabulary asks how much mana was spent on the triggering spell. Dropping the clause would counter every spell, so the whole line is marked rather than approximated.",
+              "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}, {T}, Sacrifice this artifact: Draw a card."
+          }
+        ],
+        "oracleText": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {},
+              "by": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No condition or amount expresses \u0022if no mana was spent to cast it\u0022 about the spell that triggered this ability. ManaSpentOnThis reads only the mana spent on this object\u0027s own casting, and this trigger\u0027s spell is another object; nothing in the vocabulary asks how much mana was spent on the triggering spell. Dropping the clause would counter every spell, so the whole line is marked rather than approximated.",
+              "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}, {T}, Sacrifice this artifact: Draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-c8b5112ac2c3",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}
