@@ -59,7 +59,8 @@
                   "who": {
                     "kind": "EachOpponent"
                   },
-                  "firstEachTurn": false
+                  "firstEachTurn": false,
+                  "exceptFirstInDrawStep": true
                 }
               ]
             },
@@ -75,9 +76,6 @@
                   "to": {
                     "kind": "AnyTarget",
                     "upTo": false
-                  },
-                  "source": {
-                    "kind": "Self"
                   },
                   "cantBePrevented": false
                 },
@@ -123,7 +121,8 @@
                   "who": {
                     "kind": "EachOpponent"
                   },
-                  "firstEachTurn": false
+                  "firstEachTurn": false,
+                  "exceptFirstInDrawStep": true
                 }
               ]
             },
@@ -139,9 +138,6 @@
                   "to": {
                     "kind": "AnyTarget",
                     "upTo": false
-                  },
-                  "source": {
-                    "kind": "Self"
                   },
                   "cantBePrevented": false
                 },
@@ -164,506 +160,467 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Amass",
     "Flash"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
-        "name": "Orcish Bowmasters",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
+      "title": "casting Orcish Bowmasters does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Orcish Bowmasters",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Orc",
-                "Archer"
-              ],
-              "subtypeList": [
-                "Orc",
-                "Archer"
-              ]
-            },
-            "manaCost": "{1}{B}",
-            "power": {
-              "text": "1",
-              "number": 1
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
+                "name": "Orcish Bowmasters",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "source": {
-                        "kind": "Self"
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
-        "name": "Orcish Bowmasters",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Orcish Bowmasters",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Orc",
-                "Archer"
-              ],
-              "subtypeList": [
-                "Orc",
-                "Archer"
-              ]
-            },
-            "manaCost": "{1}{B}",
-            "power": {
-              "text": "1",
-              "number": 1
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
-              }
-            ],
-            "oracleText": "Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
-        "name": "Orcish Bowmasters",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Orcish Bowmasters",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Orc",
-                "Archer"
-              ],
-              "subtypeList": [
-                "Orc",
-                "Archer"
-              ]
-            },
-            "manaCost": "{1}{B}",
-            "power": {
-              "text": "1",
-              "number": 1
-            },
-            "toughness": {
-              "text": "1",
-              "number": 1
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false,
-                      "duringDrawStep": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
-              }
-            ],
-            "oracleText": "Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AnyOfTriggers",
-                  "of": [
-                    {
-                      "kind": "EntersBattlefield",
-                      "what": {
-                        "also": {
-                          "kind": "IsThisObject"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Draws",
-                      "who": {
-                        "kind": "EachOpponent"
-                      },
-                      "firstEachTurn": false,
-                      "duringDrawStep": false
-                    }
-                  ]
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "to": {
-                        "kind": "AnyTarget",
-                        "upTo": false
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "Amass",
-                      "creatureType": "Orc",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Orcish Bowmasters"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Orcish Bowmasters",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260908T013234-2e616f",
+    "passed": 0,
+    "total": 1,
+    "at": "2026-09-08T01:32:34.4161784+00:00"
+  },
   "keywordList": [
     "Amass",
     "Flash"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
+      "title": "casting Orcish Bowmasters does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Orcish Bowmasters",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Orcish Bowmasters"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Orcish Bowmasters",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

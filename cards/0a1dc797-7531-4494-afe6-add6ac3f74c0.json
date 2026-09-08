@@ -44,9 +44,45 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
-              "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              "kind": "OptionalAdditionalCost",
+              "spells": {
+                "colors": [
+                  "Green"
+                ],
+                "permanent": true,
+                "spell": true
+              },
+              "cost": {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ifPaid": {
+                "kind": "CostModifier",
+                "spells": {
+                  "colors": [
+                    "Green"
+                  ],
+                  "permanent": true,
+                  "spell": true
+                },
+                "delta": {
+                  "kind": "Fixed",
+                  "n": -1
+                },
+                "who": {
+                  "kind": "You"
+                },
+                "genericOnly": false,
+                "onlyColor": [
+                  "Green"
+                ]
+              }
             },
             "where": "Battlefield",
             "characteristicDefining": false,
@@ -102,9 +138,45 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
-              "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              "kind": "OptionalAdditionalCost",
+              "spells": {
+                "colors": [
+                  "Green"
+                ],
+                "permanent": true,
+                "spell": true
+              },
+              "cost": {
+                "kind": "PayLife",
+                "amount": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              },
+              "who": {
+                "kind": "You"
+              },
+              "ifPaid": {
+                "kind": "CostModifier",
+                "spells": {
+                  "colors": [
+                    "Green"
+                  ],
+                  "permanent": true,
+                  "spell": true
+                },
+                "delta": {
+                  "kind": "Fixed",
+                  "n": -1
+                },
+                "who": {
+                  "kind": "You"
+                },
+                "genericOnly": false,
+                "onlyColor": [
+                  "Green"
+                ]
+              }
             },
             "where": "Battlefield",
             "characteristicDefining": false,
@@ -208,9 +280,45 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                  "kind": "OptionalAdditionalCost",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ],
+                    "permanent": true,
+                    "spell": true
+                  },
+                  "cost": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ifPaid": {
+                    "kind": "CostModifier",
+                    "spells": {
+                      "colors": [
+                        "Green"
+                      ],
+                      "permanent": true,
+                      "spell": true
+                    },
+                    "delta": {
+                      "kind": "Fixed",
+                      "n": -1
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "genericOnly": false,
+                    "onlyColor": [
+                      "Green"
+                    ]
+                  }
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
@@ -266,9 +374,45 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                  "kind": "OptionalAdditionalCost",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ],
+                    "permanent": true,
+                    "spell": true
+                  },
+                  "cost": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "ifPaid": {
+                    "kind": "CostModifier",
+                    "spells": {
+                      "colors": [
+                        "Green"
+                      ],
+                      "permanent": true,
+                      "spell": true
+                    },
+                    "delta": {
+                      "kind": "Fixed",
+                      "n": -1
+                    },
+                    "who": {
+                      "kind": "You"
+                    },
+                    "genericOnly": false,
+                    "onlyColor": [
+                      "Green"
+                    ]
+                  }
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
@@ -360,9 +504,41 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "an optional additional cost of 2 life on other green permanent spells the controller casts that, when paid, reduces only the green mana in that spell\u0027s cost by {G} \u2014 there is no record for an optional per-spell additional cost that conditionally modifies that same spell\u0027s colored mana cost",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                  "kind": "OptionalAdditionalCost",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "cost": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "ifPaid": {
+                    "kind": "CostModifier",
+                    "spells": {
+                      "colors": [
+                        "Green"
+                      ]
+                    },
+                    "delta": {
+                      "kind": "Fixed",
+                      "n": -1
+                    },
+                    "who": {
+                      "kind": "EachPlayer"
+                    },
+                    "genericOnly": false,
+                    "onlyColor": [
+                      "Green"
+                    ]
+                  }
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,
@@ -417,9 +593,41 @@
               {
                 "kind": "StaticAbility",
                 "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "an optional additional cost of 2 life on other green permanent spells the controller casts that, when paid, reduces only the green mana in that spell\u0027s cost by {G} \u2014 there is no record for an optional per-spell additional cost that conditionally modifies that same spell\u0027s colored mana cost",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                  "kind": "OptionalAdditionalCost",
+                  "spells": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "cost": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  },
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "ifPaid": {
+                    "kind": "CostModifier",
+                    "spells": {
+                      "colors": [
+                        "Green"
+                      ]
+                    },
+                    "delta": {
+                      "kind": "Fixed",
+                      "n": -1
+                    },
+                    "who": {
+                      "kind": "EachPlayer"
+                    },
+                    "genericOnly": false,
+                    "onlyColor": [
+                      "Green"
+                    ]
+                  }
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,

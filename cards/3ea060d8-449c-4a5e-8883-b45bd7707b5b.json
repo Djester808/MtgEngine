@@ -23,11 +23,143 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "ChooseMode only counts a fixed number of modes (min/max, optionally raised by a single maxIf condition); it has no way to express a point-buy budget where each mode costs a different number of points ({P}, {P}{P}, {P}{P}{P}) totalling up to five, with unlimited repeats of the same mode.",
-              "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.\n{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.\n{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control."
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "PutCounters",
+                        "on": {
+                          "kind": "Choose",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          },
+                          "chooser": {
+                            "kind": "You"
+                          },
+                          "upTo": false,
+                          "key": "k1"
+                        },
+                        "counter": "\u002B1/\u002B1",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Vigilance"
+                        },
+                        "to": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Trample"
+                        },
+                        "to": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}"
+                  }
+                },
+                {
+                  "text": "{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "ChooseValue",
+                        "what": "CardType",
+                        "key": "k2",
+                        "options": [
+                          "Artifact",
+                          "Enchantment"
+                        ]
+                      },
+                      {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "also": {
+                              "kind": "IsChosenType",
+                              "key": "k2"
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    ]
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}{P}"
+                  }
+                },
+                {
+                  "text": "{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control.",
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "GreatestAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}{P}{P}"
+                  }
+                }
+              ],
+              "min": 0,
+              "max": 1,
+              "sameModeTwice": true,
+              "budget": {
+                "kind": "Fixed",
+                "n": 5
+              }
             },
-            "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.\n{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.\n{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control."
+            "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once."
           }
         ],
         "oracleText": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.\n{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.\n{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control.",
@@ -35,11 +167,143 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "ChooseMode only counts a fixed number of modes (min/max, optionally raised by a single maxIf condition); it has no way to express a point-buy budget where each mode costs a different number of points ({P}, {P}{P}, {P}{P}{P}) totalling up to five, with unlimited repeats of the same mode.",
-              "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.\n{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.\n{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control."
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "PutCounters",
+                        "on": {
+                          "kind": "Choose",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "You"
+                            }
+                          },
+                          "chooser": {
+                            "kind": "You"
+                          },
+                          "upTo": false,
+                          "key": "k1"
+                        },
+                        "counter": "\u002B1/\u002B1",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Vigilance"
+                        },
+                        "to": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "GrantKeyword",
+                          "keyword": "Trample"
+                        },
+                        "to": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      }
+                    ]
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}"
+                  }
+                },
+                {
+                  "text": "{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.",
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "ChooseValue",
+                        "what": "CardType",
+                        "key": "k2",
+                        "options": [
+                          "Artifact",
+                          "Enchantment"
+                        ]
+                      },
+                      {
+                        "kind": "Destroy",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "also": {
+                              "kind": "IsChosenType",
+                              "key": "k2"
+                            }
+                          }
+                        },
+                        "cantBeRegenerated": false
+                      }
+                    ]
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}{P}"
+                  }
+                },
+                {
+                  "text": "{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control.",
+                  "do": {
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "GreatestAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  },
+                  "cost": {
+                    "kind": "ManaCost",
+                    "mana": "{P}{P}{P}"
+                  }
+                }
+              ],
+              "min": 0,
+              "max": 1,
+              "sameModeTwice": true,
+              "budget": {
+                "kind": "Fixed",
+                "n": 5
+              }
             },
-            "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Put a \u002B1/\u002B1 counter on a creature you control. It gains vigilance and trample until end of turn.\n{P}{P} \u2014 Choose artifact or enchantment. Destroy all permanents of the chosen type.\n{P}{P}{P} \u2014 Draw cards equal to the greatest power among creatures you control."
+            "text": "Choose up to five {P} worth of modes. You may choose the same mode more than once."
           }
         ]
       }
@@ -49,8 +313,8 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5",
-      "claude-opus-5-b"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
     "agreed": true

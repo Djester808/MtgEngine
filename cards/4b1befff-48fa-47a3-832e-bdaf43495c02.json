@@ -23,98 +23,58 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "PowerOf",
-                    "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    }
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    "upTo": false,
-                    "key": "k2",
-                    "distinct": true
-                  },
-                  "source": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "cantBePrevented": false
-                },
-                {
-                  "kind": "If",
-                  "test": {
-                    "kind": "HasKeyword",
-                    "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "keyword": "Trample"
-                  },
-                  "then": {
-                    "kind": "DealDamage",
-                    "n": {
-                      "kind": "Max",
-                      "left": {
-                        "kind": "Fixed",
-                        "n": 0
-                      },
-                      "right": {
-                        "kind": "Difference",
-                        "left": {
-                          "kind": "PowerOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k1"
-                          }
-                        },
-                        "right": {
-                          "kind": "ToughnessOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k2"
-                          }
-                        }
-                      }
-                    },
-                    "toPlayer": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Remembered",
-                        "key": "k2"
-                      }
-                    },
-                    "source": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "cantBePrevented": false
-                  }
+              "kind": "DealDamage",
+              "n": {
+                "kind": "PowerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
                 }
-              ]
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "upTo": false,
+                "key": "k2",
+                "distinct": true
+              },
+              "source": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "key": "k1",
+                "distinct": true
+              },
+              "cantBePrevented": false,
+              "excessTo": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k2"
+                }
+              },
+              "excessIf": {
+                "kind": "HasKeyword",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
+                },
+                "keyword": "Trample"
+              }
             },
             "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
           }
@@ -124,98 +84,58 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Sequence",
-              "steps": [
-                {
-                  "kind": "DealDamage",
-                  "n": {
-                    "kind": "PowerOf",
-                    "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    }
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    "upTo": false,
-                    "key": "k2",
-                    "distinct": true
-                  },
-                  "source": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "cantBePrevented": false
-                },
-                {
-                  "kind": "If",
-                  "test": {
-                    "kind": "HasKeyword",
-                    "of": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "keyword": "Trample"
-                  },
-                  "then": {
-                    "kind": "DealDamage",
-                    "n": {
-                      "kind": "Max",
-                      "left": {
-                        "kind": "Fixed",
-                        "n": 0
-                      },
-                      "right": {
-                        "kind": "Difference",
-                        "left": {
-                          "kind": "PowerOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k1"
-                          }
-                        },
-                        "right": {
-                          "kind": "ToughnessOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k2"
-                          }
-                        }
-                      }
-                    },
-                    "toPlayer": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Remembered",
-                        "key": "k2"
-                      }
-                    },
-                    "source": {
-                      "kind": "Remembered",
-                      "key": "k1"
-                    },
-                    "cantBePrevented": false
-                  }
+              "kind": "DealDamage",
+              "n": {
+                "kind": "PowerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
                 }
-              ]
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "upTo": false,
+                "key": "k2",
+                "distinct": true
+              },
+              "source": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "key": "k1",
+                "distinct": true
+              },
+              "cantBePrevented": false,
+              "excessTo": {
+                "kind": "ControllerOf",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k2"
+                }
+              },
+              "excessIf": {
+                "kind": "HasKeyword",
+                "of": {
+                  "kind": "Remembered",
+                  "key": "k1"
+                },
+                "keyword": "Trample"
+              }
             },
             "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
           }
@@ -227,7 +147,7 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
     "agreed": false
@@ -256,63 +176,58 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          }
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "source": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "HasKeyword",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "keyword": "Trample"
-                      },
-                      "then": {
-                        "kind": "Unsupported",
-                        "reason": "Excess damage \u2014 the part of the damage above what was needed to destroy the damaged creature \u2014 has no record, and nothing redirects that remainder to the creature\u0027s controller.",
-                        "text": "excess damage is dealt to that creature\u0027s controller instead"
-                      }
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
                     }
-                  ]
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false,
+                  "excessTo": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k2"
+                    }
+                  },
+                  "excessIf": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "keyword": "Trample"
+                  }
                 },
                 "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
               }
@@ -322,63 +237,58 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          }
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      },
-                      "source": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "HasKeyword",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "keyword": "Trample"
-                      },
-                      "then": {
-                        "kind": "Unsupported",
-                        "reason": "Excess damage \u2014 the part of the damage above what was needed to destroy the damaged creature \u2014 has no record, and nothing redirects that remainder to the creature\u0027s controller.",
-                        "text": "excess damage is dealt to that creature\u0027s controller instead"
-                      }
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
                     }
-                  ]
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false,
+                  "excessTo": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k2"
+                    }
+                  },
+                  "excessIf": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "keyword": "Trample"
+                  }
                 },
                 "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
               }
@@ -409,98 +319,88 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
                         }
                       },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k2",
-                        "distinct": true
-                      },
-                      "source": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "HasKeyword",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "keyword": "Trample"
-                      },
-                      "then": {
-                        "kind": "DealDamage",
-                        "n": {
-                          "kind": "Max",
-                          "left": {
-                            "kind": "Fixed",
-                            "n": 0
-                          },
-                          "right": {
-                            "kind": "Difference",
-                            "left": {
-                              "kind": "PowerOf",
-                              "of": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              }
-                            },
-                            "right": {
-                              "kind": "ToughnessOf",
-                              "of": {
-                                "kind": "Remembered",
-                                "key": "k2"
-                              }
-                            }
-                          }
-                        },
-                        "toPlayer": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k2"
-                          }
-                        },
-                        "source": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "cantBePrevented": false
-                      }
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
                     }
-                  ]
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false,
+                  "excessTo": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "upTo": false,
+                      "key": "k2",
+                      "distinct": true
+                    }
+                  },
+                  "excessIf": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    },
+                    "keyword": "Trample"
+                  }
                 },
                 "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
               }
@@ -510,98 +410,88 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "DealDamage",
-                      "n": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
                         }
                       },
-                      "to": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k2",
-                        "distinct": true
-                      },
-                      "source": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": false,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBePrevented": false
-                    },
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "HasKeyword",
-                        "of": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "keyword": "Trample"
-                      },
-                      "then": {
-                        "kind": "DealDamage",
-                        "n": {
-                          "kind": "Max",
-                          "left": {
-                            "kind": "Fixed",
-                            "n": 0
-                          },
-                          "right": {
-                            "kind": "Difference",
-                            "left": {
-                              "kind": "PowerOf",
-                              "of": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              }
-                            },
-                            "right": {
-                              "kind": "ToughnessOf",
-                              "of": {
-                                "kind": "Remembered",
-                                "key": "k2"
-                              }
-                            }
-                          }
-                        },
-                        "toPlayer": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Remembered",
-                            "key": "k2"
-                          }
-                        },
-                        "source": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        },
-                        "cantBePrevented": false
-                      }
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
                     }
-                  ]
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false,
+                  "excessTo": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "EachOpponent"
+                        }
+                      },
+                      "upTo": false,
+                      "key": "k2",
+                      "distinct": true
+                    }
+                  },
+                  "excessIf": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    },
+                    "keyword": "Trample"
+                  }
                 },
                 "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
               }
