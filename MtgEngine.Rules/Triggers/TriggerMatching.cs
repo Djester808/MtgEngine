@@ -83,12 +83,16 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
             _ => Wave23(state, trigger, happened, ctx),
         };
 
-        // CR 603.10: a firing carries how much its own event moved — damage dealt, or life gained
-        // or lost — which is information about the firing and not about the board it left behind.
+        // CR 603.10: a firing carries how much its own event moved — damage dealt, damage
+        // prevented, or life gained or lost — which is information about the firing and not about
+        // the board it left behind. A cast carries what was paid for it (CR 400.7d) for the same
+        // reason: the spell may have resolved and ceased to exist by the time this ability does.
         return happened switch
         {
             Ev.DamageDealt damage => WithTriggeringDamage(subjects, damage),
             Ev.LifeChanged life => WithTriggeringLife(subjects, life),
+            Ev.SpellCast cast => WithManaSpentOnTriggering(state, subjects, cast),
+            IDamagePrevented prevented => WithPreventedDamage(subjects, prevented),
             _ => subjects,
         };
     }
@@ -127,16 +131,6 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
         if (diedOnly && !state.History.Died.Any(o => o.Id == moved.From))
             return [];
         return _query.Matches(state, what, moved.From, ctx) ? [TriggerSubject.Of(moved.From, Controller(state, moved.From))] : [];
-    }
-
-    [RuleRef("603.2")]
-    private ImmutableList<TriggerSubject> Cast(GameState state, Cards.SpellCast trigger, Ev.GameEvent happened, EffectContext ctx)
-    {
-        if (happened is not Ev.SpellCast cast)
-            return [];
-        if (!_query.Players(state, trigger.By, ctx).Contains(cast.Caster))
-            return [];
-        return _query.Matches(state, trigger.Spell, cast.Spell, ctx) ? [TriggerSubject.Of(cast.Spell, cast.Caster)] : [];
     }
 
     /// <summary>
