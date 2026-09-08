@@ -157,11 +157,35 @@ public sealed record Sequence(IReadOnlyList<Effect> Steps) : Effect;
 /// rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which
 /// would read the condition on resolution, and never two ChooseModes for one printed list.
 /// </para>
+/// <para>
+/// <paramref name="Budget"/> is a mode count spent rather than counted: "choose modes with total
+/// cost {5} or less" over modes that each print a price. The modes are still announced as the spell
+/// is cast (CR 601.2b sends the choice to CR 700.2), and the announcement is legal only while the
+/// prices of the modes chosen total no more than the budget. Every mode then needs its own
+/// <see cref="Mode.Cost"/> and a priced mode needs a budget to spend against, so the two fields are
+/// set together or not at all (L032). <paramref name="Max"/> stops meaning the number of modes when
+/// a budget rules them — leave it at its default and let the prices do the counting — and
+/// <paramref name="SameModeTwice"/> is what "you may choose the same mode more than once" says here,
+/// each repeat paying its price again.
+/// </para>
 /// </summary>
 [RuleRef("700.2")]
-public sealed record ChooseMode(IReadOnlyList<Mode> Modes, int Min = 1, int Max = 1, bool SameModeTwice = false, Condition? MaxIf = null, int? MaxIfMet = null) : Effect;
+public sealed record ChooseMode(IReadOnlyList<Mode> Modes, int Min = 1, int Max = 1, bool SameModeTwice = false, Condition? MaxIf = null, int? MaxIfMet = null, Amount? Budget = null) : Effect;
 
-public sealed record Mode(string Text, Effect Do);
+/// <summary>
+/// One printed mode: the line as printed in <paramref name="Text"/> and what it does in
+/// <paramref name="Do"/>.
+/// <para>
+/// <paramref name="Cost"/> is the price a mode carries when its list is spent against a
+/// <see cref="ChooseMode.Budget"/> rather than counted — the mana the printed line puts in front of
+/// the mode, whose symbols are what the budget counts (CR 700.2). Nothing is paid for it: choosing
+/// the mode adds nothing to the spell's cost, and the price is read against the budget and nowhere
+/// else. A cost a player really pays to choose a mode is an additional cost on the face, not this.
+/// Leave it null for an ordinary numbered list of modes.
+/// </para>
+/// </summary>
+[RuleRef("700.2")]
+public sealed record Mode(string Text, Effect Do, Cost? Cost = null);
 
 /// <summary>"If you do, ...", "if it's a creature card, ...".</summary>
 public sealed record If(Condition Test, Effect Then, Effect? Else = null) : Effect;

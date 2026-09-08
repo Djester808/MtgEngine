@@ -162,7 +162,26 @@ public sealed record BecomesUntapped(ObjectFilter What) : Trigger;
 [RuleRef("115.7")]
 public sealed record BecomesTarget(ObjectFilter What, ObjectFilter? By = null, PlayerRef? ByController = null) : Trigger;
 
-public sealed record Draws(PlayerRef Who, bool FirstEachTurn = false, bool? DuringDrawStep = null) : Trigger;
+/// <summary>
+/// "Whenever a player draws a card" (CR 121.1 — a draw is one event per card, so a player drawing
+/// two cards fires this twice). <paramref name="FirstEachTurn"/> is "the first card they draw each
+/// turn"; <paramref name="DuringDrawStep"/> pins the trigger to that step or excludes it.
+/// <para>
+/// <paramref name="ExceptFirstInDrawStep"/> is the printed exception "except the first one they draw
+/// in each of their draw steps": every draw fires the ability but that one, and the exception is
+/// about the player's own draw step, so a draw taken in someone else's draw step is not spared. It
+/// is the turn-based draw the exception is written to skip (CR 504.1), so a player who skips their
+/// draw step, or whose first draw of it is a second card, spares only the one draw that came first.
+/// </para>
+/// <para>
+/// It is the opposite of <paramref name="FirstEachTurn"/> and the two never both hold (L033): one
+/// admits that draw alone, the other admits every draw but it. It is also not
+/// <paramref name="DuringDrawStep"/> false, which refuses the whole step rather than its first
+/// draw.
+/// </para>
+/// </summary>
+[RuleRef("121.1")]
+public sealed record Draws(PlayerRef Who, bool FirstEachTurn = false, bool? DuringDrawStep = null, bool ExceptFirstInDrawStep = false) : Trigger;
 
 public sealed record Discards(PlayerRef Who, ObjectFilter? What = null) : Trigger;
 

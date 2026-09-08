@@ -8,9 +8,33 @@ namespace MtgEngine.Cards;
 /// The three words "any target" are not both halves written out: they are the AnyTarget selector
 /// in <paramref name="To"/>, with <paramref name="ToPlayer"/> left out (CR 115.4). Use the two
 /// halves together only when the card really names two things to damage.
+///
+/// <para>
+/// <paramref name="ExcessTo"/> is "excess damage is dealt to that creature's controller instead":
+/// the damage over what was lethal to the creature or planeswalker damaged goes to a player
+/// (CR 120.3d defines excess damage as the amount beyond what is needed to destroy it, and
+/// CR 702.19c is the trample rule that reads it). Only the excess moves; the rest is dealt as
+/// usual, and a creature that takes less than lethal leaves no excess at all. Normally a
+/// <see cref="ControllerOf"/> over the same selector <paramref name="To"/> names.
+/// </para>
+/// <para>
+/// It rides on the damage the card deals, so it needs a <paramref name="To"/> to have an excess to
+/// read (L031): damage to a player is never excess. It is not a second DealDamage — a reading that
+/// deals the excess as its own instruction has no way to know what was lethal — and it is not
+/// trample, which is a KeywordAbility about assigning combat damage before it is dealt.
+/// </para>
+/// <para>
+/// <paramref name="ExcessIf"/> is the gate the printed line puts on that redirection — "if the
+/// creature you control has trample, excess damage is dealt to that creature's controller instead",
+/// the sentence CR 702.19c is written under — read as the damage is dealt and only about where the
+/// excess goes; the damage itself happens either way. Never an If around two copies of the same
+/// damage instruction, which is one printed sentence written twice and the reading the translators
+/// disagreed over. Leave it null when the card redirects the excess unconditionally, and never set
+/// it without <paramref name="ExcessTo"/> (L031), which would gate nothing.
+/// </para>
 /// </summary>
 [RuleRef("120")]
-public sealed record DealDamage(Amount N, Selector? To = null, PlayerRef? ToPlayer = null, Selector? Source = null, bool CantBePrevented = false) : Effect;
+public sealed record DealDamage(Amount N, Selector? To = null, PlayerRef? ToPlayer = null, Selector? Source = null, bool CantBePrevented = false, PlayerRef? ExcessTo = null, Condition? ExcessIf = null) : Effect;
 
 /// <summary>"deals 4 damage divided as you choose among one, two, three, or four targets".</summary>
 [RuleRef("601.2d")]
@@ -42,18 +66,28 @@ public sealed record ChangeTarget(Selector What, Selector? To = null, bool AllTa
 
 /// <summary>
 /// "Sacrifice a creature", "pay 3 life" — a cost paid inside a resolving effect with no choice
-/// offered and nothing hanging on it, CR 118.12. The cost is paid where it stands rather than as
-/// part of casting or activating. Any Cost record works here, including PayManaCost for an amount
-/// counted from the game.
+/// offered, CR 118.12. The cost is paid where it stands rather than as part of casting or
+/// activating. Any Cost record works here, including PayManaCost for an amount counted from the
+/// game.
+/// <para>
+/// <paramref name="Then"/> is the "if you do" of a mandatory cost: "sacrifice a creature. If you do,
+/// draw two cards." The instruction is not a choice — the player pays if they can — but it can fail,
+/// because a resolving effect does as much as it can and nothing more (CR 608.2c), and the printed
+/// second half runs only when the whole cost was actually paid. A partly paid cost is not paid: an
+/// empty board pays no sacrifice, so Then does not run. Leave it null for the bare instruction with
+/// nothing hanging on it.
+/// </para>
 /// <para>
 /// Use MayPay for "you may pay {4}. If you do, ..." and Unless for "unless that player pays": both
 /// are one record each and neither is spelled as a May or an If wrapped around this one. A PayCost
 /// inside a May with a StoreChoiceAs key is the shape MayPay replaced, and a canonical pass
-/// collapses it.
+/// collapses it. The two spellings never both apply: a May around a PayCost that carries Then is
+/// MayPay's whole sentence written out, and lints as one (L034). Which record a card gets is which
+/// half it prints — "you may pay" is MayPay, a bare imperative with an "if you do" is this one.
 /// </para>
 /// </summary>
 [RuleRef("118.12")]
-public sealed record PayCost(Cost Cost, PlayerRef? Who = null) : Effect;
+public sealed record PayCost(Cost Cost, PlayerRef? Who = null, Effect? Then = null) : Effect;
 
 [RuleRef("121")]
 public sealed record Draw(Amount N, PlayerRef? Who = null) : Effect;

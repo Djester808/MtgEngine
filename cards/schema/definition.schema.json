@@ -4628,6 +4628,9 @@
           "$ref": "#/$defs/NoMaxHandSize"
         },
         {
+          "$ref": "#/$defs/OptionalAdditionalCost"
+        },
+        {
           "$ref": "#/$defs/PlayWithHandRevealed"
         },
         {
@@ -5427,6 +5430,16 @@
               "type": "null"
             }
           ]
+        },
+        "budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -5434,7 +5447,7 @@
         "kind",
         "modes"
       ],
-      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count. MaxIf is a mode count that depends on the game as the spell is cast: \u0022choose one. If you control a commander as you cast this spell, you may choose both instead\u0022 is Max 1 with MaxIf a Controls condition over a filter of isCommander and MaxIfMet 2. The modes are announced as the spell is cast (CR 601.2b, which sends the count to CR 700.2), so the condition is read at that announcement and never again: a commander that leaves later changes nothing. MaxIfMet is the ceiling while the condition holds and must exceed Max, or the rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which would read the condition on resolution, and never two ChooseModes for one printed list."
+      "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count. MaxIf is a mode count that depends on the game as the spell is cast: \u0022choose one. If you control a commander as you cast this spell, you may choose both instead\u0022 is Max 1 with MaxIf a Controls condition over a filter of isCommander and MaxIfMet 2. The modes are announced as the spell is cast (CR 601.2b, which sends the count to CR 700.2), so the condition is read at that announcement and never again: a commander that leaves later changes nothing. MaxIfMet is the ceiling while the condition holds and must exceed Max, or the rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which would read the condition on resolution, and never two ChooseModes for one printed list. Budget is a mode count spent rather than counted: \u0022choose modes with total cost {5} or less\u0022 over modes that each print a price. The modes are still announced as the spell is cast (CR 601.2b sends the choice to CR 700.2), and the announcement is legal only while the prices of the modes chosen total no more than the budget. Every mode then needs its own Cost and a priced mode needs a budget to spend against, so the two fields are set together or not at all (L032). Max stops meaning the number of modes when a budget rules them \u2014 leave it at its default and let the prices do the counting \u2014 and SameModeTwice is what \u0022you may choose the same mode more than once\u0022 says here, each repeat paying its price again."
     },
     "ChooseValue": {
       "type": "object",
@@ -5867,6 +5880,26 @@
         },
         "cantBePrevented": {
           "type": "boolean"
+        },
+        "excessTo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "excessIf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -5874,7 +5907,7 @@
         "kind",
         "n"
       ],
-      "description": "\u0022Deals 3 damage\u0022: to objects through To, to players through ToPlayer, or to both when the card names both (\u0022deals 2 damage to target creature and 2 damage to that creature\u0027s controller\u0022). The three words \u0022any target\u0022 are not both halves written out: they are the AnyTarget selector in To, with ToPlayer left out (CR 115.4). Use the two halves together only when the card really names two things to damage."
+      "description": "\u0022Deals 3 damage\u0022: to objects through To, to players through ToPlayer, or to both when the card names both (\u0022deals 2 damage to target creature and 2 damage to that creature\u0027s controller\u0022). The three words \u0022any target\u0022 are not both halves written out: they are the AnyTarget selector in To, with ToPlayer left out (CR 115.4). Use the two halves together only when the card really names two things to damage. ExcessTo is \u0022excess damage is dealt to that creature\u0027s controller instead\u0022: the damage over what was lethal to the creature or planeswalker damaged goes to a player (CR 120.3d defines excess damage as the amount beyond what is needed to destroy it, and CR 702.19c is the trample rule that reads it). Only the excess moves; the rest is dealt as usual, and a creature that takes less than lethal leaves no excess at all. Normally a ControllerOf over the same selector To names. It rides on the damage the card deals, so it needs a To to have an excess to read (L031): damage to a player is never excess. It is not a second DealDamage \u2014 a reading that deals the excess as its own instruction has no way to know what was lethal \u2014 and it is not trample, which is a KeywordAbility about assigning combat damage before it is dealt. ExcessIf is the gate the printed line puts on that redirection \u2014 \u0022if the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead\u0022, the sentence CR 702.19c is written under \u2014 read as the damage is dealt and only about where the excess goes; the damage itself happens either way. Never an If around two copies of the same damage instruction, which is one printed sentence written twice and the reading the translators disagreed over. Leave it null when the card redirects the excess unconditionally, and never set it without ExcessTo (L031), which would gate nothing."
     },
     "DealDividedDamage": {
       "type": "object",
@@ -7530,6 +7563,16 @@
               "type": "null"
             }
           ]
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effect"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -7537,7 +7580,7 @@
         "kind",
         "cost"
       ],
-      "description": "\u0022Sacrifice a creature\u0022, \u0022pay 3 life\u0022 \u2014 a cost paid inside a resolving effect with no choice offered and nothing hanging on it, CR 118.12. The cost is paid where it stands rather than as part of casting or activating. Any Cost record works here, including PayManaCost for an amount counted from the game. Use MayPay for \u0022you may pay {4}. If you do, ...\u0022 and Unless for \u0022unless that player pays\u0022: both are one record each and neither is spelled as a May or an If wrapped around this one. A PayCost inside a May with a StoreChoiceAs key is the shape MayPay replaced, and a canonical pass collapses it."
+      "description": "\u0022Sacrifice a creature\u0022, \u0022pay 3 life\u0022 \u2014 a cost paid inside a resolving effect with no choice offered, CR 118.12. The cost is paid where it stands rather than as part of casting or activating. Any Cost record works here, including PayManaCost for an amount counted from the game. Then is the \u0022if you do\u0022 of a mandatory cost: \u0022sacrifice a creature. If you do, draw two cards.\u0022 The instruction is not a choice \u2014 the player pays if they can \u2014 but it can fail, because a resolving effect does as much as it can and nothing more (CR 608.2c), and the printed second half runs only when the whole cost was actually paid. A partly paid cost is not paid: an empty board pays no sacrifice, so Then does not run. Leave it null for the bare instruction with nothing hanging on it. Use MayPay for \u0022you may pay {4}. If you do, ...\u0022 and Unless for \u0022unless that player pays\u0022: both are one record each and neither is spelled as a May or an If wrapped around this one. A PayCost inside a May with a StoreChoiceAs key is the shape MayPay replaced, and a canonical pass collapses it. The two spellings never both apply: a May around a PayCost that carries Then is MayPay\u0027s whole sentence written out, and lints as one (L034). Which record a card gets is which half it prints \u2014 \u0022you may pay\u0022 is MayPay, a bare imperative with an \u0022if you do\u0022 is this one."
     },
     "PhaseOut": {
       "type": "object",
@@ -10926,6 +10969,27 @@
         },
         "genericOnly": {
           "type": "boolean"
+        },
+        "onlyColor": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "White",
+                  "Blue",
+                  "Black",
+                  "Red",
+                  "Green"
+                ]
+              },
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -10935,7 +10999,7 @@
         "delta",
         "who"
       ],
-      "description": "\u0022Instant and sorcery spells you cast cost {1} less\u0022: positive delta is an increase."
+      "description": "\u0022Instant and sorcery spells you cast cost {1} less\u0022: positive delta is an increase. OnlyColor is a reduction the printed line ties to one colour \u2014 \u0022costs {W} less to cast\u0022 rather than \u0022{1} less\u0022 (CR 601.2f, where the reduction is applied to the cost as it stands). The delta is then that many mana of that colour, and a cost with no such symbol left is not reduced further: a colourless spell is untouched by a {W} reduction, while a generic reduction of the same size would still have paid for it. Set GenericOnly false beside it, because the two flags describe the same half of the cost and a reduction cannot be generic-only and coloured at once (L030)."
     },
     "CountersDoubled": {
       "type": "object",
@@ -11831,6 +11895,41 @@
         "who"
       ],
       "description": "CR 613"
+    },
+    "OptionalAdditionalCost": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "OptionalAdditionalCost"
+        },
+        "spells": {
+          "$ref": "#/$defs/ObjectFilter"
+        },
+        "cost": {
+          "$ref": "#/$defs/Cost"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "ifPaid": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContinuousEffect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "spells",
+        "cost",
+        "who"
+      ],
+      "description": "\u0022Spells your opponents cast have \u0027as an additional cost to cast this spell, you may pay {1}\u0027, and a spell paid for that way costs {2} less\u0022 \u2014 an optional additional cost this permanent imposes on other spells (CR 118.8: an additional cost is paid on top of the mana cost, and an optional one is a choice the caster makes as the spell is cast, CR 601.2b), with what paying it buys in IfPaid. Spells is the filter of spells the rider is added to and Who the caster it is offered to; Cost is the printed additional cost, announced and paid as part of casting (CR 601.2f) and not while the spell resolves. IfPaid is the continuous effect that applies to that spell only when the cost was paid \u2014 normally a CostModifier, which is the reduction the printed line gates on the payment. It is required (L030): an optional additional cost with nothing hanging on it is a cost no caster would ever choose to pay, so a reading that drops the reward has dropped the card. This is not Face.AdditionalCosts, which is the cost printed on the card paying it, and it is not AlternativeCost, which replaces the mana cost instead of adding to it. It is not MayPay either: this choice is made as the other spell is cast, and MayPay\u0027s is made as this card\u0027s own ability resolves."
     },
     "PlayWithHandRevealed": {
       "type": "object",
@@ -13548,6 +13647,9 @@
               "type": "null"
             }
           ]
+        },
+        "exceptFirstInDrawStep": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -13555,7 +13657,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 603"
+      "description": "\u0022Whenever a player draws a card\u0022 (CR 121.1 \u2014 a draw is one event per card, so a player drawing two cards fires this twice). FirstEachTurn is \u0022the first card they draw each turn\u0022; DuringDrawStep pins the trigger to that step or excludes it. ExceptFirstInDrawStep is the printed exception \u0022except the first one they draw in each of their draw steps\u0022: every draw fires the ability but that one, and the exception is about the player\u0027s own draw step, so a draw taken in someone else\u0027s draw step is not spared. It is the turn-based draw the exception is written to skip (CR 504.1), so a player who skips their draw step, or whose first draw of it is a second card, spares only the one draw that came first. It is the opposite of FirstEachTurn and the two never both hold (L033): one admits that draw alone, the other admits every draw but it. It is also not DuringDrawStep false, which refuses the whole step rather than its first draw."
     },
     "DungeonCompleted": {
       "type": "object",
@@ -14503,13 +14605,24 @@
         },
         "do": {
           "$ref": "#/$defs/Effect"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "required": [
         "text",
         "do"
-      ]
+      ],
+      "description": "One printed mode: the line as printed in Text and what it does in Do. Cost is the price a mode carries when its list is spent against a Budget rather than counted \u2014 the mana the printed line puts in front of the mode, whose symbols are what the budget counts (CR 700.2). Nothing is paid for it: choosing the mode adds nothing to the spell\u0027s cost, and the price is read against the budget and nowhere else. A cost a player really pays to choose a mode is an additional cost on the face, not this. Leave it null for an ordinary numbered list of modes."
     },
     "EmblemSpec": {
       "type": "object",

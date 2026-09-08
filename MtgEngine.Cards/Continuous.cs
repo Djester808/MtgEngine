@@ -94,6 +94,7 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(CantSearchLibraries), nameof(CantSearchLibraries))]
 [JsonDerivedType(typeof(CantDrawMoreThan), nameof(CantDrawMoreThan))]
 [JsonDerivedType(typeof(CostModifier), nameof(CostModifier))]
+[JsonDerivedType(typeof(OptionalAdditionalCost), nameof(OptionalAdditionalCost))]
 [JsonDerivedType(typeof(AbilityCostModifier), nameof(AbilityCostModifier))]
 [JsonDerivedType(typeof(NoMaxHandSize), nameof(NoMaxHandSize))]
 [JsonDerivedType(typeof(MaxHandSize), nameof(MaxHandSize))]
@@ -295,9 +296,46 @@ public sealed record PlayerProtectionFromEverything : ContinuousEffect;
 
 public sealed record CantDrawMoreThan(PlayerRef Who, Amount PerTurn) : ContinuousEffect;
 
-/// <summary>"Instant and sorcery spells you cast cost {1} less": positive delta is an increase.</summary>
+/// <summary>
+/// "Instant and sorcery spells you cast cost {1} less": positive delta is an increase.
+/// <para>
+/// <paramref name="OnlyColor"/> is a reduction the printed line ties to one colour — "costs {W}
+/// less to cast" rather than "{1} less" (CR 601.2f, where the reduction is applied to the cost as
+/// it stands). The delta is then that many mana of that colour, and a cost with no such symbol left
+/// is not reduced further: a colourless spell is untouched by a {W} reduction, while a generic
+/// reduction of the same size would still have paid for it. Set <paramref name="GenericOnly"/>
+/// false beside it, because the two flags describe the same half of the cost and a reduction cannot
+/// be generic-only and coloured at once (L030).
+/// </para>
+/// </summary>
 [RuleRef("601.2f")]
-public sealed record CostModifier(ObjectFilter Spells, Amount Delta, PlayerRef Who, bool GenericOnly = true) : ContinuousEffect;
+public sealed record CostModifier(ObjectFilter Spells, Amount Delta, PlayerRef Who, bool GenericOnly = true, Color? OnlyColor = null) : ContinuousEffect;
+
+/// <summary>
+/// "Spells your opponents cast have 'as an additional cost to cast this spell, you may pay {1}',
+/// and a spell paid for that way costs {2} less" — an optional additional cost this permanent
+/// imposes on other spells (CR 118.8: an additional cost is paid on top of the mana cost, and an
+/// optional one is a choice the caster makes as the spell is cast, CR 601.2b), with what paying it
+/// buys in <paramref name="IfPaid"/>.
+/// <para>
+/// <paramref name="Spells"/> is the filter of spells the rider is added to and <paramref name="Who"/>
+/// the caster it is offered to; <paramref name="Cost"/> is the printed additional cost, announced
+/// and paid as part of casting (CR 601.2f) and not while the spell resolves.
+/// <paramref name="IfPaid"/> is the continuous effect that applies to that spell only when the cost
+/// was paid — normally a <see cref="CostModifier"/>, which is the reduction the printed line gates
+/// on the payment. It is required (L030): an optional additional cost with nothing hanging on it is
+/// a cost no caster would ever choose to pay, so a reading that drops the reward has dropped the
+/// card.
+/// </para>
+/// <para>
+/// This is not <c>Face.AdditionalCosts</c>, which is the cost printed on the card paying it, and it
+/// is not <see cref="AlternativeCost"/>, which replaces the mana cost instead of adding to it. It is
+/// not <see cref="MayPay"/> either: this choice is made as the other spell is cast, and MayPay's is
+/// made as this card's own ability resolves.
+/// </para>
+/// </summary>
+[RuleRef("118.8")]
+public sealed record OptionalAdditionalCost(ObjectFilter Spells, Cost Cost, PlayerRef Who, ContinuousEffect? IfPaid = null) : ContinuousEffect;
 
 [RuleRef("602.2b")]
 public sealed record AbilityCostModifier(ObjectFilter Sources, Amount Delta, PlayerRef Who, AbilityKind Ability = AbilityKind.Any) : ContinuousEffect;
