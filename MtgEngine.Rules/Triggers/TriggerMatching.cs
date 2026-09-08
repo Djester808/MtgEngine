@@ -83,9 +83,14 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
             _ => Wave23(state, trigger, happened, ctx),
         };
 
-        // CR 603.10: a firing on a damage event carries how much damage that event dealt, which is
-        // information about the firing and not about the board it left behind.
-        return happened is Ev.DamageDealt damage ? WithTriggeringDamage(subjects, damage) : subjects;
+        // CR 603.10: a firing carries how much its own event moved — damage dealt, or life gained
+        // or lost — which is information about the firing and not about the board it left behind.
+        return happened switch
+        {
+            Ev.DamageDealt damage => WithTriggeringDamage(subjects, damage),
+            Ev.LifeChanged life => WithTriggeringLife(subjects, life),
+            _ => subjects,
+        };
     }
 
     private enum DamageSubject
@@ -134,11 +139,16 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
         return _query.Matches(state, trigger.Spell, cast.Spell, ctx) ? [TriggerSubject.Of(cast.Spell, cast.Caster)] : [];
     }
 
-    /// <summary>"At the beginning of your upkeep", CR 603.2: the step began, and whose turn it is decides.</summary>
+    /// <summary>
+    /// "At the beginning of your upkeep", CR 603.2: the step began, and whose turn it is decides.
+    /// Which steps the reference admits is <see cref="StepAdmits"/> — one named step matches itself,
+    /// and <see cref="Step.Main"/> matches either main phase (CR 505.1). Whose turn it is is asked
+    /// the same way whichever it was, so "your next main phase" is still only yours.
+    /// </summary>
     [RuleRef("603.2")]
     private ImmutableList<TriggerSubject> AtStepBegan(GameState state, AtStep trigger, Ev.GameEvent happened, EffectContext ctx)
     {
-        if (happened is not Ev.StepBegan began || began.Step != trigger.Step)
+        if (happened is not Ev.StepBegan began || !StepAdmits(trigger.Step, began.Step))
             return [];
         var active = state.Turn.ActivePlayer;
         return _query.Players(state, trigger.Whose, ctx).Contains(active) ? [TriggerSubject.OfPlayer(active)] : [];
