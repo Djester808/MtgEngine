@@ -186,6 +186,9 @@ internal sealed class InterpreterTable
     /// <summary>Turn a permanent over without going through the interpreter, so a test can set the board up.</summary>
     public void SetTapped(ObjectId id, bool tapped) => State = new ObjectChanged(id, Tapped: tapped).Apply(State);
 
+    /// <summary>Mark damage on a permanent without dealing it, CR 120.6: what an earlier source already did.</summary>
+    public void Mark(ObjectId id, int damage) => State = new ObjectChanged(id, Damage: damage).Apply(State);
+
     public EffectContext Context(ObjectId? source = null, int? x = null) => new(
         source,
         A,

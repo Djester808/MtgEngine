@@ -37,10 +37,24 @@ public sealed partial class EffectInterpreter
                     {
                         if (!run.State.Objects.ContainsKey(id))
                             continue;
-                        run = Propose(
-                            run,
-                            new DamageDealt(source, id, null, amount, Combat: false, commander, deathtouch),
-                            characteristics.ControllerOf(run.State, id));
+
+                        // CR 120.4a: where the effect sends excess damage, this one event is split
+                        // — the permanent is dealt what would have been lethal, the rest goes on.
+                        var excess = Excess(run, damage, id, amount, deathtouch);
+                        if (amount > excess)
+                        {
+                            run = Propose(
+                                run,
+                                new DamageDealt(source, id, null, amount - excess, Combat: false, commander, deathtouch),
+                                characteristics.ControllerOf(run.State, id));
+                            if (run.Halted)
+                                return run;
+                        }
+
+                        if (excess <= 0)
+                            continue;
+
+                        run = Redirected(run, damage, source, excess, commander, deathtouch);
                         if (run.Halted)
                             return run;
                     }
