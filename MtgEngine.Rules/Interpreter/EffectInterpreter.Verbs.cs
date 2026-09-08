@@ -121,6 +121,11 @@ public sealed partial class EffectInterpreter
                     return run;
                 }
 
+            // CR 122.5: a move is one action, so it lives in one arm and never as a removal
+            // beside a putting.
+            case MoveCounters move:
+                return Moved(run, move);
+
             case RemoveCounters remove:
                 {
                     foreach (var id in Objects(run, remove.From))
