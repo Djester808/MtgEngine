@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No filter field or predicate describes a creature that attacked earlier this turn: ObjectFilter\u0027s attacking/inCombat read the current declaration of attackers, and AttackedThisTurn is a Condition about a player rather than a predicate about an object.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

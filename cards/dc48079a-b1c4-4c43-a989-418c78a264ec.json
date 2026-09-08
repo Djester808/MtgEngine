@@ -1,0 +1,133 @@
+{
+  "oracleId": "dc48079a-b1c4-4c43-a989-418c78a264ec",
+  "name": "Planar Engineering",
+  "oracleHash": "sha256:34d293adb121ac11f3189bd3b8a5953788e29319d09cd189693d5ff003e278d3",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "dc48079a-b1c4-4c43-a989-418c78a264ec",
+    "name": "Planar Engineering",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Planar Engineering",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 4
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                }
+              ]
+            },
+            "text": "Sacrifice two lands. Search your library for four basic land cards, put them onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Sacrifice two lands. Search your library for four basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Sacrifice",
+                  "choice": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 4
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                }
+              ]
+            },
+            "text": "Sacrifice two lands. Search your library for four basic land cards, put them onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

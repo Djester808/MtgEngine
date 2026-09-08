@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: CostModifier\u0027s delta is one Amount of generic mana, and no Amount counts the targets this spell chose, so a cost increase of a coloured-and-generic {1}{W} repeated for each target beyond the first cannot be said.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

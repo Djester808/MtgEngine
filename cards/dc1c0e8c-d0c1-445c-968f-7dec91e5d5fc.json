@@ -1,0 +1,103 @@
+{
+  "oracleId": "dc1c0e8c-d0c1-445c-968f-7dec91e5d5fc",
+  "name": "Relentless Assault",
+  "oracleHash": "sha256:5c6e45f84773785b59a1d5a2aefd44858f42f1d74c38ed3a4dbf68e2223052f9",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "dc1c0e8c-d0c1-445c-968f-7dec91e5d5fc",
+    "name": "Relentless Assault",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Relentless Assault",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{R}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No filter field or predicate describes a creature that attacked earlier this turn: ObjectFilter\u0027s attacking/inCombat read the current declaration of attackers, and AttackedThisTurn is a Condition about a player rather than a predicate about an object.",
+                  "text": "Untap all creatures that attacked this turn."
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "AdditionalCombatPhase",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "withMainPhase": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase."
+          }
+        ],
+        "oracleText": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No filter field or predicate describes a creature that attacked earlier this turn: ObjectFilter\u0027s attacking/inCombat read the current declaration of attackers, and AttackedThisTurn is a Condition about a player rather than a predicate about an object.",
+                  "text": "Untap all creatures that attacked this turn."
+                },
+                {
+                  "kind": "ApplyToPlayer",
+                  "what": {
+                    "kind": "AdditionalCombatPhase",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "withMainPhase": true
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "text": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

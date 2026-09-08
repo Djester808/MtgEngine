@@ -170,7 +170,7 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -194,7 +194,16 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "stood-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Plaguecrafter",
@@ -288,7 +297,16 @@
           {
             "name": "B",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "stood-2",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Scenario Filler Land",
@@ -395,6 +413,18 @@
           "zone": "Battlefield"
         },
         {
+          "kind": "InZone",
+          "card": "stood-1",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
           "kind": "StackEmpty"
         }
       ]
@@ -402,10 +432,10 @@
   ],
   "verification": {
     "engineHash": "engine:0f74a03de66e7d38",
-    "runId": "verify-20260908T083154-f39c64",
-    "passed": 0,
+    "runId": "verify-20260908T093014-776be3",
+    "passed": 1,
     "total": 1,
-    "at": "2026-09-08T08:31:54.9509005+00:00"
+    "at": "2026-09-08T09:30:14.5878185+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -421,7 +451,16 @@
           {
             "name": "A",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "stood-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Plaguecrafter",
@@ -515,7 +554,16 @@
           {
             "name": "B",
             "life": 20,
-            "battlefield": [],
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "stood-2",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
             "hand": [
               {
                 "name": "Scenario Filler Land",
@@ -620,6 +668,18 @@
           "kind": "InZone",
           "card": "Plaguecrafter",
           "zone": "Battlefield"
+        },
+        {
+          "kind": "InZone",
+          "card": "stood-1",
+          "zone": "Graveyard",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
         },
         {
           "kind": "StackEmpty"

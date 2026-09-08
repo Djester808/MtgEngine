@@ -1,0 +1,738 @@
+{
+  "oracleId": "4b8bf64b-4800-45ff-81c6-2857f34999b5",
+  "name": "Multani, Yavimaya\u0027s Avatar",
+  "oracleHash": "sha256:bd810d25a0314dba1a4acaa8594070e41f1fd82aa2de9c5082ea7ece1234ceff",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "4b8bf64b-4800-45ff-81c6-2857f34999b5",
+    "name": "Multani, Yavimaya\u0027s Avatar",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Multani, Yavimaya\u0027s Avatar",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elemental",
+            "Avatar"
+          ],
+          "subtypeList": [
+            "Elemental",
+            "Avatar"
+          ]
+        },
+        "manaCost": "{4}{G}{G}",
+        "power": {
+          "text": "0",
+          "number": 0
+        },
+        "toughness": {
+          "text": "0",
+          "number": 0
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach, trample"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Reach, trample"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Sum",
+                "left": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "CardsInZoneOf",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "zone": "Graveyard",
+                  "matching": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "Sum",
+                "left": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "CardsInZoneOf",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "zone": "Graveyard",
+                  "matching": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Multani gets \u002B1/\u002B1 for each land you control and each land card in your graveyard."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "ReturnToHandCost",
+                "what": {
+                  "types": [
+                    "Land"
+                  ]
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              }
+            ],
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Self"
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "timing": "Any",
+            "where": "Graveyard",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}, Return two lands you control to their owner\u0027s hand: Return this card from your graveyard to your hand."
+          }
+        ],
+        "oracleText": "Reach, trample\nMultani gets \u002B1/\u002B1 for each land you control and each land card in your graveyard.\n{1}{G}, Return two lands you control to their owner\u0027s hand: Return this card from your graveyard to your hand.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach, trample"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Reach, trample"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Sum",
+                "left": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "CardsInZoneOf",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "zone": "Graveyard",
+                  "matching": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                }
+              },
+              "toughness": {
+                "kind": "Sum",
+                "left": {
+                  "kind": "CountOf",
+                  "filter": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "CardsInZoneOf",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "zone": "Graveyard",
+                  "matching": {
+                    "types": [
+                      "Land"
+                    ]
+                  }
+                }
+              }
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Multani gets \u002B1/\u002B1 for each land you control and each land card in your graveyard."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "ReturnToHandCost",
+                "what": {
+                  "types": [
+                    "Land"
+                  ]
+                },
+                "count": {
+                  "kind": "Fixed",
+                  "n": 2
+                }
+              }
+            ],
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Self"
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "timing": "Any",
+            "where": "Graveyard",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}, Return two lands you control to their owner\u0027s hand: Return this card from your graveyard to your hand."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Reach",
+    "Trample"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-4b8bf64b-4800-45ff-81c6-2857f34999b5",
+      "title": "casting Multani, Yavimaya\u0027s Avatar does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Multani, Yavimaya\u0027s Avatar",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Multani, Yavimaya\u0027s Avatar"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Multani, Yavimaya\u0027s Avatar",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T093014-776be3",
+    "passed": 0,
+    "total": 1,
+    "at": "2026-09-08T09:30:14.5878185+00:00"
+  },
+  "keywordList": [
+    "Reach",
+    "Trample"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-4b8bf64b-4800-45ff-81c6-2857f34999b5",
+      "title": "casting Multani, Yavimaya\u0027s Avatar does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Multani, Yavimaya\u0027s Avatar",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Multani, Yavimaya\u0027s Avatar"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Multani, Yavimaya\u0027s Avatar",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,791 @@
+{
+  "oracleId": "ba26ff0a-e714-44f2-95cf-1a5a6088edf9",
+  "name": "The Skullspore Nexus",
+  "oracleHash": "sha256:a83371e1435687f18e241671e886706df783803cc5861e53a150a4afd88b1f4f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ba26ff0a-e714-44f2-95cf-1a5a6088edf9",
+    "name": "The Skullspore Nexus",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "The Skullspore Nexus",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{6}{G}{G}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "GreatestAmong",
+                  "among": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {X} less to cast, where X is the greatest power among creatures you control."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Fungus Dinosaur",
+                "colors": [
+                  "Green"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Fungus",
+                  "Dinosaur"
+                ],
+                "supertypes": [],
+                "scryfallOracleId": "678ab7a0-a54c-479c-a78f-ec8ad61bd807",
+                "isPredefined": false,
+                "powerAmount": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "also": {
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "toughnessAmount": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "also": {
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                }
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever one or more nontoken creatures you control die, create a green Fungus Dinosaur creature token with base power and toughness each equal to the total power of those creatures."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Double",
+              "what": "Power",
+              "of": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: Double target creature\u0027s power until end of turn."
+          }
+        ],
+        "oracleText": "This spell costs {X} less to cast, where X is the greatest power among creatures you control.\nWhenever one or more nontoken creatures you control die, create a green Fungus Dinosaur creature token with base power and toughness each equal to the total power of those creatures.\n{2}, {T}: Double target creature\u0027s power until end of turn.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "GreatestAmong",
+                  "among": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {X} less to cast, where X is the greatest power among creatures you control."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "token": false
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Fungus Dinosaur",
+                "colors": [
+                  "Green"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Fungus",
+                  "Dinosaur"
+                ],
+                "supertypes": [],
+                "scryfallOracleId": "678ab7a0-a54c-479c-a78f-ec8ad61bd807",
+                "isPredefined": false,
+                "powerAmount": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "also": {
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "toughnessAmount": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "also": {
+                      "kind": "IsOneOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                }
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever one or more nontoken creatures you control die, create a green Fungus Dinosaur creature token with base power and toughness each equal to the total power of those creatures."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Double",
+              "what": "Power",
+              "of": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: Double target creature\u0027s power until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Double"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-ba26ff0a-e714-44f2-95cf-1a5a6088edf9",
+      "title": "casting The Skullspore Nexus does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "The Skullspore Nexus",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "The Skullspore Nexus"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "The Skullspore Nexus",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:0f74a03de66e7d38",
+    "runId": "verify-20260908T093014-776be3",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T09:30:14.5878185+00:00"
+  },
+  "keywordList": [
+    "Double"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-ba26ff0a-e714-44f2-95cf-1a5a6088edf9",
+      "title": "casting The Skullspore Nexus does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "The Skullspore Nexus",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "The Skullspore Nexus"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "The Skullspore Nexus",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

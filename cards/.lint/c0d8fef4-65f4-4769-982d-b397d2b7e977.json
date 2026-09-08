@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No record rewrites a keyword ability\u0027s own text, and no ObjectFilter can describe \u0022creature put onto the battlefield with this Aura\u0022, so the replacement of this Aura\u0027s enchant ability cannot be expressed.",
+      "path": "faces[0].abilities[1]"
+    },
+    {
+      "severity": "Warning",
+      "code": "L004",
+      "message": "A negative literal amount (-1); use the record\u0027s own direction instead.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

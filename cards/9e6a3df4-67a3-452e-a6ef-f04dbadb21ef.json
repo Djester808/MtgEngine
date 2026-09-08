@@ -1,0 +1,575 @@
+{
+  "oracleId": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+  "name": "Living Death",
+  "oracleHash": "sha256:3ea6cf01ed27ce88b043674e7821ede9bdff05785e009e1d3c7f620c36ff04b6",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+    "name": "Living Death",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Living Death",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{B}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "Sacrifice",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "OwnerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+          }
+        ],
+        "oracleText": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "Sacrifice",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "keepOnePerPermanentType": false
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "OwnerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+        "name": "Living Death",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Living Death",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "keepOnePerPermanentType": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ],
+            "oracleText": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "keepOnePerPermanentType": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+        "name": "Living Death",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Living Death",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachPlayer"
+                  },
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Graveyard",
+                            "types": [
+                              "Creature"
+                            ],
+                            "ownedBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          }
+                        },
+                        "faceDown": false,
+                        "rememberAs": "k1"
+                      },
+                      {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          }
+                        },
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      {
+                        "kind": "Move",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "to": "Battlefield",
+                        "where": "Default",
+                        "tapped": false,
+                        "faceDown": false,
+                        "attacking": false,
+                        "transformed": false,
+                        "ownersChoiceOfOrder": true
+                      }
+                    ]
+                  }
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ],
+            "oracleText": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachPlayer"
+                  },
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "in": "Graveyard",
+                            "types": [
+                              "Creature"
+                            ],
+                            "ownedBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          }
+                        },
+                        "faceDown": false,
+                        "rememberAs": "k1"
+                      },
+                      {
+                        "kind": "Sacrifice",
+                        "what": {
+                          "kind": "Each",
+                          "filter": {
+                            "types": [
+                              "Creature"
+                            ],
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          }
+                        },
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "keepOnePerPermanentType": false
+                      },
+                      {
+                        "kind": "Move",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "to": "Battlefield",
+                        "where": "Default",
+                        "tapped": false,
+                        "faceDown": false,
+                        "attacking": false,
+                        "transformed": false,
+                        "ownersChoiceOfOrder": true
+                      }
+                    ]
+                  }
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+        "name": "Living Death",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Living Death",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "keepOnePerPermanentType": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ],
+            "oracleText": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "keepOnePerPermanentType": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

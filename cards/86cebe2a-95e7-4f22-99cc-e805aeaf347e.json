@@ -1,0 +1,89 @@
+{
+  "oracleId": "86cebe2a-95e7-4f22-99cc-e805aeaf347e",
+  "name": "Merchant Scroll",
+  "oracleHash": "sha256:139a596a57f86fed5428acad87ac3fbe97efaad602a16ce63ae7013d112603bd",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "86cebe2a-95e7-4f22-99cc-e805aeaf347e",
+    "name": "Merchant Scroll",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Merchant Scroll",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Instant"
+                ],
+                "colors": [
+                  "Blue"
+                ]
+              },
+              "to": "Hand",
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "text": "Search your library for a blue instant card, reveal that card, put it into your hand, then shuffle."
+          }
+        ],
+        "oracleText": "Search your library for a blue instant card, reveal that card, put it into your hand, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Instant"
+                ],
+                "colors": [
+                  "Blue"
+                ]
+              },
+              "to": "Hand",
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "text": "Search your library for a blue instant card, reveal that card, put it into your hand, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

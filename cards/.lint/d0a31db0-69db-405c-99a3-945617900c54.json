@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L050",
+      "message": "An AlternativeCost of {0} is the free cast written as a cost that is paid; set WithoutPayingManaCost instead, because an alternative cost never changes the spell\u0027s mana cost (CR 118.9c).",
+      "path": "faces[0].alternativeCosts[0]"
+    }
+  ],
+  "hasErrors": true
 }

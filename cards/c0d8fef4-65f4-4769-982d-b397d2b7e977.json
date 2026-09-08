@@ -1,0 +1,286 @@
+{
+  "oracleId": "c0d8fef4-65f4-4769-982d-b397d2b7e977",
+  "name": "Animate Dead",
+  "oracleHash": "sha256:7829eaf903dad1dd9890b2d0f38d50a2b939e98f2ebc1399549c63d01e0efde0",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c0d8fef4-65f4-4769-982d-b397d2b7e977",
+    "name": "Animate Dead",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Animate Dead",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Aura"
+          ],
+          "subtypeList": [
+            "Aura"
+          ]
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "in": "Graveyard",
+              "types": [
+                "Creature"
+              ]
+            },
+            "repeatable": false,
+            "text": "Enchant creature card in a graveyard"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No record rewrites a keyword ability\u0027s own text, and no ObjectFilter can describe \u0022creature put onto the battlefield with this Aura\u0022, so the replacement of this Aura\u0027s enchant ability cannot be expressed.",
+                  "text": "it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022"
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Attached"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  }
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "LeavesBattlefield",
+                    "what": {
+                      "also": {
+                        "kind": "IsThisObject"
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "what": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "keepOnePerPermanentType": false
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "if": {
+              "kind": "IsOnBattlefield",
+              "of": {
+                "kind": "Self"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 0
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets -1/-0."
+          }
+        ],
+        "oracleText": "Enchant creature card in a graveyard\nWhen this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it.\nEnchanted creature gets -1/-0.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Enchant",
+            "of": {
+              "in": "Graveyard",
+              "types": [
+                "Creature"
+              ]
+            },
+            "repeatable": false,
+            "text": "Enchant creature card in a graveyard"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No record rewrites a keyword ability\u0027s own text, and no ObjectFilter can describe \u0022creature put onto the battlefield with this Aura\u0022, so the replacement of this Aura\u0027s enchant ability cannot be expressed.",
+                  "text": "it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022"
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Attached"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  }
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "LeavesBattlefield",
+                    "what": {
+                      "also": {
+                        "kind": "IsThisObject"
+                      }
+                    }
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "what": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      }
+                    },
+                    "keepOnePerPermanentType": false
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "if": {
+              "kind": "IsOnBattlefield",
+              "of": {
+                "kind": "Self"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ModifyPt",
+              "power": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "toughness": {
+                "kind": "Fixed",
+                "n": 0
+              }
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Enchanted creature gets -1/-0."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Enchant"
+  ],
+  "keywordList": [
+    "Enchant"
+  ],
+  "scenarioList": []
+}

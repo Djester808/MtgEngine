@@ -1,0 +1,1009 @@
+{
+  "oracleId": "6623cb85-fb1e-4561-8b21-0977c25096c2",
+  "name": "Tibalt\u0027s Trickery",
+  "oracleHash": "sha256:e1138c1c2b7095eb740c268fb11fe4a8594839e32e12acffc643c8330f5d5243",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "6623cb85-fb1e-4561-8b21-0977c25096c2",
+    "name": "Tibalt\u0027s Trickery",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Tibalt\u0027s Trickery",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "where": "Default"
+                },
+                {
+                  "kind": "RollDie",
+                  "sides": 3,
+                  "storeAs": "k2"
+                },
+                {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k2"
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  }
+                },
+                {
+                  "kind": "RevealUntil",
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  },
+                  "until": {
+                    "notTypes": [
+                      "Land"
+                    ],
+                    "also": {
+                      "kind": "NotPredicate",
+                      "of": {
+                        "kind": "SharesNameWith",
+                        "with": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  },
+                  "rememberHitAs": "k3",
+                  "rememberRestAs": "k4"
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k3"
+                  },
+                  "withoutPayingManaCost": true,
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  },
+                  "asCopy": false
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Union",
+                    "of": [
+                      {
+                        "kind": "Remembered",
+                        "key": "k4"
+                      },
+                      {
+                        "kind": "Remembered",
+                        "key": "k3"
+                      }
+                    ]
+                  },
+                  "to": "Library",
+                  "where": "BottomRandomOrder",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+          }
+        ],
+        "oracleText": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "where": "Default"
+                },
+                {
+                  "kind": "RollDie",
+                  "sides": 3,
+                  "storeAs": "k2"
+                },
+                {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k2"
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  }
+                },
+                {
+                  "kind": "RevealUntil",
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  },
+                  "until": {
+                    "notTypes": [
+                      "Land"
+                    ],
+                    "also": {
+                      "kind": "NotPredicate",
+                      "of": {
+                        "kind": "SharesNameWith",
+                        "with": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    }
+                  },
+                  "rememberHitAs": "k3",
+                  "rememberRestAs": "k4"
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k3"
+                  },
+                  "withoutPayingManaCost": true,
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Target",
+                      "filter": {
+                        "spell": true
+                      },
+                      "upTo": false,
+                      "key": "k1",
+                      "distinct": true
+                    }
+                  },
+                  "asCopy": false
+                },
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Union",
+                    "of": [
+                      {
+                        "kind": "Remembered",
+                        "key": "k4"
+                      },
+                      {
+                        "kind": "Remembered",
+                        "key": "k3"
+                      }
+                    ]
+                  },
+                  "to": "Library",
+                  "where": "BottomRandomOrder",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                }
+              ]
+            },
+            "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-10174b8856c9",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Mill"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "6623cb85-fb1e-4561-8b21-0977c25096c2",
+        "name": "Tibalt\u0027s Trickery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tibalt\u0027s Trickery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No record produces a number chosen at random from a printed set. ChooseValue with Number is one player choosing in the open, and RollDie is a die roll, which is a game action other cards watch; neither is \u0027choose 1, 2, or 3 at random\u0027. Without that number the mill that reads it back as \u0027that many\u0027 cannot be written either.",
+                      "text": "Choose 1, 2, or 3 at random. Its controller mills that many cards,"
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k2",
+                      "rememberRestAs": "k3"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ],
+            "oracleText": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No record produces a number chosen at random from a printed set. ChooseValue with Number is one player choosing in the open, and RollDie is a die roll, which is a game action other cards watch; neither is \u0027choose 1, 2, or 3 at random\u0027. Without that number the mill that reads it back as \u0027that many\u0027 cannot be written either.",
+                      "text": "Choose 1, 2, or 3 at random. Its controller mills that many cards,"
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k2",
+                      "rememberRestAs": "k3"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "6623cb85-fb1e-4561-8b21-0977c25096c2",
+        "name": "Tibalt\u0027s Trickery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tibalt\u0027s Trickery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "RollDie",
+                      "sides": 3,
+                      "storeAs": "k2"
+                    },
+                    {
+                      "kind": "Mill",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k2"
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Target",
+                              "filter": {
+                                "spell": true
+                              },
+                              "upTo": false,
+                              "key": "k1",
+                              "distinct": true
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k3",
+                      "rememberRestAs": "k4"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k3"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k4"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ],
+            "oracleText": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "RollDie",
+                      "sides": 3,
+                      "storeAs": "k2"
+                    },
+                    {
+                      "kind": "Mill",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k2"
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Target",
+                              "filter": {
+                                "spell": true
+                              },
+                              "upTo": false,
+                              "key": "k1",
+                              "distinct": true
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k3",
+                      "rememberRestAs": "k4"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k3"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "spell": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k4"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "6623cb85-fb1e-4561-8b21-0977c25096c2",
+        "name": "Tibalt\u0027s Trickery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Tibalt\u0027s Trickery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No record makes a number at random. ChooseValue(Number) is a player choosing in the open and ChooseNumberSecretly is a secret choice, neither of which is random; FlipCoin and RollDie are different game actions that other cards watch (CoinFlipped, DieRolled), so a d3 is not this sentence. With no number there is no amount for the mill that reads it, so the mill is inside this marker too. Needs a random-choice amount or effect over a printed set of numbers.",
+                      "text": "Choose 1, 2, or 3 at random. Its controller mills that many cards,"
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k2",
+                      "rememberRestAs": "k3"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ],
+            "oracleText": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "spell": true
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "where": "Default"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No record makes a number at random. ChooseValue(Number) is a player choosing in the open and ChooseNumberSecretly is a secret choice, neither of which is random; FlipCoin and RollDie are different game actions that other cards watch (CoinFlipped, DieRolled), so a d3 is not this sentence. With no number there is no amount for the mill that reads it, so the mill is inside this marker too. Needs a random-choice amount or effect over a printed set of numbers.",
+                      "text": "Choose 1, 2, or 3 at random. Its controller mills that many cards,"
+                    },
+                    {
+                      "kind": "RevealUntil",
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "until": {
+                        "notTypes": [
+                          "Land"
+                        ],
+                        "also": {
+                          "kind": "NotPredicate",
+                          "of": {
+                            "kind": "SharesNameWith",
+                            "with": {
+                              "kind": "Remembered",
+                              "key": "k1"
+                            }
+                          }
+                        }
+                      },
+                      "rememberHitAs": "k2",
+                      "rememberRestAs": "k3"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      },
+                      "withoutPayingManaCost": true,
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "asCopy": false
+                    },
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Union",
+                        "of": [
+                          {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          },
+                          {
+                            "kind": "Remembered",
+                            "key": "k3"
+                          }
+                        ]
+                      },
+                      "to": "Library",
+                      "where": "BottomRandomOrder",
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    }
+                  ]
+                },
+                "text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Mill"
+  ],
+  "scenarioList": []
+}
