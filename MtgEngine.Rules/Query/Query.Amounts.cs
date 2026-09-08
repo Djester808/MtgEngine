@@ -77,6 +77,11 @@ public sealed partial class Query
             CreaturesDiedThisTurn died => CreaturesDied(state, died, context), // CR 700.4
             GreatestSameNameCount sameName => GreatestSameName(state, sameName, context), // CR 201.2
             AttackersAgainst against => AttackersAgainstPlayers(state, against, context), // CR 508.1
+            DistinctNameCount names => DistinctNames(state, names, context), // CR 201.2b
+            // The two numbers no folder keeps yet; each refuses naming the field that has to write
+            // it, because zero is a legal answer here and would play the card silently wrongly.
+            LifeLostThisTurn => throw NoLifeLostThisTurn(), // CR 119.3
+            CommanderCastsThisGame => throw NoCommanderCastCount(), // CR 903.8
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };
     }

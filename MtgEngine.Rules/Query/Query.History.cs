@@ -75,7 +75,7 @@ public sealed partial class Query
             throw Unanswerable(nameof(CreatedTokenThisTurn), "a look-back filter cannot ask a predicate of an object the state no longer holds", "111.1");
         // CR 613.1a through the seam (ICharacteristics.PrintedOf), not past it: the query holds
         // the interface, and a look-back is the one reading that cannot go through Of(state, id).
-        return snapshot.Zone.Zone == ZoneOf(filter)
+        return ZoneAdmits(filter, snapshot.Zone.Zone)
             && MatchesAs(state, filter, snapshot, _layers.PrintedOf(snapshot), ctx);
     }
 
