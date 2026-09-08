@@ -55,8 +55,13 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
 
         CheckAttackRequirements(state, command.Player, declared);
 
-        // CR 508.1f then 508.1g: the creatures become attacking, and then they become tapped.
-        var events = ImmutableList.Create<GameEvent>(new AttackersDeclared(command.Player, declared.ToImmutableDictionary()));
+        // CR 508.1h–508.1j: the costs to attack are totalled against this declaration and paid
+        // before the creatures become attacking; one that cannot be paid refuses the declaration.
+        var attackers = declared.ToImmutableDictionary();
+        var events = PayAttackTax(state, command.Player, attackers).Events;
+
+        // CR 508.1f then 508.1k: the creatures become attacking, and then they become tapped.
+        events = events.Add(new AttackersDeclared(command.Player, attackers));
         foreach (var attack in command.Attacks)
         {
             // CR 702.20b — attacking does not cause creatures with vigilance to tap.
@@ -183,6 +188,12 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
         var context = Context(attack.Attacker, player);
         foreach (var restriction in Statics<CantAttack>(attacker))
         {
+            // "unless its controller pays" is a cost, not a restriction: CR 508.1d says the player
+            // is not required to pay it, so it cannot make the declaration illegal here. It is
+            // totalled and paid at CR 508.1h, in PayAttackTax.
+            if (restriction.UnlessPays is not null)
+                continue;
+
             // "can't attack unless ..." — the restriction lifts when the attacker matches.
             if (restriction.Unless is { } unless && _query.Matches(state, unless, attack.Attacker, context))
                 continue;
@@ -289,8 +300,10 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
         if (obj.Tapped || (obj.SummoningSick && !candidate.Has(KeywordKind.Haste)) || candidate.Has(KeywordKind.Defender))
             return false;
 
+        // CR 508.1d — a creature that can't attack unless a cost is paid is still able to attack;
+        // the player is never required to pay, so a tax is not an inability and is skipped here.
         var context = Context(id, candidate.Controller);
         return !Statics<CantAttack>(candidate).Any(r =>
-            r.Player is null && !(r.Unless is { } unless && _query.Matches(state, unless, id, context)));
+            r.UnlessPays is null && r.Player is null && !(r.Unless is { } unless && _query.Matches(state, unless, id, context)));
     }
 }

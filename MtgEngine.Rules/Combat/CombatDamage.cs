@@ -60,9 +60,17 @@ public sealed partial class CombatSystem
 
         var batch = Batch(state, firstStrike);
         var index = Math.Max(0, from);
-        var gained = index < batch.Count
-            ? Lifelink(state, batch[index], dealt, firstStrike, index)
+
+        // CR 725.2 — the halted hit still crowns whoever it finally dealt combat damage to the
+        // monarch with, read off what the replacement system finished it with and not off what was
+        // assigned; a hit that ended up dealing nothing moves nothing.
+        var crowned = index < batch.Count
+            ? MonarchMoves(state, batch[index], dealt)
             : Outcome.Unchanged(state);
+
+        var gained = index < batch.Count
+            ? crowned.Then(s => Lifelink(s, batch[index], dealt, firstStrike, index))
+            : crowned;
 
         // A gain of its own can be replaced, and a second question means the game is waiting again
         // on the same hit (CR 101.4): the rest of the batch is still owed and is not dealt yet.
@@ -136,6 +144,11 @@ public sealed partial class CombatSystem
             events = events.AddRange(happened.Events);
             if (working.Pending is not null)
                 return Halted(working, events, firstStrike, index);
+
+            // CR 725.2 — a creature that dealt combat damage to the monarch crowns its controller.
+            var crowned = MonarchMoves(working, hit, happened.Events);
+            working = crowned.State;
+            events = events.AddRange(crowned.Events);
 
             var gained = Lifelink(working, hit, happened.Events, firstStrike, index);
             working = gained.State;
