@@ -90,7 +90,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         // CR 106.6b: both printed riders on which mana may be spent travel with the payment.
         var paid = CostPayment.Pay(
             state,
-            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom, PaysWithLife(command.CostChoices)),
+            new CostContext(source, chars, command.Player, command.X, zones, query, ability.PayOnlyWith, new ChosenObjects(command.CostObjects ?? []), ability.PayOnlyFrom, PaysWithLife(command.CostChoices), command.CostChoices),
             ability.Costs);
         // CR 106.6a: what the activation cost was spent on is the ability's source, so a
         // "when that mana is spent" trigger can tell this payment from any other.

@@ -56,7 +56,7 @@ public sealed partial class CastingSystem
         var card = Castable(state, cast.Card, cast.Player);
         var chars = characteristics.Of(state, card.Id);
         var plan = CastPlan.For(state, card, cast, query, instructed: true);
-        return Asked(state, new CostContext(card, chars, cast.Player, cast.X, zones, query), plan.NonMana);
+        return Asked(state, new CostContext(card, chars, cast.Player, cast.X, zones, query, Choices: cast.CostChoices), plan.NonMana);
     }
 
     /// <summary>The ability's own costs, CR 602.2a; an index that names no activated ability asks nothing.</summary>
@@ -68,7 +68,7 @@ public sealed partial class CastingSystem
         return activate.AbilityIndex >= 0
             && activate.AbilityIndex < chars.Abilities.Count
             && chars.Abilities[activate.AbilityIndex] is ActivatedAbility ability
-            ? Asked(state, new CostContext(source, chars, activate.Player, activate.X, zones, query), ability.Costs)
+            ? Asked(state, new CostContext(source, chars, activate.Player, activate.X, zones, query, Choices: activate.CostChoices), ability.Costs)
             : ImmutableList<CostChoice>.Empty;
     }
 
@@ -79,7 +79,23 @@ public sealed partial class CastingSystem
         var asked = ImmutableList.CreateBuilder<CostChoice>();
         foreach (var cost in CostPayment.Flatten(costs))
         {
-            if (ObjectCosts.Choice(state, context, cost) is { } choice)
+            var one = cost;
+            if (cost is ChooseCost choose)
+            {
+                // CR 601.2b: a choice between costs is decided at announcement, so what it asks
+                // for is what the option taken asks for. An offer nothing can pay asks nothing
+                // rather than silencing the whole question — Check is what refuses.
+                try
+                {
+                    one = CostPayment.Chosen(state, context, choose);
+                }
+                catch (RefusedException)
+                {
+                    continue;
+                }
+            }
+
+            if (ObjectCosts.Choice(state, context, one) is { } choice)
                 asked.Add(choice);
         }
 
