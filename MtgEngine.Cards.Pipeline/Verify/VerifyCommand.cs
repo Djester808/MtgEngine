@@ -15,7 +15,8 @@ public sealed record VerifySummary(
     int NoScenarios,
     IReadOnlyList<VerifyOutcome> Outcomes,
     int Crashed = 0,
-    int Unsupported = 0);
+    int Unsupported = 0,
+    int Stale = 0);
 
 /// <summary>
 /// <c>pipeline verify &lt;cardsDir&gt; [--only &lt;oracleId&gt;]</c>: the third rule of
@@ -103,6 +104,7 @@ public static class VerifyCommand
         var crashes = new List<VerifyOutcome>();
         var unsupported = new List<VerifyOutcome>();
         var noScenarios = 0;
+        var stale = 0;
         foreach (var file in candidates)
         {
             ct.ThrowIfCancellationRequested();
@@ -137,6 +139,11 @@ public static class VerifyCommand
                 var outcome = stage.Verify(ready, runId, at, ct);
                 outcomes.Add(outcome);
                 log.WriteLine(Line(outcome));
+                if (outcome.Written == CardWrite.KeptVerified)
+                {
+                    stale++;
+                    log.WriteLine(Stale(outcome));
+                }
             }
             catch (Exception playing) when (playing is not OperationCanceledException)
             {
@@ -154,11 +161,27 @@ public static class VerifyCommand
             noScenarios,
             [.. outcomes, .. crashes, .. unsupported],
             crashes.Count,
-            unsupported.Count);
+            unsupported.Count,
+            stale);
         log.WriteLine(FormattableString.Invariant(
-            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios, {summary.Unsupported} unsupported, {summary.Crashed} crashed; {engineHash}, run {runId}"));
+            $"verify: {summary.Verified} verified, {summary.Failed} failed, {summary.NoScenarios} with no scenarios, {summary.Unsupported} unsupported, {summary.Crashed} crashed, {summary.Stale} stale; {engineHash}, run {runId}"));
         return summary;
     }
+
+    /// <summary>
+    /// A card whose verdict never reached its file. <see cref="CardFileWriter"/> refuses a write
+    /// that lowers a Verified file whose oracle text has not changed — the rule that stops a
+    /// re-translation undoing a verification — and a verify run that fails such a card is exactly
+    /// that shape: <see cref="VerifyStage"/> demotes it to Translated and the writer keeps the file.
+    /// The file then reads Verified, at an old run's engine hash, carrying the scenarios that run
+    /// generated, while this run played different ones and they failed (seam-requests/E3q.md § 2,
+    /// Flusterstorm). Neither half is silently wrong afterwards, which is why this line exists:
+    /// until the writer can tell a verification from a re-translation, the disagreement is
+    /// reported rather than hidden (seam-requests/P28.md § 1 asks for the write).
+    /// </summary>
+    private static string Stale(VerifyOutcome outcome) =>
+        FormattableString.Invariant(
+            $"  STALE FILE    {outcome.File.Name} ({outcome.File.OracleId}) {outcome.Passed}/{outcome.Total}: the file on disk still reads Verified — this run's verdict was refused");
 
     /// <summary>
     /// Why this card is not played at all: the first <see cref="MtgEngine.Cards.Unsupported"/> marker

@@ -52,35 +52,60 @@ public static partial class SmokeScenario
     {
         foreach (var cost in face.AdditionalCosts ?? [])
         {
-            switch (cost)
-            {
-                // CR 701.10: the cost sacrifices one permanent of the caster's, of whatever kind it
-                // names — a creature, a land ("as an additional cost, sacrifice a land"), an
-                // artifact. The board places whichever filler the cost's own filter admits.
-                case SacrificeCost { Count: null or Fixed { N: 1 } } sacrifice
-                    when sacrifice.What.ControlledBy is null or You && SmokeFillers.Bodies(sacrifice.What) is [var eaten, ..]:
-                    board.Sacrificed(eaten);
-                    break;
-
-                // CR 701.8: the cost discards one card, any card, and the hand is filler.
-                case DiscardCost { Count: null or Fixed { N: 1 }, What: null, Random: false }:
-                    board.Discarded();
-                    break;
-
-                // A cost that eats an object the board cannot place is the CR 601.2h refusal
-                // itself: no body, no cast. The card gets no scenario rather than one that
-                // reports the generator's gap as the card failing.
-                case SacrificeCost or DiscardCost:
-                    return false;
-
-                // Everything else — life, mana, counters on the spell's own source — is paid
-                // without naming an object, so the engine settles it as it did before there was
-                // anywhere to name one.
-                default:
-                    break;
-            }
+            if (!Stocks(board, cost))
+                return false;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// One printed cost's body, put where the cast will find it. Split out of <see cref="Costs"/>
+    /// so a cost that offers a choice between costs reaches the same staging its options would have
+    /// reached on their own, rather than a second reading of them that could drift.
+    /// </summary>
+    /// <returns>False when this cost eats something the board cannot place.</returns>
+    [RuleRef("601.2b")]
+    private static bool Stocks(SmokeBoard board, Cost cost)
+    {
+        switch (cost)
+        {
+            // CR 701.10: the cost sacrifices one permanent of the caster's, of whatever kind it
+            // names — a creature, a land ("as an additional cost, sacrifice a land"), an
+            // artifact. The board places whichever filler the cost's own filter admits.
+            case SacrificeCost { Count: null or Fixed { N: 1 } } sacrifice
+                when sacrifice.What.ControlledBy is null or You && SmokeFillers.Bodies(sacrifice.What) is [var eaten, ..]:
+                board.Sacrificed(eaten);
+                return true;
+
+            // CR 701.8: the cost discards one card, any card, and the hand is filler.
+            case DiscardCost { Count: null or Fixed { N: 1 }, What: null, Random: false }:
+                board.Discarded();
+                return true;
+
+            // CR 601.2b: "sacrifice an artifact or discard a card" is chosen as the spell is
+            // announced, and the casting system pays the **first option it can pay**, in printed
+            // order (seam-requests/E3q.md § 1). So the board stocks what that first option needs
+            // and nothing for the options behind it: stocking two of them would leave the play
+            // free to take either, and the counts could not say which one it took. An offer whose
+            // first option the board cannot stock is refused whole rather than silently answered
+            // by a later one — "None of the costs offered can be paid (601.2h)" is what the engine
+            // says today, and a scenario that guessed around it would be asserting the generator's
+            // choice and not the card's.
+            case ChooseCost { Options: [var first, ..] }:
+                return Stocks(board, first);
+
+            // A cost that eats an object the board cannot place is the CR 601.2h refusal
+            // itself: no body, no cast. The card gets no scenario rather than one that
+            // reports the generator's gap as the card failing.
+            case SacrificeCost or DiscardCost or ChooseCost:
+                return false;
+
+            // Everything else — life, mana, counters on the spell's own source — is paid
+            // without naming an object, so the engine settles it as it did before there was
+            // anywhere to name one.
+            default:
+                return true;
+        }
     }
 }
