@@ -1,0 +1,397 @@
+{
+  "oracleId": "c749f23c-40c0-4159-b84c-a70cbb062c14",
+  "name": "Grand Abolisher",
+  "oracleHash": "sha256:3d2737d202cf5921baa0ce23e531c55ff88759589da2f2b609e574e9f13b0410",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "c749f23c-40c0-4159-b84c-a70cbb062c14",
+    "name": "Grand Abolisher",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Grand Abolisher",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Cleric"
+          ],
+          "subtypeList": [
+            "Human",
+            "Cleric"
+          ]
+        },
+        "manaCost": "{W}{W}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantCastSpells",
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantActivateAbilities",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "ofSources": {
+                "anyTypes": [
+                  "Artifact",
+                  "Creature",
+                  "Enchantment"
+                ]
+              },
+              "ability": "Any"
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+          }
+        ],
+        "oracleText": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantCastSpells",
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantActivateAbilities",
+              "who": {
+                "kind": "EachOpponent"
+              },
+              "ofSources": {
+                "anyTypes": [
+                  "Artifact",
+                  "Creature",
+                  "Enchantment"
+                ]
+              },
+              "ability": "Any"
+            },
+            "while": {
+              "kind": "IsYourTurn",
+              "value": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "c749f23c-40c0-4159-b84c-a70cbb062c14",
+        "name": "Grand Abolisher",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Grand Abolisher",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Cleric"
+              ],
+              "subtypeList": [
+                "Human",
+                "Cleric"
+              ]
+            },
+            "manaCost": "{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantCastSpells",
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantActivateAbilities",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "ofSources": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  },
+                  "ability": "Any"
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              }
+            ],
+            "oracleText": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantCastSpells",
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantActivateAbilities",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "ofSources": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  },
+                  "ability": "Any"
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "c749f23c-40c0-4159-b84c-a70cbb062c14",
+        "name": "Grand Abolisher",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Grand Abolisher",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Cleric"
+              ],
+              "subtypeList": [
+                "Human",
+                "Cleric"
+              ]
+            },
+            "manaCost": "{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantCastSpells",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "matching": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  }
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantActivateAbilities",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "ofSources": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  },
+                  "ability": "Any"
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              }
+            ],
+            "oracleText": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantCastSpells",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "matching": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  }
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantActivateAbilities",
+                  "who": {
+                    "kind": "EachOpponent"
+                  },
+                  "ofSources": {
+                    "anyTypes": [
+                      "Artifact",
+                      "Creature",
+                      "Enchantment"
+                    ]
+                  },
+                  "ability": "Any"
+                },
+                "while": {
+                  "kind": "IsYourTurn",
+                  "value": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "During your turn, your opponents can\u0027t cast spells or activate abilities of artifacts, creatures, or enchantments."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

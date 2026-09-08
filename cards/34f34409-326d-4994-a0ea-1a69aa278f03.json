@@ -50,7 +50,8 @@
               "who": {
                 "kind": "You"
               },
-              "firstEachTurn": false
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
             },
             "do": {
               "kind": "GainLife",
@@ -71,7 +72,8 @@
               "who": {
                 "kind": "EachOpponent"
               },
-              "firstEachTurn": false
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
             },
             "do": {
               "kind": "LoseLife",
@@ -104,7 +106,8 @@
               "who": {
                 "kind": "You"
               },
-              "firstEachTurn": false
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
             },
             "do": {
               "kind": "GainLife",
@@ -125,7 +128,8 @@
               "who": {
                 "kind": "EachOpponent"
               },
-              "firstEachTurn": false
+              "firstEachTurn": false,
+              "exceptFirstInDrawStep": false
             },
             "do": {
               "kind": "LoseLife",
@@ -380,10 +384,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260908T005007-29d6bc",
+    "runId": "verify-20260908T011939-90ee86",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-08T00:50:07.2401205+00:00"
+    "at": "2026-09-08T01:19:39.8419433+00:00"
   },
   "keywordList": [
     "Deathtouch"

@@ -1,0 +1,806 @@
+{
+  "oracleId": "ef833546-f755-4ac5-867a-3926984e68a0",
+  "name": "Archaeomancer\u0027s Map",
+  "oracleHash": "sha256:27a14cdddff1b55d15ede8618c626aad04fd84c92f6c0cb24480377e08f13aa0",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ef833546-f755-4ac5-867a-3926984e68a0",
+    "name": "Archaeomancer\u0027s Map",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Archaeomancer\u0027s Map",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ],
+                "subtypes": [
+                  "Plains"
+                ]
+              },
+              "to": "Hand",
+              "upTo": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Land"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "to": "Battlefield",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+          }
+        ],
+        "oracleText": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle.\nWhenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Search",
+              "for": {
+                "types": [
+                  "Land"
+                ],
+                "supertypes": [
+                  "Basic"
+                ],
+                "subtypes": [
+                  "Plains"
+                ]
+              },
+              "to": "Hand",
+              "upTo": {
+                "kind": "Fixed",
+                "n": 2
+              },
+              "from": "Library",
+              "where": "Default",
+              "reveal": true,
+              "tapped": false,
+              "shuffleAfter": true,
+              "shuffleOnlyIfFound": false,
+              "othersTapped": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "EachOpponent"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Move",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Land"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "to": "Battlefield",
+                "where": "Default",
+                "tapped": false,
+                "faceDown": false,
+                "attacking": false,
+                "transformed": false,
+                "ownersChoiceOfOrder": true
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  }
+                }
+              },
+              "op": "Gt",
+              "right": {
+                "kind": "CountOf",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "ef833546-f755-4ac5-867a-3926984e68a0",
+        "name": "Archaeomancer\u0027s Map",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Archaeomancer\u0027s Map",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ],
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "if": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+              }
+            ],
+            "oracleText": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle.\nWhenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ],
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "EachOpponent"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "if": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "ef833546-f755-4ac5-867a-3926984e68a0",
+        "name": "Archaeomancer\u0027s Map",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Archaeomancer\u0027s Map",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ],
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "if": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+              }
+            ],
+            "oracleText": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle.\nWhenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ],
+                    "subtypes": [
+                      "Plains"
+                    ]
+                  },
+                  "to": "Hand",
+                  "upTo": {
+                    "kind": "Fixed",
+                    "n": 2
+                  },
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": true,
+                  "tapped": false,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "if": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      }
+                    }
+                  },
+                  "op": "Gt",
+                  "right": {
+                    "kind": "CountOf",
+                    "filter": {
+                      "types": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

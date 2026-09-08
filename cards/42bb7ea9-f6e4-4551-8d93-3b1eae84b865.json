@@ -1,0 +1,99 @@
+{
+  "oracleId": "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
+  "name": "Clever Concealment",
+  "oracleHash": "sha256:888546148f8e41a165bec63fabd6727fbc3f28beec238b2a95df9ce675bc2669",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
+    "name": "Clever Concealment",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Clever Concealment",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}{W}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Convoke",
+            "repeatable": false,
+            "text": "Convoke"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PhaseOut",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": true,
+                "distinct": true
+              }
+            },
+            "text": "Any number of target nonland permanents you control phase out."
+          }
+        ],
+        "oracleText": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature\u0027s color.)\nAny number of target nonland permanents you control phase out. (Treat them and anything attached to them as though they don\u0027t exist until your next turn.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Convoke",
+            "repeatable": false,
+            "text": "Convoke"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "PhaseOut",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": true,
+                "distinct": true
+              }
+            },
+            "text": "Any number of target nonland permanents you control phase out."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Convoke"
+  ],
+  "keywordList": [
+    "Convoke"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,691 @@
+{
+  "oracleId": "37108cd4-bbab-4ce3-9ed6-f60e8422e703",
+  "name": "Ragavan, Nimble Pilferer",
+  "oracleHash": "sha256:6b43e1f333de39f51426622ba7532b1d385abfb647065181ddee2e9a2b48b229",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "37108cd4-bbab-4ce3-9ed6-f60e8422e703",
+    "name": "Ragavan, Nimble Pilferer",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ragavan, Nimble Pilferer",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Monkey",
+            "Pirate"
+          ],
+          "subtypeList": [
+            "Monkey",
+            "Pirate"
+          ]
+        },
+        "manaCost": "{R}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "DealsDamage",
+              "source": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "toPlayer": {},
+              "combat": true
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "TriggeringPlayer"
+                    },
+                    "zone": "Library"
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Dash",
+            "cost": "{1}{R}",
+            "repeatable": false,
+            "text": "Dash {1}{R}"
+          }
+        ],
+        "oracleText": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it\u0027s returned from the battlefield to its owner\u0027s hand at the beginning of the next end step.)",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "DealsDamage",
+              "source": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "toPlayer": {},
+              "combat": true
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Top",
+                    "whose": {
+                      "kind": "TriggeringPlayer"
+                    },
+                    "zone": "Library"
+                  },
+                  "faceDown": false,
+                  "rememberAs": "k1"
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Dash",
+            "cost": "{1}{R}",
+            "repeatable": false,
+            "text": "Dash {1}{R}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Treasure",
+    "Dash"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "37108cd4-bbab-4ce3-9ed6-f60e8422e703",
+        "name": "Ragavan, Nimble Pilferer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ragavan, Nimble Pilferer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Monkey",
+                "Pirate"
+              ],
+              "subtypeList": [
+                "Monkey",
+                "Pirate"
+              ]
+            },
+            "manaCost": "{R}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "abilities": [
+                          {
+                            "kind": "ActivatedAbility",
+                            "costs": [
+                              {
+                                "kind": "TapSelf"
+                              },
+                              {
+                                "kind": "SacrificeSelf"
+                              }
+                            ],
+                            "do": {
+                              "kind": "AddMana",
+                              "mana": {
+                                "anyColor": true,
+                                "commanderIdentity": false,
+                                "chosenColor": false,
+                                "colorOfAttachedOrTarget": false,
+                                "landCouldProduce": false,
+                                "anyType": false,
+                                "restriction": false
+                              }
+                            },
+                            "timing": "Any",
+                            "where": "Battlefield",
+                            "anyPlayerMayActivate": false,
+                            "text": "{T}, Sacrifice this token: Add one mana of any color."
+                          }
+                        ],
+                        "isPredefined": false
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      },
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Dash",
+                "cost": "{1}{R}",
+                "repeatable": false,
+                "text": "Dash {1}{R}"
+              }
+            ],
+            "oracleText": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it\u0027s returned from the battlefield to its owner\u0027s hand at the beginning of the next end step.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "abilities": [
+                          {
+                            "kind": "ActivatedAbility",
+                            "costs": [
+                              {
+                                "kind": "TapSelf"
+                              },
+                              {
+                                "kind": "SacrificeSelf"
+                              }
+                            ],
+                            "do": {
+                              "kind": "AddMana",
+                              "mana": {
+                                "anyColor": true,
+                                "commanderIdentity": false,
+                                "chosenColor": false,
+                                "colorOfAttachedOrTarget": false,
+                                "landCouldProduce": false,
+                                "anyType": false,
+                                "restriction": false
+                              }
+                            },
+                            "timing": "Any",
+                            "where": "Battlefield",
+                            "anyPlayerMayActivate": false,
+                            "text": "{T}, Sacrifice this token: Add one mana of any color."
+                          }
+                        ],
+                        "isPredefined": false
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      },
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Dash",
+                "cost": "{1}{R}",
+                "repeatable": false,
+                "text": "Dash {1}{R}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "37108cd4-bbab-4ce3-9ed6-f60e8422e703",
+        "name": "Ragavan, Nimble Pilferer",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ragavan, Nimble Pilferer",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Monkey",
+                "Pirate"
+              ],
+              "subtypeList": [
+                "Monkey",
+                "Pirate"
+              ]
+            },
+            "manaCost": "{R}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "isPredefined": true
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      },
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Dash",
+                "cost": "{1}{R}",
+                "repeatable": false,
+                "text": "Dash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it\u0027s returned from the battlefield to its owner\u0027s hand at the beginning of the next end step.)"
+              }
+            ],
+            "oracleText": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it\u0027s returned from the battlefield to its owner\u0027s hand at the beginning of the next end step.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "isPredefined": true
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    },
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Top",
+                        "whose": {
+                          "kind": "TriggeringPlayer"
+                        },
+                        "zone": "Library"
+                      },
+                      "faceDown": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      },
+                      "asCopy": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player\u0027s library. Until end of turn, you may cast that card."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Dash",
+                "cost": "{1}{R}",
+                "repeatable": false,
+                "text": "Dash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it\u0027s returned from the battlefield to its owner\u0027s hand at the beginning of the next end step.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Treasure",
+    "Dash"
+  ],
+  "scenarioList": []
+}

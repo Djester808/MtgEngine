@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

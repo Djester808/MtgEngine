@@ -1,0 +1,61 @@
+{
+  "oracleId": "10aff3f6-8347-4e1b-b8e7-c204c9e46657",
+  "name": "Wheel of Misfortune",
+  "oracleHash": "sha256:8103f1a21d7422ed4db6f62af251c4e68d7252e3e14039de4786458848f0dc01",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "10aff3f6-8347-4e1b-b8e7-c204c9e46657",
+    "name": "Wheel of Misfortune",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Wheel of Misfortune",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
+              "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+            },
+            "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+          }
+        ],
+        "oracleText": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
+              "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+            },
+            "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

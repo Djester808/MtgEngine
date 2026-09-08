@@ -1,0 +1,542 @@
+{
+  "oracleId": "0370afa0-07d3-4787-8a5b-10272cb3a486",
+  "name": "Oketra\u0027s Monument",
+  "oracleHash": "sha256:a18e36bf3fdae0424f7d0608b3a3265e1561b6a138425f090fa9f197ba68aaba",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "0370afa0-07d3-4787-8a5b-10272cb3a486",
+    "name": "Oketra\u0027s Monument",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Oketra\u0027s Monument",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{3}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White creature spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Warrior",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Warrior"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Vigilance",
+                    "repeatable": false
+                  }
+                ],
+                "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+          }
+        ],
+        "oracleText": "White creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "colors": [
+                  "White"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "White creature spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Warrior",
+                "colors": [
+                  "White"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Warrior"
+                ],
+                "supertypes": [],
+                "power": 1,
+                "toughness": 1,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Vigilance",
+                    "repeatable": false
+                  }
+                ],
+                "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "0370afa0-07d3-4787-8a5b-10272cb3a486",
+        "name": "Oketra\u0027s Monument",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Oketra\u0027s Monument",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Warrior",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Warrior"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Vigilance",
+                        "repeatable": false
+                      }
+                    ],
+                    "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+              }
+            ],
+            "oracleText": "White creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "White"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Warrior",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Warrior"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Vigilance",
+                        "repeatable": false
+                      }
+                    ],
+                    "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "0370afa0-07d3-4787-8a5b-10272cb3a486",
+        "name": "Oketra\u0027s Monument",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Oketra\u0027s Monument",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "White"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Warrior",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Warrior"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Vigilance",
+                        "repeatable": false,
+                        "text": "Vigilance"
+                      }
+                    ],
+                    "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+              }
+            ],
+            "oracleText": "White creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "White"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "White creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Warrior",
+                    "colors": [
+                      "White"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Warrior"
+                    ],
+                    "supertypes": [],
+                    "power": 1,
+                    "toughness": 1,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Vigilance",
+                        "repeatable": false,
+                        "text": "Vigilance"
+                      }
+                    ],
+                    "scryfallOracleId": "4bd91cb2-be86-4950-8b84-7b330a8a61b9",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, create a 1/1 white Warrior creature token with vigilance."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

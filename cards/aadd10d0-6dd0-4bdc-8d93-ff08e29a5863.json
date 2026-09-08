@@ -1,0 +1,209 @@
+{
+  "oracleId": "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
+  "name": "Drannith Magistrate",
+  "oracleHash": "sha256:e715ec507144569964610973e5cd2179b074a8682e80a8887aefb918bbe85bc4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
+    "name": "Drannith Magistrate",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Drannith Magistrate",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Wizard"
+          ],
+          "subtypeList": [
+            "Human",
+            "Wizard"
+          ]
+        },
+        "manaCost": "{1}{W}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "CantCastSpells cannot be restricted to the zone a spell is cast from: no ObjectFilter field and no Predicate expresses \u0022from anywhere other than their hands\u0022, and a CantCastSpells with no restriction would stop every spell an opponent casts.",
+              "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+          }
+        ],
+        "oracleText": "Your opponents can\u0027t cast spells from anywhere other than their hands.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "CantCastSpells cannot be restricted to the zone a spell is cast from: no ObjectFilter field and no Predicate expresses \u0022from anywhere other than their hands\u0022, and a CantCastSpells with no restriction would stop every spell an opponent casts.",
+              "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
+        "name": "Drannith Magistrate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Drannith Magistrate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Wizard"
+              ],
+              "subtypeList": [
+                "Human",
+                "Wizard"
+              ]
+            },
+            "manaCost": "{1}{W}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantCastSpells cannot be restricted to the zone a spell is cast from: no ObjectFilter field and no Predicate expresses \u0022from anywhere other than their hands\u0022, and a CantCastSpells with no restriction would stop every spell an opponent casts.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ],
+            "oracleText": "Your opponents can\u0027t cast spells from anywhere other than their hands.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantCastSpells cannot be restricted to the zone a spell is cast from: no ObjectFilter field and no Predicate expresses \u0022from anywhere other than their hands\u0022, and a CantCastSpells with no restriction would stop every spell an opponent casts.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
+        "name": "Drannith Magistrate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Drannith Magistrate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Wizard"
+              ],
+              "subtypeList": [
+                "Human",
+                "Wizard"
+              ]
+            },
+            "manaCost": "{1}{W}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantCastSpells/ObjectFilter has no field to exclude a single named zone (hand) while restricting every other zone; ObjectFilter\u0027s \u0027in\u0027 names one zone to match, not one to exclude.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ],
+            "oracleText": "Your opponents can\u0027t cast spells from anywhere other than their hands.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantCastSpells/ObjectFilter has no field to exclude a single named zone (hand) while restricting every other zone; ObjectFilter\u0027s \u0027in\u0027 names one zone to match, not one to exclude.",
+                  "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Your opponents can\u0027t cast spells from anywhere other than their hands."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

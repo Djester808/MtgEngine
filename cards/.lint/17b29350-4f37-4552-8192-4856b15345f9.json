@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
+      "path": "faces[0].abilities[0]"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

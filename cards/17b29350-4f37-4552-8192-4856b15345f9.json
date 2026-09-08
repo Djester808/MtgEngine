@@ -1,0 +1,360 @@
+{
+  "oracleId": "17b29350-4f37-4552-8192-4856b15345f9",
+  "name": "Smuggler\u0027s Share",
+  "oracleHash": "sha256:288e7995949843dffc018f94a6992cd3a5ace9517de660b6aabfa2f84c250016",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "17b29350-4f37-4552-8192-4856b15345f9",
+    "name": "Smuggler\u0027s Share",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Smuggler\u0027s Share",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
+                  "text": "draw a card for each opponent who drew two or more cards this turn"
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
+                  "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+          }
+        ],
+        "oracleText": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
+                  "text": "draw a card for each opponent who drew two or more cards this turn"
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
+                  "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Treasure"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "17b29350-4f37-4552-8192-4856b15345f9",
+        "name": "Smuggler\u0027s Share",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Smuggler\u0027s Share",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
+                      "text": "draw a card for each opponent who drew two or more cards this turn"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
+                      "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+              }
+            ],
+            "oracleText": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
+                      "text": "draw a card for each opponent who drew two or more cards this turn"
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
+                      "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "17b29350-4f37-4552-8192-4856b15345f9",
+        "name": "Smuggler\u0027s Share",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Smuggler\u0027s Share",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "no amount counts how many cards a player drew this turn",
+                      "text": "draw a card for each opponent who drew two or more cards this turn"
+                    },
+                    {
+                      "kind": "ForEachPlayer",
+                      "over": {
+                        "kind": "EachOpponent"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Controls",
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          },
+                          "what": {
+                            "types": [
+                              "Land"
+                            ],
+                            "also": {
+                              "kind": "EnteredThisTurn"
+                            }
+                          },
+                          "count": {
+                            "op": "Ge",
+                            "value": {
+                              "kind": "Fixed",
+                              "n": 2
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "CreateToken",
+                          "token": {
+                            "name": "Treasure",
+                            "colors": [],
+                            "types": [
+                              "Artifact"
+                            ],
+                            "subtypes": [
+                              "Treasure"
+                            ],
+                            "supertypes": [],
+                            "isPredefined": true
+                          },
+                          "tapped": false,
+                          "attacking": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+              }
+            ],
+            "oracleText": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "End",
+                  "whose": {
+                    "kind": "EachPlayer"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "no amount counts how many cards a player drew this turn",
+                      "text": "draw a card for each opponent who drew two or more cards this turn"
+                    },
+                    {
+                      "kind": "ForEachPlayer",
+                      "over": {
+                        "kind": "EachOpponent"
+                      },
+                      "do": {
+                        "kind": "If",
+                        "test": {
+                          "kind": "Controls",
+                          "who": {
+                            "kind": "TriggeringPlayer"
+                          },
+                          "what": {
+                            "types": [
+                              "Land"
+                            ],
+                            "also": {
+                              "kind": "EnteredThisTurn"
+                            }
+                          },
+                          "count": {
+                            "op": "Ge",
+                            "value": {
+                              "kind": "Fixed",
+                              "n": 2
+                            }
+                          }
+                        },
+                        "then": {
+                          "kind": "CreateToken",
+                          "token": {
+                            "name": "Treasure",
+                            "colors": [],
+                            "types": [
+                              "Artifact"
+                            ],
+                            "subtypes": [
+                              "Treasure"
+                            ],
+                            "supertypes": [],
+                            "isPredefined": true
+                          },
+                          "tapped": false,
+                          "attacking": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Treasure"
+  ],
+  "scenarioList": []
+}

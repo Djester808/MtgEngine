@@ -1,0 +1,61 @@
+{
+  "oracleId": "f5822e53-ddec-4c77-bcf4-091e35c1e731",
+  "name": "Rebuff the Wicked",
+  "oracleHash": "sha256:e9302b9868cc47a63f80174a6e6bfaadadb99106900ce6d04e76ae171b46cc90",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f5822e53-ddec-4c77-bcf4-091e35c1e731",
+    "name": "Rebuff the Wicked",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Rebuff the Wicked",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No predicate describes a spell by what it targets. TargetedBy runs the other way \u2014 it admits an object that is targeted by the given object \u2014 so the restriction \u0022that targets a permanent you control\u0022 cannot be put on the target filter, and countering an unrestricted target spell would be a different card.",
+              "text": "Counter target spell that targets a permanent you control."
+            },
+            "text": "Counter target spell that targets a permanent you control."
+          }
+        ],
+        "oracleText": "Counter target spell that targets a permanent you control.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No predicate describes a spell by what it targets. TargetedBy runs the other way \u2014 it admits an object that is targeted by the given object \u2014 so the restriction \u0022that targets a permanent you control\u0022 cannot be put on the target filter, and countering an unrestricted target spell would be a different card.",
+              "text": "Counter target spell that targets a permanent you control."
+            },
+            "text": "Counter target spell that targets a permanent you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}
