@@ -60,6 +60,11 @@ public sealed partial class EffectInterpreter
                     if (sacrifice.What is { } named)
                         return Leave(run, Objects(run, named), "sacrificed", Zone.Graveyard, skipIndestructible: false);
 
+                    // CR 701.21 with 110.4: "a permanent of each permanent type, then sacrifice the
+                    // rest" is a different question from "sacrifice N" — the arm is in Wave29.cs.
+                    if (sacrifice.KeepOnePerPermanentType)
+                        return KeepingOnePerType(run, sacrifice);
+
                     // CR 701.16 with 102.1: "each player sacrifices" reaches every player the
                     // reference admits, in APNAP order (CR 101.4), and each of them chooses their
                     // own — so the walk asks one player, stops, and the answer puts it back here to
@@ -116,7 +121,9 @@ public sealed partial class EffectInterpreter
                         for (var i = 0; i < count; i++)
                         {
                             var before = run.State;
-                            run = Merge(run, zones.CreateToken(run.State, token.Token, player, token.Tapped, token.Attacking));
+                            // CR 111.3: an amount for the size is evaluated as the token is created
+                            // and written into the spec, so it is the token's own copiable text.
+                            run = Merge(run, zones.CreateToken(run.State, Sized(run, token.Token), player, token.Tapped, token.Attacking));
                             var arrived = run.State.Objects.Keys.Where(id => !before.Objects.ContainsKey(id)).ToList();
 
                             // CR 508.4: the token attacks the player the effect names, not whoever
@@ -130,37 +137,10 @@ public sealed partial class EffectInterpreter
                     return Recall(run, token.RememberAs, created);
                 }
 
-            // CR 701.9a: the player chooses which card, unless the whole hand goes.
+            // CR 701.9a with 701.9b: the affected player chooses which card by default; what may be
+            // discarded and who picks it are the record's own fields. The arm is in Wave29.cs.
             case Cards.Discard discard:
-                {
-                    var discarding = PlayersOrYou(run, discard.Who);
-                    var next = 0;
-
-                    // CR 701.9a: the cards this player chose are discarded, and the players after
-                    // them are asked in their turn.
-                    if (Answered(run) is { } discarded && run.Answer is { } answer)
-                    {
-                        run = Leave(run, Named(run.State, discarded), "discarded", Zone.Graveyard, skipIndestructible: false);
-                        next = discarding.IndexOf(answer.Player) + 1;
-                    }
-
-                    foreach (var player in discarding.Skip(next))
-                    {
-                        var hand = run.State.In(ZoneKey.Of(Zone.Hand, player));
-                        if (discard.WholeHand)
-                        {
-                            run = Leave(run, hand, "discarded", Zone.Graveyard, skipIndestructible: false);
-                            continue;
-                        }
-
-                        var count = Math.Min(hand.Count, Math.Max(0, Number(run, discard.N)));
-                        if (count == 0)
-                            continue;
-                        return Ask(run, player, "discard", "Choose what to discard.", OptionsFor(run.State, hand), count, count);
-                    }
-
-                    return run;
-                }
+                return Discarding(run, discard);
 
             // CR 701.40a: manifest — the card is turned face down and put onto the battlefield as
             // a 2/2 face-down creature. The arm is in Wave28.cs with the rule it reads.
