@@ -1,3 +1,4 @@
+using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
@@ -41,6 +42,12 @@ public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IR
     /// The answer against the question: the right question, the right player, ids that are
     /// actually on offer, no id twice, and a count within the min and max the asker set. A
     /// wrong answer is refused with the rule the kind cites, so the client can say why.
+    /// <para>
+    /// A question that carries a <see cref="NumberRange"/> instead of an option list is checked
+    /// against its bounds instead (CR 601.2b, <see cref="ChoiceNumbers"/>): that is the channel an
+    /// unbounded or a very wide numeric choice is asked through, and the number comes back as the
+    /// chosen option's id, which is the same string the arm that asked reads back.
+    /// </para>
     /// </summary>
     [RuleRef("101.4")]
     private static ImmutableList<ChoiceOption> Validate(PendingChoice pending, AnswerChoice command)
@@ -52,6 +59,12 @@ public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IR
             throw new RefusedException("That choice is not yours to make.", "101.4");
 
         var answer = command.Answer ?? [];
+        if (ChoiceNumbers.RangeOf(pending) is { } range)
+        {
+            var number = ChoiceNumbers.Answered(range, answer, rule);
+            return [new ChoiceOption(number.ToString(CultureInfo.InvariantCulture), answer[0])];
+        }
+
         if (answer.Count < pending.Min)
             throw new RefusedException($"Choose at least {pending.Min}.", rule);
         if (answer.Count > pending.Max)
