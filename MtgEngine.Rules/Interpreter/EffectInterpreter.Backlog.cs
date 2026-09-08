@@ -59,6 +59,16 @@ public sealed partial class EffectInterpreter
             case ChangeTarget change:
                 return Retargeted(run, change);
 
+            // CR 724.1: the monarch is a designation the game keeps, not one an object carries, so
+            // it is not an ObjectDesignated and there is no event for it — GameState.Monarch has
+            // nothing that writes it, and a designation the log cannot carry would be lost on the
+            // first replay. Refused by rule until the seam lands rather than silently doing nothing,
+            // which would leave a court's card looking as though it worked.
+            case BecomeMonarch:
+                throw new RefusedException(
+                    "Becoming the monarch needs a MonarchChanged event that writes GameState.Monarch; asked for in seam-requests/E9r.md",
+                    "724.1");
+
             // CR 702.180: prepared is a designation, put on and taken off by these two.
             case Cards.Prepare prepare:
                 return Designated(run, Objects(run, prepare.What), Designations.Prepared, true);
@@ -107,10 +117,19 @@ public sealed partial class EffectInterpreter
     /// Pay the cost where it stands, CR 118.12. A cost that cannot be paid is simply not paid: the
     /// resolution carries on and the "if you do" half sees false, because CR 118.12 makes an
     /// unpayable cost a cost that was not paid and not an error the table has to see.
+    /// <para>
+    /// CR 608.2c: "Pay [cost]. If you do, [effect]" is one instruction with two halves, and the
+    /// second half runs only when the first was carried out — so <see cref="PayCost.Then"/> is a
+    /// child of the payment, not the next step of the sequence, and an unpayable cost skips it. It
+    /// is the mandatory twin of <see cref="MayPay"/>'s <c>Then</c>: no question is asked here,
+    /// because the player was never given a choice (CR 118.12's "may" is the other record).
+    /// </para>
     /// </summary>
-    [RuleRef("118.12")]
+    [RuleRef("608.2c")]
     private EffectRun Paid(EffectRun run, PayCost pay) =>
-        Pay(run, pay.Cost, FirstPlayer(run, pay.Who)) ?? Unpaid(run);
+        Pay(run, pay.Cost, FirstPlayer(run, pay.Who)) is { } paid
+            ? pay.Then is null ? paid : Child(paid, 0, pay.Then)
+            : Unpaid(run);
 
     /// <summary>
     /// Pay one cost where it stands, CR 118.12, through the same <see cref="CostPayment"/> the

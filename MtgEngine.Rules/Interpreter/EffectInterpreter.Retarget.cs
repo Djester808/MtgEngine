@@ -1,8 +1,10 @@
+using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
+using QueryLayer = MtgEngine.Rules.Query.Query;
 
 namespace MtgEngine.Rules.Interpreter;
 
@@ -54,10 +56,11 @@ public sealed partial class EffectInterpreter
 
         var effect = EffectOf(spell, entry);
         var filters = effect is null ? [] : EffectWalk.TargetsIn(effect);
-        var context = ContextFor(run.State, spell, entry, characteristics.ControllerOf(run.State, spell.Id), effect);
+        var controller = characteristics.ControllerOf(run.State, spell.Id);
+        var context = ContextFor(run.State, spell, entry, controller, effect);
 
         if (Answered(run) is { } answered)
-            return Retarget(run, spell.Id, entry, Named(run.State, answered));
+            return Retarget(run, spell.Id, entry, Named(run.State, answered), NamedPlayers(run.State, answered));
 
         // The card names the new target: "change its target to this creature".
         if (change.To is { } to)
@@ -66,14 +69,17 @@ public sealed partial class EffectInterpreter
             [
                 .. Objects(run, to).Where((id, slot) => Legal(run.State, filters, slot, id, context)),
             ];
-            return Retarget(run, spell.Id, entry, named);
+            return Retarget(run, spell.Id, entry, named, entry.TargetPlayers);
         }
 
         // The card lets a player choose, CR 114.6 and 115.7a: as many targets as the spell has,
-        // from among everything the spell could have targeted.
+        // from among everything the spell could have targeted. A targeted player is one of those
+        // targets (CR 115.1), so they are counted and offered beside the objects; a gift's promised
+        // player is not a target (CR 115.10) and is not counted.
         var candidates = Candidates(run.State, filters, context);
-        var count = entry.Targets.Count;
-        if (count == 0 || candidates.Count == 0)
+        var players = PlayerCandidates(run.State, filters, controller);
+        var count = entry.Targets.Count + Targeted(entry.TargetPlayers, entry).Count;
+        if (count == 0 || candidates.Count + players.Count == 0)
             return run;
 
         return Ask(
@@ -81,21 +87,66 @@ public sealed partial class EffectInterpreter
             FirstPlayer(run, change.Who),
             "target",
             "Choose new targets for that spell or ability.",
-            OptionsFor(run.State, candidates),
+            OptionsFor(run.State, candidates).AddRange(PlayerOptions(run.State, players)),
             count,
             count);
     }
 
     /// <summary>
-    /// Write the new targets on the stack entry, CR 115.7. Nothing is emitted when the reading is
-    /// the one the entry already holds: CR 115.7b needs at least one target changed, and CR 114.6
-    /// allows all of them to stay, so "no change" is a legal outcome with no event either way.
+    /// Write the new targets on the stack entry, CR 115.7 — the objects and the players, because a
+    /// player is a target like any other (CR 115.1) and both halves ride on the one event. Nothing
+    /// is emitted when the reading is the one the entry already holds: CR 115.7b needs at least one
+    /// target changed, and CR 114.6 allows all of them to stay, so "no change" is a legal outcome
+    /// with no event either way. CR 115.10: a gift's promised player travels on the player list and
+    /// is not a target, so a change of targets leaves them on it rather than dropping the promise.
     /// </summary>
     [RuleRef("115.7")]
-    private static EffectRun Retarget(EffectRun run, ObjectId spell, StackEntry entry, ImmutableList<ObjectId> targets) =>
-        targets.Count == 0 || targets.SequenceEqual(entry.Targets)
+    private static EffectRun Retarget(
+        EffectRun run,
+        ObjectId spell,
+        StackEntry entry,
+        ImmutableList<ObjectId> targets,
+        ImmutableList<PlayerId> players)
+    {
+        if (targets.Count == 0 && players.Count == 0)
+            return run;
+
+        var kept = entry.GiftPromisedTo is { } promised && !players.Contains(promised)
+            ? players.Add(promised)
+            : players;
+        return targets.SequenceEqual(entry.Targets) && kept.SequenceEqual(entry.TargetPlayers)
             ? run
-            : Emit(run, new StackTargetsChanged(spell, targets, entry.TargetPlayers));
+            : Emit(run, new StackTargetsChanged(spell, targets, kept));
+    }
+
+    /// <summary>
+    /// The players an answer named, CR 115.7a: an option carries the seat it stands for, which is
+    /// how one list of options offers both halves of "any target" (CR 115.4) and the resumption
+    /// still tells them apart. A seat that is no longer in the game is dropped.
+    /// </summary>
+    [RuleRef("115.7a")]
+    private static ImmutableList<PlayerId> NamedPlayers(GameState state, IEnumerable<ChoiceOption> options) =>
+    [
+        .. options.Select(o => o.Player)
+            .OfType<PlayerId>()
+            .Where(p => p.Value >= 0 && p.Value < state.Players.Count),
+    ];
+
+    /// <summary>
+    /// A player as one option, CR 115.4. The id is prefixed because an object's option id is its
+    /// object number, and one question offers both kinds; the seat itself rides on the option, so
+    /// nothing has to parse the id back.
+    /// </summary>
+    private static ImmutableList<ChoiceOption> PlayerOptions(GameState state, IEnumerable<PlayerId> players) =>
+    [
+        .. players.Select(p => new ChoiceOption(
+            PlayerOption + p.Value.ToString(CultureInfo.InvariantCulture),
+            state.Player(p).Name,
+            Player: p)),
+    ];
+
+    /// <summary>What marks an option as a seat rather than an object, CR 115.4.</summary>
+    private const string PlayerOption = "player:";
 
     /// <summary>
     /// Does this object fit the target slot it is being put in, CR 115.7a? An
@@ -107,18 +158,46 @@ public sealed partial class EffectInterpreter
         state.Objects.ContainsKey(id)
         && (FilterAt(filters, slot) is not { } filter || query.Matches(state, filter, id, context));
 
-    /// <summary>Everything the spell could target, in id order, CR 115.7a.</summary>
+    /// <summary>
+    /// Everything the spell could target, in id order, CR 115.7a. An "any target" slot has no
+    /// filter of its own, and a slot with no filter used to offer nothing at all — so a spell whose
+    /// only target was "any target" could not be retargeted. CR 115.4 is that slot's filter: a
+    /// creature, a planeswalker or a battle, read through the query layer's one spelling of it. A
+    /// slot that is not a target selector at all (a spell that targets only a player) offers no
+    /// object, and <see cref="PlayerCandidates"/> answers it.
+    /// </summary>
     [RuleRef("115.7a")]
     private ImmutableList<ObjectId> Candidates(GameState state, ImmutableList<Selector> filters, EffectContext context) =>
-        FilterAt(filters, 0) is { } filter
-            ? query.Resolve(state, new Each(filter), context)
+        FilterAt(filters, 0) is { } filter ? query.Resolve(state, new Each(filter), context)
+            : SlotAt(filters, 0) is AnyTarget ? query.Resolve(state, new Each(QueryLayer.AnyTargetFilter), context)
             : [];
+
+    /// <summary>
+    /// The seats the slot admits, CR 115.4 with 115.7a: the other half of "any target", and the
+    /// only candidates a spell that targets a player alone has (its target rides in
+    /// <c>TargetPlayers</c> and no <see cref="Target"/> selector names it). A slot with an object
+    /// filter admits no player at all. A player who has lost is no longer in the game (CR 800.4a),
+    /// and one the resolving object may not target is read exactly as the resolution's own re-check
+    /// reads them (CR 115.6, 702.16j), so nothing is offered that could not then resolve.
+    /// </summary>
+    [RuleRef("115.4")]
+    private ImmutableList<PlayerId> PlayerCandidates(GameState state, ImmutableList<Selector> filters, PlayerId controller) =>
+        FilterAt(filters, 0) is not null
+            ? []
+            :
+            [
+                .. state.Players
+                    .Where(p => !p.HasLost && CanBeTargeted(state, p.Id, controller))
+                    .Select(p => p.Id),
+            ];
 
     /// <summary>The filter of the target selector filling that slot, or null when the slot is an "any target".</summary>
     private static ObjectFilter? FilterAt(ImmutableList<Selector> filters, int slot) =>
-        filters.Count == 0 ? null
-            : filters[Math.Min(slot, filters.Count - 1)] is Target target ? target.Filter
-            : null;
+        SlotAt(filters, slot) is Target target ? target.Filter : null;
+
+    /// <summary>The target selector filling that slot, or null when the tree names none.</summary>
+    private static Selector? SlotAt(ImmutableList<Selector> filters, int slot) =>
+        filters.Count == 0 ? null : filters[Math.Min(slot, filters.Count - 1)];
 
     /* ---------------------------------------------------------------------------------------- *
      * CR 601 — casting a card from inside a resolution.

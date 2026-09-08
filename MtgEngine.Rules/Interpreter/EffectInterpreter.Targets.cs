@@ -119,14 +119,27 @@ public sealed partial class EffectInterpreter
         var legal = ImmutableList.CreateBuilder<PlayerId>();
         foreach (var player in entry.TargetPlayers)
         {
-            var limits = characteristics.PlayerRestrictions(state, player);
-            var illegal = limits.ProtectionFromEverything
-                || (limits.Has(PlayerRestriction.BeTargeted) && player != controller);
-            if (player == entry.GiftPromisedTo || !illegal)
+            if (player == entry.GiftPromisedTo || CanBeTargeted(state, player, controller))
                 legal.Add(player);
         }
 
         return legal.ToImmutable();
+    }
+
+    /// <summary>
+    /// May this resolving object target that player, CR 115.6 with 702.16j? One reading for the
+    /// re-check at resolution (CR 608.2b) and for the candidates a change of targets offers
+    /// (CR 115.7a), so a seat the re-check would drop is never offered in the first place:
+    /// <see cref="PlayerRestriction.BeTargeted"/> is the card-text form ("by spells or abilities
+    /// your opponents control") and leaves the object's own controller able to name themselves,
+    /// while protection from everything is the stronger one that no source targets through.
+    /// </summary>
+    [RuleRef("115.6")]
+    private bool CanBeTargeted(GameState state, PlayerId player, PlayerId controller)
+    {
+        var limits = characteristics.PlayerRestrictions(state, player);
+        return !limits.ProtectionFromEverything
+            && (!limits.Has(PlayerRestriction.BeTargeted) || player == controller);
     }
 
     /// <summary>
