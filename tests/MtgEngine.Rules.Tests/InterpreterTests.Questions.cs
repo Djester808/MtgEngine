@@ -81,7 +81,11 @@ public sealed partial class InterpreterTests
     public void A_choice_with_no_set_and_no_options_is_refused_rather_than_asked()
     {
         var table = new InterpreterTable();
-        var spell = table.OnStack(table.A, new ChooseValue(ChooseWhat.CardName, "name"));
+
+        // A word is the kind with no set at all: CR 201.3 gives a card name the names the game
+        // holds, and CR 105.1, 205.2a and 205.3m give the rest of the kinds theirs, but nothing in
+        // the rules bounds "choose a word".
+        var spell = table.OnStack(table.A, new ChooseValue(ChooseWhat.Word, "word"));
 
         // MEMORY, and CR 101.4: a question with an empty option list can never be answered, so the
         // game would stop there for ever. The refusal names the rule and the definition fails

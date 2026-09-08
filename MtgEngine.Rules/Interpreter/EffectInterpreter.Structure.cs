@@ -239,6 +239,10 @@ public sealed partial class EffectInterpreter
             ChooseWhat.CardType => Offer(Enum.GetNames<CardType>().Where(t => t != nameof(CardType.None))),
             ChooseWhat.Keyword => Offer(Enum.GetNames<KeywordKind>()),
 
+            // CR 201.3: a card's name is what is printed on it, so a name choice with no printed
+            // options is made from the names the game holds, narrowed by OfType (CR 205.2a).
+            ChooseWhat.CardName => Names(state, choose.OfType),
+
             // CR 700.3: "odd or even" is a choice between the two words themselves.
             ChooseWhat.OddOrEven => Offer(["Odd", "Even"], sorted: false),
 

@@ -74,9 +74,21 @@ internal sealed class InterpreterFakeReplacements : IReplacementSystem
         return Outcome.Unchanged(state);
     }
 
-    public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected)
+    /// <summary>The keys the interpreter said had already applied, one entry per offer (CR 614.5).</summary>
+    public List<IReadOnlyList<string>> Used { get; } = [];
+
+    public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected) =>
+        Replace(state, proposed, affected, null);
+
+    /// <summary>
+    /// CR 616.1 with 614.5: the same offer, told what has already applied. The fake records the
+    /// seed rather than acting on it, because what it does with an event is the test's own
+    /// <see cref="Instead"/>.
+    /// </summary>
+    public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected, IEnumerable<string>? used)
     {
         Proposed.Add(proposed);
+        Used.Add([.. used ?? []]);
         var actual = Instead(proposed);
         return actual is null ? Outcome.Unchanged(state) : new Outcome(actual.Apply(state), [actual]);
     }
