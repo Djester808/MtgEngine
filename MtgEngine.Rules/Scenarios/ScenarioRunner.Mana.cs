@@ -52,7 +52,9 @@ internal sealed partial class ScenarioRun
     /// Which of a permanent's abilities a <see cref="TapForManaStep"/> activates: the mana ability
     /// the step names, by its index in the object's current abilities — the same index an
     /// <see cref="ActivateStep"/> would have had to count out, read off the layer system so an
-    /// ability granted to the permanent counts as much as one it printed (CR 613.1d). The step
+    /// ability granted to the permanent counts as much as one it printed (CR 613.1d) — and so does
+    /// the one CR 305.6 gives a permanent for its basic land type, which is the only mana ability a
+    /// filler basic land has and the reason it is tapped for its type's colour at index 0. The step
     /// counts mana abilities alone (CR 605.1a), so a permanent with two of them is tapped for the
     /// one the scenario means and an ability that is not a mana ability never moves the number;
     /// a step that names none is the first, which is what the step meant before it could name one.

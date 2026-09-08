@@ -55,6 +55,26 @@ public static class ScenarioFiller
     [RuleRef("202.2")]
     public const string GreenCreature = "Scenario Filler Green Creature";
 
+    /// <summary>
+    /// One 1/1 per colour beside <see cref="GreenCreature"/>, CR 202.2: a card is the colour of its
+    /// mana cost, and each of these prints the indicator for it too (CR 202.2b) so
+    /// <see cref="ColorOf"/> answers without parsing the cost. A filter that names a colour —
+    /// "creatures of the colour you control", "target white creature" — describes a permanent the
+    /// board can actually stand, instead of standing the colourless <see cref="Creature"/> for it
+    /// and leaving the effect with an empty set (CR 611.2c).
+    /// </summary>
+    [RuleRef("202.2")]
+    public const string WhiteCreature = "Scenario Filler White Creature";
+
+    /// <inheritdoc cref="WhiteCreature"/>
+    public const string BlueCreature = "Scenario Filler Blue Creature";
+
+    /// <inheritdoc cref="WhiteCreature"/>
+    public const string BlackCreature = "Scenario Filler Black Creature";
+
+    /// <inheritdoc cref="WhiteCreature"/>
+    public const string RedCreature = "Scenario Filler Red Creature";
+
     /// <summary>A vanilla 2/2: something a removal spell or a counter can be aimed at.</summary>
     public const string Creature = "Scenario Filler Creature";
 
@@ -104,6 +124,10 @@ public static class ScenarioFiller
         Mountain => MountainDefinition,
         Forest => ForestDefinition,
         GreenCreature => GreenCreatureDefinition,
+        WhiteCreature => WhiteCreatureDefinition,
+        BlueCreature => BlueCreatureDefinition,
+        BlackCreature => BlackCreatureDefinition,
+        RedCreature => RedCreatureDefinition,
         Creature => CreatureDefinition,
         Artifact => ArtifactDefinition,
         Enchantment => EnchantmentDefinition,
@@ -117,7 +141,7 @@ public static class ScenarioFiller
 
     /// <summary>Every filler, so a generator can ask which of them a filter describes.</summary>
     public static IReadOnlyList<string> Names =>
-        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest, GreenCreature, Bolt];
+        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest, GreenCreature, WhiteCreature, BlueCreature, BlackCreature, RedCreature, Bolt];
 
     /// <summary>The printed colour of one filler, CR 202.2b: the indicator it carries, none for a colourless filler, null for a real card.</summary>
     [RuleRef("202.2b")]
@@ -179,6 +203,26 @@ public static class ScenarioFiller
         GreenCreature,
         Layout.Normal,
         [new Face(GreenCreature, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: "{G}", Power: new PrintedStat("1"), Toughness: new PrintedStat("1"), ColorIndicator: Color.Green)]);
+
+    private static CardDefinition WhiteCreatureDefinition { get; } = ColouredBody(WhiteCreature, "scenario-filler-white-creature", "{W}", Color.White);
+
+    private static CardDefinition BlueCreatureDefinition { get; } = ColouredBody(BlueCreature, "scenario-filler-blue-creature", "{U}", Color.Blue);
+
+    private static CardDefinition BlackCreatureDefinition { get; } = ColouredBody(BlackCreature, "scenario-filler-black-creature", "{B}", Color.Black);
+
+    private static CardDefinition RedCreatureDefinition { get; } = ColouredBody(RedCreature, "scenario-filler-red-creature", "{R}", Color.Red);
+
+    /// <summary>
+    /// A 1/1 of one colour, printed exactly as <see cref="GreenCreatureDefinition"/> is: the cost
+    /// says the colour (CR 202.2) and the indicator says it a second time (CR 202.2b), so the two
+    /// readings of a filler's colour agree.
+    /// </summary>
+    [RuleRef("202.2")]
+    private static CardDefinition ColouredBody(string name, string oracleId, string cost, Color color) => new(
+        oracleId,
+        name,
+        Layout.Normal,
+        [new Face(name, FaceRole.Main, new TypeLine(CardType.Creature), ManaCost: cost, Power: new PrintedStat("1"), Toughness: new PrintedStat("1"), ColorIndicator: color)]);
 
     /// <summary>A basic land of one basic land type, CR 305.6: the supertype and the subtype, nothing printed besides.</summary>
     [RuleRef("305.6")]
