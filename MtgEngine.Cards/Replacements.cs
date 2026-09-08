@@ -56,7 +56,22 @@ public sealed record WouldBeDealtDamage(ObjectFilter To, ObjectFilter? By = null
 [RuleRef("615")]
 public sealed record PlayerWouldBeDealtDamage(PlayerRef Who, ObjectFilter? By = null, bool? Combat = null) : ReplacedEvent;
 
-public sealed record WouldDealDamage(ObjectFilter Source, bool? Combat = null) : ReplacedEvent;
+/// <summary>
+/// "If a source you control would deal damage to an opponent or a permanent an opponent controls",
+/// CR 614.1: the event watched from the dealing side. <paramref name="To"/> names the objects that
+/// would be dealt the damage and <paramref name="ToPlayer"/> the players, and both together is the
+/// printed "or" — one event, two kinds of recipient.
+/// <para>
+/// Neither one admits every recipient, which is the reading for a card that names none. This is not
+/// two replacement abilities, whose durations and replacement counts would then be independent
+/// (CR 614.5), and it is not <see cref="WouldBeDealtDamage"/> beside
+/// <see cref="PlayerWouldBeDealtDamage"/>, which watch from the receiving side and cannot say
+/// "a source you control". A <paramref name="To"/> filter naming a zone other than the battlefield
+/// describes something damage cannot be dealt to (L049).
+/// </para>
+/// </summary>
+[RuleRef("614.1")]
+public sealed record WouldDealDamage(ObjectFilter Source, bool? Combat = null, ObjectFilter? To = null, PlayerFilter? ToPlayer = null) : ReplacedEvent;
 
 /// <summary>
 /// "If a player would draw a card, instead …", CR 121.4 with CR 614 — the draw as an event that can

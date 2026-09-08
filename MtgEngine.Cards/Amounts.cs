@@ -39,6 +39,9 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(LandsEnteredThisTurn), nameof(LandsEnteredThisTurn))]
 [JsonDerivedType(typeof(HighestChosen), nameof(HighestChosen))]
 [JsonDerivedType(typeof(LowestChosen), nameof(LowestChosen))]
+[JsonDerivedType(typeof(LifeLostThisTurn), nameof(LifeLostThisTurn))]
+[JsonDerivedType(typeof(DistinctNameCount), nameof(DistinctNameCount))]
+[JsonDerivedType(typeof(CommanderCastsThisGame), nameof(CommanderCastsThisGame))]
 [JsonDerivedType(typeof(TurnNumber), nameof(TurnNumber))]
 [JsonDerivedType(typeof(Sum), nameof(Sum))]
 [JsonDerivedType(typeof(Difference), nameof(Difference))]
@@ -361,3 +364,45 @@ public sealed record Half(Amount Value, bool RoundUp) : Amount;
 public sealed record Max(Amount Left, Amount Right) : Amount;
 
 public sealed record Min(Amount Left, Amount Right) : Amount;
+
+/// <summary>
+/// The life lost this turn by the players <paramref name="Who"/> admits, CR 119.3, totalled across
+/// them: "if an opponent lost life this turn" is a Compare of this against 0 over the opponents,
+/// because the total is above zero exactly when at least one of them lost life.
+/// <para>
+/// Life lost is not damage (a payment, an edict and a burn spell all lose life and only one is
+/// damage) and it is not life gained, so a life total that went down and came back up still counts
+/// the loss. It reads the whole turn, not one event: <see cref="TriggeringLifeLost"/> is the amount
+/// of the event a trigger fired on and answers nothing outside that trigger. A PlayerFilter and not
+/// a PlayerRef, because the printed line names a group and is asked about all of them at once.
+/// </para>
+/// </summary>
+[RuleRef("119.3")]
+public sealed record LifeLostThisTurn(PlayerFilter Who) : Amount;
+
+/// <summary>
+/// "lands you control with different names", CR 201.2b: the number of distinct names among the
+/// objects <paramref name="Filter"/> admits, so two Forests count once and two differently named
+/// lands count twice.
+/// <para>
+/// It is not <c>CountOf</c> over the same filter, which counts the objects; the two agree only when
+/// no two of them share a name, so a test on a board of distinct cards cannot tell them apart. An
+/// object with no name is counted by neither (CR 201.2a).
+/// </para>
+/// </summary>
+[RuleRef("201.2b")]
+public sealed record DistinctNameCount(ObjectFilter Filter) : Amount;
+
+/// <summary>
+/// The number of times a commander has been cast from the command zone this game, CR 903.8 — the
+/// count the commander tax is built on. <paramref name="Which"/> names the commander and defaults
+/// to this object.
+/// <para>
+/// It counts casts from the command zone only: a commander cast from a hand it was put into does
+/// not add to it, and neither does one that changed zones. It is a per-game count and is never
+/// reset, so it is not a per-turn count and not a <c>Stored</c> key, which nothing on the card
+/// wrote.
+/// </para>
+/// </summary>
+[RuleRef("903.8")]
+public sealed record CommanderCastsThisGame(Selector? Which = null) : Amount;

@@ -156,9 +156,6 @@ public sealed record SwitchPt : ContinuousEffect;
 public sealed record GrantAbility(Ability Ability) : ContinuousEffect;
 
 [RuleRef("613.1f")]
-public sealed record GrantKeyword(KeywordKind Keyword, string? Cost = null, Amount? N = null, ObjectFilter? Of = null) : ContinuousEffect;
-
-[RuleRef("613.1f")]
 public sealed record LoseAbility(KeywordKind Keyword) : ContinuousEffect;
 
 [RuleRef("613.1f")]

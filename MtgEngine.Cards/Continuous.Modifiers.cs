@@ -4,6 +4,22 @@ namespace MtgEngine.Cards;
 public sealed record ManaProducesAdditional(ObjectFilter Sources, string Mana) : ContinuousEffect;
 
 /// <summary>
+/// "Creatures you control gain flying", "creatures you control have 'Ward—Pay 2 life'", CR 613.1f.
+/// <paramref name="Cost"/> is the keyword's cost written as printed mana ("Ward {2}", "Equip {3}");
+/// <paramref name="Costs"/> is that same rider when it is not mana — life, a sacrifice, a discard.
+/// <para>
+/// The two say one thing, so writing both is a keyword with two costs and is refused (L049): a
+/// granted "Ward—Pay 2 life" is <paramref name="Costs"/> with a PayLife and no
+/// <paramref name="Cost"/> (CR 702.21a). <paramref name="Costs"/> is a list because a printed
+/// keyword cost can be several things paid together, and it is refused on a keyword that takes no
+/// cost at all. It is not a <c>GrantAbility</c> wrapping a hand-written trigger: the keyword is the
+/// spelling, and a written-out ward would not be counted by anything that reads ward.
+/// </para>
+/// </summary>
+[RuleRef("613.1f")]
+public sealed record GrantKeyword(KeywordKind Keyword, string? Cost = null, Amount? N = null, ObjectFilter? Of = null, IReadOnlyList<Cost>? Costs = null) : ContinuousEffect;
+
+/// <summary>
 /// "Creatures can't attack you", "creatures can't attack you unless their controller pays {W/P} for
 /// each creature they control that's attacking you". <paramref name="Player"/> is the player being
 /// protected and <paramref name="Unless"/> the board exception ("unless it's a Zombie"); neither of

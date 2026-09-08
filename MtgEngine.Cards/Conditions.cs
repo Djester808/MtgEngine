@@ -8,6 +8,7 @@ namespace MtgEngine.Cards;
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Controls), nameof(Controls))]
+[JsonDerivedType(typeof(CastAtInstantSpeed), nameof(CastAtInstantSpeed))]
 [JsonDerivedType(typeof(Compare), nameof(Compare))]
 [JsonDerivedType(typeof(IsYourTurn), nameof(IsYourTurn))]
 [JsonDerivedType(typeof(IsStep), nameof(IsStep))]
@@ -186,6 +187,20 @@ public sealed record FirstTimeThisTurn : Condition;
 /// </summary>
 [RuleRef("111.1")]
 public sealed record CreatedTokenThisTurn(PlayerRef Who, ObjectFilter? What = null) : Condition;
+
+/// <summary>
+/// "if you cast it any time a sorcery couldn't have been cast", CR 307.5a with 307.1: this spell's
+/// controller cast it without priority, in a phase other than their own main phase, or while
+/// another object was on the stack.
+/// <para>
+/// The question is about the moment of the cast and is answered as the spell resolves, so it is
+/// remembered from announcement and never re-asked. It is not <c>IsYourTurn</c> or <c>IsStep</c>,
+/// which read the game as the effect resolves and both answer wrongly for a spell cast on the
+/// caster's own turn with something else on the stack, and it is not a flash permission.
+/// </para>
+/// </summary>
+[RuleRef("307.5a")]
+public sealed record CastAtInstantSpeed : Condition;
 
 public sealed record NotCondition(Condition Of) : Condition;
 

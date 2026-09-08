@@ -39,7 +39,7 @@ public sealed partial class TranslationPromptTests
     [Fact]
     public void The_prompt_stays_inside_its_budget()
     {
-        // The reference is the bulk of it; the budget is 160k characters.
-        Assert.True(TranslationPrompt.SystemWithVocabulary().Length < 160_000, $"prompt is {TranslationPrompt.SystemWithVocabulary().Length} characters");
+        // The reference is the bulk of it; the budget moved to 200k after wave 28 (DECISIONS.md).
+        Assert.True(TranslationPrompt.SystemWithVocabulary().Length < 200_000, $"prompt is {TranslationPrompt.SystemWithVocabulary().Length} characters");
     }
 }

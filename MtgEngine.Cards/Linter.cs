@@ -361,6 +361,7 @@ public static partial class Linter
         CheckWave26(ability, nodes, path, findings);
         CheckWave27(ability, nodes, path, findings);
         CheckWave28(ability, nodes, path, findings);
+        CheckWave29(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
