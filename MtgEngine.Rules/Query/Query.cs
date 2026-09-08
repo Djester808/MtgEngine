@@ -25,11 +25,46 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
     private static Cards.Zone ZoneOf(ObjectFilter filter) =>
         filter.In ?? (filter.Spell == true ? Cards.Zone.Stack : Cards.Zone.Battlefield);
 
+    /// <summary>
+    /// Does this filter's zone rider admit that zone, CR 400.1? An object is in exactly one zone, so
+    /// <see cref="ObjectFilter.InAnyOf"/> — "creature cards in graveyards and libraries" — is a
+    /// disjunction: the object's own zone has only to be one of the listed ones. Every reader goes
+    /// through here, so the plural is answered once rather than rewritten by each caller that
+    /// remembers to.
+    /// <para>
+    /// L047 forbids <see cref="ObjectFilter.In"/> beside <c>InAnyOf</c>, so the two spellings cannot
+    /// disagree; the union is written anyway because a filter that carried both would otherwise
+    /// silently lose the singular half, and losing a zone is a card that matches nothing.
+    /// </para>
+    /// </summary>
+    [RuleRef("400.1")]
+    private static bool ZoneAdmits(ObjectFilter filter, Cards.Zone zone) =>
+        filter.InAnyOf is { Count: > 0 } any
+            ? any.Contains(zone) || filter.In == zone
+            : zone == ZoneOf(filter);
+
+    /// <summary>
+    /// Every zone a filter can find an object in, CR 400.1 — one for the singular rider and for the
+    /// default, the listed ones for the plural. <see cref="Candidates"/> walks all of them, so a
+    /// filter naming two zones enumerates both instead of the first.
+    /// </summary>
+    [RuleRef("400.1")]
+    private static IReadOnlySet<Cards.Zone> ZonesOf(ObjectFilter filter)
+    {
+        if (filter.InAnyOf is not { Count: > 0 } any)
+            return new HashSet<Cards.Zone> { ZoneOf(filter) };
+
+        var zones = new HashSet<Cards.Zone>(any);
+        if (filter.In is { } named)
+            zones.Add(named);
+        return zones;
+    }
+
     public bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(filter);
-        if (!state.Objects.TryGetValue(candidate, out var obj) || obj.Zone.Zone != ZoneOf(filter))
+        if (!state.Objects.TryGetValue(candidate, out var obj) || !ZoneAdmits(filter, obj.Zone.Zone))
             return false;
 
         return MatchesAs(state, filter, obj, _layers.Of(state, candidate), context)
@@ -48,12 +83,12 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         && StatusMatch(state, filter, c, obj, context)
         && ControlMatch(state, filter, c, obj, context);
 
-    /// <summary>Every object that could match, in a deterministic order. The zone is checked first so a filter never asks the layers about an object in the wrong zone.</summary>
+    /// <summary>Every object that could match, in a deterministic order. The zone is checked first so a filter never asks the layers about an object in the wrong zone; a filter naming several zones (CR 400.1) enumerates all of them, still by id, so the order does not depend on which zone an object is in.</summary>
     private IEnumerable<ObjectId> Candidates(GameState state, ObjectFilter filter, EffectContext context)
     {
-        var zone = ZoneOf(filter);
+        var zones = ZonesOf(filter);
         return state.Objects.Values
-            .Where(o => o.Zone.Zone == zone)
+            .Where(o => zones.Contains(o.Zone.Zone))
             .OrderBy(o => o.Id.Value)
             .Select(o => o.Id)
             .Where(id => Matches(state, filter, id, context));
