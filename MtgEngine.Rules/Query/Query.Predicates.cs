@@ -62,6 +62,15 @@ public sealed partial class Query
             TargetedBy by => Resolve(state, by.By, ctx)
                 .Any(source => state.Objects.TryGetValue(source, out var s) && s.Stack?.Targets.Contains(candidate) == true),
 
+            // CR 115.1 with 601.2c: the other end of TargetedBy — this admits the spell or ability
+            // doing the pointing, and the filter inside it describes what it points at. It reads the
+            // targets that were announced, so a target that has since become illegal was still
+            // targeted, and a spell that announced none is admitted by nothing here. A player target
+            // is no object and so admits no ObjectFilter, which is why "targets a permanent you
+            // control" is false of a spell aimed at a player.
+            Targets targets => obj.Stack is { } entry
+                && entry.Targets.Any(target => Matches(state, targets.Of, target, ctx)),
+
             IsChosenName chosen => ctx.Chosen.TryGetValue(chosen.Key, out var name)
                 && string.Equals(_layers.Of(state, candidate).Name, name, StringComparison.Ordinal),
             IsChosenType chosen => ctx.Chosen.TryGetValue(chosen.Key, out var type)

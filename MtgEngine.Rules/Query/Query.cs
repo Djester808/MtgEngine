@@ -190,7 +190,119 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         if (f.IsCommander is { } commander && commander != obj.IsCommander)
             return false;
 
+        // CR 601.3: which zone the spell was cast from, which describes the casting and not the
+        // object, so only a spell on the stack can answer either field.
+        if (!CastFromMatches(f, obj))
+            return false;
+        // CR 202.1: the printed cost read as the card prints it, not counted.
+        if (f.ManaCostIs is { } costs && !ManaCostIsOneOf(costs, c.ManaCost))
+            return false;
+        // CR 903.4: a colour the commander's colour identity does not include.
+        if (f.NotInCommanderIdentityColors is { } outside && outside != OutsideCommanderIdentity(state, c, ctx))
+            return false;
+
         return true;
+    }
+
+    /// <summary>
+    /// CR 601.3: the zone a spell was cast from, read off the stack entry the announcement wrote.
+    /// <c>CastFrom</c> admits only that zone and <c>NotCastFrom</c> refuses it. A candidate that is
+    /// not a spell, and a spell that was never cast at all (a copy put onto the stack, CR 707.10),
+    /// was cast from nowhere and matches <em>neither</em> field: "spells cast from anywhere other
+    /// than their hands" says nothing about a permanent, and admitting one would let a restriction
+    /// reach objects it was never written about.
+    /// </summary>
+    [RuleRef("601.3")]
+    private static bool CastFromMatches(ObjectFilter f, GameObject obj)
+    {
+        if (f.CastFrom is null && f.NotCastFrom is null)
+            return true;
+        if (!IsSpell(obj) || obj.Stack?.CastFrom is not { } from)
+            return false;
+        return (f.CastFrom is not { } only || from == only)
+            && (f.NotCastFrom is not { } forbidden || from != forbidden);
+    }
+
+    /// <summary>
+    /// CR 202.1: the printed mana cost as a string, compared symbol by symbol — so "{1}" is not
+    /// "{W}", and the absent cost of a land is neither. The list reads "any of"; an object with no
+    /// cost matches no entry, and an empty list matches nothing rather than everything.
+    /// </summary>
+    [RuleRef("202.1")]
+    private static bool ManaCostIsOneOf(IReadOnlyList<string> costs, string? actual)
+    {
+        if (string.IsNullOrEmpty(actual))
+            return false;
+
+        var symbols = ManaCosts.Symbols(actual).ToList();
+        return costs.Any(named => symbols.SequenceEqual(ManaCosts.Symbols(named), StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// CR 903.4: does this object have a colour the commander's colour identity does not include?
+    /// The identity belongs to the commander <em>card</em>, so it is read off the printed
+    /// characteristics — an effect that turned the commander blue changes no card's identity — and
+    /// it is the identity of the commander of the player whose effect is asking (CR 903.3), which
+    /// the designation the object carries in every zone names. A colourless object has no colour
+    /// outside any identity and so lies inside every one.
+    /// </summary>
+    [RuleRef("903.4")]
+    private bool OutsideCommanderIdentity(GameState state, Characteristics c, EffectContext ctx) =>
+        (c.Colors & ~CommanderIdentity(state, ctx)) != Color.Colorless;
+
+    /// <summary>
+    /// The colour identity of a player's commanders, CR 903.4: the colours of the card, of the mana
+    /// symbols in its mana cost, and of the mana symbols its abilities' costs print — a partner
+    /// pair is one identity, so the two are unioned. With no commander in the game the question has
+    /// no answer at all and is refused naming its rule, rather than answered as "inside", which
+    /// would silently admit every object in a game that has no commander.
+    /// <para>
+    /// Not read: a mana symbol inside an ability's <em>effect</em> ("add {G}"), because the printed
+    /// text is not in the state and the vocabulary carries produced mana as a record rather than as
+    /// symbols. See seam-requests/E5i.md.
+    /// </para>
+    /// </summary>
+    [RuleRef("903.4")]
+    private Color CommanderIdentity(GameState state, EffectContext ctx)
+    {
+        var identity = Color.Colorless;
+        var found = false;
+        foreach (var obj in state.Objects.Values.Where(o => o.IsCommander && o.Owner == ctx.Controller).OrderBy(o => o.Id.Value))
+        {
+            found = true;
+            var printed = _layers.PrintedOf(obj);
+            identity |= printed.Colors | ManaCosts.Colors(printed.ManaCost);
+            foreach (var ability in printed.Abilities)
+                identity |= AbilityCostColors(ability);
+        }
+
+        return found
+            ? identity
+            : throw Unanswerable(nameof(ObjectFilter.NotInCommanderIdentityColors), "this player has no commander in the game", "903.4");
+    }
+
+    /// <summary>The colours of the mana symbols an ability's costs print, CR 903.4 — part of the card's rules text.</summary>
+    [RuleRef("903.4")]
+    private static Color AbilityCostColors(Ability ability)
+    {
+        var costs = ability switch
+        {
+            ActivatedAbility activated => activated.Costs,
+            KeywordAbility keyword => keyword.Costs,
+            _ => null,
+        };
+        var colors = ability is KeywordAbility k ? ManaCosts.Colors(k.Cost) : Color.Colorless;
+        foreach (var cost in costs ?? [])
+        {
+            colors |= cost switch
+            {
+                Cards.ManaCost mana => ManaCosts.Colors(mana.Mana),
+                PayManaCost pay => ManaCosts.Colors(pay.Colored),
+                _ => Color.Colorless,
+            };
+        }
+
+        return colors;
     }
 
     private bool ControlMatch(GameState state, ObjectFilter f, Characteristics c, GameObject obj, EffectContext ctx)

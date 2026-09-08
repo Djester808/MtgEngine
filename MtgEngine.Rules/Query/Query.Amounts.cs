@@ -59,6 +59,8 @@ public sealed partial class Query
             Cards.TimesKicked => KicksOfSource(state, context), // CR 702.32b
             SpellsCastThisTurn cast => SpellsCast(state, cast, context), // CR 603.10
             DamageDealtThisTurn damage => DamageThisTurn(state, damage, context), // CR 120.3
+            TriggeringDamage => TriggeringDamageOf(context), // CR 603.10
+            AttackersAgainst against => AttackersAgainstPlayers(state, against, context), // CR 508.1
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };
     }
@@ -131,6 +133,52 @@ public sealed partial class Query
             return Players(state, to, ctx).Sum(p => state.History.DamageReceivedByPlayer.GetValueOrDefault(p));
         return state.History.DamageDealtBy.Values.Sum();
     }
+
+    /// <summary>
+    /// The damage the event that fired this ability dealt, CR 603.10. The trigger system writes it
+    /// into the firing's choices under <see cref="Triggers.TriggerSystem.TriggeringDamageAmount"/>,
+    /// culture-invariantly, and it travels to the resolution's context from there, so reading that
+    /// key is the whole answer — nothing else in the state remembers one event's damage. A copy of
+    /// such an ability made outside a firing carries no key, and reads zero rather than refusing:
+    /// no damage was dealt to the ability, which is what the number then stands for.
+    /// </summary>
+    [RuleRef("603.10")]
+    private static int TriggeringDamageOf(EffectContext ctx) =>
+        ctx.Chosen.TryGetValue(Triggers.TriggerSystem.TriggeringDamageAmount, out var text)
+        && int.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : 0;
+
+    /// <summary>
+    /// The attackers of the current declaration aimed at a player, CR 508.1. The combat state holds
+    /// the declaration for the step, so this is read as the ability's intervening "if" is checked —
+    /// once as the trigger goes on the stack and again on resolution, CR 603.4 — and a creature
+    /// removed from combat between the two rightly makes the second reading smaller. A creature
+    /// attacking a planeswalker or battle that player controls is attacking their side of the board
+    /// (CR 506.1), so it counts while the flag stands; a departed defender is read as last-known
+    /// information (CR 608.2h), because a planeswalker that died is still what the attack was aimed
+    /// at.
+    /// </summary>
+    [RuleRef("508.1")]
+    private int AttackersAgainstPlayers(GameState state, AttackersAgainst against, EffectContext ctx)
+    {
+        if (state.Combat is not { } combat)
+            return 0;
+
+        var defenders = Players(state, against.Who, ctx);
+        return combat.Attackers.Values.Count(target =>
+            (target.Player is { } player && defenders.Contains(player))
+            || (against.IncludingPermanentsTheyControl
+                && target.Permanent is { } permanent
+                && DefendsFor(state, permanent, defenders)));
+    }
+
+    /// <summary>CR 506.1: a planeswalker or battle one of those players controls, the other thing an attack can be aimed at.</summary>
+    [RuleRef("506.1")]
+    private bool DefendsFor(GameState state, ObjectId permanent, ImmutableList<PlayerId> defenders) =>
+        Known(state, permanent) is { } known
+        && (known.Characteristics.Types & (CardType.Planeswalker | CardType.Battle)) != CardType.None
+        && defenders.Contains(known.Characteristics.Controller);
 
     /// <summary>Domain: the basic land types among lands the player controls, CR 205.3i.</summary>
     private int BasicLandTypes(GameState state, PlayerRef who, EffectContext ctx)

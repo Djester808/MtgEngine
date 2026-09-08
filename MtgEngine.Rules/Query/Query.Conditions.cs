@@ -111,17 +111,43 @@ public sealed partial class Query
         Source(state, ctx) is { } source ? Kicks(source) : 0;
 
     /// <summary>
-    /// CR 601.2b: an alternative or optional cost paid as the spell was cast is recorded by name
-    /// on its stack entry. With no keyword named the question is whether any was paid.
+    /// CR 601.2b: what was paid as the spell was cast is recorded by name on its stack entry, and
+    /// this asks whether an <em>alternative</em> cost was among it (CR 118.9). With a keyword named
+    /// the marker is that keyword's own name; with none, the question is answered by the alternative
+    /// markers by name and not by the length of the list — a kicked spell paid an additional cost
+    /// (CR 601.2b) and no alternative one, so it answers false. See seam-requests/E3n.md § 1.
     /// </summary>
-    [RuleRef("601.2b")]
+    [RuleRef("118.9")]
     private static bool Paid(GameState state, EffectContext ctx, KeywordKind? which)
     {
         var paid = Source(state, ctx)?.Stack?.OptionalCostsPaid ?? [];
         return which is { } keyword
             ? paid.Contains(keyword.ToString(), StringComparer.Ordinal)
-            : paid.Count > 0;
+            : paid.Any(IsAlternativeCostMarker);
     }
+
+    /// <summary>
+    /// How a waived mana cost is recorded on the stack entry, CR 118.9: the marker
+    /// <c>Casting.CastPlan</c> writes for a permission that lets the spell be cast without paying
+    /// its mana cost. It has no constant on that side yet, which is the one ask in
+    /// seam-requests/E5i.md; the string is spelled here so this reading cannot drift silently.
+    /// </summary>
+    [RuleRef("118.9")]
+    private const string WaivedManaCost = "free";
+
+    /// <summary>
+    /// Whether one marker on <see cref="StackEntry.OptionalCostsPaid"/> names an alternative cost,
+    /// CR 118.9. Three are written by name — the printed alternative, a waived mana cost and the
+    /// life paid instead of one — and a keyword alternative cost records the keyword's own name, so
+    /// its shape is asked of <see cref="Keywords.KeywordSemantics"/> rather than listed here: every
+    /// keyword whose cost replaces the mana cost answers this, and kicker and buyback, which are
+    /// paid on top of it, do not.
+    /// </summary>
+    [RuleRef("118.9")]
+    private static bool IsAlternativeCostMarker(string marker) =>
+        marker is Casting.CastPlan.PaidPrintedAlternativeCost or Casting.CastPlan.PaidLifeForManaValue or WaivedManaCost
+        || (Enum.TryParse<KeywordKind>(marker, out var keyword)
+            && Keywords.KeywordSemantics.Of(keyword).Cost == Keywords.CostShape.Alternative);
 
     /// <summary>Where this spell was cast from, CR 400.7: the stack entry, or the turn's record of the cast if it has left the stack.</summary>
     private static Cards.Zone? CastFrom(GameState state, EffectContext ctx)
