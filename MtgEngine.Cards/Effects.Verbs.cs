@@ -325,6 +325,19 @@ public sealed record RemoveFromCombat(Selector What) : Effect;
 [RuleRef("614.1c")]
 public sealed record EntersTapped : Effect;
 
+/// <summary>
+/// Inside a replacement: "this creature enters prepared", CR 722.3a with 614.1c — the permanent
+/// gains the prepared designation as it enters, and its prepare spell is copied into exile for its
+/// controller to cast (CR 722.3c).
+/// <para>
+/// It is a designation and not a counter, a status or an ability, so it is never an
+/// <c>EntersWithCounters</c> and never a granted ability. Only a permanent with a prepare spell can
+/// have it, so it belongs on a preparation card's own enters replacement and nowhere else (L049).
+/// </para>
+/// </summary>
+[RuleRef("722.3a")]
+public sealed record EntersPrepared : Effect;
+
 /// <summary>Inside a replacement: the entering object enters with counters.</summary>
 [RuleRef("614.1c")]
 public sealed record EntersWithCounters(string Counter, Amount N) : Effect;

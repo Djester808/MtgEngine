@@ -65,6 +65,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(Remember), nameof(Remember))]
 [JsonDerivedType(typeof(Store), nameof(Store))]
 [JsonDerivedType(typeof(EntersTapped), nameof(EntersTapped))]
+[JsonDerivedType(typeof(EntersPrepared), nameof(EntersPrepared))]
 [JsonDerivedType(typeof(EntersWithCounters), nameof(EntersWithCounters))]
 [JsonDerivedType(typeof(EntersAs), nameof(EntersAs))]
 [JsonDerivedType(typeof(ReplaceWith), nameof(ReplaceWith))]
@@ -241,8 +242,19 @@ public sealed record ForEachPlayer(PlayerRef Over, Effect Do) : Effect;
 /// <summary>"Repeat this process N times."</summary>
 public sealed record Repeat(Amount Times, Effect Do) : Effect;
 
-/// <summary>"Choose a color", "choose a creature type", "choose a number": the choice is stored under a key.</summary>
-public sealed record ChooseValue(ChooseWhat What, string Key, PlayerRef? Who = null, IReadOnlyList<string>? Options = null) : Effect;
+/// <summary>
+/// "Choose a color", "choose a creature type", "choose a number": the choice is stored under a key.
+/// <paramref name="OfType"/> narrows a named card to one card type — "choose a land card name" is
+/// CardName with OfType Land (CR 201.2 with 205.2a), and the name must be of a card of that type.
+/// <para>
+/// It is read only beside CardName, because no other choice has a card type to narrow (L049); a
+/// plain "choose a card name" leaves it out. It is not an <see cref="Options"/> list, which is a
+/// closed set of words the card prints, and not a ChooseWhat.CardType, which names the type itself
+/// rather than a card of it.
+/// </para>
+/// </summary>
+[RuleRef("201.2")]
+public sealed record ChooseValue(ChooseWhat What, string Key, PlayerRef? Who = null, IReadOnlyList<string>? Options = null, CardType? OfType = null) : Effect;
 
 /// <summary>
 /// "Each player secretly chooses a number, then those numbers are revealed", CR 700.2 with 101.4:

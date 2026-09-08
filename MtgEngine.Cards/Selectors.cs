@@ -42,9 +42,16 @@ public sealed record Self : Selector;
 /// chosen and difference of a characteristic they have are two different sentences, and this field
 /// says only the first.
 /// </para>
+/// <para>
+/// <paramref name="Min"/> is the low end of a printed range — "one or two target creatures" is Min
+/// one with <paramref name="Count"/> two (CR 601.2c). The caster announces how many targets before
+/// choosing them and that number is then fixed, so a range is one Target and never two. It is not
+/// <paramref name="UpTo"/>, whose low end is zero and which is refused beside it (L049), and Min
+/// above Count is a range with nothing in it.
+/// </para>
 /// </summary>
 [RuleRef("115")]
-public sealed record Target(ObjectFilter Filter, Amount? Count = null, bool UpTo = false, string? Key = null, bool Distinct = true) : Selector;
+public sealed record Target(ObjectFilter Filter, Amount? Count = null, bool UpTo = false, string? Key = null, bool Distinct = true, Amount? Min = null) : Selector;
 
 /// <summary>
 /// "Any target", CR 115.4: exactly one target chosen from among every creature, player,
