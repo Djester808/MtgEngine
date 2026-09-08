@@ -51,6 +51,14 @@ public sealed partial class EffectInterpreter
             case Cards.Fight fight:
                 return Fought(run, fight);
 
+            // CR 701.47a: an Army to add to, created if there is none, then the +1/+1 counters.
+            case Amass amass:
+                return Amassing(run, amass);
+
+            // CR 700.2 with 101.4: each player chooses a number and none of them sees another's.
+            case ChooseNumberSecretly secret:
+                return ChoosingSecretly(run, secret);
+
             // CR 701.55a: the named player chooses one of the two, then it happens.
             case Cards.VillainousChoice villainous:
                 return Villainous(run, villainous);
