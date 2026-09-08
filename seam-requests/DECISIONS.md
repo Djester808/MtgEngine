@@ -341,3 +341,15 @@ wave 19 (P20 V11 E9p E0i) and wave 20 (E1d E3m R1). From wave 19 every builder r
 | R1 (20) | regenerate the schema snapshots; nothing grants a basic land type its intrinsic mana ability (CR 305.6) | **Now**: snapshots regenerated. **E0j (wave 21)**: the intrinsic ability. |
 | translators (slice 001) | nine vocabulary gaps | **V11** closed all nine; the readers follow. |
 | coordinator | verify, agreement and gate on the wave-20 tip | **210 verified, 3 failed, 7 without a scenario, 0 unsupported, 0 crashed** over the 232 files (`b84f673`); the pilot agrees **103 of 109**, slice 001 **34 of 40**; gate green: 931 engine, 224 vocabulary, 257 pipeline and 633 API tests. The three failures are wave 21's: a zone-change source the event cannot name (E6f), the generator reading `Search.Instead` and the shuffled-self spell (P21). |
+
+# Seam decisions after wave 21
+
+Wave 21 (E0j E6f P21, all on opus) ran beside the second corpus slice (40 deck faces on opus and
+sonnet, a third reading of its disputed on a fresh opus context under the label `claude-opus-5-b`).
+
+| From | Request | Decision |
+|---|---|---|
+| E0j | generate the basic-land-type-to-mana pairing beside `LandTypes.Basic`; CR 305.7's ability loss when a land's subtype is set; one public reading of CR 605.1a | **Recorded**: the table lives in a method guarded by a test over the generated set; the loss and the shared reading wait for a card that needs them. |
+| E6f | `StackZone.MoveSpellToStack` and `Game.Manual`'s move pass `Departed` so a cast from a graveyard records the zone it left | **Now** (coordinator): both sites; Syr Konrad verifies 2/2. `events.txt` lists type names only, so `ObjectMoved`'s added `FromZone` (defaulted, `LeftFrom` derived and not logged) changed no line; the round-trip test is the contract. |
+| P21 | none; P19's three withheld reveal-then-choose arms were never committed (SmokeBoard.Reveals and SmokeFillers.Unfindable are present and unused); a targeted filler spell would now unblock two cards | **Recorded** for P22: rewrite the arms; decide the targeted filler. |
+| coordinator | verify, agreement and gate on the wave-21 tip | **231 verified, 1 failed, 7 without a scenario, 0 unsupported, 0 crashed** over the 272 card files (`17758f9`); slice 002 agrees 19 of 40 on two readings (its third reading is being collected); gate green: 945 engine, 224 vocabulary, 262 pipeline and 633 API tests. The one failure is a bounce land whose enters-trigger returns itself (P22: the choice the runner takes, CR 603.3). |
