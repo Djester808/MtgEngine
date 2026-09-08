@@ -132,8 +132,10 @@ public sealed class ScenarioStageTestsWave19
         // graveyard alone, and a spell that resolves reaches that same graveyard (CR 608.2m), so
         // this card passed either way. Recorded rather than asserted green: seam-requests/P25.md
         // § 2 owns the ask, and this line flips back to <see cref="Passes"/> when it lands.
-        var played = Plays(scenario, file);
-        Assert.Contains(played.Results, r => !r.Passed && r.Expectation is Life { Player: SmokeScenario.Opponent });
+        // Wave 27 (E3p with the coordinator's join): an unless pays through the casting system or is
+        // not asked at all, so the opponent whose pool is empty does not pay, the counter happens,
+        // and the bolt never takes their life.
+        Passes(scenario, file);
     }
 
     private static void Passes(Scenario scenario, CardFile file)

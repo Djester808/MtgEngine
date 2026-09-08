@@ -191,7 +191,12 @@ public static class VerifyCommand
         var abilities = file.Definition.Faces.SelectMany(f => f.AbilityList).ToList();
         var onAbilities = abilities.Sum(a => SmokeScenario.Markers(a).Count);
         var anyExpressible = abilities.Any(a => SmokeScenario.Markers(a).Count == 0);
-        return onAbilities == markers.Count && anyExpressible ? null : markers[0].Reason;
+        if (onAbilities == markers.Count && anyExpressible)
+            return null;
+
+        // The reason is the first ability's marker in printed order; the walk keeps no order of its own.
+        var first = abilities.Select(a => SmokeScenario.Markers(a)).FirstOrDefault(m => m.Count > 0);
+        return (first is null ? markers[0] : first[0]).Reason;
     }
 
     /// <summary>
