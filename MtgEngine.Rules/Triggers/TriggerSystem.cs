@@ -271,6 +271,26 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     public const string TriggeringDamageAmount = "triggering-damage";
 
     /// <summary>
+    /// The key the life *gained* by the firing event is carried under, CR 603.10: "whenever you gain
+    /// life, each opponent loses that much life" reads the event's own amount, decimal and
+    /// culture-invariant, exactly as <see cref="TriggeringDamageAmount"/> does — the life total the
+    /// board shows at resolution has moved on and is not the answer. The reader is the
+    /// <c>TriggeringLifeGained</c> amount, which parses this key out of the resolution's context.
+    /// </summary>
+    [RuleRef("603.10")]
+    public const string TriggeringLifeGainedAmount = "triggering-life-gained";
+
+    /// <summary>
+    /// The key the life *lost* by the firing event is carried under, CR 603.10, read the same way as
+    /// <see cref="TriggeringLifeGainedAmount"/> and stored as a positive magnitude. It is a second
+    /// key and not a sign on the first: life lost is not damage and is not negative life gain — a
+    /// payment, an edict and a burn spell all lose life — so a life-gain trigger can never read a
+    /// loss by flipping anything, which is what the vocabulary's L039 pairing check exists to keep.
+    /// </summary>
+    [RuleRef("603.10")]
+    public const string TriggeringLifeLostAmount = "triggering-life-lost";
+
+    /// <summary>
     /// CR 603.3b: the active player's triggers go on the stack first, then each other player's in
     /// turn order. Within one player the order is that player's to choose, so the collection order
     /// stands and a choice is raised when there is actually something to decide.
