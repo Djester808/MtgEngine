@@ -47,6 +47,12 @@ public sealed partial class LayerSystem : ICharacteristics
         // Layer 3, CR 613.1c: text-changing effects are wave 3's; ChangeText is read by nothing here.
         Layer4Types(draft, effects);
         Layer5Colors(draft, effects);
+
+        // CR 305.6 and 305.7: the mana ability of a basic land type is read off the subtypes
+        // layer 4 settled, not off the printed face, and the object carries it into layer 6 the
+        // way it carries a printed one (see Layers.Intrinsic.cs).
+        IntrinsicManaAbilities(draft);
+
         Layer6Abilities(obj, draft, effects);
         Layer7PowerAndToughness(state, obj, draft, effects);
 
