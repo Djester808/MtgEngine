@@ -14,11 +14,38 @@ public sealed record Behold(ObjectFilter Quality, string RememberAs, PlayerRef? 
 [RuleRef("701.6")]
 public sealed record Counter(Selector What, Zone? PutInto = null) : Effect;
 
+/// <summary>
+/// "Create a 1/1 white Soldier creature token", CR 701.7. <paramref name="AttackingWhom"/> is the
+/// half <paramref name="Attacking"/> alone cannot say: a token put onto the battlefield attacking
+/// is attacking a defending player, a planeswalker that player controls or a battle they protect,
+/// and its controller chooses which as it enters (CR 508.4). "Create a token attacking that player
+/// or a planeswalker they control" names the player, and the planeswalker is that player's side of
+/// the board, so one PlayerRef carries the whole phrase.
+/// <para>
+/// Leave it null for the plain "create a token attacking", where the defending player is the one
+/// the combat already has. Setting it without <paramref name="Attacking"/> is a contradiction the
+/// linter refuses (L040): a token that is not attacking is attacking nobody, and a token created
+/// outside a combat cannot attack at all.
+/// </para>
+/// </summary>
 [RuleRef("701.7")]
-public sealed record CreateToken(TokenSpec Token, Amount? N = null, PlayerRef? Who = null, bool Tapped = false, bool Attacking = false, Selector? CopyOf = null, string? RememberAs = null) : Effect;
+public sealed record CreateToken(TokenSpec Token, Amount? N = null, PlayerRef? Who = null, bool Tapped = false, bool Attacking = false, Selector? CopyOf = null, string? RememberAs = null, PlayerRef? AttackingWhom = null) : Effect;
 
+/// <summary>
+/// "Destroy target creature", CR 701.8. <paramref name="RememberAs"/> is the key the other actions
+/// carry: "destroy all creatures. For each creature destroyed this way, its controller creates a
+/// Treasure token" sets the objects this destruction actually destroyed aside under a key, and the
+/// later step counts or names them with Remembered.
+/// <para>
+/// The key holds what was destroyed and not what was chosen: a creature the destruction did not
+/// destroy — regenerated, indestructible, already gone — is not in it, which is the whole reason
+/// the printed phrase says "destroyed this way" rather than "each creature". A CountOf over the
+/// filter reads the board instead and would count survivors, so a card that says "this way" and
+/// spells it as a board count is a card that plays wrongly with no sign of it.
+/// </para>
+/// </summary>
 [RuleRef("701.8")]
-public sealed record Destroy(Selector What, bool CantBeRegenerated = false) : Effect;
+public sealed record Destroy(Selector What, bool CantBeRegenerated = false, string? RememberAs = null) : Effect;
 
 [RuleRef("701.9")]
 public sealed record Discard(Amount? N = null, PlayerRef? Who = null, ObjectFilter? What = null, DiscardChooser By = DiscardChooser.Owner, bool WholeHand = false, string? RememberAs = null) : Effect;

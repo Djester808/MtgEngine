@@ -226,6 +226,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(IsGoaded), nameof(IsGoaded))]
 [JsonDerivedType(typeof(IsRingBearer), nameof(IsRingBearer))]
 [JsonDerivedType(typeof(IsHarnessed), nameof(IsHarnessed))]
+[JsonDerivedType(typeof(IsModified), nameof(IsModified))]
 [JsonDerivedType(typeof(IsPrepared), nameof(IsPrepared))]
 [JsonDerivedType(typeof(IsTransformed), nameof(IsTransformed))]
 [JsonDerivedType(typeof(IsCopy), nameof(IsCopy))]
@@ -382,6 +383,23 @@ public sealed record IsRingBearer : Predicate;
 
 [RuleRef("701.64")]
 public sealed record IsHarnessed : Predicate;
+
+/// <summary>
+/// "modified creatures you control", "if it's modified", CR 700.9: a permanent is modified if it
+/// has one or more counters on it (CR 122), if it is equipped (CR 301.5), or if it is enchanted by
+/// an Aura **its own controller controls** (CR 303.4). Any one of the three is enough, and the
+/// third is the half a reading loses: an opponent's Aura on your creature does not modify it.
+/// <para>
+/// It is one predicate and not three ORed conditions, because the rulebook gives the word one
+/// definition and a card that prints it means all of it: <c>WithCounter</c> alone misses the
+/// Equipment and the Aura, and an <see cref="IsAttached"/> reading asks whether this permanent is
+/// attached to something rather than whether something is attached to it. A counter of any kind
+/// counts, so this is never <c>WithCounter</c> with a kind. It describes a permanent on the
+/// battlefield; a card in a graveyard is modified by nothing.
+/// </para>
+/// </summary>
+[RuleRef("700.9")]
+public sealed record IsModified : Predicate;
 
 /// <summary>
 /// Carries the Prepared designation, CR 702.180: "prepared creatures you control", "if it's
