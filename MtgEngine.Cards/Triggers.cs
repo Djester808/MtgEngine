@@ -274,10 +274,10 @@ public sealed record Voted(PlayerRef By) : Trigger;
 [RuleRef("701.54")]
 public sealed record RingTempted(PlayerRef Who) : Trigger;
 
-[RuleRef("724")]
+[RuleRef("725.1")]
 public sealed record BecomesMonarch(PlayerRef Who) : Trigger;
 
-[RuleRef("725")]
+[RuleRef("726.1")]
 public sealed record TakesInitiative(PlayerRef Who) : Trigger;
 
 [RuleRef("702.26")]

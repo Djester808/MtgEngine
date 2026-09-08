@@ -67,12 +67,12 @@ public sealed partial class EffectInterpreter
             case ChangeTarget change:
                 return Retargeted(run, change);
 
-            // CR 724.1: the monarch is a designation the game keeps, not one an object carries, so
+            // CR 725.1: the monarch is a designation the game keeps, not one an object carries, so
             // it is not an ObjectDesignated and there is no event for it — GameState.Monarch has
             // nothing that writes it, and a designation the log cannot carry would be lost on the
             // first replay. Refused by rule until the seam lands rather than silently doing nothing,
             // which would leave a court's card looking as though it worked.
-            // CR 724.1: the named player becomes the monarch, and the designation leaves whoever held it.
+            // CR 725.3: the named player becomes the monarch, and the designation leaves whoever held it.
             case BecomeMonarch monarch:
                 return Emit(run, new MonarchChanged(FirstPlayer(run, monarch.Who)));
 

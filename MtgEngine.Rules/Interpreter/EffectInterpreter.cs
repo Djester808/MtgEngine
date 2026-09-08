@@ -298,7 +298,8 @@ public sealed partial class EffectInterpreter(
         ImmutableList<ChoiceOption> options,
         int min,
         int max,
-        string? storeAs = null)
+        string? storeAs = null,
+        Func<ChoiceContext, ChoiceContext>? shape = null)
     {
         var extra = run.Marks ?? ImmutableDictionary<string, string>.Empty;
         if (storeAs is not null)
@@ -332,9 +333,13 @@ public sealed partial class EffectInterpreter(
             options,
             min,
             max,
-            new ChoiceContext(run.Context.Source, run.AbilityIndex, run.Path, extra));
+            Shaped(new ChoiceContext(run.Context.Source, run.AbilityIndex, run.Path, extra), shape));
         return Emit(run, new ChoiceRequested(choice)) with { Halted = true };
     }
+
+    /// <summary>A question's context as the asking arm shapes it — the numeric channel, CR 601.2b, is the one shape so far.</summary>
+    private static ChoiceContext Shaped(ChoiceContext context, Func<ChoiceContext, ChoiceContext>? shape) =>
+        shape is null ? context : shape(context);
 
     /// <summary>
     /// The objects a selector names now. A <see cref="Choose"/> was asked before its node ran (CR

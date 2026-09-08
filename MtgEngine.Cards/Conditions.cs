@@ -158,10 +158,10 @@ public sealed record CastFromZone(Zone From) : Condition;
 
 public sealed record PaidAlternativeCost(KeywordKind? Which = null) : Condition;
 
-[RuleRef("724")]
+[RuleRef("725.1")]
 public sealed record YouAreMonarch : Condition;
 
-[RuleRef("725")]
+[RuleRef("726.1")]
 public sealed record YouHaveInitiative : Condition;
 
 /// <summary>An earlier choice had a given value: "if the chosen color is red".</summary>

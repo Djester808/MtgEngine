@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 using CardZone = MtgEngine.Cards.Zone;
@@ -191,8 +192,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     /// </summary>
     [RuleRef("101.4")]
     private static PendingChoice? Redact(PendingChoice? pending, PlayerId viewer) =>
+        // CR 101.4b: a player sees their own question, less the secrets it carries (E4h ask 1).
         pending is null || pending.Player == viewer
-            ? pending
+            ? ChoiceSecrets.Withheld(pending)
             : new PendingChoice(
                 pending.Id,
                 pending.Player,

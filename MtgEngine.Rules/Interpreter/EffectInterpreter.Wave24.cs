@@ -200,19 +200,15 @@ public sealed partial class EffectInterpreter
             if (run.Context.Chosen.ContainsKey(key))
                 continue;
 
-            // CR 101.4: every answer is one of the options the question carried, so an unbounded
-            // number is a question nothing could answer. The free-form numeric answer that closes
-            // this is asked for in seam-requests/E9s.md; until it exists this is refused by name.
+            // CR 601.2b: a number with no printed ceiling, or too many to list, is announced through
+            // the numeric channel — the question carries no options and its range instead
+            // (seam-requests/E4h.md ask 2); a short printed range is still offered as options.
             if (choice.Max is null)
-                throw new RefusedException(
-                    "a secret choice of any number is not built: a question is answered from the options it carries, and an unbounded number has none",
-                    "700.2");
+                return Ask(run, player, ChoiceKinds.Value, "Choose a number, in secret.", [], 1, 1, key, context => ChoiceNumbers.Ranged(context, min, null));
 
             var max = Math.Max(min, Number(run, choice.Max, min));
             if (max - min >= SecretNumberSpan)
-                throw new RefusedException(
-                    "a secret choice over that many numbers is not built: the question would carry an option for each of them",
-                    "101.4");
+                return Ask(run, player, ChoiceKinds.Value, "Choose a number, in secret.", [], 1, 1, key, context => ChoiceNumbers.Ranged(context, min, max));
 
             return Ask(run, player, ChoiceKinds.Value, "Choose a number, in secret.", NumberOptions(min, max), 1, 1, key);
         }

@@ -83,8 +83,8 @@ public sealed partial class Query
 
             CityBlessing blessing => Players(state, blessing.Who, context) is { Count: > 0 } who
                 && who.All(p => state.Player(p).Designations.Contains(Designations.CityBlessing)), // CR 702.131a
-            YouAreMonarch => state.Monarch == context.Controller, // CR 724.2
-            YouHaveInitiative => state.Initiative == context.Controller, // CR 725.2
+            YouAreMonarch => state.Monarch == context.Controller, // CR 725.1
+            YouHaveInitiative => state.Initiative == context.Controller, // CR 726.1
 
             FirstTimeThisTurn => FirstResolutionThisTurn(state, context), // CR 603.4
             _ => throw Unanswerable(condition.GetType().Name, "no arm in the query layer"),

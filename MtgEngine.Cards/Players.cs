@@ -76,7 +76,7 @@ public sealed record ChosenPlayer(string Key) : PlayerRef;
 
 public sealed record RememberedPlayer(string Key) : PlayerRef;
 
-[RuleRef("724")]
+[RuleRef("725.1")]
 public sealed record Monarch : PlayerRef;
 
 /// <summary>

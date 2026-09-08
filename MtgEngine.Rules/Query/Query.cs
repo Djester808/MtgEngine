@@ -17,8 +17,13 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
 
     public string Name => "query layer";
 
-    /// <summary>A filter with no zone describes the battlefield, where permanents are, CR 110.1.</summary>
-    private static Cards.Zone ZoneOf(ObjectFilter filter) => filter.In ?? Cards.Zone.Battlefield;
+    /// <summary>
+    /// A filter with no zone describes the battlefield, where permanents are, CR 110.1 — unless it
+    /// asks for a spell, which is on the stack by definition, CR 112.1 (seam-requests/E9t.md).
+    /// </summary>
+    [RuleRef("112.1")]
+    private static Cards.Zone ZoneOf(ObjectFilter filter) =>
+        filter.In ?? (filter.Spell == true ? Cards.Zone.Stack : Cards.Zone.Battlefield);
 
     public bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context)
     {

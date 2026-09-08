@@ -284,10 +284,10 @@ public sealed record RollDie(int Sides, string StoreAs, PlayerRef? Who = null, A
 [RuleRef("705")]
 public sealed record FlipCoin(string StoreAs, PlayerRef? Who = null, bool CallIt = true) : Effect;
 
-[RuleRef("724")]
+[RuleRef("725.1")]
 public sealed record BecomeMonarch(PlayerRef? Who = null) : Effect;
 
-[RuleRef("725")]
+[RuleRef("726.1")]
 public sealed record TakeInitiative(PlayerRef? Who = null) : Effect;
 
 /// <summary>

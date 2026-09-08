@@ -17,7 +17,7 @@ public sealed partial class InterpreterTests
     /// </summary>
     private static Effect KeyedRetargetAndPay(string key) => new Sequence(
     [
-        new ChangeTarget(new Target(new ObjectFilter(In: Zone.Stack, Spell: true), Key: key)),
+        new ChangeTarget(new Target(new ObjectFilter(Spell: true), Key: key)),
         new LoseLife(new ManaValueOf(new Remembered(key))),
     ]);
 
@@ -76,7 +76,7 @@ public sealed partial class InterpreterTests
         var bolt = KeyedRetargetBolt(table, creature);
         var negate = table.OnStack(
             table.A,
-            new Cards.Counter(new Target(new ObjectFilter(In: Zone.Stack, Spell: true))),
+            new Cards.Counter(new Target(new ObjectFilter(Spell: true))),
             new StackEntry(null, null, [bolt], [], [], null, false));
 
         table.Resolve(negate);

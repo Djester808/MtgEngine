@@ -157,7 +157,7 @@ public sealed partial class Query
             PlayerWithMostOf most => Extreme(state, most, context),
             PlayerWhoChose chose => WhoChose(state, chose, context), // CR 700.2
 
-            // CR 724.2: there is at most one monarch, and the state keeps who it is.
+            // CR 725.3: there is at most one monarch, and the state keeps who it is.
             Cards.Monarch => state.Monarch is { } monarch ? [monarch] : [],
 
             // CR 608.2h: an effect determines its information once, so a step that named a player

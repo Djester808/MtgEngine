@@ -88,7 +88,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         },
         "seed": {
@@ -571,7 +572,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         },
         "turn": {
@@ -853,6 +855,17 @@
             }
           ],
           "description": "As ManaColors: the colour chosen for each \u0022add one mana of any color\u0022 the ability adds, one letter per mana in the order added, CR 608.2d. Null chooses nothing, which is right for a land that prints its colour and refused for one that does not."
+        },
+        "abilityIndex": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which mana ability, counted from zero over the permanent\u0027s mana abilities alone and not over every ability it has: a permanent that prints two of them, or one whose mana ability carries a rider the scenario means to see, is tapped for the one the scenario names (CR 605.3). Null names the first, so a step written without it means what it meant before this parameter existed. Abilities that are not mana abilities are not counted, so an activated ability between two mana abilities does not move the number, and neither does an ability an effect grants the permanent."
         }
       },
       "additionalProperties": false,
@@ -861,7 +874,7 @@
         "player",
         "card"
       ],
-      "description": "A permanent is tapped for mana: the runner activates its first mana ability (CR 605.1a), which resolves as it is activated and never uses the stack (CR 605.3a), so the permanent taps and the mana it makes lands in a pool (CR 106.4). AddManaStep puts mana in a pool without anything having been tapped for it, so a \u0022whenever ... is tapped for mana\u0022 trigger never sees it; this step is what such a card\u0027s scenario says instead."
+      "description": "A permanent is tapped for mana: the runner activates a mana ability of it (CR 605.1a), which resolves as it is activated and never uses the stack (CR 605.3b), so the permanent taps and the mana it makes lands in a pool (CR 106.4). AddManaStep puts mana in a pool without anything having been tapped for it, so a \u0022whenever ... is tapped for mana\u0022 trigger never sees it; this step is what such a card\u0027s scenario says instead."
     },
     "AttachedToIs": {
       "type": "object",

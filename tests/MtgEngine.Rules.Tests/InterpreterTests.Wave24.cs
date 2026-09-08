@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Interpreter;
@@ -183,17 +184,19 @@ public sealed partial class InterpreterTests
     }
 
     [Fact]
-    [RuleRef("700.2")]
-    public void A_secret_choice_with_no_printed_maximum_is_refused_by_name()
+    [RuleRef("601.2b")]
+    public void A_secret_choice_with_no_printed_maximum_is_asked_through_the_numeric_channel()
     {
-        // CR 101.4: every answer is one of the options the question carried, so "a number 0 or
-        // greater" is a question nothing could answer. seam-requests/E9s.md asks for the free-form
-        // numeric answer that closes it; until then the shape is refused and never thrown through.
+        // CR 601.2b with 101.4: "a number 0 or greater" has no option list to answer from, so the
+        // question carries its range instead and the answer is checked against it (E4h ask 2).
         var table = new InterpreterTable();
-        var refused = Assert.Throws<RefusedException>(
-            () => table.Run(new ChooseNumberSecretly("wheel", new EachPlayer())));
+        table.Resolve(table.OnStack(table.A, new ChooseNumberSecretly("wheel", new EachPlayer())));
 
-        Assert.Equal("700.2", refused.Rule);
+        Assert.Empty(table.Pending.Options);
+        Assert.Equal(new NumberRange(0, null), ChoiceNumbers.RangeOf(table.Pending));
+        table.Answer("1000000");
+        Assert.Equal(table.B, table.Pending.Player);
+        table.Answer("3");
         Assert.Null(table.State.Pending);
     }
 

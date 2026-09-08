@@ -216,8 +216,8 @@ public sealed record CountersChanged(ObjectId Id, string Kind, int Delta) : Game
 }
 
 [RuleRef("119")]
-/// <summary>CR 724.1: a player becomes the monarch; there is only ever one, so the designation moves to them.</summary>
-[RuleRef("724.1")]
+/// <summary>CR 725.1: a player becomes the monarch; there is only ever one, so the designation moves to them.</summary>
+[RuleRef("725.1")]
 public sealed record MonarchChanged(PlayerId Player) : GameEvent
 {
     public override GameState Apply(GameState state) => state with { Monarch = Player };

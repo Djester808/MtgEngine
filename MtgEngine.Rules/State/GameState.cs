@@ -41,10 +41,10 @@ public sealed record GameState
     /// <summary>The format the game was created in, so a variant rule such as CR 903.10a can ask.</summary>
     public string Format { get; init; } = "commander";
 
-    [RuleRef("724")]
+    [RuleRef("725.1")]
     public PlayerId? Monarch { get; init; }
 
-    [RuleRef("725")]
+    [RuleRef("726.1")]
     public PlayerId? Initiative { get; init; }
 
     /// <summary>What happened this turn, for the conditions that ask; reset when a turn begins.</summary>

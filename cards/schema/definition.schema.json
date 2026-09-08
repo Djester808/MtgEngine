@@ -2588,7 +2588,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         }
       },
@@ -3106,7 +3107,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 724"
+      "description": "CR 725.1"
     },
     "YouHaveInitiative": {
       "type": "object",
@@ -3119,7 +3120,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 725"
+      "description": "CR 726.1"
     },
     "Effect": {
       "anyOf": [
@@ -3616,6 +3617,12 @@
         },
         {
           "$ref": "#/$defs/TriggeringDamage"
+        },
+        {
+          "$ref": "#/$defs/TriggeringLifeGained"
+        },
+        {
+          "$ref": "#/$defs/TriggeringLifeLost"
         },
         {
           "$ref": "#/$defs/TurnNumber"
@@ -4665,6 +4672,9 @@
           "$ref": "#/$defs/MayBeginGameOnBattlefield"
         },
         {
+          "$ref": "#/$defs/MayCastAsThoughFlash"
+        },
+        {
           "$ref": "#/$defs/MayLookAtTopCard"
         },
         {
@@ -4790,6 +4800,9 @@
       "anyOf": [
         {
           "$ref": "#/$defs/ActivePlayer"
+        },
+        {
+          "$ref": "#/$defs/AnOpponent"
         },
         {
           "$ref": "#/$defs/AttachedPlayer"
@@ -5327,7 +5340,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 724"
+      "description": "CR 725.1"
     },
     "Behold": {
       "type": "object",
@@ -5941,6 +5954,16 @@
               "type": "null"
             }
           ]
+        },
+        "attackingWhom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -5948,7 +5971,7 @@
         "kind",
         "token"
       ],
-      "description": "CR 701.7"
+      "description": "\u0022Create a 1/1 white Soldier creature token\u0022, CR 701.7. AttackingWhom is the half Attacking alone cannot say: a token put onto the battlefield attacking is attacking a defending player, a planeswalker that player controls or a battle they protect, and its controller chooses which as it enters (CR 508.4). \u0022Create a token attacking that player or a planeswalker they control\u0022 names the player, and the planeswalker is that player\u0027s side of the board, so one PlayerRef carries the whole phrase. Leave it null for the plain \u0022create a token attacking\u0022, where the defending player is the one the combat already has. Setting it without Attacking is a contradiction the linter refuses (L040): a token that is not attacking is attacking nobody, and a token created outside a combat cannot attack at all."
     },
     "DealDamage": {
       "type": "object",
@@ -6096,6 +6119,16 @@
         },
         "cantBeRegenerated": {
           "type": "boolean"
+        },
+        "rememberAs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -6103,7 +6136,7 @@
         "kind",
         "what"
       ],
-      "description": "CR 701.8"
+      "description": "\u0022Destroy target creature\u0022, CR 701.8. RememberAs is the key the other actions carry: \u0022destroy all creatures. For each creature destroyed this way, its controller creates a Treasure token\u0022 sets the objects this destruction actually destroyed aside under a key, and the later step counts or names them with Remembered. The key holds what was destroyed and not what was chosen: a creature the destruction did not destroy \u2014 regenerated, indestructible, already gone \u2014 is not in it, which is the whole reason the printed phrase says \u0022destroyed this way\u0022 rather than \u0022each creature\u0022. A CountOf over the filter reads the board instead and would count survivors, so a card that says \u0022this way\u0022 and spells it as a board count is a card that plays wrongly with no sign of it."
     },
     "Detain": {
       "type": "object",
@@ -8681,7 +8714,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 725"
+      "description": "CR 726.1"
     },
     "Tap": {
       "type": "object",
@@ -9749,6 +9782,32 @@
       ],
       "description": "\u0022that much damage\u0022, \u0022draw that many cards\u0022: how much damage the event that triggered this ability dealt, CR 603.10 \u2014 the trigger\u0027s own information, read as the ability resolves and not recomputed from the board. It is the amount half of every damage trigger, whether the ability is printed or was created as a DelayedTrigger this turn. It is not DamageDealtThisTurn, which totals a turn\u0027s damage and would count an earlier hit as well, and it is not a Stored key: no step of this card dealt the damage, so nothing on the card could have stored it. The ability it appears in must trigger on damage \u2014 DealsDamage, IsDealtDamage or PlayerIsDealtDamage, its own or its delayed trigger\u0027s \u2014 or there is no event to read and the amount is a lost sentence (L028)."
     },
+    "TriggeringLifeGained": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TriggeringLifeGained"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022you gain that much life\u0022: the life the event that triggered this ability gained, CR 603.10 \u2014 the amount half of a life-gain trigger, fixed at the moment the ability triggered and not recomputed when it resolves, exactly as TriggeringDamage is for damage. It is not LifeOf, which reads a player\u0027s total, and it is not a Stored key: no step of this card gained the life, so nothing on the card could have stored it. The ability it appears in must trigger on life being gained \u2014 GainsLife, its own or its delayed trigger\u0027s \u2014 or there is no event to read and the amount is a lost sentence (L039). A trigger that watches life being lost reads TriggeringLifeLost: the two are separate events, and one written for the other reads nothing."
+    },
+    "TriggeringLifeLost": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TriggeringLifeLost"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022that much life\u0022 on a life-loss trigger, CR 603.10: the life the triggering event lost, the mirror of TriggeringLifeGained and read the same way. Life lost is not damage \u2014 a payment, an edict and a Lava Spike all lose life and only one is damage \u2014 so this is not TriggeringDamage, and the ability must trigger on LosesLife (L039)."
+    },
     "TurnNumber": {
       "type": "object",
       "properties": {
@@ -9829,6 +9888,9 @@
         },
         {
           "$ref": "#/$defs/IsHarnessed"
+        },
+        {
+          "$ref": "#/$defs/IsModified"
         },
         {
           "$ref": "#/$defs/IsOneOf"
@@ -10159,7 +10221,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         },
         "whose": {
@@ -10825,13 +10888,23 @@
               "type": "null"
             }
           ]
+        },
+        "unlessPays": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "required": [
         "kind"
       ],
-      "description": "CR 613"
+      "description": "\u0022Creatures can\u0027t attack you\u0022, \u0022creatures can\u0027t attack unless their controller pays {2} for each creature they control that\u0027s attacking you\u0022. Player is the player being protected and Unless the board exception (\u0022unless it\u0027s a Zombie\u0022); neither of them can carry a cost, which is why the tax is its own field. UnlessPays is the attack tax, CR 508.1h: a cost the attacking creature\u0027s controller must pay while declaring attackers, determined and locked in as the declaration is made, and the attack is simply illegal without it. A scaling tax is the cost with an Amount inside it \u2014 \u0022{2} for each creature they control that\u0027s attacking you\u0022 is a PayManaCost whose generic is Times(AttackersAgainst(You), 2) \u2014 so no per-creature field is needed and none exists. It is not a CostModifier, which raises the cost of casting a spell, and it is not MustAttack read backwards. A card prints one exception or the other, so setting both Unless and UnlessPays is a contradiction the linter refuses (L040) \u2014 two exceptions on one restriction would let an attack through by satisfying either, and no printed card says that."
     },
     "CantBeBlocked": {
       "type": "object",
@@ -11925,6 +11998,33 @@
       ],
       "description": "\u0022If this card is in your opening hand, you may begin the game with it on the battlefield\u0022: the one kind of ability that functions before the game begins, CR 103.6. The StaticAbility that carries it names Where: Zone.Hand, because the hand is the zone the ability works from and a battlefield-scoped ability would never be read (L027). OnlyIf is the printed rider some of these carry \u2014 \u0022and you\u0027re not the starting player\u0022 \u2014 read as the game is set up and never again. WithCounters is \u0022with a luck counter on it\u0022, the counters the permanent begins the game with, and IfYouDo is the cost the offer carries: \u0022if you do, exile a card from your hand\u0022. Leave each out when the card does not print it. The permission is one record and never a trigger: nothing has happened yet for a trigger to watch, there is no turn and no stack (CR 103.6), so an EntersBattlefield or AtStep reading of this line puts the card on the battlefield at a moment the rules do not offer."
     },
+    "MayCastAsThoughFlash": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "MayCastAsThoughFlash"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "what": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022You may cast green creature spells as though they had flash\u0022, CR 702.8: a timing permission granted to a player, not an ability granted to a card. Who is the player it is granted to and What describes the spells they may cast that way \u2014 the filter is read as the spell is cast, so it sees the card in whatever zone the player is casting it from. This is not GrantKeyword with Flash, which needs objects on the battlefield or in a zone a continuous effect reaches and cannot describe \u0022spells you cast\u0022 at all, and it is not MayPlayFromZone, which is a permission to cast from somewhere the player otherwise could not \u2014 the two are different halves of casting and a card that prints both prints two sentences. It grants timing only: the spell still costs what it costs, and the cast is still a cast (CR 601), so anything watching casts sees it. A land is played and not cast (CR 305.1), so a filter that admits only lands says nothing here and is refused (L042); \u0022you may play lands as though...\u0022 is an extra land drop or a play permission, never this record."
+    },
     "MayLookAtTopCard": {
       "type": "object",
       "properties": {
@@ -12494,7 +12594,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         }
       },
@@ -12998,6 +13099,19 @@
         "kind"
       ]
     },
+    "AnOpponent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "AnOpponent"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022if an opponent controls three or more creatures\u0022, \u0022as long as an opponent has no cards in hand\u0022, CR 102.2: **some** opponent, not every one of them. A condition around it is true when at least one opponent satisfies it, which is what the printed word \u0022an\u0022 says and what EachOpponent cannot say \u2014 that reading is true only when every opponent satisfies it, so in a four-player game the two readings are different cards, and in a duel they agree, which is why the wrong one survives a two-player test. It reads the game and nothing else: it names no single player, so an instruction cannot be aimed at it and nothing can be remembered about it (L041). A card that makes an opponent do something names them with ChoosePlayer or TargetPlayer, and one that makes all of them do it says EachOpponent."
+    },
     "AttachedPlayer": {
       "type": "object",
       "properties": {
@@ -13116,7 +13230,7 @@
       "required": [
         "kind"
       ],
-      "description": "CR 724"
+      "description": "CR 725.1"
     },
     "OwnerOf": {
       "type": "object",
@@ -13333,7 +13447,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         },
         "whose": {
@@ -13461,7 +13576,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 724"
+      "description": "CR 725.1"
     },
     "BecomesTapped": {
       "type": "object",
@@ -14504,7 +14619,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 725"
+      "description": "CR 726.1"
     },
     "TappedForMana": {
       "type": "object",
@@ -15364,6 +15479,19 @@
       ],
       "description": "CR 701.64"
     },
+    "IsModified": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "IsModified"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022modified creatures you control\u0022, \u0022if it\u0027s modified\u0022, CR 700.9: a permanent is modified if it has one or more counters on it (CR 122), if it is equipped (CR 301.5), or if it is enchanted by an Aura **its own controller controls** (CR 303.4). Any one of the three is enough, and the third is the half a reading loses: an opponent\u0027s Aura on your creature does not modify it. It is one predicate and not three ORed conditions, because the rulebook gives the word one definition and a card that prints it means all of it: WithCounter alone misses the Equipment and the Aura, and an IsAttached reading asks whether this permanent is attached to something rather than whether something is attached to it. A counter of any kind counts, so this is never WithCounter with a kind. It describes a permanent on the battlefield; a card in a graveyard is modified by nothing."
+    },
     "IsOneOf": {
       "type": "object",
       "properties": {
@@ -15744,7 +15872,8 @@
             "EndOfCombat",
             "PostcombatMain",
             "End",
-            "Cleanup"
+            "Cleanup",
+            "Main"
           ]
         },
         "whose": {
