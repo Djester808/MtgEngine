@@ -296,7 +296,8 @@ public sealed partial class EffectInterpreter
             run.Context.Source,
             run.Context.Controller,
             delayed.Once,
-            run.Context.Remembered)));
+            run.Context.Remembered,
+            delayed.Until)));
 
     /// <summary>
     /// The mana this source produced under that key, CR 106.6a, one entry per single mana. Empty

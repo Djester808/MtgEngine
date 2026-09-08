@@ -163,6 +163,15 @@ public sealed partial class EffectInterpreter
                     if (Answered(run) is { } found)
                         return Found(run, search, searcher, Named(run.State, found));
 
+                    // CR 701.23f: the search is the event a Searches trigger watches, once per library
+                    // and only when the search begins; the resumption above writes nothing (CR 701.23h),
+                    // and a search of a graveyard or exile is not a library search.
+                    foreach (var zone in Searched(search))
+                    {
+                        if (zone == Zone.Library)
+                            run = Emit(run, new LibrarySearched(searcher, searcher));
+                    }
+
                     // CR 701.23a: a search over several zones is one action over their union, so a
                     // single card is found across all of them. The zone being scanned is the
                     // search's to say, so a filter that named none is read in that zone.

@@ -63,7 +63,8 @@ public sealed record ObjectDrawn(PlayerId Player, ObjectId Object) : GameEvent
     public override GameState Apply(GameState state)
     {
         var p = state.Player(Player);
-        return state with { Players = state.Players.SetItem(Player.Value, p with { ObjectsDrawnThisTurn = p.ObjectsDrawnThisTurn + 1 }) };
+        // CR 121.1: both counters, the turn's and the step's (E2c ask 1).
+        return state with { Players = state.Players.SetItem(Player.Value, p.Drew()) };
     }
 }
 
@@ -99,6 +100,10 @@ public sealed record ObjectCreated(GameObject Object, int Position) : GameEvent
             var mine = history.TokensCreated.TryGetValue(Object.InitialController, out var made) ? made : [];
             history = history with { TokensCreated = history.TokensCreated.SetItem(Object.InitialController, mine.Add(Object)) };
         }
+
+        // CR 111.1: a token created on the battlefield has entered it (E2c ask 3).
+        if (Object.Zone.Zone == Zone.Battlefield)
+            history = history with { EnteredBattlefield = history.EnteredBattlefield.Add(Object.Id) };
 
         return state with
         {
@@ -252,7 +257,12 @@ public sealed record TurnBegan(int Number, PlayerId ActivePlayer, bool Extra) : 
 [RuleRef("500.1")]
 public sealed record StepBegan(Step Step) : GameEvent
 {
-    public override GameState Apply(GameState state) => state with { Turn = state.Turn with { Step = Step } };
+    // CR 500.1: what was drawn in the step that ended is not drawn in this one (E2c ask 1).
+    public override GameState Apply(GameState state) => state with
+    {
+        Turn = state.Turn with { Step = Step },
+        Players = [.. state.Players.Select(p => p.StepBegins())],
+    };
 }
 
 [RuleRef("117")]
