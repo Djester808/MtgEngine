@@ -83,7 +83,11 @@ public sealed partial class CastingSystem
 
             // CR 107.4f with 601.2h: the choice a Phyrexian symbol offers is announced with the
             // cast, on the same channel every other cost choice travels.
-            PayPhyrexianWithLife: PaysWithLife(command.CostChoices));
+            PayPhyrexianWithLife: PaysWithLife(command.CostChoices),
+
+            // CR 601.2b: the option a ChooseCost offers is announced on the same channel, so the
+            // whole cost is known before any of it is paid.
+            Choices: command.CostChoices);
         var others = CostPayment.Pay(state, costs, plan.NonMana);
         var paid = CostPayment.PaySymbols(others.State, costs, plan.Mana, "cast");
         ImmutableList<GameEvent> payments = [.. others.Events, .. paid.Outcome.Events];

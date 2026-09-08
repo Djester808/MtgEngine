@@ -302,6 +302,14 @@ internal sealed class ChosenObjects(ImmutableList<ObjectId> chosen)
     /// <summary>A command that named nothing: every cost falls back to its forced payment.</summary>
     public static ChosenObjects None => new([]);
 
+    /// <summary>
+    /// A copy standing where this one stands, CR 601.2c: a trial payment made only to learn which
+    /// of the costs a <see cref="ChooseCost"/> offers can be paid must not move the position the
+    /// real payment, and every cost after it, reads the command's objects from.
+    /// </summary>
+    [RuleRef("601.2c")]
+    public ChosenObjects Rest() => new(chosen.GetRange(taken, chosen.Count - taken));
+
     /// <summary>The next <paramref name="count"/> objects, or fewer when the command named fewer.</summary>
     public ImmutableList<ObjectId> Take(int count)
     {

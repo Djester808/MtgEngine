@@ -212,7 +212,7 @@ internal sealed partial record CastPlan
     /// first one, and a number after a colon is the index. A choice that is neither is another
     /// reader's (CR 601.2h) and is passed over; a number that is not one is refused as no offer.
     /// </summary>
-    private static bool Names(string? choice, string word, out int index)
+    internal static bool Names(string? choice, string word, out int index)
     {
         index = 0;
         if (string.IsNullOrEmpty(choice))

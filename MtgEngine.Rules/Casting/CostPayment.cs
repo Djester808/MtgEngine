@@ -22,7 +22,8 @@ internal sealed record CostContext(
     Color? PayOnlyWith = null,
     ChosenObjects? Chosen = null,
     ObjectFilter? PayOnlyFrom = null,
-    bool PayPhyrexianWithLife = false)
+    bool PayPhyrexianWithLife = false,
+    ImmutableList<string>? Choices = null)
 {
     /// <summary>
     /// The word a command's <c>CostChoices</c> carries to announce CR 107.4f's other half: every
@@ -32,6 +33,15 @@ internal sealed record CostContext(
     /// </summary>
     [RuleRef("107.4f")]
     public const string PayWithLife = "life";
+
+    /// <summary>
+    /// The word a command's <c>CostChoices</c> carries to take one of the costs a
+    /// <see cref="ChooseCost"/> offers, CR 601.2b: <c>"cost"</c> is the first option as printed and
+    /// <c>"cost:1"</c> the second. It rides the same list every other cost choice does, so the
+    /// choice is made as the spell or ability is announced and no payment is ever suspended to ask.
+    /// </summary>
+    [RuleRef("601.2b")]
+    public const string ChooseCostChoice = "cost";
 
     /// <summary>The context an <see cref="Amount"/> or an <see cref="ObjectFilter"/> on a cost is read in.</summary>
     public EffectContext Effect => CostPayment.Context(Source?.Id, Player, X);
@@ -242,12 +252,79 @@ internal static class CostPayment
             case PayLife life:
                 return LoseLife(state, context.Player, context.Query.Evaluate(state, life.Amount, context.Effect));
 
+            // CR 601.2b: "discard a card or pay 3 life" is one additional cost with a choice
+            // inside it, and the choice is made as the spell is announced — before anything is
+            // paid (CR 601.2h) — so the option is picked here and then paid like any other cost.
+            case ChooseCost choose:
+                return Pay(state, context, [Chosen(state, context, choose)]);
+
             default:
                 // CR 601.2h: an unpayable cost can't be paid. Naming the cost is how the backlog
                 // gets it: the primitive is missing, the action is not silently allowed.
                 return ObjectCosts.Pay(state, context, cost)
                     ?? throw new RefusedException($"A {cost.GetType().Name} cost cannot be paid yet.", "601.2h");
         }
+    }
+
+    /// <summary>
+    /// Which of the costs a <see cref="ChooseCost"/> offers is being paid, CR 601.2b. The command
+    /// names it on <c>CostChoices</c> (<see cref="CostContext.ChooseCostChoice"/>); a command that
+    /// names none takes the first option that can be paid, which is a real choice and so is made
+    /// the one way that is the same on every replay — the printed order.
+    /// <para>
+    /// The trial that finds it is made against a copy of the objects the command named
+    /// (<see cref="ChosenObjects.Rest"/>), so probing an option the payer will not take cannot move
+    /// the position the costs after this one read from (CR 601.2c). Its state is discarded: only
+    /// the chosen option is handed back, and the payment that follows is the only one that happens.
+    /// </para>
+    /// </summary>
+    /// <exception cref="RefusedException">
+    /// CR 601.2b when the command names an option the cost does not offer, CR 601.2h when none of
+    /// the options can be paid — partial payments are not allowed, so nothing is half taken.
+    /// </exception>
+    [RuleRef("601.2b")]
+    internal static Cost Chosen(GameState state, CostContext context, ChooseCost choose)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(choose);
+        if (choose.Options.Count == 0)
+            throw new RefusedException("That cost offers nothing to choose between.", "601.2b");
+
+        if (Named(context) is { } index)
+        {
+            return index < choose.Options.Count
+                ? choose.Options[index]
+                : throw new RefusedException("That is not one of the costs offered.", "601.2b");
+        }
+
+        foreach (var option in choose.Options)
+        {
+            try
+            {
+                _ = Pay(state, context with { Chosen = context.Named.Rest() }, [option]);
+            }
+            catch (RefusedException)
+            {
+                continue;
+            }
+
+            return option;
+        }
+
+        throw new RefusedException("None of the costs offered can be paid.", "601.2h");
+    }
+
+    /// <summary>The option the command named, CR 601.2b, or null when it named none.</summary>
+    [RuleRef("601.2b")]
+    private static int? Named(CostContext context)
+    {
+        foreach (var choice in context.Choices ?? [])
+        {
+            if (CastPlan.Names(choice, CostContext.ChooseCostChoice, out var index))
+                return index;
+        }
+
+        return null;
     }
 
     /// <summary>
