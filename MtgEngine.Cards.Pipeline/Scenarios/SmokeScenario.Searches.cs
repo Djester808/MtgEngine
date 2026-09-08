@@ -89,7 +89,11 @@ public static partial class SmokeScenario
                 break;
         }
 
-        if (went.To is not Zone.Library)
+        // CR 701.9b: a random discard later in the same resolution may take the card the search
+        // just put in the hand, so the card found is not named — the counts above are what holds
+        // whichever card the game took, and an expectation naming this one would pass or fail on
+        // the shuffle. A card the search put anywhere else is out of a discard's reach.
+        if (went.To is not Zone.Library && !(went.To is Zone.Hand && board.DiscardsAtRandom))
         {
             foreach (var card in found)
             {

@@ -114,7 +114,7 @@ internal sealed partial class SmokeBoard
                 _casterBattlefield.Count - _costSacrifices + (PlaysFromBattlefield ? 1 : 0) + _casterArrivals));
 
         // The card under test left the caster's hand when it was played, and the filler stayed.
-        if (_casterHand != 0)
+        if (_casterHand != 0 || CasterHandHolds)
             _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Hand, HandSize + _casterHand));
         if (_casterLibrary != 0)
             _expect.Add(new ZoneCount(SmokeScenario.Caster, Zone.Library, LibrarySize + _casterLibrary));

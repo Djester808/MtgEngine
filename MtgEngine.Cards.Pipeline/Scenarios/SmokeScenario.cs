@@ -120,6 +120,7 @@ public static partial class SmokeScenario
     private static bool Read(SmokeBoard board, Face face)
     {
         var effects = face.AbilityList.OfType<SpellAbility>().Select(a => a.Do).SelectMany(Flatten).ToList();
+        AtRandom(board, effects);
         foreach (var effect in effects)
         {
             if (!Assert(board, effect))
@@ -137,7 +138,9 @@ public static partial class SmokeScenario
     [RuleRef("608.2")]
     internal static bool Reads(SmokeBoard board, Effect effect)
     {
-        foreach (var inner in Flatten(effect))
+        var inners = Flatten(effect).ToList();
+        AtRandom(board, inners);
+        foreach (var inner in inners)
         {
             if (!Assert(board, inner))
                 return false;
@@ -331,9 +334,14 @@ public static partial class SmokeScenario
                 Moves(board, mill.Who, library: -milled.N, graveyard: milled.N);
                 break;
 
-            // CR 701.8: a discard moves a card from a hand to its owner's graveyard.
-            case Discard { N: Fixed discarded, What: null, WholeHand: false } discard when discarded.N > 0 && discarded.N <= HandSize:
-                Moves(board, discard.Who, hand: -discarded.N, graveyard: discarded.N);
+            // CR 701.8: a discard moves a card from a hand to its owner's graveyard — one card when
+            // the record names no number (CR 701.8a), and the same two counts whether the player
+            // chooses it or the game does (CR 701.9b), because which card left is the only thing a
+            // random discard leaves unsettled.
+            case Discard { What: null, WholeHand: false } discard when Discarded(discard) is { } dropped && dropped <= HandSize:
+                Moves(board, discard.Who, hand: -dropped, graveyard: dropped);
+                if (discard is { By: DiscardChooser.Random, Who: null or You })
+                    board.HandHolds();
                 break;
 
             // CR 701.21: tapping a permanent leaves it tapped.
