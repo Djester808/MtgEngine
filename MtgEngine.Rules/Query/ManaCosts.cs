@@ -43,6 +43,30 @@ internal static class ManaCosts
         return count;
     }
 
+    /// <summary>
+    /// The colours a printed cost names, CR 202.1: every colour of every symbol, so both halves of a
+    /// hybrid symbol count and the mana half of a Phyrexian one does. It is the reading CR 903.4's
+    /// colour identity wants — "which colours does this text mention" — and not devotion's count.
+    /// </summary>
+    [RuleRef("903.4")]
+    public static Color Colors(string? cost)
+    {
+        var colors = Color.Colorless;
+        if (string.IsNullOrEmpty(cost))
+            return colors;
+
+        foreach (var symbol in Symbols(cost))
+        {
+            foreach (var half in symbol.Split('/'))
+            {
+                if (ColorOf(half) is { } color)
+                    colors |= color;
+            }
+        }
+
+        return colors;
+    }
+
     /// <summary>The symbols of a printed cost, without their braces: "{2}{G/U}" is "2" then "G/U".</summary>
     public static IEnumerable<string> Symbols(string cost)
     {
