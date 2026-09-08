@@ -262,6 +262,15 @@ public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics
     public const string TappedForManaColor = "tapped-for-mana-color";
 
     /// <summary>
+    /// The key the damage of the firing event is carried under, CR 603.10: an ability that triggered
+    /// on damage reads "that much damage" from the event, decimal and culture-invariant, because the
+    /// board no longer says it once the damaged object has left or the turn has ended. The reader is
+    /// the <c>TriggeringDamage</c> amount, which parses this key out of the resolution's context.
+    /// </summary>
+    [RuleRef("603.10")]
+    public const string TriggeringDamageAmount = "triggering-damage";
+
+    /// <summary>
     /// CR 603.3b: the active player's triggers go on the stack first, then each other player's in
     /// turn order. Within one player the order is that player's to choose, so the collection order
     /// stands and a choice is raised when there is actually something to decide.

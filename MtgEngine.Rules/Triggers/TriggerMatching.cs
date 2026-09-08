@@ -51,7 +51,7 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
     public ImmutableList<TriggerSubject> Match(Trigger trigger, Ev.GameEvent happened, EffectContext ctx, TriggerWindow window)
     {
         var state = window.State;
-        return trigger switch
+        var subjects = trigger switch
         {
             AnyOfTriggers any => any.Of.Select(t => Match(t, happened, ctx, window)).FirstOrDefault(m => m.Count > 0) ?? [],
             EntersBattlefield enters => Entered(state, enters, happened, ctx),
@@ -80,8 +80,12 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
             ManaSpent spent => SpentMana(state, spent, happened, ctx),
             Sacrifices sacrifices => LeftBy(state, "sacrificed", sacrifices.Who, sacrifices.What, happened, ctx),
             Discards discards => LeftBy(state, "discarded", discards.Who, discards.What, happened, ctx),
-            _ => [],
+            _ => Wave23(state, trigger, happened, ctx),
         };
+
+        // CR 603.10: a firing on a damage event carries how much damage that event dealt, which is
+        // information about the firing and not about the board it left behind.
+        return happened is Ev.DamageDealt damage ? WithTriggeringDamage(subjects, damage) : subjects;
     }
 
     private enum DamageSubject
@@ -267,6 +271,10 @@ internal sealed partial class TriggerMatching(IQuery query, ICharacteristics lay
         if (trigger.FirstEachTurn && window.DrawsSoFar(drawn.Player) != 1)
             return [];
         if (trigger.DuringDrawStep is { } during && during != (window.Step == Step.Draw))
+            return [];
+
+        // CR 121.1: "except the first card they draw in each of their draw steps".
+        if (trigger.ExceptFirstInDrawStep && SparedByTheirDrawStep(drawn.Player, window))
             return [];
         return [TriggerSubject.Of(drawn.Object, drawn.Player)];
     }
