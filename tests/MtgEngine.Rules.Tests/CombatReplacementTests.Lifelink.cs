@@ -72,8 +72,9 @@ public sealed partial class CombatReplacementTests
 
         // The answer, and nothing else the hit did — no damage, no gain — followed by the priority
         // the finished batch opens the combat damage step with, CR 510.3.
+        // CR 615.13: the prevention records itself between the answer and the priority pass.
         Assert.Collection(
-            events,
+            events.Where(e => e is not DamagePrevented),
             e => Assert.IsType<ChoiceAnswered>(e),
             e => Assert.Equal(new PriorityGranted(t.A), e));
         Assert.Null(t.State.Pending);
