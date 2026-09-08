@@ -865,6 +865,291 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "c95309e9-5c2f-4518-b2fd-825d3d0a4ae0",
+        "name": "Sundering Eruption // Volcanic Fissure",
+        "layout": "ModalDfc",
+        "faces": [
+          {
+            "name": "Sundering Eruption",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{R}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No way to describe a creature without a keyword: ObjectFilter\u0027s \u0027has\u0027 is positive only and there is no keyword predicate for NotPredicate to negate, so \u0027creatures without flying\u0027 cannot be narrowed and applying CantBlock to every creature would be a different card.",
+                      "text": "Creatures without flying can\u0027t block this turn."
+                    }
+                  ]
+                },
+                "text": "Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Creatures without flying can\u0027t block this turn."
+              }
+            ],
+            "oracleText": "Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Creatures without flying can\u0027t block this turn.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "Search",
+                        "for": {
+                          "types": [
+                            "Land"
+                          ],
+                          "supertypes": [
+                            "Basic"
+                          ]
+                        },
+                        "to": "Battlefield",
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "from": "Library",
+                        "where": "Default",
+                        "reveal": false,
+                        "tapped": true,
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
+                      },
+                      "who": {
+                        "kind": "ControllerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "Unsupported",
+                      "reason": "No way to describe a creature without a keyword: ObjectFilter\u0027s \u0027has\u0027 is positive only and there is no keyword predicate for NotPredicate to negate, so \u0027creatures without flying\u0027 cannot be narrowed and applying CantBlock to every creature would be a different card.",
+                      "text": "Creatures without flying can\u0027t block this turn."
+                    }
+                  ]
+                },
+                "text": "Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Creatures without flying can\u0027t block this turn."
+              }
+            ]
+          },
+          {
+            "name": "Volcanic Fissure",
+            "role": "Back",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unless",
+                  "do": {
+                    "kind": "EntersTapped"
+                  },
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              }
+            ],
+            "oracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {R}.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "Unless",
+                  "do": {
+                    "kind": "EntersTapped"
+                  },
+                  "paid": {
+                    "kind": "PayLife",
+                    "amount": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

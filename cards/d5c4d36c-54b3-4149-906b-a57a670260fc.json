@@ -23,30 +23,30 @@
         "manaCost": "{5}",
         "abilities": [
           {
-            "kind": "ReplacementAbility",
-            "instead": {
-              "kind": "WouldGainLife"
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
+              "who": {
+                "kind": "You"
+              }
             },
-            "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
-            },
-            "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "characteristicDefining": false,
             "text": "If you would gain life, you gain twice that much life instead."
           },
           {
             "kind": "ReplacementAbility",
             "instead": {
               "kind": "WouldDraw",
-              "firstEachTurn": true
+              "who": {
+                "kind": "You"
+              },
+              "exceptFirstInDrawStep": false
             },
             "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
+              "kind": "Unsupported",
+              "reason": "A draw replacement cannot carry the printed exception \u0022except the first one you draw in each of your draw steps\u0022: WouldDraw offers only firstEachTurn, which is \u0022the first card drawn each turn\u0022 and not the first draw of each draw step, and the exceptFirstInDrawStep field exists only on the Draws trigger, which watches a draw rather than replacing it.",
+              "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
             },
             "optional": false,
             "where": "Battlefield",
@@ -57,30 +57,30 @@
         "oracleText": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
         "abilityList": [
           {
-            "kind": "ReplacementAbility",
-            "instead": {
-              "kind": "WouldGainLife"
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "LifeGainDoubled",
+              "who": {
+                "kind": "You"
+              }
             },
-            "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
-            },
-            "optional": false,
             "where": "Battlefield",
-            "selfOnly": false,
+            "characteristicDefining": false,
             "text": "If you would gain life, you gain twice that much life instead."
           },
           {
             "kind": "ReplacementAbility",
             "instead": {
               "kind": "WouldDraw",
-              "firstEachTurn": true
+              "who": {
+                "kind": "You"
+              },
+              "exceptFirstInDrawStep": false
             },
             "with": {
-              "kind": "ModifyAmount",
-              "multiply": 2,
-              "add": 0
+              "kind": "Unsupported",
+              "reason": "A draw replacement cannot carry the printed exception \u0022except the first one you draw in each of your draw steps\u0022: WouldDraw offers only firstEachTurn, which is \u0022the first card drawn each turn\u0022 and not the first draw of each draw step, and the exceptFirstInDrawStep field exists only on the Draws trigger, which watches a draw rather than replacing it.",
+              "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
             },
             "optional": false,
             "where": "Battlefield",
@@ -91,198 +91,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-557eb2712d2f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "d5c4d36c-54b3-4149-906b-a57a670260fc",
-        "name": "Alhammarret\u0027s Archive",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Alhammarret\u0027s Archive",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{5}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LifeGainDoubled",
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "If you would gain life, you gain twice that much life instead."
-              },
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldDraw",
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "with": {
-                  "kind": "Unsupported",
-                  "reason": "A draw replacement cannot carry the printed exception \u0022except the first one you draw in each of your draw steps\u0022: WouldDraw offers only firstEachTurn, which is \u0022the first card drawn each turn\u0022 and not the first draw of each draw step, and the exceptFirstInDrawStep field exists only on the Draws trigger, which watches a draw rather than replacing it.",
-                  "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-              }
-            ],
-            "oracleText": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LifeGainDoubled",
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "If you would gain life, you gain twice that much life instead."
-              },
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldDraw",
-                  "who": {
-                    "kind": "You"
-                  }
-                },
-                "with": {
-                  "kind": "Unsupported",
-                  "reason": "A draw replacement cannot carry the printed exception \u0022except the first one you draw in each of your draw steps\u0022: WouldDraw offers only firstEachTurn, which is \u0022the first card drawn each turn\u0022 and not the first draw of each draw step, and the exceptFirstInDrawStep field exists only on the Draws trigger, which watches a draw rather than replacing it.",
-                  "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "d5c4d36c-54b3-4149-906b-a57a670260fc",
-        "name": "Alhammarret\u0027s Archive",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Alhammarret\u0027s Archive",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{5}",
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldGainLife"
-                },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would gain life, you gain twice that much life instead."
-              },
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldDraw",
-                  "firstEachTurn": true
-                },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-              }
-            ],
-            "oracleText": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldGainLife"
-                },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would gain life, you gain twice that much life instead."
-              },
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldDraw",
-                  "firstEachTurn": true
-                },
-                "with": {
-                  "kind": "ModifyAmount",
-                  "multiply": 2,
-                  "add": 0
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": false,
-                "text": "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

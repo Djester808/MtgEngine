@@ -574,6 +574,208 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "690c7f8e-fea2-4920-afa7-02ff120701a1",
+        "name": "Spinerock Knoll",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Spinerock Knoll",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "\u0027An opponent\u0027 is an existential over the opponents (CR 102.2) and no condition can hold it here. AnOpponent is refused in DamageDealtThisTurn.To (L041); EachOpponent reads every opponent and totals them, which is a different card in multiplayer; ChoosePlayer or TargetPlayer would add a choice or a target this line does not print; and no Condition record asks whether a player was dealt damage this turn, so a Condition slot cannot hold the gate at all.",
+                      "text": "if an opponent was dealt 7 or more damage this turn"
+                    },
+                    {
+                      "kind": "MayPlay",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ],
+            "oracleText": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {R}.\n{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "\u0027An opponent\u0027 is an existential over the opponents (CR 102.2) and no condition can hold it here. AnOpponent is refused in DamageDealtThisTurn.To (L041); EachOpponent reads every opponent and totals them, which is a different card in multiplayer; ChoosePlayer or TargetPlayer would add a choice or a target this line does not print; and no Condition record asks whether a player was dealt damage this turn, so a Condition slot cannot hold the gate at all.",
+                      "text": "if an opponent was dealt 7 or more damage this turn"
+                    },
+                    {
+                      "kind": "MayPlay",
+                      "what": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "withoutPayingManaCost": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

@@ -233,478 +233,505 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-557eb2712d2f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "002965be-a36f-4a09-9ce0-c6535bca1703",
-        "name": "Veil of Summer",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-002965be-a36f-4a09-9ce0-c6535bca1703",
+      "title": "casting Veil of Summer does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Veil of Summer",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "Compare",
-                        "left": {
-                          "kind": "SpellsCastThisTurn",
-                          "by": {
-                            "kind": "EachOpponent"
-                          },
-                          "matching": {
-                            "anyColor": [
-                              "Blue",
-                              "Black"
-                            ]
-                          }
-                        },
-                        "op": "Ge",
-                        "right": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      },
-                      "then": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "CantBeCountered"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "spell": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          },
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ],
-                          "spell": true
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn."
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "Compare",
-                        "left": {
-                          "kind": "SpellsCastThisTurn",
-                          "by": {
-                            "kind": "EachOpponent"
-                          },
-                          "matching": {
-                            "anyColor": [
-                              "Blue",
-                              "Black"
-                            ]
-                          }
-                        },
-                        "op": "Ge",
-                        "right": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      },
-                      "then": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "CantBeCountered"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "spell": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "controlledBy": {
-                            "kind": "EachOpponent"
-                          },
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ],
-                          "spell": true
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn."
+                "name": "Veil of Summer",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "002965be-a36f-4a09-9ce0-c6535bca1703",
-        "name": "Veil of Summer",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Veil of Summer",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "Compare",
-                        "left": {
-                          "kind": "SpellsCastThisTurn",
-                          "by": {
-                            "kind": "EachOpponent"
-                          },
-                          "matching": {
-                            "anyColor": [
-                              "Blue",
-                              "Black"
-                            ]
-                          }
-                        },
-                        "op": "Ge",
-                        "right": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      },
-                      "then": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "CantBeCountered"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "spell": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ],
-                          "spell": true
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn."
-              }
-            ],
-            "oracleText": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can\u0027t be the targets of blue or black spells or abilities your opponents control.)",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "If",
-                      "test": {
-                        "kind": "Compare",
-                        "left": {
-                          "kind": "SpellsCastThisTurn",
-                          "by": {
-                            "kind": "EachOpponent"
-                          },
-                          "matching": {
-                            "anyColor": [
-                              "Blue",
-                              "Black"
-                            ]
-                          }
-                        },
-                        "op": "Ge",
-                        "right": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      },
-                      "then": {
-                        "kind": "Draw",
-                        "n": {
-                          "kind": "Fixed",
-                          "n": 1
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "CantBeCountered"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          },
-                          "spell": true
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "ApplyToPlayer",
-                      "what": {
-                        "kind": "CantBeTargeted",
-                        "bySpells": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ],
-                          "spell": true
-                        }
-                      },
-                      "who": {
-                        "kind": "You"
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Hexproof",
-                        "of": {
-                          "anyColor": [
-                            "Blue",
-                            "Black"
-                          ]
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "text": "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can\u0027t be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Veil of Summer"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "InZone",
+          "card": "Veil of Summer",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T055130-9ef6fa",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:51:30.3127789+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-002965be-a36f-4a09-9ce0-c6535bca1703",
+      "title": "casting Veil of Summer does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Veil of Summer",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Veil of Summer"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "EventLogged",
+          "eventKind": "ContinuousEffectCreated"
+        },
+        {
+          "kind": "InZone",
+          "card": "Veil of Summer",
+          "zone": "Graveyard"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Graveyard",
+          "count": 1
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

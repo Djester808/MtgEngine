@@ -54,9 +54,11 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No continuous effect makes the top card of a library revealed to every player. MayLookAtTopCard is a private look by one player and does not reveal the card.",
-              "text": "Play with the top card of your library revealed."
+              "kind": "MayLookAtTopCard",
+              "who": {
+                "kind": "You"
+              },
+              "anyTime": true
             },
             "where": "Battlefield",
             "characteristicDefining": false,
@@ -105,9 +107,11 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No continuous effect makes the top card of a library revealed to every player. MayLookAtTopCard is a private look by one player and does not reveal the card.",
-              "text": "Play with the top card of your library revealed."
+              "kind": "MayLookAtTopCard",
+              "who": {
+                "kind": "You"
+              },
+              "anyTime": true
             },
             "where": "Battlefield",
             "characteristicDefining": false,
@@ -142,7 +146,7 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
@@ -394,6 +398,148 @@
                   "kind": "UnsupportedContinuous",
                   "reason": "No ContinuousEffect record expresses a mandatory public reveal of the top card of a library; PlayWithHandRevealed covers a hand and MayLookAtTopCard is a private, optional look rather than an ongoing public reveal.",
                   "text": "Play with the top card of your library revealed."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Play with the top card of your library revealed."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands from the top of your library."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "6c5b02eb-7829-436a-8555-fea200e4b67f",
+        "name": "Oracle of Mul Daya",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Oracle of Mul Daya",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elf",
+                "Shaman"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Shaman"
+              ]
+            },
+            "manaCost": "{3}{G}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Play with the top card of your library revealed."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayPlayFromZone",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "from": "Library",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "topOfLibraryOnly": true,
+                  "withoutPayingManaCost": false,
+                  "payLifeEqualToManaValueInstead": false
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play lands from the top of your library."
+              }
+            ],
+            "oracleText": "You may play an additional land on each of your turns.\nPlay with the top card of your library revealed.\nYou may play lands from the top of your library.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "MayLookAtTopCard",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "anyTime": true
                 },
                 "where": "Battlefield",
                 "characteristicDefining": false,

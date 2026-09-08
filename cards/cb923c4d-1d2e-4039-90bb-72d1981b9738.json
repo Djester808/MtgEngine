@@ -32,50 +32,24 @@
               }
             ],
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "Fixed",
-                "n": 1
-              }
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "The activation restriction has no Condition or Amount spelling: no condition or amount counts lands you control that share a name with each other; SharesNameWith needs a fixed anchor object, and Controls/CountOf count a filter rather than groups of objects sharing a name with one another. The onlyIf slot takes only a Condition and has no Unsupported reading of its own, so the marker is carried here instead.",
+                  "text": "Activate only if you control three or more lands with the same name."
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
             },
             "timing": "Any",
             "where": "Battlefield",
-            "onlyIf": {
-              "kind": "Compare",
-              "left": {
-                "kind": "GreatestAmong",
-                "among": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
-                },
-                "of": {
-                  "kind": "CountOf",
-                  "filter": {
-                    "types": [
-                      "Land"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                }
-              },
-              "op": "Ge",
-              "right": {
-                "kind": "Fixed",
-                "n": 3
-              }
-            },
             "anyPlayerMayActivate": false,
             "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
           }
@@ -94,50 +68,24 @@
               }
             ],
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "Fixed",
-                "n": 1
-              }
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "The activation restriction has no Condition or Amount spelling: no condition or amount counts lands you control that share a name with each other; SharesNameWith needs a fixed anchor object, and Controls/CountOf count a filter rather than groups of objects sharing a name with one another. The onlyIf slot takes only a Condition and has no Unsupported reading of its own, so the marker is carried here instead.",
+                  "text": "Activate only if you control three or more lands with the same name."
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
             },
             "timing": "Any",
             "where": "Battlefield",
-            "onlyIf": {
-              "kind": "Compare",
-              "left": {
-                "kind": "GreatestAmong",
-                "among": {
-                  "types": [
-                    "Land"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
-                },
-                "of": {
-                  "kind": "CountOf",
-                  "filter": {
-                    "types": [
-                      "Land"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    },
-                    "also": {
-                      "kind": "SharesNameWith",
-                      "with": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                }
-              },
-              "op": "Ge",
-              "right": {
-                "kind": "Fixed",
-                "n": 3
-              }
-            },
             "anyPlayerMayActivate": false,
             "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
           }
@@ -145,256 +93,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-557eb2712d2f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "cb923c4d-1d2e-4039-90bb-72d1981b9738",
-        "name": "Endless Atlas",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Endless Atlas",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Land"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        },
-                        "also": {
-                          "kind": "SharesNameWith",
-                          "with": {
-                            "kind": "Self"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "op": "Ge",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 3
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
-              }
-            ],
-            "oracleText": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "onlyIf": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Land"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Land"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        },
-                        "also": {
-                          "kind": "SharesNameWith",
-                          "with": {
-                            "kind": "Self"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "op": "Ge",
-                  "right": {
-                    "kind": "Fixed",
-                    "n": 3
-                  }
-                },
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "cb923c4d-1d2e-4039-90bb-72d1981b9738",
-        "name": "Endless Atlas",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Endless Atlas",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Unsupported",
-                      "reason": "The activation restriction has no Condition or Amount spelling: no condition or amount counts lands you control that share a name with each other; SharesNameWith needs a fixed anchor object, and Controls/CountOf count a filter rather than groups of objects sharing a name with one another. The onlyIf slot takes only a Condition and has no Unsupported reading of its own, so the marker is carried here instead.",
-                      "text": "Activate only if you control three or more lands with the same name."
-                    },
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
-              }
-            ],
-            "oracleText": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Unsupported",
-                      "reason": "The activation restriction has no Condition or Amount spelling: no condition or amount counts lands you control that share a name with each other; SharesNameWith needs a fixed anchor object, and Controls/CountOf count a filter rather than groups of objects sharing a name with one another. The onlyIf slot takes only a Condition and has no Unsupported reading of its own, so the marker is carried here instead.",
-                      "text": "Activate only if you control three or more lands with the same name."
-                    },
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}, {T}: Draw a card. Activate only if you control three or more lands with the same name."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

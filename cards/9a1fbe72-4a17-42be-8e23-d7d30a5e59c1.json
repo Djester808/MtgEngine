@@ -157,6 +157,55 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "9a1fbe72-4a17-42be-8e23-d7d30a5e59c1",
+        "name": "Norn\u0027s Annex",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Norn\u0027s Annex",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W/P}{W/P}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The attack tax is one {W/P} per attacking creature. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales from the game is PayManaCost, whose scaling half is generic mana while its Colored half is a fixed printed string \u2014 so nothing can say \u0027N copies of {W/P}\u0027. A ManaCost of \u0027{W/P}\u0027 taxes one symbol however many creatures attack, which is a different card, and no Cost record repeats another Cost by an Amount.",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ],
+            "oracleText": "({W/P} can be paid with either {W} or 2 life.)\nCreatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The attack tax is one {W/P} per attacking creature. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales from the game is PayManaCost, whose scaling half is generic mana while its Colored half is a fixed printed string \u2014 so nothing can say \u0027N copies of {W/P}\u0027. A ManaCost of \u0027{W/P}\u0027 taxes one symbol however many creatures attack, which is a different card, and no Cost record repeats another Cost by an Amount.",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

@@ -184,390 +184,489 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-557eb2712d2f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Enchant"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "05a4f8ff-49da-42af-add5-6248c4b0644b",
-        "name": "Darksteel Mutation",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-05a4f8ff-49da-42af-add5-6248c4b0644b",
+      "title": "casting Darksteel Mutation does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Darksteel Mutation",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{W}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "types": [
-                    "Artifact",
-                    "Creature"
-                  ],
-                  "subtypes": [
-                    "Insect"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Indestructible"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+                "name": "Scenario Filler Creature",
+                "alias": "aim-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
-            "abilityList": [
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
+                "name": "Darksteel Mutation",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "types": [
-                    "Artifact",
-                    "Creature"
-                  ],
-                  "subtypes": [
-                    "Insect"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Indestructible"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "05a4f8ff-49da-42af-add5-6248c4b0644b",
-        "name": "Darksteel Mutation",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Darksteel Mutation",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{W}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "types": [
-                    "Artifact",
-                    "Creature"
-                  ],
-                  "subtypes": [
-                    "Insect"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Indestructible"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              }
-            ],
-            "oracleText": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "types": [
-                    "Creature"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant creature"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetTypes",
-                  "types": [
-                    "Artifact",
-                    "Creature"
-                  ],
-                  "subtypes": [
-                    "Insect"
-                  ],
-                  "keepSubtypes": false
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "LoseAllAbilities"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "SetPt",
-                  "power": {
-                    "kind": "Fixed",
-                    "n": 0
-                  },
-                  "toughness": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "GrantKeyword",
-                  "keyword": "Indestructible"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Darksteel Mutation",
+          "targets": [
+            "aim-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Darksteel Mutation",
+          "to": "aim-1"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T055130-9ef6fa",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:51:30.3127789+00:00"
+  },
   "keywordList": [
     "Enchant"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-05a4f8ff-49da-42af-add5-6248c4b0644b",
+      "title": "casting Darksteel Mutation does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [
+              {
+                "name": "Scenario Filler Creature",
+                "alias": "aim-1",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "hand": [
+              {
+                "name": "Darksteel Mutation",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Darksteel Mutation",
+          "targets": [
+            "aim-1"
+          ]
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "AttachedToIs",
+          "card": "Darksteel Mutation",
+          "to": "aim-1"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

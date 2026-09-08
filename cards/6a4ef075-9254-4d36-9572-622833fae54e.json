@@ -471,6 +471,158 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "6a4ef075-9254-4d36-9572-622833fae54e",
+        "name": "Frenzied Baloth",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Frenzied Baloth",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Beast"
+              ],
+              "subtypeList": [
+                "Beast"
+              ]
+            },
+            "manaCost": "{G}{G}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantBeCountered"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell can\u0027t be countered."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample, haste"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Haste",
+                "repeatable": false,
+                "text": "Trample, haste"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantBeCountered"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "spell": true
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you control can\u0027t be countered."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "There is no record for a static effect that stops damage from being prevented; PreventDamage prevents damage and has no inverse.",
+                  "text": "Combat damage can\u0027t be prevented."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Combat damage can\u0027t be prevented."
+              }
+            ],
+            "oracleText": "This spell can\u0027t be countered.\nTrample, haste\nCreature spells you control can\u0027t be countered.\nCombat damage can\u0027t be prevented.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantBeCountered"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell can\u0027t be countered."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample, haste"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Haste",
+                "repeatable": false,
+                "text": "Trample, haste"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CantBeCountered"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "spell": true
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creature spells you control can\u0027t be countered."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "There is no record for a static effect that stops damage from being prevented; PreventDamage prevents damage and has no inverse.",
+                  "text": "Combat damage can\u0027t be prevented."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Combat damage can\u0027t be prevented."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

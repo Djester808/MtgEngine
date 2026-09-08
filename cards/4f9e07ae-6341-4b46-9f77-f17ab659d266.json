@@ -653,6 +653,235 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "4f9e07ae-6341-4b46-9f77-f17ab659d266",
+        "name": "Guardian Project",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Guardian Project",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "token": false
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "NotCondition",
+                  "of": {
+                    "kind": "Or",
+                    "of": [
+                      {
+                        "kind": "Controls",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "what": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "SharesNameWith",
+                                "with": {
+                                  "kind": "Triggering",
+                                  "role": "Subject"
+                                }
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsOneOf",
+                                  "of": {
+                                    "kind": "Triggering",
+                                    "role": "Subject"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "count": {
+                          "op": "Ge",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 1
+                          }
+                        }
+                      },
+                      {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CountOf",
+                          "filter": {
+                            "in": "Graveyard",
+                            "types": [
+                              "Creature"
+                            ],
+                            "ownedBy": {
+                              "kind": "You"
+                            },
+                            "also": {
+                              "kind": "SharesNameWith",
+                              "with": {
+                                "kind": "Triggering",
+                                "role": "Subject"
+                              }
+                            }
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a nontoken creature you control enters, if it doesn\u0027t have the same name as another creature you control or a creature card in your graveyard, draw a card."
+              }
+            ],
+            "oracleText": "Whenever a nontoken creature you control enters, if it doesn\u0027t have the same name as another creature you control or a creature card in your graveyard, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "token": false
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "NotCondition",
+                  "of": {
+                    "kind": "Or",
+                    "of": [
+                      {
+                        "kind": "Controls",
+                        "who": {
+                          "kind": "You"
+                        },
+                        "what": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "SharesNameWith",
+                                "with": {
+                                  "kind": "Triggering",
+                                  "role": "Subject"
+                                }
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsOneOf",
+                                  "of": {
+                                    "kind": "Triggering",
+                                    "role": "Subject"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "count": {
+                          "op": "Ge",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 1
+                          }
+                        }
+                      },
+                      {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CountOf",
+                          "filter": {
+                            "in": "Graveyard",
+                            "types": [
+                              "Creature"
+                            ],
+                            "ownedBy": {
+                              "kind": "You"
+                            },
+                            "also": {
+                              "kind": "SharesNameWith",
+                              "with": {
+                                "kind": "Triggering",
+                                "role": "Subject"
+                              }
+                            }
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a nontoken creature you control enters, if it doesn\u0027t have the same name as another creature you control or a creature card in your graveyard, draw a card."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

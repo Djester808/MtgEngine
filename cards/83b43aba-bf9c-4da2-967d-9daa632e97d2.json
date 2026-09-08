@@ -540,6 +540,172 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+        "name": "Helm of the Host",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Helm of the Host",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{4}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "BeginningOfCombat",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "tapped": false,
+                      "attacking": false,
+                      "copyOf": {
+                        "kind": "Attached"
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "RemoveTypes",
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Haste"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{5}",
+                "repeatable": false,
+                "text": "Equip {5}"
+              }
+            ],
+            "oracleText": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste.\nEquip {5}",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "BeginningOfCombat",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "CreateToken",
+                      "tapped": false,
+                      "attacking": false,
+                      "copyOf": {
+                        "kind": "Attached"
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "RemoveTypes",
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "allCreatureTypes": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Haste"
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{5}",
+                "repeatable": false,
+                "text": "Equip {5}"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

@@ -371,6 +371,129 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "c235015e-a7a9-4f8d-bf4a-cf68b3847f83",
+        "name": "Scapeshift",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Scapeshift",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": true
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": false,
+                      "tapped": true,
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
+                    }
+                  ]
+                },
+                "text": "Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Sacrifice",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "types": [
+                            "Land"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": true
+                      },
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "upTo": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      },
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": false,
+                      "tapped": true,
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
+                    }
+                  ]
+                },
+                "text": "Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

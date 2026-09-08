@@ -1,17 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L003",
-      "message": "\u0027k1\u0027 is referenced but nothing on this face produces it.",
-      "path": "faces[0].abilities[0]"
-    },
-    {
-      "severity": "Error",
-      "code": "L003",
-      "message": "\u0027k1\u0027 is referenced but nothing on this face produces it.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

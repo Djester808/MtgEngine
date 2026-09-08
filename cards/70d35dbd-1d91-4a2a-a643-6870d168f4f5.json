@@ -753,6 +753,207 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+        "name": "Adagia, Windswept Bastion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Adagia, Windswept Bastion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Planet"
+              ],
+              "subtypeList": [
+                "Planet"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "CreateToken has no copy exception: \u0027except it\u0027s legendary\u0027 changes the copiable values of the token as it is created (CR 707.9, 706.2), and neither CreateToken nor TokenSpec has an except list. Applying AddTypes(Legendary) afterwards is a layer 4 effect that is not copiable, so it is a different card, and the only copy record that carries except is BecomesCopyOf, which needs an object already in the game.",
+                  "text": "Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary."
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ],
+            "oracleText": "This land enters tapped.\n{T}: Add {W}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "CreateToken has no copy exception: \u0027except it\u0027s legendary\u0027 changes the copiable values of the token as it is created (CR 707.9, 706.2), and neither CreateToken nor TokenSpec has an except list. Applying AddTypes(Legendary) afterwards is a layer 4 effect that is not copiable, so it is a different card, and the only copy record that carries except is BecomesCopyOf, which needs an object already in the game.",
+                  "text": "Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary."
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [
