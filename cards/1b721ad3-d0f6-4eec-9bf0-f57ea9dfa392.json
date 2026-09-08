@@ -27,7 +27,6 @@
               "what": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Stack",
                   "spell": true
                 },
                 "upTo": false,
@@ -47,7 +46,6 @@
               "what": {
                 "kind": "Target",
                 "filter": {
-                  "in": "Stack",
                   "spell": true
                 },
                 "upTo": false,
@@ -61,138 +59,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-f942b227ec6c",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "1b721ad3-d0f6-4eec-9bf0-f57ea9dfa392",
-        "name": "Lapse of Certainty",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Lapse of Certainty",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Stack",
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Library"
-                },
-                "text": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard."
-              }
-            ],
-            "oracleText": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Stack",
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Library"
-                },
-                "text": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "1b721ad3-d0f6-4eec-9bf0-f57ea9dfa392",
-        "name": "Lapse of Certainty",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Lapse of Certainty",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Library"
-                },
-                "text": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard."
-              }
-            ],
-            "oracleText": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Library"
-                },
-                "text": "Counter target spell. If that spell is countered this way, put it on top of its owner\u0027s library instead of into that player\u0027s graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

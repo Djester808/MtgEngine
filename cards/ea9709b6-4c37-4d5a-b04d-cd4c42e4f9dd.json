@@ -189,6 +189,71 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+        "name": "Propaganda",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Propaganda",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{U}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record imposes a cost on declaring attackers. CantAttack\u0027s \u0022unless\u0022 is an ObjectFilter, so it can say what must exist, never that a player pays {2} per attacking creature; CostModifier and AbilityCostModifier tax spells and activated abilities rather than an attack declaration. Writing CantAttack alone would forbid the attack outright, which is a different card.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ],
+            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record imposes a cost on declaring attackers. CantAttack\u0027s \u0022unless\u0022 is an ObjectFilter, so it can say what must exist, never that a player pays {2} per attacking creature; CostModifier and AbilityCostModifier tax spells and activated abilities rather than an attack declaration. Writing CantAttack alone would forbid the attack outright, which is a different card.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

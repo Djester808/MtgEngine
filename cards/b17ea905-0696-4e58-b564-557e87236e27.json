@@ -26,18 +26,6 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Store",
-                  "key": "k1",
-                  "value": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ]
-                    }
-                  }
-                },
-                {
                   "kind": "Destroy",
                   "what": {
                     "kind": "Each",
@@ -50,11 +38,9 @@
                   "cantBeRegenerated": false
                 },
                 {
-                  "kind": "GainLife",
-                  "n": {
-                    "kind": "Stored",
-                    "key": "k1"
-                  }
+                  "kind": "Unsupported",
+                  "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
+                  "text": "You gain 1 life for each creature destroyed this way."
                 }
               ]
             },
@@ -69,18 +55,6 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Store",
-                  "key": "k1",
-                  "value": {
-                    "kind": "CountOf",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ]
-                    }
-                  }
-                },
-                {
                   "kind": "Destroy",
                   "what": {
                     "kind": "Each",
@@ -93,11 +67,9 @@
                   "cantBeRegenerated": false
                 },
                 {
-                  "kind": "GainLife",
-                  "n": {
-                    "kind": "Stored",
-                    "key": "k1"
-                  }
+                  "kind": "Unsupported",
+                  "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
+                  "text": "You gain 1 life for each creature destroyed this way."
                 }
               ]
             },
@@ -107,204 +79,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-f942b227ec6c",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "b17ea905-0696-4e58-b564-557e87236e27",
-        "name": "Fumigate",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Fumigate",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{3}{W}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
-                      "text": "You gain 1 life for each creature destroyed this way."
-                    }
-                  ]
-                },
-                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
-              }
-            ],
-            "oracleText": "Destroy all creatures. You gain 1 life for each creature destroyed this way.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "Unsupported",
-                      "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
-                      "text": "You gain 1 life for each creature destroyed this way."
-                    }
-                  ]
-                },
-                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "b17ea905-0696-4e58-b564-557e87236e27",
-        "name": "Fumigate",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Fumigate",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{3}{W}{W}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "CountOf",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
-              }
-            ],
-            "oracleText": "Destroy all creatures. You gain 1 life for each creature destroyed this way.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "CountOf",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ]
-                        }
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

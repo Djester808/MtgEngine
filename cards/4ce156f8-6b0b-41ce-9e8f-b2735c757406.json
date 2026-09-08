@@ -415,6 +415,135 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "4ce156f8-6b0b-41ce-9e8f-b2735c757406",
+        "name": "Flare of Malice",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Flare of Malice",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{B}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ],
+                      "manaValue": {
+                        "op": "Eq",
+                        "value": {
+                          "kind": "GreatestAmong",
+                          "among": {
+                            "anyTypes": [
+                              "Creature",
+                              "Planeswalker"
+                            ],
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          },
+                          "of": {
+                            "kind": "ManaValueOf",
+                            "of": {
+                              "kind": "Self"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "who": {
+                      "kind": "TriggeringPlayer"
+                    }
+                  }
+                },
+                "text": "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control."
+              }
+            ],
+            "oracleText": "You may sacrifice a nontoken black creature rather than pay this spell\u0027s mana cost.\nEach opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.",
+            "alternativeCosts": [
+              {
+                "cost": {
+                  "kind": "SacrificeCost",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "Black"
+                    ],
+                    "token": false
+                  }
+                }
+              }
+            ],
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "Sacrifice",
+                    "choice": {
+                      "anyTypes": [
+                        "Creature",
+                        "Planeswalker"
+                      ],
+                      "manaValue": {
+                        "op": "Eq",
+                        "value": {
+                          "kind": "GreatestAmong",
+                          "among": {
+                            "anyTypes": [
+                              "Creature",
+                              "Planeswalker"
+                            ],
+                            "controlledBy": {
+                              "kind": "TriggeringPlayer"
+                            }
+                          },
+                          "of": {
+                            "kind": "ManaValueOf",
+                            "of": {
+                              "kind": "Self"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "who": {
+                      "kind": "TriggeringPlayer"
+                    }
+                  }
+                },
+                "text": "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

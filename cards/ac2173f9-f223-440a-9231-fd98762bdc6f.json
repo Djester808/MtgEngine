@@ -27,6 +27,7 @@
               "what": {
                 "kind": "Target",
                 "filter": {
+                  "in": "Stack",
                   "notTypes": [
                     "Creature"
                   ],
@@ -66,6 +67,7 @@
               "what": {
                 "kind": "Target",
                 "filter": {
+                  "in": "Stack",
                   "notTypes": [
                     "Creature"
                   ],
@@ -82,184 +84,17 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-f942b227ec6c",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "ac2173f9-f223-440a-9231-fd98762bdc6f",
-        "name": "Force of Negation",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Force of Negation",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{U}{U}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ],
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Exile"
-                },
-                "text": "Counter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard."
-              }
-            ],
-            "oracleText": "If it\u0027s not your turn, you may exile a blue card from your hand rather than pay this spell\u0027s mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard.",
-            "alternativeCosts": [
-              {
-                "cost": {
-                  "kind": "ExileFromZoneCost",
-                  "from": "Hand",
-                  "what": {
-                    "colors": [
-                      "Blue"
-                    ]
-                  }
-                },
-                "onlyIf": {
-                  "kind": "IsYourTurn",
-                  "value": false
-                }
-              }
-            ],
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ],
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Exile"
-                },
-                "text": "Counter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "ac2173f9-f223-440a-9231-fd98762bdc6f",
-        "name": "Force of Negation",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Force of Negation",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{1}{U}{U}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Stack",
-                      "notTypes": [
-                        "Creature"
-                      ],
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Exile"
-                },
-                "text": "Counter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard."
-              }
-            ],
-            "oracleText": "If it\u0027s not your turn, you may exile a blue card from your hand rather than pay this spell\u0027s mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard.",
-            "alternativeCosts": [
-              {
-                "cost": {
-                  "kind": "ExileFromZoneCost",
-                  "from": "Hand",
-                  "what": {
-                    "colors": [
-                      "Blue"
-                    ]
-                  }
-                },
-                "onlyIf": {
-                  "kind": "IsYourTurn",
-                  "value": false
-                }
-              }
-            ],
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Counter",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "in": "Stack",
-                      "notTypes": [
-                        "Creature"
-                      ],
-                      "spell": true
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "putInto": "Exile"
-                },
-                "text": "Counter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner\u0027s graveyard."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "keywordList": [],
   "scenarioList": []
 }

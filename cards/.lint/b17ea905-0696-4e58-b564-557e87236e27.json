@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
 }
