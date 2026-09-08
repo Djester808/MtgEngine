@@ -89,19 +89,8 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// the move is what builds it (CR 400.7). A null index keeps the face the object had.
     /// </summary>
     [RuleRef("712.12")]
-    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        if (Proposal(state, state, what, to, where, tapped, controller, faceIndex) is not { } proposed)
-            return Outcome.Unchanged(state);
-
-        var tape = new Tape(state);
-        // CR 614.1c and 616.1: the move is proposed, not performed. What actually happens is what
-        // the replacement and prevention effects in force hand back — a tapped permanent, one with
-        // counters, a different zone, nothing at all, or a question that stops the game.
-        tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
-        return tape.Done();
-    }
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex) =>
+        Move(state, what, to, where, tapped, controller, faceIndex, faceDown: false);
 
     /// <summary>
     /// Several objects change zones at once, CR 400.7 and 704.5m. Every move is read against the
@@ -118,7 +107,7 @@ public sealed partial class ZoneSystem : IZoneSystem
         var tape = new Tape(state);
         foreach (var m in moves)
         {
-            if (Proposal(state, tape.State, m.What, m.To, m.Where, m.Tapped, m.Controller, null) is not { } proposed)
+            if (Proposal(state, tape.State, m.What, m.To, m.Where, m.Tapped, m.Controller, null, faceDown: false) is not { } proposed)
                 continue;
 
             tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
@@ -134,9 +123,12 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// object where it is. <paramref name="board"/> is the board the move is read against — for a
     /// batch, the one board of CR 400.7 — and <paramref name="counters"/> is where the new
     /// object's id and timestamp come from, which for a batch is the running state.
+    /// <paramref name="faceDown"/> is on the proposal and not applied after it, CR 701.40a: the
+    /// card is turned face down before it is put onto the battlefield, so what the replacement
+    /// effects are offered is already the 2/2 with no name.
     /// </summary>
     [RuleRef("400.7")]
-    private static ObjectMoved? Proposal(GameState board, GameState counters, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex)
+    private static ObjectMoved? Proposal(GameState board, GameState counters, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown)
     {
         if (!board.Objects.TryGetValue(what, out var moving))
             return null;
@@ -157,7 +149,7 @@ public sealed partial class ZoneSystem : IZoneSystem
         // CR 603.10: the object as it last existed travels with the move, for the abilities that
         // look back. CR 306.5b: what the rules give the object as it enters is on the proposal, so
         // the replacement effects are offered a planeswalker that already has its printed loyalty.
-        var arriving = Entering(Reborn(counters, moving, destination, tapped, controller, faceIndex));
+        var arriving = Entering(Reborn(counters, moving, destination, tapped, controller, faceIndex, faceDown));
         return new ObjectMoved(what, arriving, PositionIn(board, destination, where), Departed: moving);
     }
 
@@ -188,7 +180,7 @@ public sealed partial class ZoneSystem : IZoneSystem
             // of the hand, which is unordered anyway, CR 400.5.
             var top = cards[0];
             var drawn = tape.State.Objects[top];
-            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null, faceIndex: null);
+            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null, faceIndex: null, faceDown: false);
 
             // CR 121.1 and 614.1c: drawing is one action, so the draw itself is what is offered.
             // A draw replaced away moves no card at all and leaves the library as it was; a draw
@@ -319,15 +311,17 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// <summary>
     /// The new object a moved object becomes, CR 400.7. Everything that was true of the old object
     /// and is not printed on the card is dropped: counters, damage, attachment, tap and face-down
-    /// status, phasing, and anything the stack was holding for it.
+    /// status, phasing, and anything the stack was holding for it. Face-down status is therefore
+    /// the mover's to ask for (CR 701.40a, 702.37c) and is never carried over by itself.
     /// </summary>
     [RuleRef("400.7")]
-    private static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex) =>
+    private static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
         new(new ObjectId(state.NextObjectId), moving.Definition, FaceFor(moving, faceIndex), moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
             IsCommander = moving.IsCommander,
             Tapped = tapped,
+            FaceDown = faceDown,
 
             // CR 302.6: a creature entering the battlefield has not been controlled since the turn
             // began. In every other zone the flag has nothing to say.
