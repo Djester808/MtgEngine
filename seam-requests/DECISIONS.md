@@ -365,3 +365,18 @@ sonnet, a third reading of the disputed on `claude-opus-5-b`) and the redo of th
 | V12 | none outside the readers; two card ids in the brief were wrong (the excess-damage card is `4b1befff`, the draw-step exception `ea5103f5`) | **Recorded**; the redo used the corrected ids. Readers (casting: `OptionalAdditionalCost`, `Face.AlternativeCosts`; interpreter: `DealDamage.ExcessTo`, `PayCost.Then`; casting/trigger: `ChooseMode.Budget`; trigger: `Draws.ExceptFirstInDrawStep`) are **wave 23 and on**. |
 | P22 | the retarget arm cannot offer a player or an any-target slot (CR 114.6, 115.7a); the guard refuses `git checkout` of card files inside a worktree | **E9r (wave 23)** for the retarget; the restore is the coordinator's after a merge (the worktree's dirty card files are discarded with it). |
 | coordinator | verify, agreement and gate on the wave-22 tip | **260 verified, 1 failed, 12 without a scenario, 3 unsupported, 0 crashed** over the 312 card files (`7f9c597`); slice 002 agrees 32 of 40 (three readings), slice 003 24 of 40 (two, its third being collected); gate green: 952 engine, 235 vocabulary, 266 pipeline and 633 API tests. The one failure is a court's "you become the monarch" with no interpreter arm (E9r). |
+
+# Seam decisions after wave 23
+
+Wave 23 (E9r E3n E6g V13, all on opus) ran beside the fourth corpus slice and the redos of the cards
+V12 and V13 unblocked. Two translator lessons were paid for: a brief's card ids are checked by
+searching `cards/` for the printed phrase, and a translator prompt never says "fix until ok" — an
+honest marker's lint line is the correct outcome.
+
+| From | Request | Decision |
+|---|---|---|
+| E9r | a `MonarchChanged` event writing `GameState.Monarch` (CR 724.1); CR 724.3 and 724.4 for the turn and combat systems; the `BecomesMonarch` trigger reader; the brief cited CR 120.3d where the shipped text says 120.4a | **Now** (coordinator): the event, its `events.txt` line and the arm; the court verifies. 724.3, 724.4 and the trigger reader are **wave 24**. |
+| E3n | `Query.Conditions.Paid` should name the alternative markers rather than count paid options; a typed command channel for the offer indices; a stack key for a resolution-time mode budget | **Recorded** for the query and the commands seam; the `CostChoices` channel carries both offers meanwhile. |
+| E6g | a per-step draw record on the player (CR 121.1, for a skipped draw step); `TriggeringDamage` and `AttackersAgainst` amounts in the query; `DelayedTriggerState.Until`; a searched-library event before any `Searches` trigger can match | **Wave 24**: the two amounts (E5-series), the delayed trigger's duration (E9-series with the state), the search event (zones or interpreter), the draw record (state). |
+| V13 | seven readers (trigger, interpreter, turn record, layers, query, casting); the pipeline checks a copied card's name against the corpus | **Wave 24 and on**; the corpus check is a P-series lint. |
+| coordinator | verify, agreement and gate on the wave-23 tip | **282 verified, 1 failed, 18 without a scenario, 6 unsupported, 0 crashed** over the 352 card files (`f83908e`); slice 003 agrees 33 of 40 (three readings), slice 004 22 of 40 (two); gate green: 986 engine, 247 vocabulary, 267 pipeline and 633 API tests. The one failure is the amass keyword action with no interpreter arm (wave 24). |
