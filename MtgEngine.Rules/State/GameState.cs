@@ -83,16 +83,18 @@ public sealed record GameState
         var lands = 0;
         foreach (var id in History.EnteredBattlefield)
         {
-            if (!counted.Add(id))
+            if (counted.Contains(id))
                 continue;
             var entered = Objects.TryGetValue(id, out var live) ? live : History.LeftBattlefield.FirstOrDefault(o => o.Id == id);
-            if (entered is not null && EnteredAsLand(entered, who))
+            if (entered is null)
+                continue; // CR 111.7: a token that ceased to exist is in neither place; the token record below may still say what it was.
+            counted.Add(id);
+            if (EnteredAsLand(entered, who))
                 lands++;
         }
 
-        // CR 111.1: a token is created on the battlefield rather than moved onto it, so it is in the
-        // turn's token record and not in EnteredBattlefield (seam-requests/E2c.md asks for the line
-        // that would put it in both).
+        // CR 111.1: a token created on the battlefield is in the turn's token record as it was made,
+        // which is the one description left of a token that has since ceased to exist (CR 111.7).
         if (History.TokensCreated.TryGetValue(who, out var tokens))
         {
             foreach (var token in tokens)
