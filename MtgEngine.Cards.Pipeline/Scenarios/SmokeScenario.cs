@@ -176,11 +176,17 @@ public static partial class SmokeScenario
                 break;
 
             // CR 608.2m as the card overrides it: "exile this card" sends the resolved spell to
-            // exile instead of the graveyard. "Shuffle this card into its owner's library" is the
-            // same road, but the engine leaves such a spell in the graveyard today, so it is not
-            // asserted until it moves (seam-requests/P19.md).
+            // exile instead of the graveyard.
             case Exile { What: Self, Until: null }:
                 board.SpellEndsIn = Zone.Exile;
+                break;
+
+            // CR 608.2m with CR 400.7: "shuffle this card into its owner's library" is the same
+            // road — the spell has already been moved by the time its resolution ends, so the
+            // graveyard never gets it. The shuffle itself is the search's to assert (CR 701.20);
+            // what this arm settles is only where the spell went.
+            case Shuffle { IntoLibrary: Self, Who: null or You } when !board.PlaysFromBattlefield:
+                board.SpellEndsIn = Zone.Library;
                 break;
 
             // CR 402.1: "return target card from your graveyard to your hand" — the graveyard is

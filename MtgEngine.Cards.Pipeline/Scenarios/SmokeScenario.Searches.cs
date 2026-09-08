@@ -18,6 +18,8 @@ public static partial class SmokeScenario
             return [];
         if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } card)
             return [];
+        if (Destination(board, search, card) is null)
+            return [];
 
         var wanted = search.UpTo is Fixed { N: > 0 and var n } ? n : 1;
         var stocked = new List<string>(wanted);
@@ -27,16 +29,51 @@ public static partial class SmokeScenario
     }
 
     /// <summary>
+    /// CR 701.23a: where the card the library was stocked with goes, and whether it arrives tapped.
+    /// A search with no <see cref="Search.Instead"/> puts every card it found into its own
+    /// <see cref="Search.To"/>. One that carries them reads the card found against each entry's
+    /// filter in the order they are written and the first entry that admits it wins — the reading
+    /// the interpreter makes, and the reason "put it into your hand; if it's a land card, put it
+    /// onto the battlefield tapped instead" ends with a land on the battlefield and not in a hand.
+    /// Null when an entry names something the board cannot read against a card: the search then
+    /// gets no scenario at all, because a guessed zone would be reported as the card failing.
+    /// </summary>
+    [RuleRef("701.23a")]
+    private static (Zone To, bool Tapped)? Destination(SmokeBoard board, Search search, string card)
+    {
+        foreach (var instead in search.Instead ?? [])
+        {
+            switch (SmokeFillers.Admits(instead.Matching, card, board.AnnouncedX))
+            {
+                case null:
+                    return null;
+                case true:
+                    return (instead.To, instead.Tapped);
+                default:
+                    break;
+            }
+        }
+
+        return (search.To, search.Tapped);
+    }
+
+    /// <summary>
     /// Where each found card ended up, and CR 701.20's shuffle. A search that puts the cards back
     /// on top of the library moves nothing, so the shuffle is all there is to see — and it is worth
     /// seeing, because a search that never shuffled would leave the library stacked. The shuffle is
-    /// asserted as a shuffle and not as "something was reordered", which the backlog also logs.
+    /// asserted as a shuffle and not as "something was reordered", which the backlog also logs. A
+    /// card that arrives on the battlefield is asserted tapped or untapped as CR 701.23a says,
+    /// because "put it onto the battlefield tapped" is half of what those searches promise.
     /// </summary>
     [RuleRef("701.20")]
     private static void Found(SmokeBoard board, Search search, IReadOnlyList<string> found)
     {
+        if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } stocked
+            || Destination(board, search, stocked) is not { } went)
+            return;
+
         var n = found.Count;
-        switch (search.To)
+        switch (went.To)
         {
             case Zone.Hand:
                 board.Caster(hand: n, library: -n);
@@ -52,10 +89,14 @@ public static partial class SmokeScenario
                 break;
         }
 
-        if (search.To is not Zone.Library)
+        if (went.To is not Zone.Library)
         {
             foreach (var card in found)
-                board.Expect(new InZone(card, search.To));
+            {
+                board.Expect(new InZone(card, went.To));
+                if (went.To is Zone.Battlefield)
+                    board.Expect(new TappedIs(card, went.Tapped));
+            }
         }
 
         if (search.ShuffleAfter)

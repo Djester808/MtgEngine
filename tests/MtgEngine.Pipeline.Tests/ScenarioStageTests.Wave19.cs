@@ -49,15 +49,15 @@ public sealed class ScenarioStageTestsWave19
     }
 
     /// <summary>
-    /// CR 110.4c: a permanent card in a graveyard is a card with a permanent card type, so a land
-    /// card there answers "permanent" and the board could stock one. The engine's query reads the
-    /// field as being on the battlefield instead (CR 110.1), so the spell has no legal target and a
-    /// staged scenario would report the engine's reading as the card failing. Drop this test with
-    /// the seam (seam-requests/P20.md § 1).
+    /// CR 110.4a: a permanent card in a graveyard is a card with a permanent card type, so a land
+    /// card there answers "permanent" and the board stocks one. The engine's query read the field
+    /// as presence on the battlefield (CR 110.1) until E9p, and the guard that kept this family
+    /// scenario-less went with it (seam-requests/P20.md § 1): the spell now has a legal target and
+    /// the card it names arrives.
     /// </summary>
     [Fact]
-    [RuleRef("110.4c")]
-    public void A_permanent_card_in_a_graveyard_gets_no_scenario_until_the_query_reads_a_permanent_card()
+    [RuleRef("110.4a")]
+    public void A_permanent_card_in_a_graveyard_is_a_target_the_board_can_stock()
     {
         var file = Spell(
             "wave19 reclaim it",
@@ -66,7 +66,13 @@ public sealed class ScenarioStageTestsWave19
                 Zone.Battlefield)),
             CardType.Sorcery);
 
-        Assert.Null(SmokeScenario.Of(file));
+        var scenario = SmokeScenario.Of(file);
+
+        Assert.NotNull(scenario);
+        var buried = Assert.Single(scenario!.Setup.Players[0].Graveyard!);
+        Assert.Equal([buried.Alias!], Assert.IsType<CastStep>(scenario.Steps[0]).Targets);
+        Assert.Equal(Zone.Battlefield, Assert.Single(scenario.Expect.OfType<InZone>(), z => z.Card == buried.Alias).Zone);
+        Passes(scenario, file);
     }
 
     /// <summary>

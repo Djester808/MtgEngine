@@ -100,6 +100,28 @@ internal static class SmokeFillers
     }
 
     /// <summary>
+    /// CR 701.23a: whether an "instead" destination's filter admits the card the library was
+    /// stocked with — read exactly the way <see cref="Findable"/> reads it, so the search and its
+    /// destinations cannot disagree about one card. Null is not "no": it says the filter names
+    /// something the board cannot read against a card (a zone, a controller, a bound with no
+    /// number), and a search whose destination the generator cannot settle gets no scenario at all
+    /// rather than one that asserts the wrong zone.
+    /// </summary>
+    [RuleRef("701.23a")]
+    internal static bool? Admits(ObjectFilter filter, string card, int? x = null)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        // The filter is read against the one card found, wherever the search looked, so it carries
+        // no zone of its own and a card in a library is under nobody's control (CR 108.4).
+        if (!Plain(filter) || filter.In is not null || filter.ControlledBy is not null)
+            return null;
+        if (filter.ManaValue is { } comparison && Bound(comparison.Value, x) is null)
+            return null;
+        return Matches(filter, card) && CostsRight(filter.ManaValue, card, x);
+    }
+
+    /// <summary>
     /// CR 202.3: whether this filler's printed mana value satisfies the filter's comparison. No
     /// comparison is satisfied by anything; a comparison against an amount the scenario cannot put
     /// a number to is satisfied by nothing, because guessing the bound would be inventing the card.
@@ -135,14 +157,9 @@ internal static class SmokeFillers
         if (filter.In is not Zone.Graveyard || !Plain(filter with { In = null, OwnedBy = null }))
             return null;
 
-        // CR 110.4c: a permanent card in a graveyard is a card with a permanent card type, so a
-        // land card there answers "permanent" and the board could stock one. The engine's query
-        // reads the field as being on the battlefield instead (CR 110.1), so nothing in a graveyard
-        // matches and the spell has no legal target — a scenario staged against it reports the
-        // engine's reading as the card failing. No body until it reads CR 110.4c
-        // (seam-requests/P20.md § 1).
-        if (filter.Permanent is not null)
-            return null;
+        // CR 110.4a: a permanent card in a graveyard is a card with a permanent card type, and
+        // since E9p the engine's query reads the field that way outside the battlefield, so a land
+        // card there answers "permanent" and the board can stock one (seam-requests/P20.md § 1).
         return Cards().FirstOrDefault(name => Matches(filter, name) && CostsRight(filter.ManaValue, name, x));
     }
 
