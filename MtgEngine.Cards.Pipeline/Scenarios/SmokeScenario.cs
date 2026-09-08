@@ -65,6 +65,10 @@ public static partial class SmokeScenario
         // it for — a filter bounded by it above all — has the number the cast is going to name.
         board.AnnouncedX = face.ManaCost is { Length: > 0 } printed && printed.Contains("{X}", StringComparison.Ordinal) ? AnnouncedX : null;
 
+        // CR 601.2c: the key the one targeted player was announced under, read before anything is
+        // asserted, so an amount about "that player" knows the opponent is who it is about.
+        board.AimedPlayerKey = OneTargetedPlayer(file.Definition);
+
         var permanent = Permanent(face.Types.Types);
         if (permanent)
         {
@@ -77,6 +81,11 @@ public static partial class SmokeScenario
             board.Expect(board.Enchanted is { } host
                 ? new AttachedToIs(file.Name, host)
                 : new InZone(file.Name, Zone.Battlefield));
+
+            // CR 603.6b: a permanent spell's own arrival trigger goes on the stack as the spell
+            // resolves, so what it does is part of the play — and a trigger whose choice would
+            // otherwise take the card that just arrived needs the board to stand something older.
+            Enters(board, face);
         }
         else if (!Read(board, face))
         {
@@ -136,6 +145,11 @@ public static partial class SmokeScenario
     {
         switch (effect)
         {
+            // CR 121.1 with CR 119.4: what the one player the spell announced draws and loses,
+            // when both are halves of numbers the board itself stocked.
+            case Draw or LoseLife when board.AimedPlayerKey is { } aimed && Drains(board, effect, aimed):
+                break;
+
             // CR 121.1: drawing puts cards in hand, and the spell itself has left it.
             case Draw { Who: null or You } draw when Number(board, draw.N) is { } drawn && drawn > 0 && drawn <= LibrarySize:
                 board.Caster(hand: drawn, library: -drawn);
@@ -153,6 +167,11 @@ public static partial class SmokeScenario
                 when Number(board, bolt.N) is { } struck && struck > 0:
                 board.AimsAtPlayer(Opponent);
                 board.Lives(false, -struck);
+                break;
+
+            // CR 704.5g: three damage to a two-toughness body is lethal, so the play can say the
+            // creature it was aimed at is in a graveyard rather than that damage was dealt.
+            case DealDamage { To: Target hit, ToPlayer: null } lethal when Lethal(board, lethal, hit):
                 break;
 
             case GainLife { Who: null or You } gain when Number(board, gain.N) is { } gained && gained > 0:
@@ -229,12 +248,16 @@ public static partial class SmokeScenario
                 break;
 
             // CR 208.1 with CR 121.1: "draw cards equal to the greatest power among creatures you
-            // control" draws the printed power of the one creature the board gives it to look at.
-            case Draw { N: GreatestAmong { Of: PowerOf { Of: Self } } greatest, Who: null or You }
-                when greatest.Among.ControlledBy is null or You && SmokeFillers.Bodies(greatest.Among).Contains(ScenarioFiller.Creature)
-                    && SmokeFillers.PowerOf(ScenarioFiller.Creature) is { } power && power > 0 && power <= LibrarySize:
+            // control" — or the greatest toughness — draws that printed stat off the one creature
+            // the board gives it to look at.
+            case Draw { N: GreatestAmong greatest, Who: null or You } when GreatestStat(greatest) is { } stat:
                 board.Place(true, ScenarioFiller.Creature, 1);
-                board.Caster(hand: power, library: -power);
+                board.Caster(hand: stat, library: -stat);
+                break;
+
+            // CR 700.1: "put any number of creature cards from your hand onto the battlefield"
+            // over a hand of lands puts none, so the rest of the card is what the play shows.
+            case Move { What: Choose chosen, To: Zone.Battlefield } when ChoosesNothing(chosen):
                 break;
 
             // CR 701.7: destroying a permanent puts it into its owner's graveyard. "Artifact or
@@ -361,11 +384,13 @@ public static partial class SmokeScenario
 
             // CR 611.1: a continuous effect changes nothing about where anything is, so what a
             // play can show is that the game created the effect (seam-requests/P9.md § 2).
-            case Apply { To: Each affected }:
-                // An effect over "each" of nothing is not created at all, so the board has to hold
-                // one of whatever it is about — on the side the filter names, so a wipe-shaped
-                // effect kills someone else's and the caster's graveyard count still holds.
-                board.Place(affected.Filter.ControlledBy is You, ScenarioFiller.Creature, 1);
+            // CR 611.1 with CR 611.2c: an effect over "each" of nothing is never created, so the
+            // board has to hold one the filter actually describes — on the side the filter names,
+            // so a wipe-shaped effect kills someone else's and the caster's graveyard count holds.
+            // A filter the fillers cannot answer ("white creatures you control") gets no scenario:
+            // standing a body the filter never described asserted an event the game never logged.
+            case Apply { To: Each affected } when SmokeFillers.Bodies(affected.Filter) is [var described, ..]:
+                board.Place(affected.Filter.ControlledBy is You, described, 1);
                 board.Expect(new EventLogged(nameof(ContinuousEffectCreated)));
                 break;
 
@@ -434,52 +459,4 @@ public static partial class SmokeScenario
     /// <summary>CR 701.14: one creature the target's filter admits, so a filler creature can stand in for it in a fight.</summary>
     [RuleRef("701.14")]
     private static bool Fightable(Target target) => Aimable(target).Contains(ScenarioFiller.Creature);
-
-    /// <summary>
-    /// CR 601.2b: a printed number, or the X the cast announced when the record says X; null for
-    /// an amount the board cannot put a number to, which then asserts nothing.
-    /// </summary>
-    [RuleRef("601.2b")]
-    private static int? Number(SmokeBoard board, Amount amount) => amount switch
-    {
-        Fixed printed => printed.N,
-        X => board.AnnouncedX,
-        // CR 202.3: "that card's mana value" is the printed cost of the one filler a step remembered.
-        ManaValueOf { Of: Remembered { Key: var key } } when board.Recalled(key) is [var (_, card)] => ScenarioFiller.ManaValueOf(card),
-        _ => null,
-    };
-
-    /// <summary>A count the board can supply: the caster's own creatures, and nothing else about them.</summary>
-    private static bool Countable(ObjectFilter filter) =>
-        Simple(filter) && filter.Types == CardType.Creature && filter.ControlledBy is You && filter.In is null or Zone.Battlefield;
-
-    /// <summary>
-    /// CR 601.2c: which filler spell the board can put on the stack for this target, or null when
-    /// the filter describes a spell it has no card for. The filter is read against the fillers'
-    /// printed type lines, so "target noncreature spell" and "target instant or sorcery spell" are
-    /// answered by the same reading that answers "target spell".
-    /// </summary>
-    [RuleRef("601.2c")]
-    private static string? Spell(Target target) =>
-        target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Cast(target.Filter) : null;
-
-    /// <summary>
-    /// Every field the board cannot honour is null: a filter with a colour, a power or a predicate
-    /// describes a permanent the runner has no card for, and guessing one would be inventing a card.
-    /// </summary>
-    private static bool Simple(ObjectFilter filter) =>
-        filter == new ObjectFilter(In: filter.In, Types: filter.Types, ControlledBy: filter.ControlledBy, Spell: filter.Spell);
-
-    private static bool Mine(Target target) => target.Filter.ControlledBy is You;
-
-    private static string Owner(Target target) => Mine(target) ? Caster : Opponent;
-
-    /// <summary>CR 205.2a: the permanent types. A spell of any of them ends up on the battlefield.</summary>
-    [RuleRef("205.2a")]
-    private static bool Permanent(CardType types) =>
-        (types & (CardType.Creature | CardType.Artifact | CardType.Enchantment | CardType.Planeswalker | CardType.Battle)) != 0;
-
-    /// <summary>A sequence is its parts; anything conditional is skipped, because a smoke scenario asserts only what always happens.</summary>
-    private static IEnumerable<Effect> Flatten(Effect effect) =>
-        effect is Sequence sequence ? sequence.Steps.SelectMany(Flatten) : [effect];
 }

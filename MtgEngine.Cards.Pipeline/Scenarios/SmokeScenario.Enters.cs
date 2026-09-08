@@ -23,7 +23,10 @@ public static partial class SmokeScenario
             if (triggered is not { When: EntersBattlefield { What.Also: IsThisObject, UnderControlOf: null }, If: null, Optional: false, Where: Zone.Battlefield })
                 continue;
             foreach (var effect in Flatten(triggered.Do))
+            {
                 Returns(board, effect);
+                Edicts(board, effect);
+            }
         }
     }
 
@@ -66,5 +69,29 @@ public static partial class SmokeScenario
 
         board.Expect(new InZone(board.Bystander(mine: true, body), Zone.Hand, Caster));
         board.Caster(hand: 1);
+    }
+
+    /// <summary>
+    /// CR 701.16 with CR 603.3: "when this enters, each player sacrifices a creature of their
+    /// choice". Each player chooses, and a generated scenario answers with the first legal option,
+    /// so each battlefield needs a body older than the card under test standing on it — otherwise
+    /// the caster's only creature is the one that just arrived and the trigger eats it, which is a
+    /// play that reports the board the scenario built rather than what the card does. The bodies
+    /// are stood on both sides because the trigger names every player (CR 102.1).
+    /// </summary>
+    [RuleRef("701.16")]
+    private static void Edicts(SmokeBoard board, Effect effect)
+    {
+        if (effect is not Sacrifice { What: null, Choice: { } offered, Who: EachPlayer, N: null or Fixed { N: 1 } })
+            return;
+
+        // The filter has to name a kind the board can stand, and nothing about who controls it: a
+        // sacrifice each player makes is made off their own battlefield (CR 701.16a).
+        if (offered.ControlledBy is not null || SmokeFillers.Bodies(offered) is not [var body, ..])
+            return;
+
+        board.Expect(new InZone(board.Bystander(mine: true, body), Zone.Graveyard, Caster));
+        board.Bystander(mine: false, body);
+        board.Caster(graveyard: 1);
     }
 }

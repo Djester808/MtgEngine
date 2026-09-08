@@ -212,6 +212,10 @@ internal static class SmokeFillers
     [RuleRef("208.1")]
     internal static int? PowerOf(string card) => ScenarioFiller.For(card)?.Faces[0].Power?.Number;
 
+    /// <summary>CR 208.2: the printed toughness of one filler, read the way <see cref="PowerOf"/> reads its power.</summary>
+    [RuleRef("208.2")]
+    internal static int? ToughnessOf(string card) => ScenarioFiller.For(card)?.Faces[0].Toughness?.Number;
+
     /// <summary>The number a comparison is against: a printed one, or the X the scenario announced (CR 601.2b).</summary>
     [RuleRef("601.2b")]
     private static int? Bound(Amount amount, int? x) => amount switch
@@ -249,6 +253,7 @@ internal static class SmokeFillers
             ControlledBy: filter.ControlledBy,
             Permanent: filter.Permanent,
             Spell: filter.Spell,
+            Token: filter.Token,
             ManaValue: filter.ManaValue);
 
     /// <summary>CR 205.1a: the printed type line answers the filter, because a filler has no ability that could change it.</summary>
@@ -284,6 +289,11 @@ internal static class SmokeFillers
         // CR 202.2b: "nonblack creature" is read off the same printed colour, and a filler that
         // prints none is colourless, which is not any of the colours a "non" clause names.
         if (filter.NotColors is { } excluded && (colour & excluded) != 0)
+            return false;
+
+        // CR 111.1: every filler is a card, so "nontoken" admits one and "token" describes a
+        // permanent the setup has no way to put on a battlefield.
+        if (filter.Token is true)
             return false;
         return filter.Permanent is not { } permanent || permanent == IsPermanent(line.Types);
     }

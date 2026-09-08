@@ -115,6 +115,14 @@ internal sealed class SmokeBoard(string card)
 
     internal void Expect(Expectation expectation) => _expect.Add(expectation);
 
+    /// <summary>
+    /// CR 601.2c with CR 608.2h: the key the one player this play announces was announced under,
+    /// so an amount that reads "that player's library" or "their life" knows it is about the
+    /// opponent the step aims at. Null when the card names no player target, or names more than one.
+    /// </summary>
+    [RuleRef("608.2h")]
+    internal string? AimedPlayerKey { get; set; }
+
     /// <summary>The card the spell is aimed at, placed on the battlefield of whoever is to own it.</summary>
     internal string Body(bool mine) => Aimed(mine, ScenarioFiller.Creature);
 
