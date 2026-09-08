@@ -143,6 +143,9 @@
         },
         {
           "$ref": "#/$defs/ResolveAllStep"
+        },
+        {
+          "$ref": "#/$defs/TapForManaStep"
         }
       ],
       "description": "One thing a player does, or the runner does for them."
@@ -827,6 +830,38 @@
         "kind"
       ],
       "description": "Every player passes until the stack is empty."
+    },
+    "TapForManaStep": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TapForManaStep"
+        },
+        "player": {
+          "type": "string"
+        },
+        "card": {
+          "type": "string"
+        },
+        "manaColors": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "As ManaColors: the colour chosen for each \u0022add one mana of any color\u0022 the ability adds, one letter per mana in the order added, CR 608.2d. Null chooses nothing, which is right for a land that prints its colour and refused for one that does not."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "player",
+        "card"
+      ],
+      "description": "A permanent is tapped for mana: the runner activates its first mana ability (CR 605.1a), which resolves as it is activated and never uses the stack (CR 605.3a), so the permanent taps and the mana it makes lands in a pool (CR 106.4). AddManaStep puts mana in a pool without anything having been tapped for it, so a \u0022whenever ... is tapped for mana\u0022 trigger never sees it; this step is what such a card\u0027s scenario says instead."
     },
     "AttachedToIs": {
       "type": "object",
