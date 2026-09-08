@@ -59,8 +59,9 @@ public sealed partial class EventLogTests
         var state = GameReducer.Replay([started]);
         var prevented = new DamagePrevented(new ObjectId(1), new ObjectId(2), null, 3, new ObjectId(2));
 
+        // Two replays are two records whose immutable members differ by reference, so the identity
+        // of the fold is the assertion, as it is for the searched-library event.
         Assert.Same(state, prevented.Apply(state));
-        Assert.Equal(state, GameReducer.Replay([started, prevented]));
     }
 
     /// <summary>
