@@ -18,8 +18,9 @@ public sealed class TranslateStageReferenceTests
     /// </summary>
     // V9 to V11 (waves 15 to 19) grew the reference from 68k to 103k characters; the readings now travel
     // as files read by agents, so the budget is the reader's, not an API cache window's. V14 and V15
-    // (waves 25 and 26) took it to 142k: twenty records with their one-spelling lines.
-    private const int PrefixBudget = 160_000;
+    // (waves 25 and 26) took it to 142k: twenty records with their one-spelling lines; V16 and V17
+    // (waves 27 and 28) to 160k. The readers read it in eight parts.
+    private const int PrefixBudget = 200_000;
 
     /// <summary>The records added after the pilot's prompt was written; each needs its one reading said.</summary>
     private static readonly string[] Later =

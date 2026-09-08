@@ -682,6 +682,9 @@
           "$ref": "#/$defs/ManaPoolIs"
         },
         {
+          "$ref": "#/$defs/PhasedOutIs"
+        },
+        {
           "$ref": "#/$defs/PlayerCountersAre"
         },
         {
@@ -2207,6 +2210,26 @@
         "mana"
       ],
       "description": "A player\u0027s mana pool holds exactly this mana (CR 106.4). Written the way a mana cost is \u2014 \u0022{G}{G}\u0022, \u0022{2}{U}\u0022 \u2014 and read as a total, not an order: a pool is a bag of symbols, so the expectation compares what is in it and not how it got there. The empty string is an empty pool. This is what a \u0022add {G} to your mana pool\u0022 card should assert; the event it logged says only that mana changed, which is true of a card that added the wrong colour."
+    },
+    "PhasedOutIs": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PhasedOutIs"
+        },
+        "card": {
+          "type": "string"
+        },
+        "phasedOut": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "card"
+      ],
+      "description": "One permanent\u0027s phased status, CR 702.26b: the named card is phased out (or, with PhasedOut false, phased in). This is a status and not a zone \u2014 a permanent that phases out stays on the battlefield and is only treated as though it does not exist \u2014 so it is the one thing a phasing scenario can assert. InZone(card, Battlefield) is true before and after and proves nothing; InZone naming any other zone is the opposite claim and the two together are refused (L048). It is not TappedIs, the other status a permanent carries (CR 110.5), and not ControlledBy: a phased-out permanent keeps its controller, which is how CR 702.26a knows whose untap step phases it back in."
     },
     "PlayerCountersAre": {
       "type": "object",
@@ -6472,10 +6495,33 @@
               "type": "null"
             }
           ]
+        },
+        "inAnyOf": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Library",
+                  "Hand",
+                  "Battlefield",
+                  "Graveyard",
+                  "Stack",
+                  "Exile",
+                  "Command",
+                  "OutsideTheGame"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022. ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is \u0022any of\u0022, and an object matches when its printed cost is one of the listed symbol strings exactly as printed \u2014 [\u0022{0}\u0022, \u0022{1}\u0022] is \u0022with mana value 0 or 1\u0022 said the way a card that cares about the printed cost says it. It is not ManaValue, which counts the cost and so admits \u0022{W}\u0022 for 1 and cannot tell \u0022{0}\u0022 from a land\u0027s absent cost; use ManaValue whenever the card prints a number, and this only where the printed symbols themselves are named. An object with no printed mana cost matches no entry, and an empty list matches nothing at all rather than everything. NotInCommanderIdentityColors is \u0022colors not in your commander\u0027s color identity\u0022, CR 903.4: true admits an object of a colour outside that identity and false admits one wholly inside it. It is CastFrom and NotCastFrom are the zone a spell was cast from, CR 601.3 read as a description of the spell rather than of the caster: \u0022players cannot cast spells from anywhere other than their hands\u0022 is a CantCastSpells whose Matching filter has Spell true and NotCastFrom Hand. Set one or the other, never both \u2014 a card names the zone it allows or the one it forbids, and both together admits nothing (L038) \u2014 and only on a filter that describes a spell: a permanent was never cast from anywhere the game still remembers. It is not the CastFromZone condition, which asks where this card was cast from and can say nothing about anyone else spell. the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of its own, because the set is the game\u0027s and not the card\u0027s. Never write it as a Colors or NotColors list, which would fix at translation time a set that depends on the deck. NotHas is the printed negation, \u0022creatures without flying\u0022 (CR 702.1, and 702.9 for the keyword that prints it most): the objects this filter admits are the ones that do not have that keyword ability, whether it is printed on them or granted. It is the mirror of Has and never the same field with anything turned around, so a card that says \u0022without\u0022 is this member and a card that says \u0022with\u0022 is that one; setting both to the same keyword admits nothing (L045). It is not NotSubtypes, which is a creature type, and not a Predicate: the absence of a keyword is a fixed field because the presence of one already is."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022. ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is \u0022any of\u0022, and an object matches when its printed cost is one of the listed symbol strings exactly as printed \u2014 [\u0022{0}\u0022, \u0022{1}\u0022] is \u0022with mana value 0 or 1\u0022 said the way a card that cares about the printed cost says it. It is not ManaValue, which counts the cost and so admits \u0022{W}\u0022 for 1 and cannot tell \u0022{0}\u0022 from a land\u0027s absent cost; use ManaValue whenever the card prints a number, and this only where the printed symbols themselves are named. An object with no printed mana cost matches no entry, and an empty list matches nothing at all rather than everything. NotInCommanderIdentityColors is \u0022colors not in your commander\u0027s color identity\u0022, CR 903.4: true admits an object of a colour outside that identity and false admits one wholly inside it. It is CastFrom and NotCastFrom are the zone a spell was cast from, CR 601.3 read as a description of the spell rather than of the caster: \u0022players cannot cast spells from anywhere other than their hands\u0022 is a CantCastSpells whose Matching filter has Spell true and NotCastFrom Hand. Set one or the other, never both \u2014 a card names the zone it allows or the one it forbids, and both together admits nothing (L038) \u2014 and only on a filter that describes a spell: a permanent was never cast from anywhere the game still remembers. It is not the CastFromZone condition, which asks where this card was cast from and can say nothing about anyone else spell. the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of its own, because the set is the game\u0027s and not the card\u0027s. Never write it as a Colors or NotColors list, which would fix at translation time a set that depends on the deck. NotHas is the printed negation, \u0022creatures without flying\u0022 (CR 702.1, and 702.9 for the keyword that prints it most): the objects this filter admits are the ones that do not have that keyword ability, whether it is printed on them or granted. It is the mirror of Has and never the same field with anything turned around, so a card that says \u0022without\u0022 is this member and a card that says \u0022with\u0022 is that one; setting both to the same keyword admits nothing (L045). It is not NotSubtypes, which is a creature type, and not a Predicate: the absence of a keyword is a fixed field because the presence of one already is. InAnyOf is the one filter a sentence naming more than one zone gets: \u0022creature cards in graveyards and libraries\u0022 is InAnyOf: [Graveyard, Library], admitting an object in any of them (CR 400.1 \u2014 each zone is its own place, and an object is in exactly one). It is the plural of In and never beside it: a filter that says both a zone and a list of zones states two different memberships and only one of them would be read (L047). A single-entry list is a plain In written the long way and is refused for the same reason, and a filter with neither still means the battlefield wherever a filter defaults there \u2014 an empty list is not \u0022any zone\u0022."
     },
     "PlayerFilter": {
       "type": "object",
@@ -6652,6 +6698,9 @@
         },
         {
           "$ref": "#/$defs/CantDrawMoreThan"
+        },
+        {
+          "$ref": "#/$defs/CantEnterBattlefield"
         },
         {
           "$ref": "#/$defs/CantGainLife"
@@ -10394,13 +10443,16 @@
               "type": "null"
             }
           ]
+        },
+        "keepOnePerPermanentType": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
         "kind"
       ],
-      "description": "\u0022Sacrifice a creature\u0022: the player chooses; \u0022sacrifice it\u0022: a selector."
+      "description": "\u0022Sacrifice a creature\u0022: the player chooses; \u0022sacrifice it\u0022: a selector. KeepOnePerPermanentType is the whole of \u0022each opponent chooses a permanent they control of each permanent type, then sacrifices the rest\u0022 (CR 701.21 with 110.4). The six permanent types are artifact, battle, creature, enchantment, land and planeswalker; a permanent with two of them \u2014 an artifact creature \u2014 is kept by either choice and satisfies both (CR 205.2b), so the kept set can be smaller than six and a reading that sacrifices down to exactly one of each is wrong. Every player the effect names chooses before anything is sacrificed and all the sacrifices happen at once (CR 101.4, 701.21a), which a per-type Sacrifice in a loop does not do: six sequential edicts let a trigger from the first one change what is on the battlefield for the second. Choice narrows which permanents the rule looks at at all (\u0022each opponent \u2026 of each creature type\u0022 is not this record); with the flag set, N and What say how many go and which, which is the opposite claim from \u0022keep one of each and lose everything else\u0022 \u2014 the linter refuses both (L047)."
     },
     "Scry": {
       "type": "object",
@@ -13266,6 +13318,29 @@
               "type": "null"
             }
           ]
+        },
+        "castFrom": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Library",
+                  "Hand",
+                  "Battlefield",
+                  "Graveyard",
+                  "Stack",
+                  "Exile",
+                  "Command",
+                  "OutsideTheGame"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -13273,7 +13348,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 613"
+      "description": "\u0022Your opponents can\u0027t cast spells\u0022, \u0022players can\u0027t cast spells from graveyards or libraries\u0022: a rule-modifying continuous effect over casting itself (CR 601.3 with 613.11) \u2014 the cast is simply not a legal action, so nothing goes on the stack and there is nothing to counter. CastFrom is the printed list of zones the restriction covers, and it is a list because the sentence names more than one: \u0022from graveyards or libraries\u0022 is one restriction over two zones (CR 400.1 \u2014 every zone is its own place), never two static abilities and never two records, whose durations and dependencies would then be independent. Leave it out when the card names no zone; a restriction with no zone covers every zone, so writing out the whole list is a second spelling of the same thing. It is the record\u0027s own field and not the filter\u0027s, because CastFrom and NotCastFrom describe one spell that was cast from somewhere and take one zone each. Set the field or those, never both (L047): two zone riders on one restriction can disagree, and only one of them would be read."
     },
     "CantDrawMoreThan": {
       "type": "object",
@@ -13295,6 +13370,23 @@
         "perTurn"
       ],
       "description": "CR 613"
+    },
+    "CantEnterBattlefield": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "CantEnterBattlefield"
+        },
+        "what": {
+          "$ref": "#/$defs/ObjectFilter"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "what"
+      ],
+      "description": "\u0022Creature cards in graveyards and libraries can\u0027t enter the battlefield\u0022, \u0022lands can\u0027t enter the battlefield\u0022: a continuous effect that modifies the rules of the game rather than the characteristics of any object, applied after every other continuous effect (CR 613.11). What is what may not enter. It is read wherever an object would be put onto the battlefield, not only where a spell resolves: a permanent spell whose controller can\u0027t put it onto the battlefield goes to its owner\u0027s graveyard instead (CR 608.3e), a token with a forbidden characteristic is never created at all (CR 111.5), and a card returned or searched into play simply stays where it is. Nothing is destroyed, countered or replaced \u2014 the move does not happen, so this is not a ReplacementAbility and never a Counter. The filter is where the printed zones live, so the record itself takes none: \u0022creature cards in graveyards and libraries\u0022 is a filter with Types: Creature and an InAnyOf: [Graveyard, Library], the two zones in one filter. A card that names no zone (\u0022lands can\u0027t enter the battlefield\u0022) leaves both zone fields off and forbids the entry from anywhere, which is not the same restriction and must not be written as a list of every zone."
     },
     "CantGainLife": {
       "type": "object",
@@ -14335,6 +14427,19 @@
         },
         "payLifeEqualToManaValueInstead": {
           "type": "boolean"
+        },
+        "oncePerTurn": {
+          "type": "boolean"
+        },
+        "additionalCost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -14343,7 +14448,7 @@
         "who",
         "from"
       ],
-      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022. With WithoutPayingManaCost, \u0022you may cast it this turn without paying its mana cost\u0022 (CR 118.9): the permission also waives the mana cost of the cast it allows. With PayLifeEqualToManaValueInstead, \u0022if you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\u0022: an alternative cost (CR 118.9) that the permission itself carries, paid at CR 601.2f in place of the mana cost, and only by a cast this permission allowed \u2014 a spell the player casts from hand pays as printed. The two sentences are one record, and this flag is their one spelling: never a second StaticAbility for the second sentence, and never SpellsCostLifeInsteadOfMana, which is every spell of a colour from any zone. A land played this way pays nothing either way. The two flags are two different alternative costs and a card prints one, so both set is a contradiction the linter refuses (L021)."
+      "description": "\u0022You may play lands from your graveyard\u0022, \u0022you may cast spells from the top of your library\u0022. With WithoutPayingManaCost, \u0022you may cast it this turn without paying its mana cost\u0022 (CR 118.9): the permission also waives the mana cost of the cast it allows. With PayLifeEqualToManaValueInstead, \u0022if you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\u0022: an alternative cost (CR 118.9) that the permission itself carries, paid at CR 601.2f in place of the mana cost, and only by a cast this permission allowed \u2014 a spell the player casts from hand pays as printed. The two sentences are one record, and this flag is their one spelling: never a second StaticAbility for the second sentence, and never SpellsCostLifeInsteadOfMana, which is every spell of a colour from any zone. A land played this way pays nothing either way. The two flags are two different alternative costs and a card prints one, so both set is a contradiction the linter refuses (L021). OncePerTurn and AdditionalCost are \u0022once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs\u0022: a permission limited the way playing a land is limited (CR 116.2a \u2014 once during each of that player\u0027s own turns, not once per turn cycle and not once per game), carrying a cost paid on top of everything else the spell costs (CR 118.8, applied at CR 601.2f with every other additional cost). The cost is additional and never alternative: the mana cost is still paid, so AdditionalCost beside WithoutPayingManaCost or PayLifeEqualToManaValueInstead is a permission that both charges and waives the same cast, which the linter refuses (L047). Both belong to this record and never to a second ability: a separate PayCost would be paid at resolution rather than as the spell is cast, and the limit counts casts the permission allowed and not casts of that card."
     },
     "ModifyPt": {
       "type": "object",
@@ -17450,6 +17555,26 @@
         },
         "isPredefined": {
           "type": "boolean"
+        },
+        "powerAmount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toughnessAmount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -17458,7 +17583,7 @@
         "colors",
         "types"
       ],
-      "description": "A token to create, CR 111. The pipeline fills it from Scryfall\u0027s all_parts and the token\u0027s own card object; ScryfallOracleId keeps the link."
+      "description": "A token to create, CR 111. The pipeline fills it from Scryfall\u0027s all_parts and the token\u0027s own card object; ScryfallOracleId keeps the link. PowerAmount and ToughnessAmount are the printed \u0022create an X/X token, where X is the number of creatures destroyed this way\u0022 (CR 111.3): the creating ability defines the token\u0027s characteristics, so a power and toughness that are a number the ability works out belong to the spec and not to a later effect. The amount is read once, as the token is created, and the token keeps that value \u2014 a token whose printed X later changes does not change with it, because CR 111.3 makes the defined values the token\u0027s own copiable text. Never a SetPt after the CreateToken: that is a separate continuous effect in layer 7b that a second effect can overwrite and that a copy of the token does not carry, and it prices a 0/0 token into the graveyard as a state-based action (CR 704.5f) before the setting applies. Set the amount or the fixed number, never both (L047), and only on a token whose types include creature (CR 208.1)."
     },
     "CounterSpec": {
       "type": "object",

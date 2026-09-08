@@ -4,6 +4,7 @@ using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
+using DamagePrevented = MtgEngine.Rules.Events.DamagePrevented;
 
 namespace MtgEngine.Rules.Tests;
 

@@ -181,6 +181,9 @@
           "$ref": "#/$defs/ManaPoolIs"
         },
         {
+          "$ref": "#/$defs/PhasedOutIs"
+        },
+        {
           "$ref": "#/$defs/PlayerCountersAre"
         },
         {
@@ -1289,6 +1292,26 @@
         "mana"
       ],
       "description": "A player\u0027s mana pool holds exactly this mana (CR 106.4). Written the way a mana cost is \u2014 \u0022{G}{G}\u0022, \u0022{2}{U}\u0022 \u2014 and read as a total, not an order: a pool is a bag of symbols, so the expectation compares what is in it and not how it got there. The empty string is an empty pool. This is what a \u0022add {G} to your mana pool\u0022 card should assert; the event it logged says only that mana changed, which is true of a card that added the wrong colour."
+    },
+    "PhasedOutIs": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PhasedOutIs"
+        },
+        "card": {
+          "type": "string"
+        },
+        "phasedOut": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "card"
+      ],
+      "description": "One permanent\u0027s phased status, CR 702.26b: the named card is phased out (or, with PhasedOut false, phased in). This is a status and not a zone \u2014 a permanent that phases out stays on the battlefield and is only treated as though it does not exist \u2014 so it is the one thing a phasing scenario can assert. InZone(card, Battlefield) is true before and after and proves nothing; InZone naming any other zone is the opposite claim and the two together are refused (L048). It is not TappedIs, the other status a permanent carries (CR 110.5), and not ControlledBy: a phased-out permanent keeps its controller, which is how CR 702.26a knows whose untap step phases it back in."
     },
     "PlayerCountersAre": {
       "type": "object",
