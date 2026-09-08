@@ -18,7 +18,7 @@ namespace MtgEngine.Rules.Casting;
 /// naming the keyword and its rule rather than casting the spell for the wrong price.
 /// </summary>
 [RuleRef("601.2b")]
-internal sealed record CastPlan(
+internal sealed partial record CastPlan(
     CastableFace Chosen,
     Face Printed,
     CardZone From,
@@ -34,6 +34,15 @@ internal sealed record CastPlan(
     /// "if you cast a spell this way" can be asked of the spell as it resolves.
     /// </summary>
     internal const string PaidLifeForManaValue = "life";
+
+    /// <summary>
+    /// How a spell cast for a printed alternative cost (CR 118.9, <see cref="Face.AlternativeCosts"/>)
+    /// is recorded on <see cref="StackEntry.OptionalCostsPaid"/>, so <c>PaidAlternativeCost</c> with no
+    /// keyword named answers true for that cast. A keyword alternative cost records its own name
+    /// instead, which is how a card that asks for a particular one tells them apart.
+    /// </summary>
+    [RuleRef("118.9")]
+    internal const string PaidPrintedAlternativeCost = "alternative";
 
     /// <summary>The types the spell has on the stack, CR 712.11c: only the chosen face is evaluated.</summary>
     public CardType Types => Printed.Types.Types;
@@ -82,6 +91,7 @@ internal sealed record CastPlan(
         extra.AddRange(printed.AdditionalCosts ?? []);
         var mana = Alternative(state, card, printed, command, query, paid, extra, instructed) ?? ManaSymbols.Parse(printed.ManaCost);
         mana = Additional(printed, command, paid, extra, mana);
+        mana = Offered(state, card, command, query, paid, extra, mana);
         mana = Shaped(state, printed, query, command.Player, mana);
         return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command));
     }
@@ -190,6 +200,14 @@ internal sealed record CastPlan(
         var zone = card.Zone.Zone;
         var permission = Permission(state, card, command.Player, query);
 
+        // CR 118.9 with 601.2b: the printed alternative costs of the chosen face are offered as the
+        // spell is announced, and the caster takes at most one (CR 118.9c). It is read before any of
+        // the other three roads to the same replacement so every pair of them is refused by that rule
+        // rather than silently paying two prices or none.
+        var printedAlternative = PrintedAlternative(state, card, printed, command, query);
+        if (printedAlternative is not null && command.AlternativeCost is not null)
+            throw new RefusedException("A spell is cast for only one alternative cost.", "118.9c");
+
         // CR 601.3: a card is cast from its owner's hand unless an effect says otherwise. The
         // exiled adventurer is one such permission (CR 715.3d), a MayPlayFromZone effect on the
         // state is another (CR 601.3a), and the instruction of a resolving effect is the third
@@ -205,6 +223,8 @@ internal sealed record CastPlan(
         // paid; every additional cost still is (CR 601.2b), so this is a flag beside the costs.
         if (permission is { WithoutPayingManaCost: true } || (instructed && command.WithoutPayingManaCost))
         {
+            if (printedAlternative is not null)
+                throw new RefusedException("A spell is cast for only one alternative cost.", "118.9c");
             paid.Add("free");
             return [];
         }
@@ -224,9 +244,21 @@ internal sealed record CastPlan(
         // hand has no such permission, so it pays as printed.
         if (permission is { PayLifeEqualToManaValueInstead: true } && command.AlternativeCost is null)
         {
+            if (printedAlternative is not null)
+                throw new RefusedException("A spell is cast for only one alternative cost.", "118.9c");
             var life = ManaSymbols.ManaValue(ManaSymbols.Parse(printed.ManaCost), command.X ?? 0);
             extra.Add(new PayLife(new Fixed(life)));
             paid.Add(PaidLifeForManaValue);
+            return [];
+        }
+
+        // CR 118.9: the chosen alternative is paid in place of the mana cost and nothing else — every
+        // additional cost the face prints was already added above (CR 601.2b) and is still paid. The
+        // cost rides with the non-mana costs whatever shape it is, so one payment road pays it.
+        if (printedAlternative is { } chosen)
+        {
+            extra.Add(chosen.Cost);
+            paid.Add(PaidPrintedAlternativeCost);
             return [];
         }
 
