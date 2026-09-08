@@ -50,7 +50,7 @@ public sealed partial class CastingSystem
         var chars = characteristics.Of(state, card.Id);
         var plan = CastPlan.For(state, card, command, query, instructed);
         if (!instructed)
-            RequireCastingTiming(state, command.Player, plan, chars);
+            RequireCastingTiming(state, command.Player, card, plan, chars);
 
         // The enchant half is asked first: protection from everything sets both prohibitions, and
         // "that player cannot be enchanted" is the nearer reason an Aura at one is refused.
@@ -218,7 +218,7 @@ public sealed partial class CastingSystem
     /// are consulted.
     /// </summary>
     [RuleRef("117.1a")]
-    private static void RequireCastingTiming(GameState state, PlayerId player, CastPlan plan, Characteristics chars)
+    private void RequireCastingTiming(GameState state, PlayerId player, GameObject card, CastPlan plan, Characteristics chars)
     {
         if (state.Priority.Holder != player)
             throw new RefusedException("You do not have priority.", "117.1a");
@@ -226,6 +226,11 @@ public sealed partial class CastingSystem
         // CR 304.1 and 702.8b: an instant, or anything with flash, is cast whenever its
         // controller holds priority.
         if (plan.Types.HasFlag(CardType.Instant) || plan.HasFlash || chars.Has(KeywordKind.Flash))
+            return;
+
+        // CR 702.8b: "you may cast this as though it had flash" is timing and nothing else, so a
+        // permission that admits this spell ends the check here without touching its cost.
+        if (MayCastAsThoughItHadFlash(state, player, card))
             return;
         RequireSorcerySpeed(state, player, SorceryTimingRule(plan.Types));
     }
