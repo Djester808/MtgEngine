@@ -68,6 +68,14 @@ public sealed partial class Query
             TriggeringDamage => TriggeringDamageOf(context), // CR 603.10
             TriggeringLifeGained => CarriedNumber(context, TriggeringLifeGainedAmount), // CR 603.10
             TriggeringLifeLost => CarriedNumber(context, TriggeringLifeLostAmount), // CR 603.10
+            // CR 615.13: what a prevention prevented, and never the dealt key — a shield that stopped
+            // 2 of 5 leaves 3 dealt, and one that stopped all of it leaves no damage event at all.
+            TriggeringPreventedDamage => CarriedNumber(context, TriggerSystem.TriggeringPreventedDamageAmount),
+            ManaSpentOnTriggering mana => ManaSpentOnTriggeringSpell(mana.OfColor, context), // CR 400.7d
+            Cards.PreventedDamage => PreventedDamageOf(context), // CR 615
+            GreatestDamageDealtThisTurn worst => GreatestDamageTo(state, worst, context), // CR 102.2
+            CreaturesDiedThisTurn died => CreaturesDied(state, died, context), // CR 700.4
+            GreatestSameNameCount sameName => GreatestSameName(state, sameName, context), // CR 201.2
             AttackersAgainst against => AttackersAgainstPlayers(state, against, context), // CR 508.1
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };

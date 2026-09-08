@@ -189,6 +189,11 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
             return false; // CR 201.2
         if (f.Has is { } keyword && !c.Has(keyword))
             return false; // CR 702.1
+        // CR 702.1: "creatures without flying" is the negation of the same lookup and not a subtype
+        // list — a keyword granted by another effect is had, so an object that was given flying is
+        // refused here exactly as one that prints it is admitted by Has.
+        if (f.NotHas is { } without && c.Has(without))
+            return false; // CR 702.1
         // CR 903.3: a commander is designated as the game begins and stays one in every zone it
         // visits, so the flag the zone system sets at creation travels with the new object each
         // zone change makes, CR 400.7, and reading it is the whole answer.
