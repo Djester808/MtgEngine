@@ -48,7 +48,7 @@ public sealed record Subsystems(
         return new Subsystems(
             query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(),
             new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
-            new MtgEngine.Rules.Legal.LegalActions(casting, layers, combat));
+            new MtgEngine.Rules.Legal.LegalActions(casting, layers, combat, combat));
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed record Subsystems(
         return new Subsystems(
             query, zones, turn, casting, combat, sba, triggers, layers, replacement, interpreter, choices,
             new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
-            new MtgEngine.Rules.Legal.LegalActions(casting, layers, combat));
+            new MtgEngine.Rules.Legal.LegalActions(casting, layers, combat, combat));
     }
 }
 

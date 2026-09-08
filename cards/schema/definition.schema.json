@@ -514,6 +514,9 @@
           "$ref": "#/$defs/Morbid"
         },
         {
+          "$ref": "#/$defs/MoreThanEachOtherPlayer"
+        },
+        {
           "$ref": "#/$defs/NotCondition"
         },
         {
@@ -650,13 +653,16 @@
               "type": "null"
             }
           ]
+        },
+        "withoutPayingManaCost": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
         "cost"
       ],
-      "description": "A printed alternative cost, CR 118.9: \u0022you may pay {B} rather than pay this spell\u0027s mana cost\u0022, with the condition the printed line gates it on \u2014 \u0022if a creature died this turn\u0022. The spell is cast for Cost instead of its mana cost, and only while OnlyIf holds as the cost is chosen (CR 601.2b, where one alternative cost is chosen and CR 601.2f, where it is paid). Leave OnlyIf null for an ungated one. It belongs on the Face rather than on an ability because it is not a thing the card does: it is an option offered as the spell is cast, before any ability of it exists. A face may print more than one, and the caster picks at most one of them (CR 601.2b) \u2014 the list is the printed alternatives, never a way of saying \u0022and\u0022. It is not AdditionalCosts, which is CR 118.8 and is paid on top of the mana cost; a reading that puts an alternative cost there makes the spell cost both, which is a different card. It is not MayPay either: that is a choice made as the spell resolves, and this one is made as the spell is cast, before targets are legal. And it is not the play-permission flags on MayPlayFromZone, which grant a cast from another zone; this is the printed line on the card itself, whatever zone it is cast from."
+      "description": "A printed alternative cost, CR 118.9: \u0022you may pay {B} rather than pay this spell\u0027s mana cost\u0022, with the condition the printed line gates it on \u2014 \u0022if a creature died this turn\u0022. The spell is cast for Cost instead of its mana cost, and only while OnlyIf holds as the cost is chosen (CR 601.2b, where one alternative cost is chosen and CR 601.2f, where it is paid). Leave OnlyIf null for an ungated one. It belongs on the Face rather than on an ability because it is not a thing the card does: it is an option offered as the spell is cast, before any ability of it exists. A face may print more than one, and the caster picks at most one of them (CR 601.2b) \u2014 the list is the printed alternatives, never a way of saying \u0022and\u0022. It is not AdditionalCosts, which is CR 118.8 and is paid on top of the mana cost; a reading that puts an alternative cost there makes the spell cost both, which is a different card. It is not MayPay either: that is a choice made as the spell resolves, and this one is made as the spell is cast, before targets are legal. And it is not the play-permission flags on MayPlayFromZone, which grant a cast from another zone; this is the printed line on the card itself, whatever zone it is cast from. WithoutPayingManaCost is the printed \u0022you may cast this spell without paying its mana cost\u0022, which CR 118.9 names as an alternative cost in so many words. It is the one spelling for that line: Cost is then an empty Costs and nothing else, and a ManaCost of \u0022{0}\u0022 is refused (L050) \u2014 CR 118.9c says an alternative cost does not change the spell\u0027s mana cost, so a reading that writes a cost of zero has invented a cost that is paid instead of saying that none is. \u0022If you control a commander\u0022 goes in OnlyIf, which CR 118.9b allows an alternative cost to carry."
     },
     "ActivatedAbility": {
       "type": "object",
@@ -2714,6 +2720,40 @@
         "kind"
       ],
       "description": "A creature died this turn."
+    },
+    "MoreThanEachOtherPlayer": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "MoreThanEachOtherPlayer"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        },
+        "of": {
+          "$ref": "#/$defs/Amount"
+        },
+        "others": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "orEqual": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who",
+        "of"
+      ],
+      "description": "\u0022If that player has more cards in hand than each other player\u0022, \u0022if you control more lands than each other player\u0022: one player\u0027s count against the greatest of the same count among the others. Of is read once for Who and once for every player Others admits, with the player being read bound as EachPlayer \u2014 the same binding PlayerWithMostOf uses, and the reason the amount inside must name EachPlayer and never a fixed player (L050): an amount that names You would compare your own count with itself for every player and always answer no. Others defaults to every player other than Who; set it only where the card names a group. It is strictly greater and never a tie: OrEqual is the printed \u0022as many as\u0022 and stands only where the card says so. It is not a Compare against PlayerWithMostOf, which admits a tie by comparing the player with the greatest count against themselves, and it is not one Compare per opponent, which no filter can write for a table whose size is not known. The counts read here are per player and are known even when the zone is hidden \u2014 CR 400.2 hides the faces, not the number of cards."
     },
     "NotCondition": {
       "type": "object",
@@ -4989,6 +5029,9 @@
         },
         {
           "$ref": "#/$defs/PlayerCant"
+        },
+        {
+          "$ref": "#/$defs/PlayerHexproof"
         },
         {
           "$ref": "#/$defs/PlayerProtectionFromEverything"
@@ -11140,6 +11183,16 @@
               "type": "null"
             }
           ]
+        },
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trigger"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -11147,7 +11200,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 613"
+      "description": "\u0022Your triggered abilities trigger an additional time\u0022, CR 603.2d \u2014 and, with Cause, \u0022if a land entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time\u0022. Who is the controller of the abilities and OfSources narrows the permanents they are on. Cause is the event that caused the trigger, not a second trigger of this card: the extra triggering happens only when the ability triggered because of an event this trigger admits, so \u0022a land entering\u0022 is an EntersBattlefield whose filter is the land. Leave it null when every event counts. A reading that puts the cause in OfSources says something else entirely \u2014 that filter describes the permanent whose ability triggers, not what made it trigger \u2014 and one that wraps the card in a TriggeredAbility of its own gives the card a trigger it does not print. CR 603.2d fixes two things a reading can get wrong: the count is determined once, so this effect does not invoke itself repeatedly, and \u0022a triggered ability of an object\u0022 means an ability that object has and never a delayed or reflexive ability created by one (CR 603.7, 603.12)."
     },
     "AbilityCostModifier": {
       "type": "object",
@@ -12957,7 +13010,8 @@
               "LifeTotalChanges",
               "Lose",
               "BeTargeted",
-              "BeDealtDamage"
+              "BeDealtDamage",
+              "LoseLife"
             ]
           },
           "uniqueItems": true
@@ -12969,6 +13023,19 @@
         "what"
       ],
       "description": "A prohibition that applies to a player rather than to an object: \u0022your life total can\u0027t change\u0022, \u0022you can\u0027t lose the game\u0022, \u0022you can\u0027t be the target of spells\u0022, \u0022prevent all damage that would be dealt to you\u0022. Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a duration; the Selector-shaped To is not used for these. Several restrictions can be set at once because PlayerRestriction is a flag set. CantLoseGame, CantWinGame and CantGainLife stay as they are \u2014 they were already spelled that way in card files and mean exactly what they say; use this record for the restrictions they do not cover."
+    },
+    "PlayerHexproof": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PlayerHexproof"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022Players gain hexproof until end of turn\u0022, CR 702.11c: the player half of the hexproof keyword, which reads \u0022You can\u0027t be the target of spells or abilities your opponents control\u0022. It is a named keyword and not PlayerCant(PlayerRestriction.BeTargeted), even though the two forbid the same thing: hexproof is what other cards look for and take away (CR 702.11e), and an anonymous restriction is invisible to them. It is not the KeywordAbility Hexproof, which is on an object and cannot be given to a player; the same reason PlayerProtectionFromEverything exists beside the Protection keyword. Apply it with a StaticAbility whose Players is set, or with ApplyToPlayer for a duration. \u0022Hexproof from [quality]\u0022 (CR 702.11d) is defined for permanents only, so this record carries no quality."
     },
     "PlayerProtectionFromEverything": {
       "type": "object",

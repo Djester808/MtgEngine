@@ -62,6 +62,21 @@ public interface IZoneSystem : ISubsystem
             : Move(state, what, to, where, tapped, controller, faceIndex);
 
     /// <summary>
+    /// A resolving permanent spell becomes a permanent, CR 608.3a, and CR 608.3e when its
+    /// controller can't put it onto the battlefield: that player puts it into its owner's
+    /// graveyard. The replacement system can only refuse the entry — it does not know the move was
+    /// a resolution and must not invent a second move — so only the subsystem that proposed the
+    /// move can follow the refusal. The default is the entry alone, which is what every caller did
+    /// before the rule was read; a face-up entry takes the plain move so a fake that builds only
+    /// that one keeps working.
+    /// </summary>
+    [RuleRef("608.3")]
+    Outcome ResolveOntoBattlefield(GameState state, ObjectId what, PlayerId controller, bool faceDown = false) =>
+        faceDown
+            ? Move(state, what, ZoneKey.Of(Zone.Battlefield, controller), Placement.Default, false, controller, null, true)
+            : Move(state, what, ZoneKey.Of(Zone.Battlefield, controller), Placement.Default, false, controller);
+
+    /// <summary>
     /// Several objects change zones at once, CR 400.7 and 704.5m: one board for all of them, so
     /// leaves-the-battlefield triggers see the board as it was before any left. The default is
     /// the loop, which is right for everything until the trigger system needs the simultaneity.

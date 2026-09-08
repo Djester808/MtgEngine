@@ -150,20 +150,21 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
                 attachPlayer = toPlayer;
             }
 
+            // CR 608.3a through the zone system's own road, which also carries CR 608.3e: a
+            // permanent the replacement effects refuse goes to its owner's graveyard instead.
             // CR 702.37c with 400.7: a face-down spell "enters the battlefield with the same
             // characteristics the spell had", and the new object CR 400.7 makes has no memory of
-            // the old one, so the move itself has to carry the flag. It is read off the resolving
-            // stack object rather than from any knowledge of morph, and the plain form is still
-            // taken for a face-up spell, so nothing about an ordinary resolution changed. A null
-            // face index keeps the face the object already shows.
-            var battlefield = ZoneKey.Of(CardZone.Battlefield, controller);
-            var moved = obj.FaceDown
-                ? zones.Move(state, top, battlefield, Placement.Default, false, controller, null, faceDown: true)
-                : zones.Move(state, top, battlefield, controller: controller);
+            // the old one, so the move itself carries the flag, read off the resolving stack
+            // object rather than from any knowledge of morph.
+            var moved = zones.ResolveOntoBattlefield(state, top, controller, obj.FaceDown);
 
-            // CR 303.4f: an Aura enters attached to the object or the player it was cast at (the
-            // two exclude each other), so the attachment is part of the permanent's arrival.
-            var sick = new ObjectChanged(NewIdOf(moved.Events, top), SummoningSick: true, AttachedTo: attach, AttachedToPlayer: attachPlayer);
+            // CR 302.6 with 303.4f: only a permanent that entered is summoning sick or attached —
+            // a spell CR 608.3e sent to the graveyard gets neither mark.
+            var arrived = NewIdOf(moved.Events, top);
+            if (!moved.State.Objects.TryGetValue(arrived, out var landed) || landed.Zone.Zone != CardZone.Battlefield)
+                return new Outcome(GameReducer.Apply(moved.State, [resolved]), [.. moved.Events, resolved]);
+
+            var sick = new ObjectChanged(arrived, SummoningSick: true, AttachedTo: attach, AttachedToPlayer: attachPlayer);
             ImmutableList<GameEvent> events = [.. moved.Events, sick, resolved];
             return new Outcome(GameReducer.Apply(moved.State, [sick, resolved]), events);
         }
