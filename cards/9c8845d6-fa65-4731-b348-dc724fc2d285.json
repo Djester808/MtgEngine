@@ -399,722 +399,465 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-sonnet-5"
+      "claude-sonnet-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-101db83b85cb",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Compleated"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "9c8845d6-fa65-4731-b348-dc724fc2d285",
-        "name": "Nissa, Ascended Animist",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-9c8845d6-fa65-4731-b348-dc724fc2d285",
+      "title": "casting Nissa, Ascended Animist does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Nissa, Ascended Animist",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Nissa"
-              ],
-              "subtypeList": [
-                "Nissa"
-              ]
-            },
-            "manaCost": "{3}{G}{G}{G/P}{G/P}",
-            "loyalty": "7",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Compleated",
-                "repeatable": false,
-                "text": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)"
+                "name": "Nissa, Ascended Animist",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "A TokenSpec\u0027s power and toughness are printed integers, so a token created as an X/X where X is this planeswalker\u0027s loyalty as the token is created cannot be expressed; no Amount-valued power exists on TokenSpec and no continuous effect fixes the value at creation.",
-                  "text": "Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -1
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Enchantment"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22121: Destroy target artifact or enchantment."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "ModifyPt",
-                        "power": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "toughness": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Trample"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)\n\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty.\n\u22121: Destroy target artifact or enchantment.\n\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Compleated",
-                "repeatable": false,
-                "text": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Unsupported",
-                  "reason": "A TokenSpec\u0027s power and toughness are printed integers, so a token created as an X/X where X is this planeswalker\u0027s loyalty as the token is created cannot be expressed; no Amount-valued power exists on TokenSpec and no continuous effect fixes the value at creation.",
-                  "text": "Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -1
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Enchantment"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22121: Destroy target artifact or enchantment."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "ModifyPt",
-                        "power": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "toughness": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Trample"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "9c8845d6-fa65-4731-b348-dc724fc2d285",
-        "name": "Nissa, Ascended Animist",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nissa, Ascended Animist",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Nissa"
-              ],
-              "subtypeList": [
-                "Nissa"
-              ]
-            },
-            "manaCost": "{3}{G}{G}{G/P}{G/P}",
-            "loyalty": "7",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Compleated",
-                "repeatable": false,
-                "text": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)"
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Phyrexian Horror",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Phyrexian",
-                          "Horror"
-                        ],
-                        "supertypes": [],
-                        "scryfallOracleId": "ccaaaaf6-2e86-41d6-b9d4-4e32fa16ff5b",
-                        "isPredefined": false
-                      },
-                      "tapped": false,
-                      "attacking": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "CountersOn",
-                          "on": {
-                            "kind": "Self"
-                          },
-                          "counter": "loyalty"
-                        },
-                        "toughness": {
-                          "kind": "CountersOn",
-                          "on": {
-                            "kind": "Self"
-                          },
-                          "counter": "loyalty"
-                        }
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -1
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Enchantment"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22121: Destroy target artifact or enchantment."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "ModifyPt",
-                        "power": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "toughness": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Trample"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample."
-              }
-            ],
-            "oracleText": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)\n\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty.\n\u22121: Destroy target artifact or enchantment.\n\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Compleated",
-                "repeatable": false,
-                "text": "Compleated ({G/P} can be paid with {G} or 2 life. For each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)"
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Phyrexian Horror",
-                        "colors": [
-                          "Green"
-                        ],
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Phyrexian",
-                          "Horror"
-                        ],
-                        "supertypes": [],
-                        "scryfallOracleId": "ccaaaaf6-2e86-41d6-b9d4-4e32fa16ff5b",
-                        "isPredefined": false
-                      },
-                      "tapped": false,
-                      "attacking": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "CountersOn",
-                          "on": {
-                            "kind": "Self"
-                          },
-                          "counter": "loyalty"
-                        },
-                        "toughness": {
-                          "kind": "CountersOn",
-                          "on": {
-                            "kind": "Self"
-                          },
-                          "counter": "loyalty"
-                        }
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create an X/X green Phyrexian Horror creature token, where X is Nissa\u0027s loyalty."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -1
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Enchantment"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22121: Destroy target artifact or enchantment."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "ModifyPt",
-                        "power": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "toughness": {
-                          "kind": "CountOf",
-                          "filter": {
-                            "subtypes": [
-                              "Forest"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        }
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Trample"
-                      },
-                      "to": {
-                        "kind": "Each",
-                        "filter": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        }
-                      },
-                      "until": {
-                        "kind": "UntilEndOfTurn"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: Until end of turn, creatures you control get \u002B1/\u002B1 for each Forest you control and gain trample."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Nissa, Ascended Animist"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Nissa, Ascended Animist",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:e67173362273e740",
+    "runId": "verify-20260908T023025-5e7a30",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T02:30:25.7702306+00:00"
+  },
   "keywordList": [
     "Compleated"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-9c8845d6-fa65-4731-b348-dc724fc2d285",
+      "title": "casting Nissa, Ascended Animist does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Nissa, Ascended Animist",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Nissa, Ascended Animist"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Nissa, Ascended Animist",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

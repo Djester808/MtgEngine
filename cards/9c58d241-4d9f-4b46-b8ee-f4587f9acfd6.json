@@ -1004,6 +1004,372 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "9c58d241-4d9f-4b46-b8ee-f4587f9acfd6",
+        "name": "Plaza of Heroes",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Plaza of Heroes",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "spendOnlyOn": {
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "spell": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "supertypes": [
+                            "Legendary"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false,
+                        "colorsOfRemembered": "legends"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color among legendary permanents you control."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "supertypes": [
+                            "Legendary"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "supertypes": [
+                            "Legendary"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Exile this land: Target legendary creature gains hexproof and indestructible until end of turn."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell.\n{T}: Add one mana of any color among legendary permanents you control.\n{3}, {T}, Exile this land: Target legendary creature gains hexproof and indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "spendOnlyOn": {
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "spell": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "supertypes": [
+                            "Legendary"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": false,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false,
+                        "colorsOfRemembered": "legends"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color among legendary permanents you control."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Hexproof"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "supertypes": [
+                            "Legendary"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "supertypes": [
+                            "Legendary"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{3}, {T}, Exile this land: Target legendary creature gains hexproof and indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

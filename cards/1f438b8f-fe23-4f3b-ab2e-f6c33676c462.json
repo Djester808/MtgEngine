@@ -330,6 +330,110 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+        "name": "Opposition Agent",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Opposition Agent",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Rogue"
+              ],
+              "subtypeList": [
+                "Human",
+                "Rogue"
+              ]
+            },
+            "manaCost": "{2}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record takes control of another player: the vocabulary has ControlBy for a permanent\u0027s controller and nothing that makes one player make another player\u0027s choices during a search.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "Three things cannot be said: a search\u0027s found cards being exiled as they are found (the Searches trigger fires after the search and nothing has left the library then, and no ReplacedEvent watches a card being found), a play permission for cards nobody on this card exiled and so no key names, and spending mana as though it were mana of any color.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ],
+            "oracleText": "Flash\nYou control your opponents while they\u0027re searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record takes control of another player: the vocabulary has ControlBy for a permanent\u0027s controller and nothing that makes one player make another player\u0027s choices during a search.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "Three things cannot be said: a search\u0027s found cards being exiled as they are found (the Searches trigger fires after the search and nothing has left the library then, and no ReplacedEvent watches a card being found), a play permission for cards nobody on this card exiled and so no key names, and spending mana as though it were mana of any color.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

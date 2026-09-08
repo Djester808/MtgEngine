@@ -385,6 +385,137 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "7a2484a9-04fd-41a0-8224-610c1c07ed10",
+        "name": "Blasphemous Act",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Blasphemous Act",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{8}{R}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "in": "Stack",
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 13
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Blasphemous Act deals 13 damage to each creature."
+              }
+            ],
+            "oracleText": "This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "in": "Stack",
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {1} less to cast for each creature on the battlefield."
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 13
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBePrevented": false
+                },
+                "text": "Blasphemous Act deals 13 damage to each creature."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [],

@@ -628,6 +628,206 @@
           }
         ]
       }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "d72b57e5-1c6e-4f02-968f-7e2dd24f0d3c",
+        "name": "Boromir, Warden of the Tower",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Boromir, Warden of the Tower",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Human",
+                "Soldier"
+              ],
+              "subtypeList": [
+                "Human",
+                "Soldier"
+              ]
+            },
+            "manaCost": "{2}{W}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "repeatable": false,
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {},
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Nothing reads the mana spent to cast another spell: ManaSpentOnThis is the mana spent on this card\u0027s own spell, no condition asks it of a triggering spell, and no predicate on a spell filter can say it, so this intervening \u0027if\u0027 cannot be expressed.",
+                      "text": "if no mana was spent to cast it"
+                    },
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent casts a spell, if no mana was spent to cast it, counter that spell."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "RingTemptsYou"
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you."
+              }
+            ],
+            "oracleText": "Vigilance\nWhenever an opponent casts a spell, if no mana was spent to cast it, counter that spell.\nSacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Vigilance",
+                "repeatable": false,
+                "text": "Vigilance"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {},
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "Nothing reads the mana spent to cast another spell: ManaSpentOnThis is the mana spent on this card\u0027s own spell, no condition asks it of a triggering spell, and no predicate on a spell filter can say it, so this intervening \u0027if\u0027 cannot be expressed.",
+                      "text": "if no mana was spent to cast it"
+                    },
+                    {
+                      "kind": "Counter",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent casts a spell, if no mana was spent to cast it, counter that spell."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "GrantKeyword",
+                        "keyword": "Indestructible"
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        }
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    },
+                    {
+                      "kind": "RingTemptsYou"
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "Sacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "keywordList": [

@@ -161,338 +161,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-opus-5-b"
     ],
     "promptVersion": "pilot-101db83b85cb",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
-        "name": "Bontu\u0027s Monument",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-940ba435-7abc-40f8-a5af-c1c653b3284e",
+      "title": "casting Bontu\u0027s Monument does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Bontu\u0027s Monument",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{3}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CostModifier",
-                  "spells": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "colors": [
-                      "Black"
-                    ],
-                    "spell": true
-                  },
-                  "delta": {
-                    "kind": "Fixed",
-                    "n": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "genericOnly": true
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Black creature spells you cast cost {1} less to cast."
+                "name": "Bontu\u0027s Monument",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CostModifier",
-                  "spells": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "colors": [
-                      "Black"
-                    ],
-                    "spell": true
-                  },
-                  "delta": {
-                    "kind": "Fixed",
-                    "n": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "genericOnly": true
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Black creature spells you cast cost {1} less to cast."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
-        "name": "Bontu\u0027s Monument",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Bontu\u0027s Monument",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "manaCost": "{3}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CostModifier",
-                  "spells": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "colors": [
-                      "Black"
-                    ]
-                  },
-                  "delta": {
-                    "kind": "Fixed",
-                    "n": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "genericOnly": true
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Black creature spells you cast cost {1} less to cast."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
-              }
-            ],
-            "oracleText": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "CostModifier",
-                  "spells": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "colors": [
-                      "Black"
-                    ]
-                  },
-                  "delta": {
-                    "kind": "Fixed",
-                    "n": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "genericOnly": true
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Black creature spells you cast cost {1} less to cast."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "types": [
-                      "Creature"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Bontu\u0027s Monument"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Bontu\u0027s Monument",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:e67173362273e740",
+    "runId": "verify-20260908T023025-5e7a30",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T02:30:25.7702306+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-940ba435-7abc-40f8-a5af-c1c653b3284e",
+      "title": "casting Bontu\u0027s Monument does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Bontu\u0027s Monument",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Bontu\u0027s Monument"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Bontu\u0027s Monument",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }
