@@ -79,11 +79,19 @@ public sealed class ScenarioStageTestsRemembered
 
     [Fact]
     [RuleRef("608.2m")]
-    public void A_spell_that_only_shuffles_itself_away_gets_no_scenario_until_the_engine_moves_it()
+    public void A_spell_that_only_shuffles_itself_away_is_expected_in_its_owners_library()
     {
-        // Played in wave 17: the engine left such a spell in the graveyard, so the zone is not
-        // asserted (seam-requests/P19.md) and a card that does nothing else has nothing to assert.
-        Assert.Null(SmokeScenario.Of(File("come back later", new SpellAbility(new Shuffle(IntoLibrary: new Self())), CardType.Sorcery)));
+        // Played in wave 17 and left without a scenario because the engine put such a spell into
+        // the graveyard; E9p made the shuffle a real move (seam-requests/P19.md § 2), so the zone
+        // it went to is the whole of what this card does and it is asserted.
+        var file = File("come back later", new SpellAbility(new Shuffle(IntoLibrary: new Self())), CardType.Sorcery);
+
+        var scenario = SmokeScenario.Of(file);
+
+        Assert.NotNull(scenario);
+        Assert.Equal(Zone.Library, Assert.Single(scenario!.Expect.OfType<InZone>(), z => z.Card == file.Name).Zone);
+        Assert.DoesNotContain(scenario.Expect, e => e is InZone { Zone: Zone.Graveyard });
+        Passes(scenario, file);
     }
 
     [Fact]
