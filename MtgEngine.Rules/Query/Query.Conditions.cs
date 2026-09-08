@@ -169,8 +169,6 @@ public sealed partial class Query
     private static GameObject? Source(GameState state, EffectContext ctx) =>
         ctx.Source is { } id && state.Objects.TryGetValue(id, out var obj) ? obj : null;
 
-    private const string NoCommander = "no state records which object is a player's commander (CR 903.3); see seam-requests/E0.md";
-
     /// <summary>A condition about a selection holds when there is a selection and every object in it holds, CR 608.2.</summary>
     private bool Every(GameState state, Selector selector, EffectContext ctx, Func<ObjectId, bool> test)
     {

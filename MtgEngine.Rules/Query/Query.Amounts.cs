@@ -42,8 +42,13 @@ public sealed partial class Query
             TotalAmong total => Among(state, total.Among, total.Of, context).Sum(),
 
             ChosenNumber chosen => ChosenNumberOf(chosen.Key, context),
+            HighestChosen highest => SecretExtreme(nameof(HighestChosen), highest.Key, context, lowest: false), // CR 700.2
+            LowestChosen lowest => SecretExtreme(nameof(LowestChosen), lowest.Key, context, lowest: true), // CR 700.2
             Stored stored => context.Stored.GetValueOrDefault(stored.Key),
             TurnNumber => state.Turn.Number, // CR 500.1
+
+            CardsDrawnThisTurn drawn => PerTurn(state, drawn.Who, context, state.CardsDrawnThisTurn), // CR 121.1
+            LandsEnteredThisTurn entered => PerTurn(state, entered.Who, context, state.LandsEnteredThisTurn), // CR 121.1
 
             Sum sum => Evaluate(state, sum.Left, context) + Evaluate(state, sum.Right, context),
             Difference difference => Evaluate(state, difference.Left, context) - Evaluate(state, difference.Right, context),
@@ -209,6 +214,81 @@ public sealed partial class Query
 
         throw Unanswerable(nameof(ChosenNumber), $"nothing was chosen for \"{key}\"");
     }
+
+    /// <summary>
+    /// A number a turn keeps per player, CR 121.1, read over the seats the reference admits: the
+    /// greatest of them, never their sum. Both amounts exist for a printed line about <em>one</em>
+    /// player — "any opponent drew two or more cards this turn" asks whether some single opponent
+    /// reached the number, and a sum would answer yes when two opponents drew one card each. With
+    /// one seat admitted, which is every "you" reading, the two folds are the same number; with
+    /// none, nobody drew and nobody played a land, so it is zero rather than a refusal.
+    /// <para>
+    /// It is the one place a per-player amount does not sum. <see cref="LifeOf"/> and
+    /// <see cref="CardsInHandOf"/> total their seats because "the total life your opponents have
+    /// lost" is a printed line and no card asks whether any one opponent drew a total; a card that
+    /// wanted the total of these would want a record that says so (seam-requests/E5j.md).
+    /// </para>
+    /// </summary>
+    [RuleRef("121.1")]
+    private int PerTurn(GameState state, PlayerRef who, EffectContext ctx, Func<PlayerId, int> of)
+    {
+        var seats = Players(state, who, ctx);
+        return seats.Count == 0 ? 0 : seats.Max(of);
+    }
+
+    /// <summary>
+    /// Every number one secret simultaneous choice collected, CR 700.2 with 101.4, with the seat
+    /// that chose it. The interpreter is the only writer: it asks each player in turn order and
+    /// remembers the answer under <see cref="Interpreter.EffectInterpreter.SecretNumberKey"/>, so
+    /// the readers look under exactly the prefix that arm writes and never spell a key of their own.
+    /// Nothing is written until a player has answered, which is what makes "no entry" mean "nobody
+    /// has chosen" rather than "somebody chose nothing".
+    /// <para>
+    /// The record cites CR 700.2, which in the shipped rules text is the modal rule; the rule that
+    /// actually governs simultaneous secret choices is CR 101.4, and the divergence is recorded in
+    /// seam-requests/E5j.md rather than fixed here, because the number is the vocabulary's and the
+    /// interpreter's too.
+    /// </para>
+    /// </summary>
+    [RuleRef("700.2")]
+    private static ImmutableList<(PlayerId Player, int Number)> SecretNumbers(string key, EffectContext ctx)
+    {
+        var prefix = Interpreter.EffectInterpreter.SecretNumbersUnder(key);
+        var numbers = ImmutableList.CreateBuilder<(PlayerId Player, int Number)>();
+        foreach (var (chosen, text) in ctx.Chosen)
+        {
+            if (!chosen.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            if (int.TryParse(chosen[prefix.Length..], System.Globalization.CultureInfo.InvariantCulture, out var seat)
+                && int.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out var number))
+            {
+                numbers.Add((new PlayerId(seat), number));
+            }
+        }
+
+        return numbers.ToImmutable();
+    }
+
+    /// <summary>
+    /// "the highest number chosen", CR 700.2 with 101.4: the greatest or least of the revealed
+    /// numbers. A key nobody answered is refused rather than read as zero — zero is a number a
+    /// player could have chosen, so answering it would make a card that damages each player by the
+    /// highest number deal none and look as though the game had played the card.
+    /// </summary>
+    [RuleRef("700.2")]
+    private static int SecretExtreme(string record, string key, EffectContext ctx, bool lowest)
+    {
+        var numbers = SecretNumbers(key, ctx);
+        if (numbers.Count == 0)
+            throw NoSecretNumbers(record, key);
+
+        return lowest ? numbers.Min(n => n.Number) : numbers.Max(n => n.Number);
+    }
+
+    /// <summary>The one refusal both readers of a secret choice give, CR 700.2.</summary>
+    private static RefusedException NoSecretNumbers(string record, string key) =>
+        Unanswerable(record, $"no secret number was revealed under \"{key}\", so there is no highest or lowest to read", "700.2");
+
     /// <summary>
     /// The characteristics an amount reads off one object, CR 208.1 and 202.3: the object as it is
     /// now, or, when it has left the battlefield, as it last existed there — CR 608.2h with 400.7:

@@ -255,10 +255,12 @@ public sealed partial class QueryTests
         var world = World.New().Creature(1, Alice, 1, 1);
 
         // It is a RefusedException, so Game.Apply turns it into a Refused and the table is told
-        // which primitive is missing rather than the game dying mid-command.
-        var commander = Assert.Throws<RefusedException>(
-            () => world.Query.Resolve(world.State, new Cards.Commander(new You()), world.Context));
-        Assert.Contains("Commander", commander.Reason, StringComparison.Ordinal);
+        // which primitive is missing rather than the game dying mid-command. CR 103.1: a random
+        // selection draws from the seeded generator, which is a subsystem that changes state, and
+        // the query layer only reads — so this one is refused by name and not answered.
+        var random = Assert.Throws<RefusedException>(
+            () => world.Query.Resolve(world.State, new RandomFrom(ObjectFilter.Creature), world.Context));
+        Assert.Contains(nameof(RandomFrom), random.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
