@@ -37,6 +37,11 @@ public sealed partial class ReplacementSystem
 
         LifeChanged life => Unchangeable(_layers.PlayerRestrictions(state, life.Player), life.Delta),
 
+        // CR 613.11 with 111.5: an effect that modifies the rules and forbids an entry is not a
+        // replacement of the entry, so it is read here — the object never arrives and no effect is
+        // offered the event at all.
+        ObjectMoved or ObjectCreated => CantEnter(state, proposed),
+
         // Targeting is not judged here. CR 115.6 and 115.7 are checked where targets are chosen
         // and rechecked on resolution; by the time an event is proposed the target is settled.
         _ => false,

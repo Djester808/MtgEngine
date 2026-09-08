@@ -102,8 +102,12 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
         ReplacementAbility? Ability,
         ActiveEffect? Active);
 
-    /// <summary>What applying one effect produced: the event as it now stands, or none at all.</summary>
-    private sealed record Applied(GameEvent? Event, GameState State, ImmutableList<GameEvent> Extra);
+    /// <summary>
+    /// What applying one effect produced: the event as it now stands, or none at all.
+    /// <paramref name="Prevented"/> is what a prevention in this application took off the event
+    /// (CR 615), which the rest of the same effect is then run with; none means no prevention ran.
+    /// </summary>
+    private sealed record Applied(GameEvent? Event, GameState State, ImmutableList<GameEvent> Extra, int? Prevented = null);
 
     /// <summary>
     /// Every effect that would apply to this event and has not applied to it already. Abilities
@@ -208,15 +212,15 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
             context));
     }
 
-    private static EffectContext Context(ObjectId? source, PlayerId controller, GameEvent proposed) =>
+    private static EffectContext Context(ObjectId? source, PlayerId controller, GameEvent proposed, int? prevented = null) =>
         new(
             source,
             controller,
             [],
             [],
-            null,
+            ChosenX(proposed),
             ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty,
-            ImmutableDictionary<string, string>.Empty,
+            Prevented(prevented),
             ImmutableDictionary<string, int>.Empty,
             Triggering(proposed),
             AffectedPlayer(proposed));
