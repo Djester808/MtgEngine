@@ -68,6 +68,7 @@ public static class KeywordExpander
             KeywordKind.Cycling => [Cycling(keyword)],
             KeywordKind.Unearth => [Unearth(keyword)],
             KeywordKind.Devoid => [Devoid(keyword)],
+            KeywordKind.Storm => [Storm(keyword)],
             _ => [Marker(keyword, semantics, MissingPrimitive(keyword.Keyword))],
         };
     }
@@ -148,6 +149,33 @@ public static class KeywordExpander
     [RuleRef("702.113a")]
     private static StaticAbility Devoid(KeywordAbility keyword) =>
         new(new SetColors(Color.Colorless), new Self(), CharacteristicDefining: true)
+        {
+            Text = keyword.Text,
+        };
+
+    /// <summary>
+    /// CR 702.40a — storm: "When you cast this spell, copy it for each other spell that was cast
+    /// before it this turn. If the spell has any targets, you may choose new targets for any of the
+    /// copies." A triggered ability that functions on the stack, so it is an ordinary cast trigger
+    /// whose filter is this object (CR 702.40b: two instances trigger separately, which falls out
+    /// of two keyword records expanding to two abilities).
+    /// <para>
+    /// The count is the turn's spells by every player (CR 702.40a says "each other spell", not
+    /// "each other spell you cast") less this one: the spell is already in the turn's record when
+    /// the trigger resolves, so <c>Difference</c> against <see cref="Fixed"/> 1 is "each
+    /// <em>other</em>". The copies are put on the stack by CR 707.10's road, which the interpreter
+    /// already owns, with new targets allowed — <c>MayChooseNewTargets</c> is the record's default
+    /// and is written out here because the rule is the reason for it.
+    /// </para>
+    /// </summary>
+    [RuleRef("702.40a")]
+    private static TriggeredAbility Storm(KeywordAbility keyword) =>
+        new(
+            new SpellCast(new ObjectFilter(Spell: true, Also: new IsThisObject()), new You()),
+            new CopySpell(
+                new Triggering(TriggerRole.Subject),
+                new Difference(new SpellsCastThisTurn(new EachPlayer()), new Fixed(1)),
+                MayChooseNewTargets: true))
         {
             Text = keyword.Text,
         };

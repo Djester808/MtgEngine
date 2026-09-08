@@ -34,6 +34,10 @@ public static partial class KeywordSemantics
             KeywordTreatment.TriggeredAbilityExpansion,
             "This permanent enters with your choice of a +1/+1 counter or haste; CR 702.136a makes the choice as it enters, so it wants a replacement, not a trigger."),
         Expansion(
+            KeywordKind.Storm,
+            KeywordTreatment.TriggeredAbilityExpansion,
+            "When you cast this spell, copy it for each other spell that was cast before it this turn; you may choose new targets for the copies (CR 702.40a with 707.10)."),
+        Expansion(
             KeywordKind.Afflict,
             KeywordTreatment.TriggeredAbilityExpansion,
             "Whenever this creature becomes blocked, defending player loses N life."),
