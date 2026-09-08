@@ -162,19 +162,37 @@ public static class VerifyCommand
 
     /// <summary>
     /// Why this card is not played at all: the first <see cref="MtgEngine.Cards.Unsupported"/> marker
-    /// anywhere in its definition, or null when it carries none.
+    /// in its definition when no part of the card is expressible, or null when something still is.
     /// </summary>
     /// <remarks>
-    /// A marker is the translator saying, in the vocabulary's own words, that part of this card is
-    /// not expressed — so the definition is knowingly incomplete and a game played from it would be
-    /// a game of a card nobody wrote. Refusing before the game starts is not the same as the engine
-    /// throwing when it reaches the marker: the run has a reason to report rather than an exception,
-    /// and the count says how many cards are waiting on vocabulary rather than on the engine.
+    /// A marker is the translator saying, in the vocabulary's own words, that that clause is not
+    /// expressed — so a game played from it would be a game of a card nobody wrote. Refusing before
+    /// the game starts is not the same as the engine throwing when it reaches the marker: the run
+    /// has a reason to report rather than an exception, and the count says how many cards are
+    /// waiting on vocabulary rather than on the engine.
+    ///
+    /// The refusal is per ability, not per card (CR 113.7b with CR 602.2): an ability is its own
+    /// object, and one clause nobody could write says nothing about the ability beside it. Emergence
+    /// Zone's flash permission carried the only marker on the card and took its <c>{T}: Add {C}</c>
+    /// down with it for seven waves (seam-requests/P25.md § 4). The generators refuse the marked
+    /// ability — <see cref="SmokeActivation"/> per activation, <see cref="SmokeScenario"/> for the
+    /// cast — and the file is called unsupported only when nothing is left for them to play: every
+    /// ability is marked, or a marker sits on no ability at all and so belongs to the card itself.
     /// </remarks>
-    private static string? NotPlayable(CardFile file) =>
-        Linter.Walk(file.Definition).OfType<Unsupported>().FirstOrDefault() is { } marker
-            ? marker.Reason
-            : null;
+    [RuleRef("602.2")]
+    private static string? NotPlayable(CardFile file)
+    {
+        var markers = SmokeScenario.Markers(file.Definition);
+        if (markers.Count == 0)
+            return null;
+
+        // The abilities are disjoint objects, so their markers add up; a marker the sum does not
+        // reach is on the printed data itself and there is no ability to refuse in the card's place.
+        var abilities = file.Definition.Faces.SelectMany(f => f.AbilityList).ToList();
+        var onAbilities = abilities.Sum(a => SmokeScenario.Markers(a).Count);
+        var anyExpressible = abilities.Any(a => SmokeScenario.Markers(a).Count == 0);
+        return onAbilities == markers.Count && anyExpressible ? null : markers[0].Reason;
+    }
 
     /// <summary>
     /// A card whose definition says part of it is unsupported. Its file is left exactly as it was —

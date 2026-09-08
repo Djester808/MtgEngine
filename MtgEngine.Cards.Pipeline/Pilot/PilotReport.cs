@@ -90,13 +90,14 @@ public static class PilotReport
     private static void Agreement(StringBuilder sb, IReadOnlyList<PilotCardResult> results, IReadOnlyList<string> models, int count)
     {
         var agreed = results.Count(r => r.Agreement.Agreed);
-        var allClean = results.Count(r => r.Agreement.Lint.Values.All(lint => lint is { HasErrors: false }));
+        var allClean = results.Count(AllClean);
+        var agreedAmongClean = results.Count(r => r.Agreement.Agreed && AllClean(r));
         var written = results.Count(r => r.Written is not null);
 
         sb.AppendLine("## Agreement");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- all models lint clean: {allClean}/{count}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed (identical after stripping printed text): {agreed}/{count} ({Percent(agreed, count)})");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed among all-clean: {agreed}/{allClean} ({Percent(agreed, allClean)})");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- agreed among all-clean: {agreedAmongClean}/{allClean} ({Percent(agreedAmongClean, allClean)})");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- card files written: {written}/{count}");
         sb.AppendLine();
 
@@ -129,6 +130,16 @@ public static class PilotReport
                 sb.AppendLine(CultureInfo.InvariantCulture, $"  - first difference: {r.Agreement.Difference}");
         }
     }
+
+    /// <summary>
+    /// Every reading of this card linted clean. A card agrees on a majority of the readings that
+    /// parsed and linted clean (<see cref="Agree.AgreeStage"/>), so a third reading with lint errors
+    /// leaves the card agreed and not all-clean: the "agreed among all-clean" line has to ask for
+    /// both, or its numerator counts cards its denominator never admitted and the ratio can pass
+    /// one (seam-requests/P25.md § 3).
+    /// </summary>
+    private static bool AllClean(PilotCardResult result) =>
+        result.Agreement.Lint.Values.All(lint => lint is { HasErrors: false });
 
     private static string Verdict(PilotCardResult result, string model)
     {
