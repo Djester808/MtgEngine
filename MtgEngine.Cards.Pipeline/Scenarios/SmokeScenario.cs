@@ -301,9 +301,10 @@ public static partial class SmokeScenario
                 Found(board, search, found);
                 break;
 
-            // CR 701.5: a countered spell is put into its owner's graveyard.
-            case Counter { What: Target countered, PutInto: null or Zone.Graveyard } when Spell(countered) is { } cast:
-                board.Expect(new InZone(board.SpellOnTheStack(card: cast), Zone.Graveyard, Opponent));
+            // CR 701.5: a countered spell is put into its owner's graveyard, and the thing it was
+            // going to do never happens — which is the half the play has to assert, because a spell
+            // that resolved reaches the same graveyard (CR 608.2m).
+            case Counter { What: Target countered, PutInto: null or Zone.Graveyard } when Counters(board, countered, withNothingLeftToPay: false):
                 break;
 
             // CR 115.7: changing a spell's target moves what it does from the player it was aimed
@@ -316,8 +317,7 @@ public static partial class SmokeScenario
             // asked, so the payment cannot be made and the spell is countered. Only a mana payment:
             // a cost that eats an object is one the opponent might be able to meet, and which half
             // of the card the play then shows is not a generated scenario's to guess.
-            case Unless { Do: Counter { What: Target unpaid, PutInto: null or Zone.Graveyard }, Paid: ManaCost { Mana.Length: > 0 } } when Spell(unpaid) is { } held:
-                board.Expect(new InZone(board.SpellOnTheStack(withNothingLeftToPay: true, card: held), Zone.Graveyard, Opponent));
+            case Unless { Do: Counter { What: Target unpaid, PutInto: null or Zone.Graveyard }, Paid: ManaCost { Mana.Length: > 0 } } when Counters(board, unpaid, withNothingLeftToPay: true):
                 break;
 
             // CR 701.13: milling moves cards from the top of a library into that graveyard.

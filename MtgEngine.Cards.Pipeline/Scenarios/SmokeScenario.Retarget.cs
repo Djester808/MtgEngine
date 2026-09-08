@@ -26,11 +26,14 @@ public static partial class SmokeScenario
     [RuleRef("115.7")]
     private static bool Retargets(SmokeBoard board, ChangeTarget change)
     {
-        // A keyed target is refused: the engine changes nothing at all when the retarget's own
-        // target carries a key, so the play would report the card doing nothing (seam-requests/P23.md
-        // § 2, CR 115.7 with CR 608.2h). Until that is answered the keyed shape gets no scenario
-        // rather than one that always fails.
-        if (change.What is not Target { Count: null or Fixed { N: 1 }, UpTo: false, Key: null } aimed
+        // A keyed target is played since wave 26. It was refused while the engine changed nothing at
+        // all for it (seam-requests/P23.md § 2), and E9t measured that the defect was never the
+        // interpreter's: `Query.ZoneOf` sent a filter that says "spell" and names no zone to the
+        // battlefield, where nothing is a spell (CR 112.1), so the CR 608.2b re-check dropped the
+        // announced target and every later step read an empty key. A zoneless spell filter now reads
+        // the stack, and the keyed half — "that spell's mana value" — is the second thing this
+        // scenario asserts (CR 608.2h with CR 202.3).
+        if (change.What is not Target { Count: null or Fixed { N: 1 }, UpTo: false } aimed
             || !SmokeFillers.Casts(aimed.Filter, ScenarioFiller.Bolt)
             || BoltDamage() is not { } dealt || dealt <= 0)
         {
@@ -40,7 +43,13 @@ public static partial class SmokeScenario
         // The bolt is aimed at its own controller, so the seat the answer takes is a different one:
         // an answer that named the seat the spell already targets would change nothing at all
         // (CR 115.7b) and the play would assert a life total that was never going to move.
-        board.SpellOnTheStack(card: ScenarioFiller.Bolt, aimedAt: [Opponent]);
+        var spell = board.SpellOnTheStack(card: ScenarioFiller.Bolt, aimedAt: [Opponent]);
+
+        // CR 608.2h: the announcement is remembered under the key the record names, so a later step
+        // that reads "that spell" — its mana value above all — is read against the filler that is
+        // actually on the stack rather than against nothing.
+        if (aimed.Key is { } key)
+            board.Remember(key, spell, ScenarioFiller.Bolt);
         board.Lives(true, -dealt);
         return true;
     }
