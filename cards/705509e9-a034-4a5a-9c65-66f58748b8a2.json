@@ -330,9 +330,19 @@
           "zone": "Battlefield"
         },
         {
+          "kind": "TappedIs",
+          "card": "find-1",
+          "tapped": false
+        },
+        {
           "kind": "InZone",
           "card": "find-2",
           "zone": "Battlefield"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "find-2",
+          "tapped": false
         },
         {
           "kind": "Shuffled",
@@ -369,10 +379,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260908T003824-c6a1eb",
+    "runId": "verify-20260908T004511-d68093",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-08T00:38:24.5569688+00:00"
+    "at": "2026-09-08T00:45:11.7792601+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -603,9 +613,19 @@
           "zone": "Battlefield"
         },
         {
+          "kind": "TappedIs",
+          "card": "find-1",
+          "tapped": false
+        },
+        {
           "kind": "InZone",
           "card": "find-2",
           "zone": "Battlefield"
+        },
+        {
+          "kind": "TappedIs",
+          "card": "find-2",
+          "tapped": false
         },
         {
           "kind": "Shuffled",

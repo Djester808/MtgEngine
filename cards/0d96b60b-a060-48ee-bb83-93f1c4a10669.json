@@ -334,30 +334,23 @@
           "zone": "Battlefield"
         },
         {
+          "kind": "TappedIs",
+          "card": "find-1",
+          "tapped": false
+        },
+        {
           "kind": "Shuffled",
           "player": "A"
         },
         {
           "kind": "InZone",
           "card": "Green Sun\u0027s Zenith",
-          "zone": "Graveyard"
+          "zone": "Library"
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Battlefield",
-          "count": 1
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Library",
-          "count": 7
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Graveyard",
           "count": 1
         },
         {
@@ -368,10 +361,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260907T232216-de57b0",
+    "runId": "verify-20260908T004511-d68093",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-07T23:22:16.2228642+00:00"
+    "at": "2026-09-08T00:45:11.7792601+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -590,30 +583,23 @@
           "zone": "Battlefield"
         },
         {
+          "kind": "TappedIs",
+          "card": "find-1",
+          "tapped": false
+        },
+        {
           "kind": "Shuffled",
           "player": "A"
         },
         {
           "kind": "InZone",
           "card": "Green Sun\u0027s Zenith",
-          "zone": "Graveyard"
+          "zone": "Library"
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Battlefield",
-          "count": 1
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Library",
-          "count": 7
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Graveyard",
           "count": 1
         },
         {
