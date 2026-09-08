@@ -16,7 +16,7 @@ namespace MtgEngine.Rules.Tests;
 /// view: a name a viewer is not entitled to must not appear anywhere in the text, however the
 /// projector arranges its records.
 /// </summary>
-public sealed class HiddenInformationTests
+public sealed partial class HiddenInformationTests
 {
     private const string MineOracle = "oracle-mine";
     private const string TheirsOracle = "oracle-theirs";
