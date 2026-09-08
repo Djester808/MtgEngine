@@ -26,6 +26,8 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(ChosenNumber), nameof(ChosenNumber))]
 [JsonDerivedType(typeof(Stored), nameof(Stored))]
 [JsonDerivedType(typeof(ManaSpentOnThis), nameof(ManaSpentOnThis))]
+[JsonDerivedType(typeof(ManaSpentOnTriggering), nameof(ManaSpentOnTriggering))]
+[JsonDerivedType(typeof(TriggeringPreventedDamage), nameof(TriggeringPreventedDamage))]
 [JsonDerivedType(typeof(TimesKicked), nameof(TimesKicked))]
 [JsonDerivedType(typeof(SpellsCastThisTurn), nameof(SpellsCastThisTurn))]
 [JsonDerivedType(typeof(DamageDealtThisTurn), nameof(DamageDealtThisTurn))]
@@ -119,6 +121,39 @@ public sealed record Stored(string Key) : Amount;
 /// <summary>Mana spent to cast this spell, CR 601.2h.</summary>
 [RuleRef("601.2h")]
 public sealed record ManaSpentOnThis(Color? OfColor = null) : Amount;
+
+/// <summary>
+/// "If no mana was spent to cast it": the mana paid for the spell that triggered this ability,
+/// CR 400.7d — what was paid to cast a spell is information a later ability may read, and CR 601.2h
+/// is where that payment happened. It is the triggering spell's payment and never this object's own,
+/// which is <see cref="ManaSpentOnThis"/>: "whenever a player casts a spell, if no mana was spent to
+/// cast it" asks about somebody else's spell, and ManaSpentOnThis there answers about this one.
+/// <para>
+/// "No mana was spent" is this amount inside a Compare against zero and not a condition of its own:
+/// the number is what the card reads, and every other question about it ("one or more", "for each
+/// colour") is the same number compared differently. The ability must trigger on a spell being cast
+/// — SpellCast, its own or its delayed trigger's — or there is no spell whose payment this could be
+/// (L043).
+/// </para>
+/// </summary>
+[RuleRef("400.7d")]
+public sealed record ManaSpentOnTriggering(Color? OfColor = null) : Amount;
+
+/// <summary>
+/// "When damage is prevented this way, this creature deals that much damage to any other target":
+/// the damage a prevention effect actually prevented, CR 615.13 with CR 603.10 — the amount half of
+/// a <see cref="DamagePrevented"/> trigger, fixed as the ability triggered and not recomputed when
+/// it resolves.
+/// <para>
+/// It is not <see cref="TriggeringDamage"/>. Damage dealt and damage prevented are two different
+/// numbers on one event: a shield that prevents 2 of 5 leaves 3 dealt, and an effect that read the
+/// dealt amount for "that much" would deal the wrong number — or, for damage prevented in full,
+/// deal nothing at all. The ability must trigger on damage being prevented, its own or its delayed
+/// trigger's (L043).
+/// </para>
+/// </summary>
+[RuleRef("615.13")]
+public sealed record TriggeringPreventedDamage : Amount;
 
 /// <summary>
 /// How many times this spell was kicked, CR 702.32b: multikicker's cost may be paid any number of

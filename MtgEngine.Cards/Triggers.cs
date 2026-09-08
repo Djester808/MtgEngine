@@ -14,6 +14,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(Dies), nameof(Dies))]
 [JsonDerivedType(typeof(ZoneChange), nameof(ZoneChange))]
 [JsonDerivedType(typeof(SpellCast), nameof(SpellCast))]
+[JsonDerivedType(typeof(DamagePrevented), nameof(DamagePrevented))]
 [JsonDerivedType(typeof(AtStep), nameof(AtStep))]
 [JsonDerivedType(typeof(Attacks), nameof(Attacks))]
 [JsonDerivedType(typeof(AttacksAlone), nameof(AttacksAlone))]
@@ -106,7 +107,32 @@ public sealed record Dies(ObjectFilter What) : Trigger;
 public sealed record ZoneChange(ObjectFilter What, Zone? From = null, Zone? To = null, Zone? NotFrom = null) : Trigger;
 
 [RuleRef("603.2")]
-public sealed record SpellCast(ObjectFilter Spell, PlayerRef By) : Trigger;
+/// <summary>
+/// "Whenever a player casts a spell", and with <paramref name="Nth"/> "whenever a player casts their
+/// second spell each turn" (CR 603.2). The count is per player and per turn, over the spells this
+/// trigger's own <paramref name="Spell"/> filter admits, and the ability triggers on the cast that
+/// is exactly the Nth one and on no later one — which is why it is a number here and not a
+/// "two or more spells this turn" condition beside an ungated trigger, a reading that fires again on
+/// the third spell. Leave it null for "a spell", which triggers on every cast.
+/// </summary>
+[RuleRef("603.2")]
+public sealed record SpellCast(ObjectFilter Spell, PlayerRef By, int? Nth = null) : Trigger;
+
+/// <summary>
+/// "When damage is prevented this way": a triggered ability that watches a prevention effect being
+/// applied, CR 615.13 — it triggers each time a prevention effect prevents some or all of one or
+/// more simultaneous damage events. <paramref name="ThisWay"/> is the printed "this way": the
+/// prevention watched is the one this same object's own replacement or prevention effect applied,
+/// and not any prevention anywhere on the board. Leave it false for "whenever damage is prevented".
+/// <para>
+/// <paramref name="To"/> and <paramref name="By"/> narrow the damage event whose prevention this
+/// watches — who it would have been dealt to, and what would have dealt it — and both null admits
+/// any. The amount prevented is <see cref="TriggeringPreventedDamage"/> and never
+/// <see cref="TriggeringDamage"/>: the damage this trigger names was not dealt.
+/// </para>
+/// </summary>
+[RuleRef("615.13")]
+public sealed record DamagePrevented(ObjectFilter? To = null, ObjectFilter? By = null, bool ThisWay = false) : Trigger;
 
 /// <summary>"At the beginning of your upkeep", "at the beginning of each end step".</summary>
 [RuleRef("603.2")]

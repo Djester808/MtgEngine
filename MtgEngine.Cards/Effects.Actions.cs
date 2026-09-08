@@ -11,8 +11,22 @@ public sealed record AttachAction(Selector What, Selector To) : Effect;
 [RuleRef("701.4")]
 public sealed record Behold(ObjectFilter Quality, string RememberAs, PlayerRef? Who = null) : Effect;
 
+/// <summary>
+/// "Counter target spell", CR 701.6a: the spell is removed from the stack, does not resolve, and
+/// none of its effects happen. A countered spell goes to its owner's graveyard unless the effect
+/// says otherwise, so <paramref name="PutInto"/> is left null for the ordinary case and names the
+/// zone for "counter target spell. Its controller puts it on top of their library instead".
+/// <para>
+/// <paramref name="Where"/> is that instead-zone's ordering, and it is only ever read beside
+/// <paramref name="PutInto"/>: a library and a graveyard are ordered zones, so "on top of its
+/// owner's library" is <c>PutInto: Library</c> with <c>Where: Top</c> — one record and not a Counter
+/// followed by a Move, which would be a second event the card does not describe and would let a
+/// replacement see the spell reach the graveyard first. <paramref name="Where"/> without
+/// <paramref name="PutInto"/> orders a zone nothing is being put into and is refused (L043).
+/// </para>
+/// </summary>
 [RuleRef("701.6")]
-public sealed record Counter(Selector What, Zone? PutInto = null) : Effect;
+public sealed record Counter(Selector What, Zone? PutInto = null, Placement Where = Placement.Default) : Effect;
 
 /// <summary>
 /// "Create a 1/1 white Soldier creature token", CR 701.7. <paramref name="AttackingWhom"/> is the

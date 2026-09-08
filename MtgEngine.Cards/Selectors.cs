@@ -28,7 +28,21 @@ public abstract record Selector;
 /// <summary>This object: the permanent with the ability, or the spell being cast.</summary>
 public sealed record Self : Selector;
 
-/// <summary>"target creature", "up to two target players' creatures". <paramref name="Key"/> lets later steps refer back.</summary>
+/// <summary>
+/// "target creature", "up to two target players' creatures". <paramref name="Key"/> lets later
+/// steps refer back.
+/// <para>
+/// <paramref name="Distinct"/> is CR 601.2c's default and is why it is <b>true</b> unless a card
+/// says otherwise: the same object can't be chosen for two of one spell's targets, so a Target with
+/// a <paramref name="Count"/> above one names that many different objects. Set it false only for
+/// the printed line that lifts the rule — "any number of targets, which may be the same" and the
+/// divided-damage wording that lets one creature take two shares — and never as a way of writing
+/// "any number of target creature cards that each have a different mana value", which is a
+/// restriction on the <b>cards</b> and belongs in the filter, not here: distinctness of the objects
+/// chosen and difference of a characteristic they have are two different sentences, and this field
+/// says only the first.
+/// </para>
+/// </summary>
 [RuleRef("115")]
 public sealed record Target(ObjectFilter Filter, Amount? Count = null, bool UpTo = false, string? Key = null, bool Distinct = true) : Selector;
 
@@ -48,9 +62,16 @@ public sealed record Target(ObjectFilter Filter, Amount? Count = null, bool UpTo
 /// Count, UpTo and Key are here for the same reason Target carries them: "any number of target
 /// creatures" has its counterpart in "up to one target", divided damage names several targets
 /// (CR 601.2d), and a later step refers back by Key. Count absent means one.
+///
+/// <paramref name="Other"/> is the printed word in "any other target": the object with this ability
+/// can't be chosen, and every other creature, player, planeswalker and battle can. It is a
+/// restriction on the choice made at CR 601.2c and not a filter — "any target" admits players and
+/// battles, which no ObjectFilter reaches, so a reading that writes the exclusion as a filter over
+/// objects quietly drops the other three halves of the phrase. Leave it false for a plain
+/// "any target".
 /// </summary>
 [RuleRef("115.4")]
-public sealed record AnyTarget(Amount? Count = null, bool UpTo = false, string? Key = null) : Selector;
+public sealed record AnyTarget(Amount? Count = null, bool UpTo = false, string? Key = null, bool Other = false) : Selector;
 
 /// <summary>"each creature", "all artifacts": every object matching the filter, no targeting.</summary>
 public sealed record Each(ObjectFilter Filter) : Selector;
