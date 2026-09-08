@@ -64,10 +64,7 @@ internal static class ScenarioExpectations
                 }
 
             case TappedIs e:
-                {
-                    var tapped = Object(run, e.Card).Tapped;
-                    return (tapped == e.Tapped, tapped ? "tapped" : "untapped");
-                }
+                return Tapped(run, e);
 
             case ZoneCount e:
                 {
@@ -135,6 +132,28 @@ internal static class ScenarioExpectations
         if (expectation.Winner is null)
             return (outcome.Draw || outcome.Winners.IsEmpty, actual);
         return (outcome.Winners.Any(w => string.Equals(run.State.Player(w).Name, expectation.Winner, StringComparison.OrdinalIgnoreCase)), actual);
+    }
+
+    /// <summary>
+    /// CR 110.5d: only permanents have status. A card that is not on the battlefield is neither
+    /// tapped nor untapped whatever its <see cref="GameObject.Tapped"/> field happens to say, so the
+    /// honest answer for one is the zone it is in and the rule — not "untapped", which passes a
+    /// <c>TappedIs(card, false)</c> that was never about a card in a graveyard and fails a
+    /// <c>TappedIs(card, true)</c> as though the tap had been undone. The name a scenario used
+    /// follows the object across a zone change (CR 400.7), so an ability that shuffles its own
+    /// source into a library leaves this expectation pointed at a library card, which is exactly the
+    /// case that has to say so rather than report a status the card does not have.
+    /// </summary>
+    [RuleRef("110.5d")]
+    private static (bool, string?) Tapped(ScenarioRun run, TappedIs expectation)
+    {
+        var obj = Object(run, expectation.Card);
+        if (obj.Zone.Zone != Zone.Battlefield)
+        {
+            return (false, $"in {obj.Zone.Zone}, and a card that is not on the battlefield is neither tapped nor untapped (110.5d)");
+        }
+
+        return (obj.Tapped == expectation.Tapped, obj.Tapped ? "tapped" : "untapped");
     }
 
     /// <summary>CR 205: the types an object has right now, after every layer.</summary>
