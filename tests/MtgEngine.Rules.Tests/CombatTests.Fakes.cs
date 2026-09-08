@@ -47,11 +47,15 @@ internal sealed class CombatFakeQuery : IQuery
         return filter.IsCommander == true ? Commanders.Contains(candidate) : Match(filter, candidate);
     }
 
+    /// <summary>The amount evaluator, when a test sets one: it is handed the state the reader asked against, so a test can prove which board an attack cost was counted on (CR 508.1h).</summary>
+    public Func<GameState, Amount, int>? Amounts { get; set; }
+
     public ImmutableList<PlayerId> Players(GameState state, PlayerRef player, EffectContext context) => RefersTo;
 
     public bool Holds(GameState state, Condition condition, EffectContext context) => throw new NotSupportedException();
 
-    public int Evaluate(GameState state, Amount amount, EffectContext context) => throw new NotSupportedException();
+    public int Evaluate(GameState state, Amount amount, EffectContext context) =>
+        Amounts is { } evaluate ? evaluate(state, amount) : throw new NotSupportedException();
 
     public ImmutableList<ObjectId> Resolve(GameState state, Selector selector, EffectContext context) => throw new NotSupportedException();
 }
@@ -153,6 +157,18 @@ internal sealed class CombatTable
 
     /// <summary>Put a continuous effect in force by hand, CR 611.2: what created it is not combat's business.</summary>
     public void Enact(ActiveEffect effect) => State = State with { ActiveEffects = State.ActiveEffects.Add(effect) };
+
+    /// <summary>
+    /// Apply one event to the table by hand — mana in a pool (CR 106.4), a monarch designated
+    /// (CR 725.1) — so a combat test can set up what another subsystem would have done without
+    /// depending on that subsystem. It is logged like everything else, CR 101.4.
+    /// </summary>
+    public void Enact(GameEvent happened)
+    {
+        ArgumentNullException.ThrowIfNull(happened);
+        Log.Add(happened);
+        State = happened.Apply(State);
+    }
 
     public int DamageOn(ObjectId id) => State.Objects[id].Damage;
 
