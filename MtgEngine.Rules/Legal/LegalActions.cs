@@ -2,6 +2,7 @@ using MtgEngine.Cards;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
+using AttackTaxesView = MtgEngine.Rules.Views.AttackTaxes;
 using CardZone = MtgEngine.Cards.Zone;
 using LegalActionsView = MtgEngine.Rules.Views.LegalActions;
 
@@ -18,7 +19,11 @@ namespace MtgEngine.Rules.Legal;
 /// whether it has been made already (CR 508.1, 509.1).
 /// </summary>
 [RuleRef("117")]
-public sealed class LegalActions(ICastingSystem casting, ICharacteristics characteristics, ICombatSystem? combat = null) : ILegalActions
+public sealed class LegalActions(
+    ICastingSystem casting,
+    ICharacteristics characteristics,
+    ICombatSystem? combat = null,
+    Views.IAttackTaxes? taxes = null) : ILegalActions
 {
     private readonly ICastingSystem _casting = casting;
 
@@ -30,6 +35,15 @@ public sealed class LegalActions(ICastingSystem casting, ICharacteristics charac
     /// reading here is exactly the drift this seam removed.
     /// </summary>
     private readonly ICombatSystem? _combat = combat;
+
+    /// <summary>
+    /// What a taxed attacker would cost, or null when the game was composed without a producer.
+    /// CR 508.1d makes paying the player's choice, so the price belongs beside the offer; the
+    /// price itself is never derived here — a second reading of CR 508.1h in this layer could
+    /// disagree with what the declaration is actually charged.
+    /// </summary>
+    [RuleRef("508.1d")]
+    private readonly Views.IAttackTaxes? _taxes = taxes;
 
     public string Name => "legal actions";
 
@@ -49,14 +63,21 @@ public sealed class LegalActions(ICastingSystem casting, ICharacteristics charac
         // action of playing a land all need priority.
         var priority = state.Priority.Holder == player;
         var hand = priority ? state.In(ZoneKey.Of(CardZone.Hand, player)) : [];
+
+        // CR 508.1d — the attackers are priced, not re-decided: the list computed here is the one
+        // the offers are made against, so a creature can never carry a price it was not offered.
+        var attackers = EligibleAttackers(state, player);
         return new LegalActionsView(
             [.. hand.Where(id => _casting.Check(state, new CastSpell(player, id, state.Objects[id].FaceIndex)) is null)],
             priority ? Activatable(state, player) : [],
             [.. hand.Where(id => _casting.Check(state, new PlayLand(player, id)) is null)],
-            EligibleAttackers(state, player),
+            attackers,
             EligibleBlockers(state, player),
             MayPass: priority,
-            MustAnswerChoice: false);
+            MustAnswerChoice: false)
+        {
+            AttackTaxes = AttackTaxesView.For(_taxes, state, player, attackers),
+        };
     }
 
     private static LegalActionsView Nothing() => new([], [], [], [], [], MayPass: false, MustAnswerChoice: false);
