@@ -111,6 +111,7 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(MayCastAsThoughFlash), nameof(MayCastAsThoughFlash))]
 [JsonDerivedType(typeof(MayLookAtTopCard), nameof(MayLookAtTopCard))]
 [JsonDerivedType(typeof(PlayWithTopCardRevealed), nameof(PlayWithTopCardRevealed))]
+[JsonDerivedType(typeof(CantEnterBattlefield), nameof(CantEnterBattlefield))]
 [JsonDerivedType(typeof(PlayWithHandRevealed), nameof(PlayWithHandRevealed))]
 [JsonDerivedType(typeof(SkipStepEffect), nameof(SkipStepEffect))]
 [JsonDerivedType(typeof(AdditionalCombatPhase), nameof(AdditionalCombatPhase))]
@@ -257,7 +258,6 @@ public sealed record CantTransform : ContinuousEffect;
 
 public sealed record CantHaveCountersPlaced(string? Counter = null) : ContinuousEffect;
 
-public sealed record CantCastSpells(PlayerRef Who, ObjectFilter? Matching = null) : ContinuousEffect;
 
 public sealed record CantActivateAbilities(PlayerRef Who, ObjectFilter? OfSources = null, AbilityKind Ability = AbilityKind.Any) : ContinuousEffect;
 
@@ -430,9 +430,23 @@ public sealed record AssignDamageAsThoughUnblocked : ContinuousEffect;
 /// A land played this way pays nothing either way. The two flags are two different alternative
 /// costs and a card prints one, so both set is a contradiction the linter refuses (L021).
 /// </para>
+/// <para>
+/// <paramref name="OncePerTurn"/> and <paramref name="AdditionalCost"/> are "once during each of
+/// your turns, you may cast a permanent spell from your graveyard by sacrificing a land in
+/// addition to paying its other costs": a permission limited the way playing a land is limited
+/// (CR 116.2a — once during each of that player's own turns, not once per turn cycle and not once
+/// per game), carrying a cost paid on top of everything else the spell costs (CR 118.8, applied at
+/// CR 601.2f with every other additional cost). The cost is <b>additional</b> and never
+/// alternative: the mana cost is still paid, so <paramref name="AdditionalCost"/> beside
+/// <paramref name="WithoutPayingManaCost"/> or <paramref name="PayLifeEqualToManaValueInstead"/>
+/// is a permission that both charges and waives the same cast, which the linter refuses (L047).
+/// Both belong to this record and never to a second ability: a separate <c>PayCost</c> would be
+/// paid at resolution rather than as the spell is cast, and the limit counts casts the permission
+/// allowed and not casts of that card.
+/// </para>
 /// </summary>
 [RuleRef("118.9")]
-public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false, bool PayLifeEqualToManaValueInstead = false) : ContinuousEffect;
+public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false, bool PayLifeEqualToManaValueInstead = false, bool OncePerTurn = false, Cost? AdditionalCost = null) : ContinuousEffect;
 
 /// <summary>
 /// "You may cast green creature spells as though they had flash", CR 702.8: a timing permission

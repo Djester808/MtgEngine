@@ -176,6 +176,15 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// nothing (L045). It is not <c>NotSubtypes</c>, which is a creature type, and not a Predicate: the
 /// absence of a keyword is a fixed field because the presence of one already is.
 /// </para>
+/// <para>
+/// <c>InAnyOf</c> is the one filter a sentence naming more than one zone gets: "creature cards in
+/// graveyards and libraries" is <c>InAnyOf: [Graveyard, Library]</c>, admitting an object in any of
+/// them (CR 400.1 — each zone is its own place, and an object is in exactly one). It is the plural
+/// of <c>In</c> and never beside it: a filter that says both a zone and a list of zones states two
+/// different memberships and only one of them would be read (L047). A single-entry list is a plain
+/// <c>In</c> written the long way and is refused for the same reason, and a filter with neither
+/// still means the battlefield wherever a filter defaults there — an empty list is not "any zone".
+/// </para>
 /// </summary>
 [RuleRef("202.1")]
 public sealed record ObjectFilter(
@@ -222,7 +231,8 @@ public sealed record ObjectFilter(
     Zone? CastFrom = null,
     Zone? NotCastFrom = null,
     Predicate? Also = null,
-    KeywordKind? NotHas = null)
+    KeywordKind? NotHas = null,
+    IReadOnlyList<Zone>? InAnyOf = null)
 {
     public static ObjectFilter Creature => new(Types: CardType.Creature);
 

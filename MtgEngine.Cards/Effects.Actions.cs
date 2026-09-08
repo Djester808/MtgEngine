@@ -94,9 +94,26 @@ public sealed record Regenerate(Selector What) : Effect;
 [RuleRef("701.20")]
 public sealed record Reveal(Selector What, PlayerRef? Who = null, string? RememberAs = null) : Effect;
 
-/// <summary>"Sacrifice a creature": the player chooses; "sacrifice it": a selector.</summary>
+/// <summary>
+/// "Sacrifice a creature": the player chooses; "sacrifice it": a selector.
+/// <para>
+/// <paramref name="KeepOnePerPermanentType"/> is the whole of "each opponent chooses a permanent
+/// they control of each permanent type, then sacrifices the rest" (CR 701.21 with 110.4). The six
+/// permanent types are artifact, battle, creature, enchantment, land and planeswalker; a permanent
+/// with two of them — an artifact creature — is kept by either choice and satisfies both (CR
+/// 205.2b), so the kept set can be smaller than six and a reading that sacrifices down to exactly
+/// one of each is wrong. Every player the effect names chooses before anything is sacrificed and
+/// all the sacrifices happen at once (CR 101.4, 701.21a), which a per-type <c>Sacrifice</c> in a loop does
+/// not do: six sequential edicts let a trigger from the first one change what is on the battlefield
+/// for the second. <paramref name="Choice"/> narrows which permanents the rule looks at at all
+/// ("each opponent … of each creature type" is not this record); with the flag set,
+/// <paramref name="N"/> and <paramref name="What"/> say how many go and which, which is the
+/// opposite claim from "keep one of each and lose everything else" — the linter refuses both
+/// (L047).
+/// </para>
+/// </summary>
 [RuleRef("701.21")]
-public sealed record Sacrifice(Selector? What = null, ObjectFilter? Choice = null, Amount? N = null, PlayerRef? Who = null, string? RememberAs = null) : Effect;
+public sealed record Sacrifice(Selector? What = null, ObjectFilter? Choice = null, Amount? N = null, PlayerRef? Who = null, string? RememberAs = null, bool KeepOnePerPermanentType = false) : Effect;
 
 [RuleRef("701.22")]
 public sealed record Scry(Amount N, PlayerRef? Who = null) : Effect;

@@ -200,6 +200,7 @@ public sealed record ExpectRefusedStep(ScenarioStep Attempt, string? ReasonConta
 [JsonDerivedType(typeof(AttachedToIs), nameof(AttachedToIs))]
 [JsonDerivedType(typeof(EventLogged), nameof(EventLogged))]
 [JsonDerivedType(typeof(Shuffled), nameof(Shuffled))]
+[JsonDerivedType(typeof(PhasedOutIs), nameof(PhasedOutIs))]
 public abstract record Expectation;
 
 public sealed record InZone(string Card, Zone Zone, string? Owner = null) : Expectation;
@@ -251,6 +252,19 @@ public sealed record EventLogged(string EventKind, string? Card = null) : Expect
 /// <summary>That player's library was shuffled during the scenario, CR 701.20: a reorder that says it was a shuffle, not any reorder.</summary>
 [RuleRef("701.20")]
 public sealed record Shuffled(string Player) : Expectation;
+
+/// <summary>
+/// One permanent's phased status, CR 702.26b: the named card is phased out (or, with
+/// <c>PhasedOut</c> false, phased in). This is a <b>status</b> and not a zone — a permanent that
+/// phases out stays on the battlefield and is only treated as though it does not exist — so it is
+/// the one thing a phasing scenario can assert. <c>InZone(card, Battlefield)</c> is true before and
+/// after and proves nothing; <c>InZone</c> naming any other zone is the opposite claim and the two
+/// together are refused (L048). It is not <c>TappedIs</c>, the other status a permanent carries
+/// (CR 110.5), and not <c>ControlledBy</c>: a phased-out permanent keeps its controller, which is
+/// how CR 702.26a knows whose untap step phases it back in.
+/// </summary>
+[RuleRef("702.26b")]
+public sealed record PhasedOutIs(string Card, bool PhasedOut = true) : Expectation;
 
 /// <summary>What the engine's runner reports for one scenario.</summary>
 public sealed record ScenarioResult(string ScenarioId, bool Passed, IReadOnlyList<ExpectationResult> Results, string? Error = null, IReadOnlyList<string>? Log = null);

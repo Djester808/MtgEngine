@@ -127,6 +127,19 @@ public sealed record ReplacementAbility(ReplacedEvent Instead, Effect With, Cond
 /// <summary>
 /// A token to create, CR 111. The pipeline fills it from Scryfall's <c>all_parts</c> and the
 /// token's own card object; <paramref name="ScryfallOracleId"/> keeps the link.
+/// <para>
+/// <paramref name="PowerAmount"/> and <paramref name="ToughnessAmount"/> are the printed
+/// "create an X/X token, where X is the number of creatures destroyed this way" (CR 111.3): the
+/// creating ability defines the token's characteristics, so a power and toughness that are a
+/// number the ability works out belong to the spec and not to a later effect. The amount is read
+/// once, as the token is created, and the token keeps that value — a token whose printed X later
+/// changes does not change with it, because CR 111.3 makes the defined values the token's own
+/// copiable text. Never a <see cref="SetPt"/> after the <see cref="CreateToken"/>: that is a
+/// separate continuous effect in layer 7b that a second effect can overwrite and that a copy of
+/// the token does not carry, and it prices a 0/0 token into the graveyard as a state-based action
+/// (CR 704.5f) before the setting applies. Set the amount or the fixed number, never both
+/// (L047), and only on a token whose types include creature (CR 208.1).
+/// </para>
 /// </summary>
 [RuleRef("111")]
 public sealed record TokenSpec(
@@ -139,7 +152,9 @@ public sealed record TokenSpec(
     int? Toughness = null,
     IReadOnlyList<Ability>? Abilities = null,
     string? ScryfallOracleId = null,
-    bool IsPredefined = false);
+    bool IsPredefined = false,
+    Amount? PowerAmount = null,
+    Amount? ToughnessAmount = null);
 
 /// <summary>A Class card's level, CR 716: the cost to reach it and what it adds.</summary>
 [RuleRef("716")]
