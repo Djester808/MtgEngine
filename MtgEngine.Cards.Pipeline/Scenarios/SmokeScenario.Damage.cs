@@ -85,9 +85,17 @@ public static partial class SmokeScenario
     /// CR 601.2c: the key one targeted player was announced under, when the whole ability is about
     /// that one player and no other. Null when the card names none, or names more than one.
     /// </summary>
+    /// <remarks>
+    /// The walk reaches every announcement twice, because a face offers its printed
+    /// <see cref="Face.Abilities"/> and the <see cref="Face.AbilityList"/> that reads them back, and
+    /// a reflective walk cannot tell the two apart. Counting by identity is what makes "one player"
+    /// mean one: two records that merely compare equal are still two players, and collapsing them
+    /// would read a card that names two as if it named one.
+    /// </remarks>
     [RuleRef("601.2c")]
     internal static string? OneTargetedPlayer(CardDefinition definition) =>
-        Linter.Walk(definition).OfType<TargetPlayer>().ToList() is [{ Filter: { Opponent: null, IsYou: null, Also: null }, UpTo: false, Key: { } key }]
+        Linter.Walk(definition).Distinct(ReferenceEqualityComparer.Instance).OfType<TargetPlayer>().ToList()
+            is [{ Filter: { Opponent: null, IsYou: null, Also: null }, UpTo: false, Key: { } key }]
             ? key
             : null;
 
