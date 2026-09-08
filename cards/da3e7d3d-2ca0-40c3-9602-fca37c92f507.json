@@ -1,0 +1,559 @@
+{
+  "oracleId": "da3e7d3d-2ca0-40c3-9602-fca37c92f507",
+  "name": "Emry, Lurker of the Loch",
+  "oracleHash": "sha256:3f3d61ce469920ddcc07f210e9ad3ed4cf2afd9ed31c45d70f378c78b153c2ba",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "da3e7d3d-2ca0-40c3-9602-fca37c92f507",
+    "name": "Emry, Lurker of the Loch",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Emry, Lurker of the Loch",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Merfolk",
+            "Wizard"
+          ],
+          "subtypeList": [
+            "Merfolk",
+            "Wizard"
+          ]
+        },
+        "manaCost": "{2}{U}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Affinity",
+            "of": {
+              "types": [
+                "Artifact"
+              ]
+            },
+            "repeatable": false,
+            "text": "Affinity for artifacts"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Mill",
+              "n": {
+                "kind": "Fixed",
+                "n": 4
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Emry enters, mill four cards."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "MayCast",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "types": [
+                    "Artifact"
+                  ],
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "withoutPayingManaCost": false,
+              "until": {
+                "kind": "UntilEndOfTurn"
+              },
+              "asCopy": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn."
+          }
+        ],
+        "oracleText": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nWhen Emry enters, mill four cards.\n{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Affinity",
+            "of": {
+              "types": [
+                "Artifact"
+              ]
+            },
+            "repeatable": false,
+            "text": "Affinity for artifacts"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Mill",
+              "n": {
+                "kind": "Fixed",
+                "n": 4
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Emry enters, mill four cards."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "MayCast",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Graveyard",
+                  "types": [
+                    "Artifact"
+                  ],
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "withoutPayingManaCost": false,
+              "until": {
+                "kind": "UntilEndOfTurn"
+              },
+              "asCopy": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Affinity",
+    "Mill"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "da3e7d3d-2ca0-40c3-9602-fca37c92f507",
+        "name": "Emry, Lurker of the Loch",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Emry, Lurker of the Loch",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Merfolk",
+                "Wizard"
+              ],
+              "subtypeList": [
+                "Merfolk",
+                "Wizard"
+              ]
+            },
+            "manaCost": "{2}{U}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "types": [
+                    "Artifact"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for artifacts"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Emry enters, mill four cards."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Artifact"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn."
+              }
+            ],
+            "oracleText": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nWhen Emry enters, mill four cards.\n{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "types": [
+                    "Artifact"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for artifacts"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Emry enters, mill four cards."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Artifact"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "da3e7d3d-2ca0-40c3-9602-fca37c92f507",
+        "name": "Emry, Lurker of the Loch",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Emry, Lurker of the Loch",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Merfolk",
+                "Wizard"
+              ],
+              "subtypeList": [
+                "Merfolk",
+                "Wizard"
+              ]
+            },
+            "manaCost": "{2}{U}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "types": [
+                    "Artifact"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Emry enters, mill four cards."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Artifact"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)"
+              }
+            ],
+            "oracleText": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nWhen Emry enters, mill four cards.\n{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "types": [
+                    "Artifact"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Mill",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 4
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Emry enters, mill four cards."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Artifact"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "withoutPayingManaCost": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  },
+                  "asCopy": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Affinity",
+    "Mill"
+  ],
+  "scenarioList": []
+}

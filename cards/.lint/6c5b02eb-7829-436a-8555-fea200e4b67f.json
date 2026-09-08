@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No record makes the top card of a library public. PlayWithHandRevealed is the hand only, and MayLookAtTopCard is the private permission \u0027you may look at the top card of your library\u0027, which is a different printed line.",
+      "message": "Unsupported: No continuous effect makes the top card of a library revealed to every player. MayLookAtTopCard is a private look by one player and does not reveal the card.",
       "path": "faces[0].abilities[1]"
     }
   ],

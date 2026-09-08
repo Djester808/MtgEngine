@@ -35,12 +35,15 @@
                       ]
                     }
                   },
-                  "cantBeRegenerated": false
+                  "cantBeRegenerated": false,
+                  "rememberAs": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
-                  "text": "You gain 1 life for each creature destroyed this way."
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
                 }
               ]
             },
@@ -64,12 +67,15 @@
                       ]
                     }
                   },
-                  "cantBeRegenerated": false
+                  "cantBeRegenerated": false,
+                  "rememberAs": "k1"
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "Nothing counts what a Destroy instruction actually destroyed. Destroy carries no rememberAs/storeAs the way LoseLife, Discard, Mill and Sacrifice do, and no Amount reads a destruction, so the count would have to be a second copy of the Destroy\u0027s own selector - which reads the creatures present rather than the ones destroyed and counts indestructible survivors.",
-                  "text": "You gain 1 life for each creature destroyed this way."
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Stored",
+                    "key": "k1"
+                  }
                 }
               ]
             },
@@ -79,17 +85,202 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Disputed",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5",
-      "claude-opus-5-b"
+      "claude-opus-5"
     ],
-    "promptVersion": "pilot-f942b227ec6c",
-    "agreed": true
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
   },
   "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "b17ea905-0696-4e58-b564-557e87236e27",
+        "name": "Fumigate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Fumigate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "cantBeRegenerated": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
+              }
+            ],
+            "oracleText": "Destroy all creatures. You gain 1 life for each creature destroyed this way.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "cantBeRegenerated": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Stored",
+                        "key": "k1"
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "b17ea905-0696-4e58-b564-557e87236e27",
+        "name": "Fumigate",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Fumigate",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "cantBeRegenerated": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "GainLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
+              }
+            ],
+            "oracleText": "Destroy all creatures. You gain 1 life for each creature destroyed this way.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Each",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ]
+                        }
+                      },
+                      "cantBeRegenerated": false,
+                      "rememberAs": "k1"
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "GainLife",
+                        "n": {
+                          "kind": "Fixed",
+                          "n": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Destroy all creatures. You gain 1 life for each creature destroyed this way."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "keywordList": [],
   "scenarioList": []
 }

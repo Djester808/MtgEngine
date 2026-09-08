@@ -1,0 +1,794 @@
+{
+  "oracleId": "6cb8b8c4-0674-4f14-9d89-010969fbb80e",
+  "name": "Grave Researcher // Reanimate",
+  "oracleHash": "sha256:2b3038d9856c82d268c9167283b1fd3f19ad81bd1e487cdf5879ecf6cadf8d91",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "6cb8b8c4-0674-4f14-9d89-010969fbb80e",
+    "name": "Grave Researcher // Reanimate",
+    "layout": "Other",
+    "faces": [
+      {
+        "name": "Grave Researcher",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Troll",
+            "Warlock"
+          ],
+          "subtypeList": [
+            "Troll",
+            "Warlock"
+          ]
+        },
+        "manaCost": "{2}{B}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Surveil",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "CardsInZoneOf",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "zone": "Graveyard",
+                      "matching": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Prepare",
+                    "what": {
+                      "kind": "Self"
+                    }
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+          }
+        ],
+        "oracleText": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared. (While it\u0027s prepared, you may cast a copy of its spell. Doing so unprepares it.)",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Surveil",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Compare",
+                    "left": {
+                      "kind": "CardsInZoneOf",
+                      "who": {
+                        "kind": "You"
+                      },
+                      "zone": "Graveyard",
+                      "matching": {
+                        "types": [
+                          "Creature"
+                        ]
+                      }
+                    },
+                    "op": "Ge",
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 3
+                    }
+                  },
+                  "then": {
+                    "kind": "Prepare",
+                    "what": {
+                      "kind": "Self"
+                    }
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+          }
+        ]
+      },
+      {
+        "name": "Reanimate",
+        "role": "Omen",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "ManaValueOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+          }
+        ],
+        "oracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "in": "Graveyard",
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "You"
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "ManaValueOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Surveil",
+    "Prepared"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "6cb8b8c4-0674-4f14-9d89-010969fbb80e",
+        "name": "Grave Researcher // Reanimate",
+        "layout": "Other",
+        "faces": [
+          {
+            "name": "Grave Researcher",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Troll",
+                "Warlock"
+              ],
+              "subtypeList": [
+                "Troll",
+                "Warlock"
+              ]
+            },
+            "manaCost": "{2}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Surveil",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CardsInZoneOf",
+                          "who": {
+                            "kind": "You"
+                          },
+                          "zone": "Graveyard",
+                          "matching": {
+                            "types": [
+                              "Creature"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "then": {
+                        "kind": "Prepare",
+                        "what": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+              }
+            ],
+            "oracleText": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared. (While it\u0027s prepared, you may cast a copy of its spell. Doing so unprepares it.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Surveil",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CardsInZoneOf",
+                          "who": {
+                            "kind": "You"
+                          },
+                          "zone": "Graveyard",
+                          "matching": {
+                            "types": [
+                              "Creature"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "then": {
+                        "kind": "Prepare",
+                        "what": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+              }
+            ]
+          },
+          {
+            "name": "Reanimate",
+            "role": "Omen",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+              }
+            ],
+            "oracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "6cb8b8c4-0674-4f14-9d89-010969fbb80e",
+        "name": "Grave Researcher // Reanimate",
+        "layout": "Other",
+        "faces": [
+          {
+            "name": "Grave Researcher",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Troll",
+                "Warlock"
+              ],
+              "subtypeList": [
+                "Troll",
+                "Warlock"
+              ]
+            },
+            "manaCost": "{2}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Surveil",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CardsInZoneOf",
+                          "who": {
+                            "kind": "You"
+                          },
+                          "zone": "Graveyard",
+                          "matching": {
+                            "types": [
+                              "Creature"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "then": {
+                        "kind": "Prepare",
+                        "what": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+              }
+            ],
+            "oracleText": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared. (While it\u0027s prepared, you may cast a copy of its spell. Doing so unprepares it.)",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Surveil",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Compare",
+                        "left": {
+                          "kind": "CardsInZoneOf",
+                          "who": {
+                            "kind": "You"
+                          },
+                          "zone": "Graveyard",
+                          "matching": {
+                            "types": [
+                              "Creature"
+                            ]
+                          }
+                        },
+                        "op": "Ge",
+                        "right": {
+                          "kind": "Fixed",
+                          "n": 3
+                        }
+                      },
+                      "then": {
+                        "kind": "Prepare",
+                        "what": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, surveil 1. Then if there are three or more creature cards in your graveyard, this creature becomes prepared."
+              }
+            ]
+          },
+          {
+            "name": "Reanimate",
+            "role": "Adventure",
+            "types": {
+              "types": [
+                "Sorcery"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+              }
+            ],
+            "oracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "in": "Graveyard",
+                          "types": [
+                            "Creature"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "You"
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Surveil",
+    "Prepared"
+  ],
+  "scenarioList": []
+}

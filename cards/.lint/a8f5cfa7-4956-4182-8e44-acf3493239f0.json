@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+      "message": "Unsupported: No filter or predicate describes a spell by the player it targets: Targets takes an ObjectFilter and cannot say \u0022targets you\u0022, and TargetedBy runs the other way and admits objects rather than players.",
       "path": "faces[0].abilities[0]"
     }
   ],

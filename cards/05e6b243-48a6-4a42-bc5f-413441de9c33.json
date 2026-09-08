@@ -315,963 +315,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "05e6b243-48a6-4a42-bc5f-413441de9c33",
-        "name": "Elspeth, Sun\u0027s Champion",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-05e6b243-48a6-4a42-bc5f-413441de9c33",
+      "title": "casting Elspeth, Sun\u0027s Champion does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Elspeth, Sun\u0027s Champion",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elspeth"
-              ],
-              "subtypeList": [
-                "Elspeth"
-              ]
-            },
-            "manaCost": "{4}{W}{W}",
-            "loyalty": "4",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
+                "name": "Elspeth, Sun\u0027s Champion",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth, Sun\u0027s Champion",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "\u002B1: Create three 1/1 white Soldier creature tokens.\n\u22123: Destroy all creatures with power 4 or greater.\n\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022",
-            "abilityList": [
+            "library": [
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth, Sun\u0027s Champion",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "05e6b243-48a6-4a42-bc5f-413441de9c33",
-        "name": "Elspeth, Sun\u0027s Champion",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Elspeth, Sun\u0027s Champion",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elspeth"
-              ],
-              "subtypeList": [
-                "Elspeth"
-              ]
-            },
-            "manaCost": "{4}{W}{W}",
-            "loyalty": "4",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth Emblem",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
-              }
-            ],
-            "oracleText": "\u002B1: Create three 1/1 white Soldier creature tokens.\n\u22123: Destroy all creatures with power 4 or greater.\n\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth Emblem",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "05e6b243-48a6-4a42-bc5f-413441de9c33",
-        "name": "Elspeth, Sun\u0027s Champion",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Elspeth, Sun\u0027s Champion",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elspeth"
-              ],
-              "subtypeList": [
-                "Elspeth"
-              ]
-            },
-            "manaCost": "{4}{W}{W}",
-            "loyalty": "4",
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth, Sun\u0027s Champion Emblem",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
-              }
-            ],
-            "oracleText": "\u002B1: Create three 1/1 white Soldier creature tokens.\n\u22123: Destroy all creatures with power 4 or greater.\n\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "CreateToken",
-                  "token": {
-                    "name": "Soldier",
-                    "colors": [
-                      "White"
-                    ],
-                    "types": [
-                      "Creature"
-                    ],
-                    "subtypes": [
-                      "Soldier"
-                    ],
-                    "supertypes": [],
-                    "power": 1,
-                    "toughness": 1,
-                    "isPredefined": false
-                  },
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 3
-                  },
-                  "tapped": false,
-                  "attacking": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Create three 1/1 white Soldier creature tokens."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -3
-                  }
-                ],
-                "do": {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "power": {
-                        "op": "Ge",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 4
-                        }
-                      }
-                    }
-                  },
-                  "cantBeRegenerated": false
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22123: Destroy all creatures with power 4 or greater."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -7
-                  }
-                ],
-                "do": {
-                  "kind": "CreateEmblem",
-                  "emblem": {
-                    "name": "Elspeth, Sun\u0027s Champion Emblem",
-                    "abilities": [
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "ModifyPt",
-                          "power": {
-                            "kind": "Fixed",
-                            "n": 2
-                          },
-                          "toughness": {
-                            "kind": "Fixed",
-                            "n": 2
-                          }
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      },
-                      {
-                        "kind": "StaticAbility",
-                        "effect": {
-                          "kind": "GrantKeyword",
-                          "keyword": "Flying"
-                        },
-                        "to": {
-                          "kind": "Each",
-                          "filter": {
-                            "types": [
-                              "Creature"
-                            ],
-                            "controlledBy": {
-                              "kind": "You"
-                            }
-                          }
-                        },
-                        "where": "Battlefield",
-                        "characteristicDefining": false,
-                        "text": "Creatures you control get \u002B2/\u002B2 and have flying."
-                      }
-                    ]
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22127: You get an emblem with \u0022Creatures you control get \u002B2/\u002B2 and have flying.\u0022"
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Elspeth, Sun\u0027s Champion"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Elspeth, Sun\u0027s Champion",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-05e6b243-48a6-4a42-bc5f-413441de9c33",
+      "title": "casting Elspeth, Sun\u0027s Champion does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Elspeth, Sun\u0027s Champion",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Elspeth, Sun\u0027s Champion"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Elspeth, Sun\u0027s Champion",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

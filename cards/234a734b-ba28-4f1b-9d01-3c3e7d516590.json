@@ -30,7 +30,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Stack",
                       "notTypes": [
                         "Creature"
                       ],
@@ -82,7 +81,7 @@
                         "text": "{T}, Sacrifice this token: Add one mana of any color."
                       }
                     ],
-                    "isPredefined": true
+                    "isPredefined": false
                   },
                   "n": {
                     "kind": "Fixed",
@@ -115,7 +114,6 @@
                   "what": {
                     "kind": "Target",
                     "filter": {
-                      "in": "Stack",
                       "notTypes": [
                         "Creature"
                       ],
@@ -167,7 +165,7 @@
                         "text": "{T}, Sacrifice this token: Add one mana of any color."
                       }
                     ],
-                    "isPredefined": true
+                    "isPredefined": false
                   },
                   "n": {
                     "kind": "Fixed",
@@ -197,7 +195,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-f942b227ec6c",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -233,7 +231,6 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Stack",
                           "notTypes": [
                             "Creature"
                           ],
@@ -285,7 +282,7 @@
                             "text": "{T}, Sacrifice this token: Add one mana of any color."
                           }
                         ],
-                        "isPredefined": true
+                        "isPredefined": false
                       },
                       "n": {
                         "kind": "Fixed",
@@ -318,7 +315,6 @@
                       "what": {
                         "kind": "Target",
                         "filter": {
-                          "in": "Stack",
                           "notTypes": [
                             "Creature"
                           ],
@@ -370,7 +366,7 @@
                             "text": "{T}, Sacrifice this token: Add one mana of any color."
                           }
                         ],
-                        "isPredefined": true
+                        "isPredefined": false
                       },
                       "n": {
                         "kind": "Fixed",
@@ -446,36 +442,7 @@
                           "Treasure"
                         ],
                         "supertypes": [],
-                        "abilities": [
-                          {
-                            "kind": "ActivatedAbility",
-                            "costs": [
-                              {
-                                "kind": "TapSelf"
-                              },
-                              {
-                                "kind": "SacrificeSelf"
-                              }
-                            ],
-                            "do": {
-                              "kind": "AddMana",
-                              "mana": {
-                                "anyColor": true,
-                                "commanderIdentity": false,
-                                "chosenColor": false,
-                                "colorOfAttachedOrTarget": false,
-                                "landCouldProduce": false,
-                                "anyType": false,
-                                "restriction": false
-                              }
-                            },
-                            "timing": "Any",
-                            "where": "Battlefield",
-                            "anyPlayerMayActivate": false,
-                            "text": "{T}, Sacrifice this token: Add one mana of any color."
-                          }
-                        ],
-                        "isPredefined": false
+                        "isPredefined": true
                       },
                       "n": {
                         "kind": "Fixed",
@@ -493,7 +460,7 @@
                     }
                   ]
                 },
-                "text": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They\u0027re artifacts with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
+                "text": "Counter target noncreature spell. Its controller creates two Treasure tokens."
               }
             ],
             "oracleText": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They\u0027re artifacts with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)",
@@ -530,36 +497,7 @@
                           "Treasure"
                         ],
                         "supertypes": [],
-                        "abilities": [
-                          {
-                            "kind": "ActivatedAbility",
-                            "costs": [
-                              {
-                                "kind": "TapSelf"
-                              },
-                              {
-                                "kind": "SacrificeSelf"
-                              }
-                            ],
-                            "do": {
-                              "kind": "AddMana",
-                              "mana": {
-                                "anyColor": true,
-                                "commanderIdentity": false,
-                                "chosenColor": false,
-                                "colorOfAttachedOrTarget": false,
-                                "landCouldProduce": false,
-                                "anyType": false,
-                                "restriction": false
-                              }
-                            },
-                            "timing": "Any",
-                            "where": "Battlefield",
-                            "anyPlayerMayActivate": false,
-                            "text": "{T}, Sacrifice this token: Add one mana of any color."
-                          }
-                        ],
-                        "isPredefined": false
+                        "isPredefined": true
                       },
                       "n": {
                         "kind": "Fixed",
@@ -570,207 +508,6 @@
                         "of": {
                           "kind": "Remembered",
                           "key": "k1"
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They\u0027re artifacts with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "234a734b-ba28-4f1b-9d01-3c3e7d516590",
-        "name": "An Offer You Can\u0027t Refuse",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "An Offer You Can\u0027t Refuse",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{U}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Counter",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Creature"
-                          ],
-                          "spell": true
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      }
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Treasure",
-                        "colors": [],
-                        "types": [
-                          "Artifact"
-                        ],
-                        "subtypes": [
-                          "Treasure"
-                        ],
-                        "supertypes": [],
-                        "abilities": [
-                          {
-                            "kind": "ActivatedAbility",
-                            "costs": [
-                              {
-                                "kind": "TapSelf"
-                              },
-                              {
-                                "kind": "SacrificeSelf"
-                              }
-                            ],
-                            "do": {
-                              "kind": "AddMana",
-                              "mana": {
-                                "anyColor": true,
-                                "commanderIdentity": false,
-                                "chosenColor": false,
-                                "colorOfAttachedOrTarget": false,
-                                "landCouldProduce": false,
-                                "anyType": false,
-                                "restriction": false
-                              }
-                            },
-                            "timing": "Any",
-                            "where": "Battlefield",
-                            "anyPlayerMayActivate": false,
-                            "text": "{T}, Sacrifice this token: Add one mana of any color."
-                          }
-                        ],
-                        "isPredefined": true
-                      },
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Target",
-                          "filter": {
-                            "notTypes": [
-                              "Creature"
-                            ],
-                            "spell": true
-                          },
-                          "upTo": false,
-                          "distinct": true
-                        }
-                      },
-                      "tapped": false,
-                      "attacking": false
-                    }
-                  ]
-                },
-                "text": "Counter target noncreature spell. Its controller creates two Treasure tokens."
-              }
-            ],
-            "oracleText": "Counter target noncreature spell. Its controller creates two Treasure tokens. (They\u0027re artifacts with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Counter",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Creature"
-                          ],
-                          "spell": true
-                        },
-                        "upTo": false,
-                        "distinct": true
-                      }
-                    },
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Treasure",
-                        "colors": [],
-                        "types": [
-                          "Artifact"
-                        ],
-                        "subtypes": [
-                          "Treasure"
-                        ],
-                        "supertypes": [],
-                        "abilities": [
-                          {
-                            "kind": "ActivatedAbility",
-                            "costs": [
-                              {
-                                "kind": "TapSelf"
-                              },
-                              {
-                                "kind": "SacrificeSelf"
-                              }
-                            ],
-                            "do": {
-                              "kind": "AddMana",
-                              "mana": {
-                                "anyColor": true,
-                                "commanderIdentity": false,
-                                "chosenColor": false,
-                                "colorOfAttachedOrTarget": false,
-                                "landCouldProduce": false,
-                                "anyType": false,
-                                "restriction": false
-                              }
-                            },
-                            "timing": "Any",
-                            "where": "Battlefield",
-                            "anyPlayerMayActivate": false,
-                            "text": "{T}, Sacrifice this token: Add one mana of any color."
-                          }
-                        ],
-                        "isPredefined": true
-                      },
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 2
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Target",
-                          "filter": {
-                            "notTypes": [
-                              "Creature"
-                            ],
-                            "spell": true
-                          },
-                          "upTo": false,
-                          "distinct": true
                         }
                       },
                       "tapped": false,

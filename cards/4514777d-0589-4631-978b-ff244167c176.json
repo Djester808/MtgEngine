@@ -31,8 +31,8 @@
             },
             "do": {
               "kind": "Unsupported",
-              "reason": "No condition or amount expresses \u0022if no mana was spent to cast it\u0022 about the spell that triggered this ability. ManaSpentOnThis reads only the mana spent on this object\u0027s own casting, and this trigger\u0027s spell is another object; nothing in the vocabulary asks how much mana was spent on the triggering spell. Dropping the clause would counter every spell, so the whole line is marked rather than approximated.",
-              "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+              "reason": "No condition reads the mana spent to cast another spell. ManaSpentOnThis is the mana spent on this object\u0027s own cast (CR 601.2h) and there is no selector on it, so the intervening \u0027if no mana was spent to cast it\u0027 cannot be asked of the triggering spell; the counter half is kept inside the marker rather than shipped without its gate.",
+              "text": "if no mana was spent to cast it, counter that spell"
             },
             "optional": false,
             "where": "Battlefield",
@@ -79,8 +79,8 @@
             },
             "do": {
               "kind": "Unsupported",
-              "reason": "No condition or amount expresses \u0022if no mana was spent to cast it\u0022 about the spell that triggered this ability. ManaSpentOnThis reads only the mana spent on this object\u0027s own casting, and this trigger\u0027s spell is another object; nothing in the vocabulary asks how much mana was spent on the triggering spell. Dropping the clause would counter every spell, so the whole line is marked rather than approximated.",
-              "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+              "reason": "No condition reads the mana spent to cast another spell. ManaSpentOnThis is the mana spent on this object\u0027s own cast (CR 601.2h) and there is no selector on it, so the intervening \u0027if no mana was spent to cast it\u0027 cannot be asked of the triggering spell; the counter half is kept inside the marker rather than shipped without its gate.",
+              "text": "if no mana was spent to cast it, counter that spell"
             },
             "optional": false,
             "where": "Battlefield",
@@ -122,9 +122,9 @@
     "kind": "TranslatedProvenance",
     "models": [
       "claude-opus-5",
-      "claude-opus-5-b"
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-c8b5112ac2c3",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": true
   },
   "scryfallKeywords": [],

@@ -23,56 +23,56 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "GreatestAmong",
-                "among": {
-                  "types": [
-                    "Creature"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
-                },
-                "of": {
-                  "kind": "PowerOf",
-                  "of": {
-                    "kind": "Self"
-                  }
-                }
-              }
-            },
-            "text": "Draw cards equal to the greatest power among creatures you control."
-          },
-          {
-            "kind": "SpellAbility",
-            "do": {
-              "kind": "MayCast",
-              "what": {
-                "kind": "Choose",
-                "filter": {
-                  "in": "Hand",
-                  "ownedBy": {
-                    "kind": "You"
-                  },
-                  "manaValue": {
-                    "op": "Le",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 5
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "GreatestAmong",
+                    "among": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "of": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Self"
+                      }
                     }
+                  }
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 5
+                        }
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
                   },
-                  "spell": true
-                },
-                "chooser": {
-                  "kind": "You"
-                },
-                "upTo": false
-              },
-              "withoutPayingManaCost": true,
-              "asCopy": false
+                  "withoutPayingManaCost": true,
+                  "asCopy": false
+                }
+              ]
             },
-            "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
+            "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
           }
         ],
         "oracleText": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost.",
@@ -80,56 +80,56 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Draw",
-              "n": {
-                "kind": "GreatestAmong",
-                "among": {
-                  "types": [
-                    "Creature"
-                  ],
-                  "controlledBy": {
-                    "kind": "You"
-                  }
-                },
-                "of": {
-                  "kind": "PowerOf",
-                  "of": {
-                    "kind": "Self"
-                  }
-                }
-              }
-            },
-            "text": "Draw cards equal to the greatest power among creatures you control."
-          },
-          {
-            "kind": "SpellAbility",
-            "do": {
-              "kind": "MayCast",
-              "what": {
-                "kind": "Choose",
-                "filter": {
-                  "in": "Hand",
-                  "ownedBy": {
-                    "kind": "You"
-                  },
-                  "manaValue": {
-                    "op": "Le",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 5
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "GreatestAmong",
+                    "among": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "of": {
+                      "kind": "PowerOf",
+                      "of": {
+                        "kind": "Self"
+                      }
                     }
+                  }
+                },
+                {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "ownedBy": {
+                        "kind": "You"
+                      },
+                      "manaValue": {
+                        "op": "Le",
+                        "value": {
+                          "kind": "Fixed",
+                          "n": 5
+                        }
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
                   },
-                  "spell": true
-                },
-                "chooser": {
-                  "kind": "You"
-                },
-                "upTo": false
-              },
-              "withoutPayingManaCost": true,
-              "asCopy": false
+                  "withoutPayingManaCost": true,
+                  "asCopy": false
+                }
+              ]
             },
-            "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
+            "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
           }
         ]
       }
@@ -141,7 +141,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-f0e1d635d3a8",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -168,56 +168,56 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "text": "Draw cards equal to the greatest power among creatures you control."
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "MayCast",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "ownedBy": {
-                        "kind": "You"
-                      },
-                      "manaValue": {
-                        "op": "Le",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 5
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "GreatestAmong",
+                        "among": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "of": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Self"
+                          }
                         }
+                      }
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Hand",
+                          "ownedBy": {
+                            "kind": "You"
+                          },
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "Fixed",
+                              "n": 5
+                            }
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": false
                       },
-                      "spell": true
-                    },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": false
-                  },
-                  "withoutPayingManaCost": true,
-                  "asCopy": false
+                      "withoutPayingManaCost": true,
+                      "asCopy": false
+                    }
+                  ]
                 },
-                "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
+                "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
               }
             ],
             "oracleText": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost.",
@@ -225,56 +225,56 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Draw",
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "text": "Draw cards equal to the greatest power among creatures you control."
-              },
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "MayCast",
-                  "what": {
-                    "kind": "Choose",
-                    "filter": {
-                      "in": "Hand",
-                      "ownedBy": {
-                        "kind": "You"
-                      },
-                      "manaValue": {
-                        "op": "Le",
-                        "value": {
-                          "kind": "Fixed",
-                          "n": 5
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "GreatestAmong",
+                        "among": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "of": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Self"
+                          }
                         }
+                      }
+                    },
+                    {
+                      "kind": "MayCast",
+                      "what": {
+                        "kind": "Choose",
+                        "filter": {
+                          "in": "Hand",
+                          "ownedBy": {
+                            "kind": "You"
+                          },
+                          "manaValue": {
+                            "op": "Le",
+                            "value": {
+                              "kind": "Fixed",
+                              "n": 5
+                            }
+                          }
+                        },
+                        "chooser": {
+                          "kind": "You"
+                        },
+                        "upTo": false
                       },
-                      "spell": true
-                    },
-                    "chooser": {
-                      "kind": "You"
-                    },
-                    "upTo": false
-                  },
-                  "withoutPayingManaCost": true,
-                  "asCopy": false
+                      "withoutPayingManaCost": true,
+                      "asCopy": false
+                    }
+                  ]
                 },
-                "text": "You may cast a spell with mana value 5 or less from your hand without paying its mana cost."
+                "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
               }
             ]
           }
@@ -331,144 +331,10 @@
                         "kind": "Choose",
                         "filter": {
                           "in": "Hand",
-                          "ownedBy": {
-                            "kind": "You"
-                          },
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "Fixed",
-                              "n": 5
-                            }
-                          },
-                          "spell": true
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": false
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
-              }
-            ],
-            "oracleText": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost.",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "GreatestAmong",
-                        "among": {
-                          "types": [
-                            "Creature"
+                          "notTypes": [
+                            "Land"
                           ],
                           "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "of": {
-                          "kind": "PowerOf",
-                          "of": {
-                            "kind": "Self"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Hand",
-                          "ownedBy": {
-                            "kind": "You"
-                          },
-                          "manaValue": {
-                            "op": "Le",
-                            "value": {
-                              "kind": "Fixed",
-                              "n": 5
-                            }
-                          },
-                          "spell": true
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": false
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "text": "Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "97407cd0-2bd2-4074-94d3-4ec3d243fa78",
-        "name": "Rishkar\u0027s Expertise",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Rishkar\u0027s Expertise",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Sorcery"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{4}{G}{G}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "GreatestAmong",
-                        "among": {
-                          "types": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "of": {
-                          "kind": "PowerOf",
-                          "of": {
-                            "kind": "Self"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "in": "Hand",
-                          "ownedBy": {
                             "kind": "You"
                           },
                           "manaValue": {
@@ -525,7 +391,10 @@
                         "kind": "Choose",
                         "filter": {
                           "in": "Hand",
-                          "ownedBy": {
+                          "notTypes": [
+                            "Land"
+                          ],
+                          "controlledBy": {
                             "kind": "You"
                           },
                           "manaValue": {

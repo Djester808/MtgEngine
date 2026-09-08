@@ -51,7 +51,7 @@
                 },
                 {
                   "kind": "Unsupported",
-                  "reason": "No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
+                  "reason": "No player reference names the players who did NOT choose the lowest number: PlayerWhoChose names only those who chose the highest or the lowest, there is no negation of it, and no condition reads back one player\u0027s own secret choice, so a ForEachPlayer with an If cannot say it either.",
                   "text": "Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
                 }
               ]
@@ -92,7 +92,7 @@
                 },
                 {
                   "kind": "Unsupported",
-                  "reason": "No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
+                  "reason": "No player reference names the players who did NOT choose the lowest number: PlayerWhoChose names only those who chose the highest or the lowest, there is no negation of it, and no condition reads back one player\u0027s own secret choice, so a ForEachPlayer with an If cannot say it either.",
                   "text": "Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
                 }
               ]
@@ -110,7 +110,7 @@
       "claude-opus-5",
       "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-052d1541ff2e",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": true
   },
   "scryfallKeywords": [],

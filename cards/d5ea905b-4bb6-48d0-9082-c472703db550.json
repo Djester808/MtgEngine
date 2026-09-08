@@ -1,0 +1,201 @@
+{
+  "oracleId": "d5ea905b-4bb6-48d0-9082-c472703db550",
+  "name": "Bloodchief Ascension",
+  "oracleHash": "sha256:fa413c0ea50ee7fe3cf98207ca8c786f5c47e671bec8337dc95189181d7828fc",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d5ea905b-4bb6-48d0-9082-c472703db550",
+    "name": "Bloodchief Ascension",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Bloodchief Ascension",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Condition or Amount expresses how much life a player has lost this turn: DamageDealtThisTurn counts damage only, and life loss is not damage. The trigger\u0027s intervening if cannot be spelled, and putting the counter without it would place a quest counter every end step unconditionally.",
+              "text": "if an opponent lost 2 or more life this turn"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "ZoneChange",
+              "what": {
+                "ownedBy": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "to": "Graveyard"
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "LoseLife",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "who": {
+                      "kind": "OwnerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                ]
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "quest"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life."
+          }
+        ],
+        "oracleText": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "End",
+              "whose": {
+                "kind": "EachPlayer"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Condition or Amount expresses how much life a player has lost this turn: DamageDealtThisTurn counts damage only, and life loss is not damage. The trigger\u0027s intervening if cannot be spelled, and putting the counter without it would place a quest counter every end step unconditionally.",
+              "text": "if an opponent lost 2 or more life this turn"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "ZoneChange",
+              "what": {
+                "ownedBy": {
+                  "kind": "EachOpponent"
+                }
+              },
+              "to": "Graveyard"
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Sequence",
+                "steps": [
+                  {
+                    "kind": "LoseLife",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    },
+                    "who": {
+                      "kind": "OwnerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    }
+                  },
+                  {
+                    "kind": "GainLife",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 2
+                    }
+                  }
+                ]
+              }
+            },
+            "if": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "quest"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

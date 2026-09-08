@@ -1,17 +1,11 @@
 {
   "findings": [
     {
-      "severity": "Error",
-      "code": "L002",
-      "message": "Scryfall lists the keyword action \u0027Heal\u0027 and the definition has no Heal effect.",
-      "path": "scryfallKeywords"
-    },
-    {
       "severity": "Warning",
       "code": "L002",
       "message": "The definition has Hexproof and Scryfall does not list it; check it is granted, not printed.",
       "path": "scryfallKeywords"
     }
   ],
-  "hasErrors": true
+  "hasErrors": false
 }

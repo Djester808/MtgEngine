@@ -81,10 +81,13 @@
                               "of": {
                                 "types": [
                                   "Creature"
-                                ]
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
                               },
                               "repeatable": false,
-                              "text": "Enchant creature"
+                              "text": "Enchant creature you control"
                             },
                             {
                               "kind": "StaticAbility",
@@ -109,13 +112,12 @@
                             {
                               "kind": "TriggeredAbility",
                               "when": {
-                                "kind": "ZoneChange",
+                                "kind": "Dies",
                                 "what": {
                                   "also": {
                                     "kind": "IsThisObject"
                                   }
-                                },
-                                "to": "Graveyard"
+                                }
                               },
                               "do": {
                                 "kind": "LoseLife",
@@ -133,7 +135,7 @@
                               "text": "When this token is put into a graveyard, each opponent loses 1 life."
                             }
                           ],
-                          "isPredefined": true
+                          "isPredefined": false
                         },
                         "tapped": false,
                         "attacking": false,
@@ -241,10 +243,13 @@
                               "of": {
                                 "types": [
                                   "Creature"
-                                ]
+                                ],
+                                "controlledBy": {
+                                  "kind": "You"
+                                }
                               },
                               "repeatable": false,
-                              "text": "Enchant creature"
+                              "text": "Enchant creature you control"
                             },
                             {
                               "kind": "StaticAbility",
@@ -269,13 +274,12 @@
                             {
                               "kind": "TriggeredAbility",
                               "when": {
-                                "kind": "ZoneChange",
+                                "kind": "Dies",
                                 "what": {
                                   "also": {
                                     "kind": "IsThisObject"
                                   }
-                                },
-                                "to": "Graveyard"
+                                }
                               },
                               "do": {
                                 "kind": "LoseLife",
@@ -293,7 +297,7 @@
                               "text": "When this token is put into a graveyard, each opponent loses 1 life."
                             }
                           ],
-                          "isPredefined": true
+                          "isPredefined": false
                         },
                         "tapped": false,
                         "attacking": false,
@@ -347,7 +351,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-101db83b85cb",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -434,10 +438,13 @@
                                   "of": {
                                     "types": [
                                       "Creature"
-                                    ]
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
                                   },
                                   "repeatable": false,
-                                  "text": "Enchant creature"
+                                  "text": "Enchant creature you control"
                                 },
                                 {
                                   "kind": "StaticAbility",
@@ -462,13 +469,12 @@
                                 {
                                   "kind": "TriggeredAbility",
                                   "when": {
-                                    "kind": "ZoneChange",
+                                    "kind": "Dies",
                                     "what": {
                                       "also": {
                                         "kind": "IsThisObject"
                                       }
-                                    },
-                                    "to": "Graveyard"
+                                    }
                                   },
                                   "do": {
                                     "kind": "LoseLife",
@@ -486,7 +492,7 @@
                                   "text": "When this token is put into a graveyard, each opponent loses 1 life."
                                 }
                               ],
-                              "isPredefined": true
+                              "isPredefined": false
                             },
                             "tapped": false,
                             "attacking": false,
@@ -594,10 +600,13 @@
                                   "of": {
                                     "types": [
                                       "Creature"
-                                    ]
+                                    ],
+                                    "controlledBy": {
+                                      "kind": "You"
+                                    }
                                   },
                                   "repeatable": false,
-                                  "text": "Enchant creature"
+                                  "text": "Enchant creature you control"
                                 },
                                 {
                                   "kind": "StaticAbility",
@@ -622,13 +631,12 @@
                                 {
                                   "kind": "TriggeredAbility",
                                   "when": {
-                                    "kind": "ZoneChange",
+                                    "kind": "Dies",
                                     "what": {
                                       "also": {
                                         "kind": "IsThisObject"
                                       }
-                                    },
-                                    "to": "Graveyard"
+                                    }
                                   },
                                   "do": {
                                     "kind": "LoseLife",
@@ -646,7 +654,7 @@
                                   "text": "When this token is put into a graveyard, each opponent loses 1 life."
                                 }
                               ],
-                              "isPredefined": true
+                              "isPredefined": false
                             },
                             "tapped": false,
                             "attacking": false,
@@ -757,7 +765,9 @@
                             "kind": "CreateToken",
                             "token": {
                               "name": "Wicked",
-                              "colors": [],
+                              "colors": [
+                                "Black"
+                              ],
                               "types": [
                                 "Enchantment"
                               ],
@@ -766,394 +776,6 @@
                                 "Role"
                               ],
                               "supertypes": [],
-                              "abilities": [
-                                {
-                                  "kind": "KeywordAbility",
-                                  "keyword": "Enchant",
-                                  "of": {
-                                    "types": [
-                                      "Creature"
-                                    ]
-                                  },
-                                  "repeatable": false
-                                },
-                                {
-                                  "kind": "StaticAbility",
-                                  "effect": {
-                                    "kind": "ModifyPt",
-                                    "power": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "toughness": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  },
-                                  "to": {
-                                    "kind": "Attached"
-                                  },
-                                  "where": "Battlefield",
-                                  "characteristicDefining": false
-                                },
-                                {
-                                  "kind": "TriggeredAbility",
-                                  "when": {
-                                    "kind": "Dies",
-                                    "what": {
-                                      "also": {
-                                        "kind": "IsThisObject"
-                                      }
-                                    }
-                                  },
-                                  "do": {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "EachOpponent"
-                                    }
-                                  },
-                                  "optional": false,
-                                  "where": "Battlefield",
-                                  "oncePerTurn": false
-                                }
-                              ],
-                              "isPredefined": false
-                            },
-                            "tapped": false,
-                            "attacking": false,
-                            "rememberAs": "k2"
-                          },
-                          {
-                            "kind": "Attach",
-                            "what": {
-                              "kind": "Remembered",
-                              "key": "k2"
-                            },
-                            "to": {
-                              "kind": "Remembered",
-                              "key": "k1"
-                            }
-                          }
-                        ]
-                      },
-                      "optional": false,
-                      "where": "Battlefield",
-                      "oncePerTurn": false,
-                      "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control, then create a Wicked Role token attached to it."
-                    }
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                "text": "Until end of turn, target creature you control gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control, then create a Wicked Role token attached to it.\u0022"
-              }
-            ],
-            "oracleText": "Until end of turn, target creature you control gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control, then create a Wicked Role token attached to it.\u0022 (Enchanted creature gets \u002B1/\u002B1. When this token is put into a graveyard, each opponent loses 1 life.)",
-            "abilityList": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Apply",
-                  "what": {
-                    "kind": "GrantAbility",
-                    "ability": {
-                      "kind": "TriggeredAbility",
-                      "when": {
-                        "kind": "Dies",
-                        "what": {
-                          "also": {
-                            "kind": "IsThisObject"
-                          }
-                        }
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Self"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "underControlOf": {
-                              "kind": "OwnerOf",
-                              "of": {
-                                "kind": "Self"
-                              }
-                            },
-                            "tapped": true,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "rememberAs": "k1",
-                            "ownersChoiceOfOrder": true
-                          },
-                          {
-                            "kind": "CreateToken",
-                            "token": {
-                              "name": "Wicked",
-                              "colors": [],
-                              "types": [
-                                "Enchantment"
-                              ],
-                              "subtypes": [
-                                "Aura",
-                                "Role"
-                              ],
-                              "supertypes": [],
-                              "abilities": [
-                                {
-                                  "kind": "KeywordAbility",
-                                  "keyword": "Enchant",
-                                  "of": {
-                                    "types": [
-                                      "Creature"
-                                    ]
-                                  },
-                                  "repeatable": false
-                                },
-                                {
-                                  "kind": "StaticAbility",
-                                  "effect": {
-                                    "kind": "ModifyPt",
-                                    "power": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "toughness": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  },
-                                  "to": {
-                                    "kind": "Attached"
-                                  },
-                                  "where": "Battlefield",
-                                  "characteristicDefining": false
-                                },
-                                {
-                                  "kind": "TriggeredAbility",
-                                  "when": {
-                                    "kind": "Dies",
-                                    "what": {
-                                      "also": {
-                                        "kind": "IsThisObject"
-                                      }
-                                    }
-                                  },
-                                  "do": {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "EachOpponent"
-                                    }
-                                  },
-                                  "optional": false,
-                                  "where": "Battlefield",
-                                  "oncePerTurn": false
-                                }
-                              ],
-                              "isPredefined": false
-                            },
-                            "tapped": false,
-                            "attacking": false,
-                            "rememberAs": "k2"
-                          },
-                          {
-                            "kind": "Attach",
-                            "what": {
-                              "kind": "Remembered",
-                              "key": "k2"
-                            },
-                            "to": {
-                              "kind": "Remembered",
-                              "key": "k1"
-                            }
-                          }
-                        ]
-                      },
-                      "optional": false,
-                      "where": "Battlefield",
-                      "oncePerTurn": false,
-                      "text": "When this creature dies, return it to the battlefield tapped under its owner\u0027s control, then create a Wicked Role token attached to it."
-                    }
-                  },
-                  "to": {
-                    "kind": "Target",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "until": {
-                    "kind": "UntilEndOfTurn"
-                  }
-                },
-                "text": "Until end of turn, target creature you control gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control, then create a Wicked Role token attached to it.\u0022"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "380c367f-73ea-485f-a37b-5af0ba160893",
-        "name": "Not Dead After All",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Not Dead After All",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Instant"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{B}",
-            "abilities": [
-              {
-                "kind": "SpellAbility",
-                "do": {
-                  "kind": "Apply",
-                  "what": {
-                    "kind": "GrantAbility",
-                    "ability": {
-                      "kind": "TriggeredAbility",
-                      "when": {
-                        "kind": "Dies",
-                        "what": {
-                          "also": {
-                            "kind": "IsThisObject"
-                          }
-                        }
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Self"
-                            },
-                            "to": "Battlefield",
-                            "where": "Default",
-                            "underControlOf": {
-                              "kind": "OwnerOf",
-                              "of": {
-                                "kind": "Self"
-                              }
-                            },
-                            "tapped": true,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "rememberAs": "k1",
-                            "ownersChoiceOfOrder": true
-                          },
-                          {
-                            "kind": "CreateToken",
-                            "token": {
-                              "name": "Wicked Role",
-                              "colors": [],
-                              "types": [
-                                "Enchantment"
-                              ],
-                              "subtypes": [
-                                "Aura",
-                                "Role"
-                              ],
-                              "supertypes": [],
-                              "abilities": [
-                                {
-                                  "kind": "KeywordAbility",
-                                  "keyword": "Enchant",
-                                  "of": {
-                                    "types": [
-                                      "Creature"
-                                    ]
-                                  },
-                                  "repeatable": false,
-                                  "text": "Enchant creature"
-                                },
-                                {
-                                  "kind": "StaticAbility",
-                                  "effect": {
-                                    "kind": "ModifyPt",
-                                    "power": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "toughness": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  },
-                                  "to": {
-                                    "kind": "Attached"
-                                  },
-                                  "where": "Battlefield",
-                                  "characteristicDefining": false,
-                                  "text": "Enchanted creature gets \u002B1/\u002B1."
-                                },
-                                {
-                                  "kind": "TriggeredAbility",
-                                  "when": {
-                                    "kind": "ZoneChange",
-                                    "what": {
-                                      "also": {
-                                        "kind": "IsThisObject"
-                                      }
-                                    },
-                                    "to": "Graveyard"
-                                  },
-                                  "do": {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "EachOpponent"
-                                    }
-                                  },
-                                  "optional": false,
-                                  "where": "Battlefield",
-                                  "oncePerTurn": false,
-                                  "text": "When this token is put into a graveyard, each opponent loses 1 life."
-                                }
-                              ],
                               "isPredefined": true
                             },
                             "tapped": false,
@@ -1243,8 +865,10 @@
                           {
                             "kind": "CreateToken",
                             "token": {
-                              "name": "Wicked Role",
-                              "colors": [],
+                              "name": "Wicked",
+                              "colors": [
+                                "Black"
+                              ],
                               "types": [
                                 "Enchantment"
                               ],
@@ -1253,65 +877,6 @@
                                 "Role"
                               ],
                               "supertypes": [],
-                              "abilities": [
-                                {
-                                  "kind": "KeywordAbility",
-                                  "keyword": "Enchant",
-                                  "of": {
-                                    "types": [
-                                      "Creature"
-                                    ]
-                                  },
-                                  "repeatable": false,
-                                  "text": "Enchant creature"
-                                },
-                                {
-                                  "kind": "StaticAbility",
-                                  "effect": {
-                                    "kind": "ModifyPt",
-                                    "power": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "toughness": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    }
-                                  },
-                                  "to": {
-                                    "kind": "Attached"
-                                  },
-                                  "where": "Battlefield",
-                                  "characteristicDefining": false,
-                                  "text": "Enchanted creature gets \u002B1/\u002B1."
-                                },
-                                {
-                                  "kind": "TriggeredAbility",
-                                  "when": {
-                                    "kind": "ZoneChange",
-                                    "what": {
-                                      "also": {
-                                        "kind": "IsThisObject"
-                                      }
-                                    },
-                                    "to": "Graveyard"
-                                  },
-                                  "do": {
-                                    "kind": "LoseLife",
-                                    "n": {
-                                      "kind": "Fixed",
-                                      "n": 1
-                                    },
-                                    "who": {
-                                      "kind": "EachOpponent"
-                                    }
-                                  },
-                                  "optional": false,
-                                  "where": "Battlefield",
-                                  "oncePerTurn": false,
-                                  "text": "When this token is put into a graveyard, each opponent loses 1 life."
-                                }
-                              ],
                               "isPredefined": true
                             },
                             "tapped": false,

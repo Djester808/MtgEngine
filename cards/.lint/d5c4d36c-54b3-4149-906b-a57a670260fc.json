@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: WouldDraw carries only firstEachTurn, so the printed exception \u0027except the first one you draw in each of your draw steps\u0027 cannot be said: firstEachTurn false is a different set of draws (a draw taken before the draw step is the first draw of the turn but is not the first draw of the draw step), and no condition names the first draw of a draw step. The Draws trigger has exceptFirstInDrawStep; the ReplacedEvent has no counterpart.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

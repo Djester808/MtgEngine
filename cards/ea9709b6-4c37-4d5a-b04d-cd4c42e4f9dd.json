@@ -23,16 +23,23 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
-              "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-            },
-            "to": {
-              "kind": "Each",
-              "filter": {
-                "types": [
-                  "Creature"
-                ]
+              "kind": "CantAttack",
+              "player": {
+                "kind": "You"
+              },
+              "unlessPays": {
+                "kind": "PayManaCost",
+                "generic": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "AttackersAgainst",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "includingPermanentsTheyControl": true
+                  },
+                  "factor": 2
+                }
               }
             },
             "where": "Battlefield",
@@ -45,16 +52,23 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
-              "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-            },
-            "to": {
-              "kind": "Each",
-              "filter": {
-                "types": [
-                  "Creature"
-                ]
+              "kind": "CantAttack",
+              "player": {
+                "kind": "You"
+              },
+              "unlessPays": {
+                "kind": "PayManaCost",
+                "generic": {
+                  "kind": "Times",
+                  "value": {
+                    "kind": "AttackersAgainst",
+                    "who": {
+                      "kind": "You"
+                    },
+                    "includingPermanentsTheyControl": true
+                  },
+                  "factor": 2
+                }
               }
             },
             "where": "Battlefield",
@@ -65,197 +79,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-f942b227ec6c",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
-        "name": "Propaganda",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+      "title": "casting Propaganda does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Propaganda",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{U}",
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                "name": "Propaganda",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
-        "name": "Propaganda",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Propaganda",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{U}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "The vocabulary\u0027s CantAttack only takes an ObjectFilter exception, not a per-attacking-creature mana tax that permits the attack when paid; no ContinuousEffect expresses a payable tax on attacking.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-              }
-            ],
-            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "The vocabulary\u0027s CantAttack only takes an ObjectFilter exception, not a per-attacking-creature mana tax that permits the attack when paid; no ContinuousEffect expresses a payable tax on attacking.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
-        "name": "Propaganda",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Propaganda",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "manaCost": "{2}{U}",
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record imposes a cost on declaring attackers. CantAttack\u0027s \u0022unless\u0022 is an ObjectFilter, so it can say what must exist, never that a player pays {2} per attacking creature; CostModifier and AbilityCostModifier tax spells and activated abilities rather than an attack declaration. Writing CantAttack alone would forbid the attack outright, which is a different card.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-              }
-            ],
-            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record imposes a cost on declaring attackers. CantAttack\u0027s \u0022unless\u0022 is an ObjectFilter, so it can say what must exist, never that a player pays {2} per attacking creature; CostModifier and AbilityCostModifier tax spells and activated abilities rather than an attack declaration. Writing CantAttack alone would forbid the attack outright, which is a different card.",
-                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-                },
-                "to": {
-                  "kind": "Each",
-                  "filter": {
-                    "types": [
-                      "Creature"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Propaganda"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Propaganda",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+      "title": "casting Propaganda does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Propaganda",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Propaganda"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Propaganda",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

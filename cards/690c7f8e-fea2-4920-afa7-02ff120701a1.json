@@ -1,0 +1,583 @@
+{
+  "oracleId": "690c7f8e-fea2-4920-afa7-02ff120701a1",
+  "name": "Spinerock Knoll",
+  "oracleHash": "sha256:3d5577ab9cf91dbde483c29586c41c7979194b701487dac20f06f067d6b7770f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "690c7f8e-fea2-4920-afa7-02ff120701a1",
+    "name": "Spinerock Knoll",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Spinerock Knoll",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Hideaway",
+            "n": {
+              "kind": "Fixed",
+              "n": 4
+            },
+            "repeatable": false,
+            "rememberAs": "k1",
+            "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {R}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{R}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Unsupported",
+              "reason": "\u0022An opponent was dealt 7 or more damage this turn\u0022 cannot be said. The amount is DamageDealtThisTurn, whose To must name a player to act on, and AnOpponent - the only reference that means \u0022some opponent\u0022 - is refused there (L041). EachOpponent would read \u0022every opponent\u0022, which is a different card in a multiplayer game, and ChoosePlayer or TargetPlayer would invent a choice the card does not print. No Condition asks how much damage a player was dealt this turn, so the gate on the play permission has no spelling and the MayPlay cannot be written without it.",
+              "text": "You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+          }
+        ],
+        "oracleText": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {R}.\n{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Hideaway",
+            "n": {
+              "kind": "Fixed",
+              "n": 4
+            },
+            "repeatable": false,
+            "rememberAs": "k1",
+            "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {R}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{R}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Unsupported",
+              "reason": "\u0022An opponent was dealt 7 or more damage this turn\u0022 cannot be said. The amount is DamageDealtThisTurn, whose To must name a player to act on, and AnOpponent - the only reference that means \u0022some opponent\u0022 - is refused there (L041). EachOpponent would read \u0022every opponent\u0022, which is a different card in a multiplayer game, and ChoosePlayer or TargetPlayer would invent a choice the card does not print. No Condition asks how much damage a player was dealt this turn, so the gate on the play permission has no spelling and the MayPlay cannot be written without it.",
+              "text": "You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Hideaway"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "690c7f8e-fea2-4920-afa7-02ff120701a1",
+        "name": "Spinerock Knoll",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Spinerock Knoll",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "\u0022An opponent was dealt 7 or more damage this turn\u0022 cannot be said. The amount is DamageDealtThisTurn, whose To must name a player to act on, and AnOpponent - the only reference that means \u0022some opponent\u0022 - is refused there (L041). EachOpponent would read \u0022every opponent\u0022, which is a different card in a multiplayer game, and ChoosePlayer or TargetPlayer would invent a choice the card does not print. No Condition asks how much damage a player was dealt this turn, so the gate on the play permission has no spelling and the MayPlay cannot be written without it.",
+                  "text": "You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ],
+            "oracleText": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {R}.\n{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "\u0022An opponent was dealt 7 or more damage this turn\u0022 cannot be said. The amount is DamageDealtThisTurn, whose To must name a player to act on, and AnOpponent - the only reference that means \u0022some opponent\u0022 - is refused there (L041). EachOpponent would read \u0022every opponent\u0022, which is a different card in a multiplayer game, and ChoosePlayer or TargetPlayer would invent a choice the card does not print. No Condition asks how much damage a player was dealt this turn, so the gate on the play permission has no spelling and the MayPlay cannot be written without it.",
+                  "text": "You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "690c7f8e-fea2-4920-afa7-02ff120701a1",
+        "name": "Spinerock Knoll",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Spinerock Knoll",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayPlay",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "DamageDealtThisTurn",
+                    "to": {
+                      "kind": "AnOpponent"
+                    }
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 7
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ],
+            "oracleText": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {R}.\n{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Hideaway",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 4
+                },
+                "repeatable": false,
+                "rememberAs": "k1",
+                "text": "Hideaway 4"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{R}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {R}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{R}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayPlay",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "DamageDealtThisTurn",
+                    "to": {
+                      "kind": "AnOpponent"
+                    }
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 7
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "{R}, {T}: You may play the exiled card without paying its mana cost if an opponent was dealt 7 or more damage this turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Hideaway"
+  ],
+  "scenarioList": []
+}

@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No continuous effect record says that damage cannot be prevented: PreventDamage prevents damage, and nothing turns prevention itself off.",
+      "message": "Unsupported: No continuous effect says that damage prevention cannot apply: PreventDamage prevents damage, and there is no record for forbidding prevention of combat damage.",
       "path": "faces[0].abilities[4]"
     }
   ],

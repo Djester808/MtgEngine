@@ -3,13 +3,13 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No record for controlling another player, and none for the window while a player is searching their library.",
+      "message": "Unsupported: No continuous effect grants one player control of another player (CR 720). ControlBy changes control of an object, not of a player, and there is no record for a control effect that lasts only while a player is performing a search.",
       "path": "faces[0].abilities[1]"
     },
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+      "message": "Unsupported: Nothing replaces the cards a search finds with an exile (the Searches trigger fires after the search and cannot alter what it found), and no record grants a play permission for those exiled cards for as long as they remain exiled, nor \u0027spend mana as though it were mana of any color\u0027.",
       "path": "faces[0].abilities[2]"
     }
   ],

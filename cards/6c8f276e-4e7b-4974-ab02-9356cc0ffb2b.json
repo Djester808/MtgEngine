@@ -27,9 +27,9 @@
             "instead": {
               "kind": "WouldEnterBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ]
+                "also": {
+                  "kind": "IsThisObject"
+                }
               }
             },
             "with": {
@@ -67,9 +67,7 @@
             "when": {
               "kind": "EntersBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ],
+                "tapped": false,
                 "also": {
                   "kind": "IsThisObject"
                 }
@@ -98,15 +96,6 @@
               "attacking": false,
               "transformed": false,
               "ownersChoiceOfOrder": true
-            },
-            "if": {
-              "kind": "NotCondition",
-              "of": {
-                "kind": "IsTapped",
-                "of": {
-                  "kind": "Self"
-                }
-              }
             },
             "optional": true,
             "where": "Battlefield",
@@ -121,9 +110,9 @@
             "instead": {
               "kind": "WouldEnterBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ]
+                "also": {
+                  "kind": "IsThisObject"
+                }
               }
             },
             "with": {
@@ -161,9 +150,7 @@
             "when": {
               "kind": "EntersBattlefield",
               "what": {
-                "types": [
-                  "Land"
-                ],
+                "tapped": false,
                 "also": {
                   "kind": "IsThisObject"
                 }
@@ -192,15 +179,6 @@
               "attacking": false,
               "transformed": false,
               "ownersChoiceOfOrder": true
-            },
-            "if": {
-              "kind": "NotCondition",
-              "of": {
-                "kind": "IsTapped",
-                "of": {
-                  "kind": "Self"
-                }
-              }
             },
             "optional": true,
             "where": "Battlefield",
@@ -217,7 +195,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-052d1541ff2e",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -248,9 +226,9 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ]
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
                   }
                 },
                 "with": {
@@ -288,9 +266,7 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ],
+                    "tapped": false,
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -319,15 +295,6 @@
                   "attacking": false,
                   "transformed": false,
                   "ownersChoiceOfOrder": true
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "IsTapped",
-                    "of": {
-                      "kind": "Self"
-                    }
-                  }
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -342,9 +309,9 @@
                 "instead": {
                   "kind": "WouldEnterBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ]
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
                   }
                 },
                 "with": {
@@ -382,9 +349,7 @@
                 "when": {
                   "kind": "EntersBattlefield",
                   "what": {
-                    "types": [
-                      "Land"
-                    ],
+                    "tapped": false,
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -413,15 +378,6 @@
                   "attacking": false,
                   "transformed": false,
                   "ownersChoiceOfOrder": true
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "IsTapped",
-                    "of": {
-                      "kind": "Self"
-                    }
-                  }
                 },
                 "optional": true,
                 "where": "Battlefield",
@@ -468,195 +424,6 @@
                   "kind": "EntersTapped"
                 },
                 "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "subtypes": [
-                      "Swamp"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Lt",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 3
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control three or more other Swamps."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "tapped": false,
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "in": "Graveyard",
-                        "types": [
-                          "Creature"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "to": "Library",
-                    "where": "Top",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this land enters untapped, you may put target creature card from your graveyard on top of your library."
-              }
-            ],
-            "oracleText": "({T}: Add {B}.)\nThis land enters tapped unless you control three or more other Swamps.\nWhen this land enters untapped, you may put target creature card from your graveyard on top of your library.",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "Controls",
-                  "who": {
-                    "kind": "You"
-                  },
-                  "what": {
-                    "subtypes": [
-                      "Swamp"
-                    ],
-                    "other": true
-                  },
-                  "count": {
-                    "op": "Lt",
-                    "value": {
-                      "kind": "Fixed",
-                      "n": 3
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control three or more other Swamps."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "tapped": false,
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Move",
-                    "what": {
-                      "kind": "Target",
-                      "filter": {
-                        "in": "Graveyard",
-                        "types": [
-                          "Creature"
-                        ],
-                        "ownedBy": {
-                          "kind": "You"
-                        }
-                      },
-                      "upTo": false,
-                      "distinct": true
-                    },
-                    "to": "Library",
-                    "where": "Top",
-                    "tapped": false,
-                    "faceDown": false,
-                    "attacking": false,
-                    "transformed": false,
-                    "ownersChoiceOfOrder": true
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this land enters untapped, you may put target creature card from your graveyard on top of your library."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "6c8f276e-4e7b-4974-ab02-9356cc0ffb2b",
-        "name": "Witch\u0027s Cottage",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Witch\u0027s Cottage",
-            "role": "Main",
-            "types": {
-              "types": [],
-              "supertypes": [],
-              "subtypes": [
-                "Swamp"
-              ],
-              "subtypeList": [
-                "Swamp"
-              ]
-            },
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
                   "kind": "NotCondition",
                   "of": {
                     "kind": "Controls",
@@ -667,7 +434,12 @@
                       "subtypes": [
                         "Swamp"
                       ],
-                      "other": true
+                      "also": {
+                        "kind": "NotPredicate",
+                        "of": {
+                          "kind": "IsThisObject"
+                        }
+                      }
                     },
                     "count": {
                       "op": "Ge",
@@ -753,7 +525,12 @@
                       "subtypes": [
                         "Swamp"
                       ],
-                      "other": true
+                      "also": {
+                        "kind": "NotPredicate",
+                        "of": {
+                          "kind": "IsThisObject"
+                        }
+                      }
                     },
                     "count": {
                       "op": "Ge",

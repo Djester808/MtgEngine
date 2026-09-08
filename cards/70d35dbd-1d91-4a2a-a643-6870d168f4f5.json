@@ -1,0 +1,762 @@
+{
+  "oracleId": "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+  "name": "Adagia, Windswept Bastion",
+  "oracleHash": "sha256:5c5b073aca231aec6be183708d6c102d1adfcd770d1cdaa4ffbb9778ee5b8dac",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+    "name": "Adagia, Windswept Bastion",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Adagia, Windswept Bastion",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Planet"
+          ],
+          "subtypeList": [
+            "Planet"
+          ]
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{W}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {W}."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Station",
+            "repeatable": false,
+            "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Copy",
+                "colors": [],
+                "types": [],
+                "supertypes": [
+                  "Legendary"
+                ],
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false,
+              "copyOf": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "timing": "SorcerySpeed",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 12
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+          }
+        ],
+        "oracleText": "This land enters tapped.\n{T}: Add {W}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{W}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {W}."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Station",
+            "repeatable": false,
+            "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{3}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Copy",
+                "colors": [],
+                "types": [],
+                "supertypes": [
+                  "Legendary"
+                ],
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false,
+              "copyOf": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Artifact",
+                    "Enchantment"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "timing": "SorcerySpeed",
+            "where": "Battlefield",
+            "onlyIf": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 12
+              }
+            },
+            "anyPlayerMayActivate": false,
+            "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Station"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+        "name": "Adagia, Windswept Bastion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Adagia, Windswept Bastion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Planet"
+              ],
+              "subtypeList": [
+                "Planet"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Copy",
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ],
+            "oracleText": "This land enters tapped.\n{T}: Add {W}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Copy",
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+        "name": "Adagia, Windswept Bastion",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Adagia, Windswept Bastion",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Planet"
+              ],
+              "subtypeList": [
+                "Planet"
+              ]
+            },
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "",
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ],
+            "oracleText": "This land enters tapped.\n{T}: Add {W}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldEnterBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "EntersTapped"
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": true,
+                "text": "This land enters tapped."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{W}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {W}."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{3}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "",
+                    "colors": [],
+                    "types": [],
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false,
+                  "copyOf": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "SorcerySpeed",
+                "where": "Battlefield",
+                "onlyIf": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 12
+                  }
+                },
+                "anyPlayerMayActivate": false,
+                "text": "12\u002B | {3}{W}, {T}: Create a token that\u0027s a copy of target artifact or enchantment you control, except it\u0027s legendary. Activate only as a sorcery."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Station"
+  ],
+  "scenarioList": []
+}

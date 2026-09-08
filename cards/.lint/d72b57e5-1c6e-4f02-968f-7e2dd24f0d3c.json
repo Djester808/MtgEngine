@@ -5,7 +5,13 @@
       "code": "L002",
       "message": "The definition has Indestructible and Scryfall does not list it; check it is granted, not printed.",
       "path": "scryfallKeywords"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No condition can ask how much mana was spent to cast the triggering spell. The clause \u0022if no mana was spent to cast it\u0022 is about the opponent\u0027s spell, and the only mana-spent amount, ManaSpentOnThis, reads the mana spent to cast the object this ability is printed on (CR 109.5), which is this creature and never the spell that triggered it.",
+      "path": "faces[0].abilities[1]"
     }
   ],
-  "hasErrors": false
+  "hasErrors": true
 }

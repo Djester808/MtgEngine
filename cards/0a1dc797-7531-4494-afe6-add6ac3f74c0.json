@@ -224,610 +224,465 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [
     "Trample"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
-        "name": "Defiler of Vigor",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-0a1dc797-7531-4494-afe6-add6ac3f74c0",
+      "title": "casting Defiler of Vigor does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Defiler of Vigor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Phyrexian",
-                "Wurm"
-              ],
-              "subtypeList": [
-                "Phyrexian",
-                "Wurm"
-              ]
-            },
-            "manaCost": "{3}{G}{G}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
+                "name": "Defiler of Vigor",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "OptionalAdditionalCost",
-                  "spells": {
-                    "colors": [
-                      "Green"
-                    ],
-                    "permanent": true,
-                    "spell": true
-                  },
-                  "cost": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ifPaid": {
-                    "kind": "CostModifier",
-                    "spells": {
-                      "colors": [
-                        "Green"
-                      ],
-                      "permanent": true,
-                      "spell": true
-                    },
-                    "delta": {
-                      "kind": "Fixed",
-                      "n": -1
-                    },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "genericOnly": false,
-                    "onlyColor": [
-                      "Green"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ],
-                    "permanent": true
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "OptionalAdditionalCost",
-                  "spells": {
-                    "colors": [
-                      "Green"
-                    ],
-                    "permanent": true,
-                    "spell": true
-                  },
-                  "cost": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ifPaid": {
-                    "kind": "CostModifier",
-                    "spells": {
-                      "colors": [
-                        "Green"
-                      ],
-                      "permanent": true,
-                      "spell": true
-                    },
-                    "delta": {
-                      "kind": "Fixed",
-                      "n": -1
-                    },
-                    "who": {
-                      "kind": "You"
-                    },
-                    "genericOnly": false,
-                    "onlyColor": [
-                      "Green"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ],
-                    "permanent": true
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
-        "name": "Defiler of Vigor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Defiler of Vigor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Phyrexian",
-                "Wurm"
-              ],
-              "subtypeList": [
-                "Phyrexian",
-                "Wurm"
-              ]
-            },
-            "manaCost": "{3}{G}{G}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "OptionalAdditionalCost",
-                  "spells": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "cost": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  },
-                  "who": {
-                    "kind": "EachPlayer"
-                  },
-                  "ifPaid": {
-                    "kind": "CostModifier",
-                    "spells": {
-                      "colors": [
-                        "Green"
-                      ]
-                    },
-                    "delta": {
-                      "kind": "Fixed",
-                      "n": -1
-                    },
-                    "who": {
-                      "kind": "EachPlayer"
-                    },
-                    "genericOnly": false,
-                    "onlyColor": [
-                      "Green"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
-              }
-            ],
-            "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "OptionalAdditionalCost",
-                  "spells": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "cost": {
-                    "kind": "PayLife",
-                    "amount": {
-                      "kind": "Fixed",
-                      "n": 2
-                    }
-                  },
-                  "who": {
-                    "kind": "EachPlayer"
-                  },
-                  "ifPaid": {
-                    "kind": "CostModifier",
-                    "spells": {
-                      "colors": [
-                        "Green"
-                      ]
-                    },
-                    "delta": {
-                      "kind": "Fixed",
-                      "n": -1
-                    },
-                    "who": {
-                      "kind": "EachPlayer"
-                    },
-                    "genericOnly": false,
-                    "onlyColor": [
-                      "Green"
-                    ]
-                  }
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
-        "name": "Defiler of Vigor",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Defiler of Vigor",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Phyrexian",
-                "Wurm"
-              ],
-              "subtypeList": [
-                "Phyrexian",
-                "Wurm"
-              ]
-            },
-            "manaCost": "{3}{G}{G}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "An optional additional cost imposed on other players\u0027 \u2014 here, on your own \u2014 green permanent spells, with a cost reduction gated on whether that optional cost was actually paid and restricted to the green mana of the cost, has no record: AdditionalCosts is the face\u0027s own cost and applies to this spell alone, and CostModifier carries neither an optional-payment gate nor a colour restriction (its only narrowing is genericOnly, which is the opposite of \u0027only the amount of green mana you pay\u0027).",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
-              }
-            ],
-            "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Trample",
-                "repeatable": false,
-                "text": "Trample"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "An optional additional cost imposed on other players\u0027 \u2014 here, on your own \u2014 green permanent spells, with a cost reduction gated on whether that optional cost was actually paid and restricted to the green mana of the cost, has no record: AdditionalCosts is the face\u0027s own cost and applies to this spell alone, and CostModifier carries neither an optional-payment gate nor a colour restriction (its only narrowing is genericOnly, which is the opposite of \u0027only the amount of green mana you pay\u0027).",
-                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
-              },
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "SpellCast",
-                  "spell": {
-                    "colors": [
-                      "Green"
-                    ]
-                  },
-                  "by": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "PutCounters",
-                  "on": {
-                    "kind": "Each",
-                    "filter": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    }
-                  },
-                  "counter": "\u002B1/\u002B1",
-                  "n": {
-                    "kind": "Fixed",
-                    "n": 1
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Defiler of Vigor"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Defiler of Vigor",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [
     "Trample"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-0a1dc797-7531-4494-afe6-add6ac3f74c0",
+      "title": "casting Defiler of Vigor does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Defiler of Vigor",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Defiler of Vigor"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Defiler of Vigor",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

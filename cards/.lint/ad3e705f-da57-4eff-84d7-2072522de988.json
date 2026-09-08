@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Spree\u0027s modes each carry an additional cost the caster really pays as the spell is cast, and no record joins a mode to such a cost: Mode.Cost is a budget price that is never paid and requires a ChooseMode budget beside it (L032), Face.additionalCosts are all mandatory rather than one-or-more chosen, and AlternativeCost replaces the mana cost instead of adding to it. Writing the two modes without their prices would cast the spell for {B}, which is a different card.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
 }

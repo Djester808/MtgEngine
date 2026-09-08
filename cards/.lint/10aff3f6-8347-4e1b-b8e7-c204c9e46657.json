@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
+      "message": "Unsupported: No player reference names the players who did NOT choose the lowest number: PlayerWhoChose names only those who chose the highest or the lowest, there is no negation of it, and no condition reads back one player\u0027s own secret choice, so a ForEachPlayer with an If cannot say it either.",
       "path": "faces[0].abilities[0]"
     }
   ],

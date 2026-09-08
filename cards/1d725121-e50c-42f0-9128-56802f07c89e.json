@@ -92,6 +92,13 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
                   }
                 },
                 "who": {
@@ -211,6 +218,13 @@
                   "n": {
                     "kind": "Fixed",
                     "n": 1
+                  },
+                  "who": {
+                    "kind": "ControllerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
                   }
                 },
                 "who": {
@@ -276,868 +290,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "1d725121-e50c-42f0-9128-56802f07c89e",
-        "name": "Selvala, Heart of the Wilds",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-1d725121-e50c-42f0-9128-56802f07c89e",
+      "title": "casting Selvala, Heart of the Wilds does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Selvala, Heart of the Wilds",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elf",
-                "Scout"
-              ],
-              "subtypeList": [
-                "Elf",
-                "Scout"
-              ]
-            },
-            "manaCost": "{1}{G}{G}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "3",
-              "number": 3
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Compare",
-                    "left": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    },
-                    "op": "Gt",
-                    "right": {
-                      "kind": "GreatestAmong",
-                      "among": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "also": {
-                          "kind": "NotPredicate",
-                          "of": {
-                            "kind": "IsOneOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          }
-                        }
-                      },
-                      "of": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Self"
-                        }
-                      }
-                    }
-                  },
-                  "then": {
-                    "kind": "May",
-                    "do": {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
+                "name": "Selvala, Heart of the Wilds",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Compare",
-                    "left": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    },
-                    "op": "Gt",
-                    "right": {
-                      "kind": "GreatestAmong",
-                      "among": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "also": {
-                          "kind": "NotPredicate",
-                          "of": {
-                            "kind": "IsOneOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          }
-                        }
-                      },
-                      "of": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Self"
-                        }
-                      }
-                    }
-                  },
-                  "then": {
-                    "kind": "May",
-                    "do": {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "1d725121-e50c-42f0-9128-56802f07c89e",
-        "name": "Selvala, Heart of the Wilds",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Selvala, Heart of the Wilds",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elf",
-                "Scout"
-              ],
-              "subtypeList": [
-                "Elf",
-                "Scout"
-              ]
-            },
-            "manaCost": "{1}{G}{G}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "3",
-              "number": 3
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Draw",
-                    "n": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "PowerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  },
-                  "op": "Gt",
-                  "right": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "also": {
-                        "kind": "NotPredicate",
-                        "of": {
-                          "kind": "IsOneOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        }
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
-              }
-            ],
-            "oracleText": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "May",
-                  "do": {
-                    "kind": "Draw",
-                    "n": {
-                      "kind": "Fixed",
-                      "n": 1
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  },
-                  "who": {
-                    "kind": "ControllerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  }
-                },
-                "if": {
-                  "kind": "Compare",
-                  "left": {
-                    "kind": "PowerOf",
-                    "of": {
-                      "kind": "Triggering",
-                      "role": "Subject"
-                    }
-                  },
-                  "op": "Gt",
-                  "right": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "also": {
-                        "kind": "NotPredicate",
-                        "of": {
-                          "kind": "IsOneOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        }
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "1d725121-e50c-42f0-9128-56802f07c89e",
-        "name": "Selvala, Heart of the Wilds",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Selvala, Heart of the Wilds",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elf",
-                "Scout"
-              ],
-              "subtypeList": [
-                "Elf",
-                "Scout"
-              ]
-            },
-            "manaCost": "{1}{G}{G}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "3",
-              "number": 3
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Compare",
-                    "left": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    },
-                    "op": "Gt",
-                    "right": {
-                      "kind": "GreatestAmong",
-                      "among": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "also": {
-                          "kind": "NotPredicate",
-                          "of": {
-                            "kind": "IsOneOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          }
-                        }
-                      },
-                      "of": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Self"
-                        }
-                      }
-                    }
-                  },
-                  "then": {
-                    "kind": "May",
-                    "do": {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        }
-                      }
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
-              }
-            ],
-            "oracleText": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "types": [
-                      "Creature"
-                    ],
-                    "other": true
-                  }
-                },
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Compare",
-                    "left": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    },
-                    "op": "Gt",
-                    "right": {
-                      "kind": "GreatestAmong",
-                      "among": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "also": {
-                          "kind": "NotPredicate",
-                          "of": {
-                            "kind": "IsOneOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          }
-                        }
-                      },
-                      "of": {
-                        "kind": "PowerOf",
-                        "of": {
-                          "kind": "Self"
-                        }
-                      }
-                    }
-                  },
-                  "then": {
-                    "kind": "May",
-                    "do": {
-                      "kind": "Draw",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 1
-                      },
-                      "who": {
-                        "kind": "ControllerOf",
-                        "of": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        }
-                      }
-                    },
-                    "who": {
-                      "kind": "ControllerOf",
-                      "of": {
-                        "kind": "Triggering",
-                        "role": "Subject"
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature\u0027s power."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{G}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "anyColor": true,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  },
-                  "n": {
-                    "kind": "GreatestAmong",
-                    "among": {
-                      "types": [
-                        "Creature"
-                      ],
-                      "controlledBy": {
-                        "kind": "You"
-                      }
-                    },
-                    "of": {
-                      "kind": "PowerOf",
-                      "of": {
-                        "kind": "Self"
-                      }
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Selvala, Heart of the Wilds"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Selvala, Heart of the Wilds",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-1d725121-e50c-42f0-9128-56802f07c89e",
+      "title": "casting Selvala, Heart of the Wilds does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Selvala, Heart of the Wilds",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Selvala, Heart of the Wilds"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Selvala, Heart of the Wilds",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

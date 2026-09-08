@@ -31,7 +31,8 @@
                 },
                 "upTo": false,
                 "distinct": true
-              }
+              },
+              "where": "Default"
             },
             "text": "Counter target spell."
           }
@@ -74,7 +75,8 @@
                 },
                 "upTo": false,
                 "distinct": true
-              }
+              },
+              "where": "Default"
             },
             "text": "Counter target spell."
           }
@@ -203,7 +205,7 @@
             "battlefield": [],
             "hand": [
               {
-                "name": "Scenario Filler Spell",
+                "name": "Scenario Filler Bolt",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -302,14 +304,17 @@
         {
           "kind": "CastStep",
           "player": "B",
-          "card": "Scenario Filler Spell"
+          "card": "Scenario Filler Bolt",
+          "targets": [
+            "B"
+          ]
         },
         {
           "kind": "CastStep",
           "player": "A",
           "card": "Force of Will",
           "targets": [
-            "Scenario Filler Spell"
+            "Scenario Filler Bolt"
           ]
         },
         {
@@ -319,7 +324,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Spell",
+          "card": "Scenario Filler Bolt",
           "zone": "Graveyard",
           "owner": "B"
         },
@@ -335,6 +340,11 @@
           "count": 1
         },
         {
+          "kind": "Life",
+          "player": "B",
+          "value": 20
+        },
+        {
           "kind": "StackEmpty"
         }
       ]
@@ -342,10 +352,10 @@
   ],
   "verification": {
     "engineHash": "engine:9781a597f8c8ddfa",
-    "runId": "verify-20260908T042913-3e3c94",
+    "runId": "verify-20260908T054131-6fa50a",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-08T04:29:13.1180643+00:00"
+    "at": "2026-09-08T05:41:31.538942+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -458,7 +468,7 @@
             "battlefield": [],
             "hand": [
               {
-                "name": "Scenario Filler Spell",
+                "name": "Scenario Filler Bolt",
                 "tapped": false,
                 "damage": 0,
                 "summoningSick": false,
@@ -557,14 +567,17 @@
         {
           "kind": "CastStep",
           "player": "B",
-          "card": "Scenario Filler Spell"
+          "card": "Scenario Filler Bolt",
+          "targets": [
+            "B"
+          ]
         },
         {
           "kind": "CastStep",
           "player": "A",
           "card": "Force of Will",
           "targets": [
-            "Scenario Filler Spell"
+            "Scenario Filler Bolt"
           ]
         },
         {
@@ -574,7 +587,7 @@
       "expect": [
         {
           "kind": "InZone",
-          "card": "Scenario Filler Spell",
+          "card": "Scenario Filler Bolt",
           "zone": "Graveyard",
           "owner": "B"
         },
@@ -588,6 +601,11 @@
           "player": "A",
           "zone": "Graveyard",
           "count": 1
+        },
+        {
+          "kind": "Life",
+          "player": "B",
+          "value": 20
         },
         {
           "kind": "StackEmpty"

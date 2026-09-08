@@ -1,0 +1,320 @@
+{
+  "oracleId": "01546b7d-a233-4176-8843-d732074dc5b6",
+  "name": "Doubling Season",
+  "oracleHash": "sha256:807fb987063ce97f10f0412a28a9fd061477bd971e07da9f8c11d3b11a5905c7",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Doubling Season",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{G}",
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldCreateTokens",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldPutCounters",
+              "on": {
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+          }
+        ],
+        "oracleText": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldCreateTokens",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldPutCounters",
+              "on": {
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 2,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "01546b7d-a233-4176-8843-d732074dc5b6",
+        "name": "Doubling Season",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Doubling Season",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{G}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+              }
+            ],
+            "oracleText": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "01546b7d-a233-4176-8843-d732074dc5b6",
+        "name": "Doubling Season",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Doubling Season",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{4}{G}",
+            "abilities": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+              }
+            ],
+            "oracleText": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+            "abilityList": [
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldCreateTokens"
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead."
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldPutCounters",
+                  "on": {
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 2,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

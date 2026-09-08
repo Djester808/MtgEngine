@@ -1,0 +1,164 @@
+{
+  "oracleId": "9a1fbe72-4a17-42be-8e23-d7d30a5e59c1",
+  "name": "Norn\u0027s Annex",
+  "oracleHash": "sha256:9449426e34c6d104bb81cafcab4ee935e93f39bccc81ba640b4fd38c717cb8b1",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "9a1fbe72-4a17-42be-8e23-d7d30a5e59c1",
+    "name": "Norn\u0027s Annex",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Norn\u0027s Annex",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{W/P}{W/P}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "The attack tax scales in a coloured symbol, and no Cost can say it. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales is PayManaCost, whose generic is an Amount but whose colored part is a fixed printed string: one {W/P} per attacking creature is neither generic mana nor a printed constant. ManaCost is a fixed string too. Writing Times(AttackersAgainst(You), 2) as generic would charge {2} per creature, which is Ghostly Prison and a different card, and dropping the rider would make the prohibition absolute.",
+              "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+          }
+        ],
+        "oracleText": "({W/P} can be paid with either {W} or 2 life.)\nCreatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "The attack tax scales in a coloured symbol, and no Cost can say it. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales is PayManaCost, whose generic is an Amount but whose colored part is a fixed printed string: one {W/P} per attacking creature is neither generic mana nor a printed constant. ManaCost is a fixed string too. Writing Times(AttackersAgainst(You), 2) as generic would charge {2} per creature, which is Ghostly Prison and a different card, and dropping the rider would make the prohibition absolute.",
+              "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "9a1fbe72-4a17-42be-8e23-d7d30a5e59c1",
+        "name": "Norn\u0027s Annex",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Norn\u0027s Annex",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W/P}{W/P}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The attack tax scales in a coloured symbol, and no Cost can say it. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales is PayManaCost, whose generic is an Amount but whose colored part is a fixed printed string: one {W/P} per attacking creature is neither generic mana nor a printed constant. ManaCost is a fixed string too. Writing Times(AttackersAgainst(You), 2) as generic would charge {2} per creature, which is Ghostly Prison and a different card, and dropping the rider would make the prohibition absolute.",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ],
+            "oracleText": "({W/P} can be paid with either {W} or 2 life.)\nCreatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The attack tax scales in a coloured symbol, and no Cost can say it. CantAttack\u0027s unlessPays takes a Cost, and the only Cost that scales is PayManaCost, whose generic is an Amount but whose colored part is a fixed printed string: one {W/P} per attacking creature is neither generic mana nor a printed constant. ManaCost is a fixed string too. Writing Times(AttackersAgainst(You), 2) as generic would charge {2} per creature, which is Ghostly Prison and a different card, and dropping the rider would make the prohibition absolute.",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "9a1fbe72-4a17-42be-8e23-d7d30a5e59c1",
+        "name": "Norn\u0027s Annex",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Norn\u0027s Annex",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{W/P}{W/P}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantAttack\u0027s \u0027player\u0027 field protects only a single player from attacks; it has no field extending that protection to \u0027planeswalkers you control\u0027 the way AttackersAgainst\u0027s includingPermanentsTheyControl flag extends a count, so the restriction\u0027s scope cannot be written without silently narrowing it to attacks on you alone",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ],
+            "oracleText": "({W/P} can be paid with either {W} or 2 life.)\nCreatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "CantAttack\u0027s \u0027player\u0027 field protects only a single player from attacks; it has no field extending that protection to \u0027planeswalkers you control\u0027 the way AttackersAgainst\u0027s includingPermanentsTheyControl flag extends a count, so the restriction\u0027s scope cannot be written without silently narrowing it to attacks on you alone",
+                  "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

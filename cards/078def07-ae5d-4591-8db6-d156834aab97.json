@@ -150,434 +150,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "078def07-ae5d-4591-8db6-d156834aab97",
-        "name": "Etali, Primal Storm",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-078def07-ae5d-4591-8db6-d156834aab97",
+      "title": "casting Etali, Primal Storm does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Etali, Primal Storm",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elder",
-                "Dinosaur"
-              ],
-              "subtypeList": [
-                "Elder",
-                "Dinosaur"
-              ]
-            },
-            "manaCost": "{4}{R}{R}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ]
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": true,
-                        "among": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
+                "name": "Etali, Primal Storm",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Choose",
-                        "filter": {
-                          "notTypes": [
-                            "Land"
-                          ]
-                        },
-                        "chooser": {
-                          "kind": "You"
-                        },
-                        "upTo": true,
-                        "among": {
-                          "kind": "Remembered",
-                          "key": "k1"
-                        }
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "078def07-ae5d-4591-8db6-d156834aab97",
-        "name": "Etali, Primal Storm",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Etali, Primal Storm",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elder",
-                "Dinosaur"
-              ],
-              "subtypeList": [
-                "Elder",
-                "Dinosaur"
-              ]
-            },
-            "manaCost": "{4}{R}{R}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "MayCast",
-                        "what": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        },
-                        "withoutPayingManaCost": true,
-                        "asCopy": false
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
-              }
-            ],
-            "oracleText": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "MayCast",
-                        "what": {
-                          "kind": "Triggering",
-                          "role": "Subject"
-                        },
-                        "withoutPayingManaCost": true,
-                        "asCopy": false
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "078def07-ae5d-4591-8db6-d156834aab97",
-        "name": "Etali, Primal Storm",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Etali, Primal Storm",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Elder",
-                "Dinosaur"
-              ],
-              "subtypeList": [
-                "Elder",
-                "Dinosaur"
-              ]
-            },
-            "manaCost": "{4}{R}{R}",
-            "power": {
-              "text": "6",
-              "number": 6
-            },
-            "toughness": {
-              "text": "6",
-              "number": 6
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
-              }
-            ],
-            "oracleText": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "Attacks",
-                  "who": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Exile",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "EachPlayer"
-                        },
-                        "zone": "Library"
-                      },
-                      "faceDown": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "MayCast",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "withoutPayingManaCost": true,
-                      "asCopy": false
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever Etali attacks, exile the top card of each player\u0027s library, then you may cast any number of spells from among those cards without paying their mana costs."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Etali, Primal Storm"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Etali, Primal Storm",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-078def07-ae5d-4591-8db6-d156834aab97",
+      "title": "casting Etali, Primal Storm does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Etali, Primal Storm",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Etali, Primal Storm"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Etali, Primal Storm",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

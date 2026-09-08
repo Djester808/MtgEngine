@@ -179,7 +179,7 @@
                 {
                   "kind": "CreateEmblem",
                   "emblem": {
-                    "name": "Nissa, Who Shakes the World",
+                    "name": "Nissa, Who Shakes the World Emblem",
                     "abilities": [
                       {
                         "kind": "StaticAbility",
@@ -394,7 +394,7 @@
                 {
                   "kind": "CreateEmblem",
                   "emblem": {
-                    "name": "Nissa, Who Shakes the World",
+                    "name": "Nissa, Who Shakes the World Emblem",
                     "abilities": [
                       {
                         "kind": "StaticAbility",
@@ -465,7 +465,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-9a79507e633f",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -648,7 +648,7 @@
                     {
                       "kind": "CreateEmblem",
                       "emblem": {
-                        "name": "Nissa, Who Shakes the World",
+                        "name": "Nissa, Who Shakes the World Emblem",
                         "abilities": [
                           {
                             "kind": "StaticAbility",
@@ -863,7 +863,7 @@
                     {
                       "kind": "CreateEmblem",
                       "emblem": {
-                        "name": "Nissa, Who Shakes the World",
+                        "name": "Nissa, Who Shakes the World Emblem",
                         "abilities": [
                           {
                             "kind": "StaticAbility",
@@ -957,471 +957,13 @@
             "loyalty": "5",
             "abilities": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "subtypes": [
-                      "Forest"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you tap a Forest for mana, add an additional {G}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "PutCounters",
-                      "on": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Land"
-                          ],
-                          "notTypes": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": true,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "counter": "\u002B1/\u002B1",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      }
-                    },
-                    {
-                      "kind": "Untap",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elemental"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "Fixed",
-                          "n": 0
-                        },
-                        "toughness": {
-                          "kind": "Fixed",
-                          "n": 0
-                        }
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Vigilance"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Haste"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Put three \u002B1/\u002B1 counters on up to one target noncreature land you control. Untap it. It becomes a 0/0 Elemental creature with vigilance and haste that\u0027s still a land."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -8
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateEmblem",
-                      "emblem": {
-                        "name": "Lands you control have indestructible.",
-                        "abilities": [
-                          {
-                            "kind": "StaticAbility",
-                            "effect": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Indestructible",
-                              "of": {
-                                "types": [
-                                  "Land"
-                                ],
-                                "controlledBy": {
-                                  "kind": "You"
-                                }
-                              }
-                            },
-                            "where": "Battlefield",
-                            "characteristicDefining": false,
-                            "text": "Lands you control have indestructible."
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Search",
-                      "for": {
-                        "subtypes": [
-                          "Forest"
-                        ]
-                      },
-                      "to": "Battlefield",
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": true,
-                      "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false,
-                      "othersTapped": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22128: You get an emblem with \u0022Lands you control have indestructible.\u0022 Search your library for any number of Forest cards, put them onto the battlefield tapped, then shuffle."
-              }
-            ],
-            "oracleText": "Whenever you tap a Forest for mana, add an additional {G}.\n\u002B1: Put three \u002B1/\u002B1 counters on up to one target noncreature land you control. Untap it. It becomes a 0/0 Elemental creature with vigilance and haste that\u0027s still a land.\n\u22128: You get an emblem with \u0022Lands you control have indestructible.\u0022 Search your library for any number of Forest cards, put them onto the battlefield tapped, then shuffle.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "TappedForMana",
-                  "what": {
-                    "subtypes": [
-                      "Forest"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{G}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "Whenever you tap a Forest for mana, add an additional {G}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": 1
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "PutCounters",
-                      "on": {
-                        "kind": "Target",
-                        "filter": {
-                          "types": [
-                            "Land"
-                          ],
-                          "notTypes": [
-                            "Creature"
-                          ],
-                          "controlledBy": {
-                            "kind": "You"
-                          }
-                        },
-                        "upTo": true,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "counter": "\u002B1/\u002B1",
-                      "n": {
-                        "kind": "Fixed",
-                        "n": 3
-                      }
-                    },
-                    {
-                      "kind": "Untap",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elemental"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "Fixed",
-                          "n": 0
-                        },
-                        "toughness": {
-                          "kind": "Fixed",
-                          "n": 0
-                        }
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Vigilance"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Haste"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u002B1: Put three \u002B1/\u002B1 counters on up to one target noncreature land you control. Untap it. It becomes a 0/0 Elemental creature with vigilance and haste that\u0027s still a land."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "LoyaltyCost",
-                    "delta": -8
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateEmblem",
-                      "emblem": {
-                        "name": "Lands you control have indestructible.",
-                        "abilities": [
-                          {
-                            "kind": "StaticAbility",
-                            "effect": {
-                              "kind": "GrantKeyword",
-                              "keyword": "Indestructible",
-                              "of": {
-                                "types": [
-                                  "Land"
-                                ],
-                                "controlledBy": {
-                                  "kind": "You"
-                                }
-                              }
-                            },
-                            "where": "Battlefield",
-                            "characteristicDefining": false,
-                            "text": "Lands you control have indestructible."
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Search",
-                      "for": {
-                        "subtypes": [
-                          "Forest"
-                        ]
-                      },
-                      "to": "Battlefield",
-                      "from": "Library",
-                      "where": "Default",
-                      "reveal": false,
-                      "tapped": true,
-                      "shuffleAfter": true,
-                      "shuffleOnlyIfFound": false,
-                      "othersTapped": false
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "\u22128: You get an emblem with \u0022Lands you control have indestructible.\u0022 Search your library for any number of Forest cards, put them onto the battlefield tapped, then shuffle."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "5aa3abf1-d56b-4f42-8c84-7e5a2c15ee0f",
-        "name": "Nissa, Who Shakes the World",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Nissa, Who Shakes the World",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Planeswalker"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Nissa"
-              ],
-              "subtypeList": [
-                "Nissa"
-              ]
-            },
-            "manaCost": "{3}{G}{G}",
-            "loyalty": "5",
-            "abilities": [
-              {
                 "kind": "StaticAbility",
                 "effect": {
                   "kind": "ManaProducesAdditional",
                   "sources": {
                     "subtypes": [
                       "Forest"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
+                    ]
                   },
                   "mana": "{G}"
                 },
@@ -1475,15 +1017,14 @@
                     {
                       "kind": "Apply",
                       "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "Fixed",
-                          "n": 0
-                        },
-                        "toughness": {
-                          "kind": "Fixed",
-                          "n": 0
-                        }
+                        "kind": "AddTypes",
+                        "types": [
+                          "Creature"
+                        ],
+                        "subtypes": [
+                          "Elemental"
+                        ],
+                        "allCreatureTypes": false
                       },
                       "to": {
                         "kind": "Remembered",
@@ -1496,14 +1037,15 @@
                     {
                       "kind": "Apply",
                       "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elemental"
-                        ],
-                        "allCreatureTypes": false
+                        "kind": "SetPt",
+                        "power": {
+                          "kind": "Fixed",
+                          "n": 0
+                        },
+                        "toughness": {
+                          "kind": "Fixed",
+                          "n": 0
+                        }
                       },
                       "to": {
                         "kind": "Remembered",
@@ -1562,17 +1104,14 @@
                     {
                       "kind": "CreateEmblem",
                       "emblem": {
-                        "name": "Nissa, Who Shakes the World Emblem",
+                        "name": "Emblem",
                         "abilities": [
                           {
                             "kind": "StaticAbility",
                             "effect": {
                               "kind": "GrantKeyword",
-                              "keyword": "Indestructible"
-                            },
-                            "to": {
-                              "kind": "Each",
-                              "filter": {
+                              "keyword": "Indestructible",
+                              "of": {
                                 "types": [
                                   "Land"
                                 ],
@@ -1633,10 +1172,7 @@
                   "sources": {
                     "subtypes": [
                       "Forest"
-                    ],
-                    "controlledBy": {
-                      "kind": "You"
-                    }
+                    ]
                   },
                   "mana": "{G}"
                 },
@@ -1690,15 +1226,14 @@
                     {
                       "kind": "Apply",
                       "what": {
-                        "kind": "SetPt",
-                        "power": {
-                          "kind": "Fixed",
-                          "n": 0
-                        },
-                        "toughness": {
-                          "kind": "Fixed",
-                          "n": 0
-                        }
+                        "kind": "AddTypes",
+                        "types": [
+                          "Creature"
+                        ],
+                        "subtypes": [
+                          "Elemental"
+                        ],
+                        "allCreatureTypes": false
                       },
                       "to": {
                         "kind": "Remembered",
@@ -1711,14 +1246,15 @@
                     {
                       "kind": "Apply",
                       "what": {
-                        "kind": "AddTypes",
-                        "types": [
-                          "Creature"
-                        ],
-                        "subtypes": [
-                          "Elemental"
-                        ],
-                        "allCreatureTypes": false
+                        "kind": "SetPt",
+                        "power": {
+                          "kind": "Fixed",
+                          "n": 0
+                        },
+                        "toughness": {
+                          "kind": "Fixed",
+                          "n": 0
+                        }
                       },
                       "to": {
                         "kind": "Remembered",
@@ -1777,17 +1313,14 @@
                     {
                       "kind": "CreateEmblem",
                       "emblem": {
-                        "name": "Nissa, Who Shakes the World Emblem",
+                        "name": "Emblem",
                         "abilities": [
                           {
                             "kind": "StaticAbility",
                             "effect": {
                               "kind": "GrantKeyword",
-                              "keyword": "Indestructible"
-                            },
-                            "to": {
-                              "kind": "Each",
-                              "filter": {
+                              "keyword": "Indestructible",
+                              "of": {
                                 "types": [
                                   "Land"
                                 ],

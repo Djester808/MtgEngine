@@ -42,7 +42,7 @@
                 {
                   "kind": "CreateToken",
                   "token": {
-                    "name": "Copy of equipped creature",
+                    "name": "Copy",
                     "colors": [],
                     "types": [
                       "Creature"
@@ -120,7 +120,7 @@
                 {
                   "kind": "CreateToken",
                   "token": {
-                    "name": "Copy of equipped creature",
+                    "name": "Copy",
                     "colors": [],
                     "types": [
                       "Creature"
@@ -188,9 +188,9 @@
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-101db83b85cb",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -238,7 +238,7 @@
                     {
                       "kind": "CreateToken",
                       "token": {
-                        "name": "Copy of equipped creature",
+                        "name": "Copy",
                         "colors": [],
                         "types": [
                           "Creature"
@@ -254,21 +254,9 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "RemoveTypes",
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
+                      "kind": "Unsupported",
+                      "reason": "CreateToken has no exception list for a copy token: the copy exception belongs to the token creation and there is no field for it, and a layer-4 RemoveTypes afterwards is a different effect from a copiable-value exception.",
+                      "text": "except the token isn\u0027t legendary"
                     },
                     {
                       "kind": "Apply",
@@ -316,7 +304,7 @@
                     {
                       "kind": "CreateToken",
                       "token": {
-                        "name": "Copy of equipped creature",
+                        "name": "Copy",
                         "colors": [],
                         "types": [
                           "Creature"
@@ -332,21 +320,9 @@
                       "rememberAs": "k1"
                     },
                     {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "RemoveTypes",
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "allCreatureTypes": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
+                      "kind": "Unsupported",
+                      "reason": "CreateToken has no exception list for a copy token: the copy exception belongs to the token creation and there is no field for it, and a layer-4 RemoveTypes afterwards is a different effect from a copiable-value exception.",
+                      "text": "except the token isn\u0027t legendary"
                     },
                     {
                       "kind": "Apply",
@@ -432,177 +408,6 @@
                       },
                       "tapped": false,
                       "attacking": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "BecomesCopyOf",
-                        "of": {
-                          "kind": "Attached"
-                        },
-                        "isLegendary": false,
-                        "exceptThisAbility": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Haste"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste."
-              },
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Equip",
-                "cost": "{5}",
-                "repeatable": false,
-                "text": "Equip {5}"
-              }
-            ],
-            "oracleText": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste.\nEquip {5}",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "BeginningOfCombat",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateToken",
-                      "token": {
-                        "name": "Copy",
-                        "colors": [],
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [],
-                        "isPredefined": false
-                      },
-                      "tapped": false,
-                      "attacking": false,
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "BecomesCopyOf",
-                        "of": {
-                          "kind": "Attached"
-                        },
-                        "isLegendary": false,
-                        "exceptThisAbility": false
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    },
-                    {
-                      "kind": "Apply",
-                      "what": {
-                        "kind": "GrantKeyword",
-                        "keyword": "Haste"
-                      },
-                      "to": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "until": {
-                        "kind": "Permanently"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "At the beginning of combat on your turn, create a token that\u0027s a copy of equipped creature, except the token isn\u0027t legendary. That token gains haste."
-              },
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Equip",
-                "cost": "{5}",
-                "repeatable": false,
-                "text": "Equip {5}"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
-        "name": "Helm of the Host",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Helm of the Host",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Artifact"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypes": [
-                "Equipment"
-              ],
-              "subtypeList": [
-                "Equipment"
-              ]
-            },
-            "manaCost": "{4}",
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "AtStep",
-                  "step": "BeginningOfCombat",
-                  "whose": {
-                    "kind": "You"
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "CreateToken",
-                      "tapped": false,
-                      "attacking": false,
                       "copyOf": {
                         "kind": "Attached"
                       },
@@ -670,6 +475,15 @@
                   "steps": [
                     {
                       "kind": "CreateToken",
+                      "token": {
+                        "name": "Copy",
+                        "colors": [],
+                        "types": [
+                          "Creature"
+                        ],
+                        "supertypes": [],
+                        "isPredefined": false
+                      },
                       "tapped": false,
                       "attacking": false,
                       "copyOf": {

@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "severity": "Warning",
+      "code": "L002",
+      "message": "The definition has Indestructible and Scryfall does not list it; check it is granted, not printed.",
+      "path": "scryfallKeywords"
+    },
+    {
+      "severity": "Warning",
+      "code": "L002",
+      "message": "The definition has Hexproof and Scryfall does not list it; check it is granted, not printed.",
+      "path": "scryfallKeywords"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Spree\u0027s per-mode additional costs are really paid as the spell is cast, and no record carries them: Mode.cost is read against a ChooseMode budget and is explicitly never paid (and would require a budget this card does not print), while Face.additionalCosts are all paid rather than chosen one or more of.",
+      "path": "faces[0].abilities[1]"
+    }
+  ],
+  "hasErrors": true
+}

@@ -1,4 +1,11 @@
 {
-  "findings": [],
-  "hasErrors": false
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Draw takes one Amount and no record says \u0022up to that many\u0022 for a draw, so \u0022may draw up to two cards\u0022 \u2014 a choice of zero, one or two made by the countered spell\u0027s controller \u2014 has no spelling; May is a yes-or-no and a fixed Draw of two is a different card.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
 }

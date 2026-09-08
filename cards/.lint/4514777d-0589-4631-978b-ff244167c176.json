@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No condition or amount expresses \u0022if no mana was spent to cast it\u0022 about the spell that triggered this ability. ManaSpentOnThis reads only the mana spent on this object\u0027s own casting, and this trigger\u0027s spell is another object; nothing in the vocabulary asks how much mana was spent on the triggering spell. Dropping the clause would counter every spell, so the whole line is marked rather than approximated.",
+      "message": "Unsupported: No condition reads the mana spent to cast another spell. ManaSpentOnThis is the mana spent on this object\u0027s own cast (CR 601.2h) and there is no selector on it, so the intervening \u0027if no mana was spent to cast it\u0027 cannot be asked of the triggering spell; the counter half is kept inside the marker rather than shipped without its gate.",
       "path": "faces[0].abilities[0]"
     }
   ],

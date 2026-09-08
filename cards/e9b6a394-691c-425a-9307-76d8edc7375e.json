@@ -90,6 +90,7 @@
             "effect": {
               "kind": "AbilityCostModifier",
               "sources": {
+                "in": "Hand",
                 "also": {
                   "kind": "IsThisObject"
                 }
@@ -193,6 +194,7 @@
             "effect": {
               "kind": "AbilityCostModifier",
               "sources": {
+                "in": "Hand",
                 "also": {
                   "kind": "IsThisObject"
                 }
@@ -234,7 +236,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-101db83b85cb",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [
@@ -330,6 +332,7 @@
                 "effect": {
                   "kind": "AbilityCostModifier",
                   "sources": {
+                    "in": "Hand",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -433,6 +436,7 @@
                 "effect": {
                   "kind": "AbilityCostModifier",
                   "sources": {
+                    "in": "Hand",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -538,7 +542,6 @@
                       ]
                     },
                     "upTo": false,
-                    "key": "k1",
                     "distinct": true
                   },
                   "to": "Hand",
@@ -559,236 +562,6 @@
                 "effect": {
                   "kind": "AbilityCostModifier",
                   "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "NonMana"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This ability costs {1} less to activate for each legendary creature you control."
-              }
-            ],
-            "oracleText": "{T}: Add {U}.\nChannel \u2014 {3}{U}, Discard this card: Return target artifact, creature, enchantment, or planeswalker to its owner\u0027s hand. This ability costs {1} less to activate for each legendary creature you control.",
-            "abilityList": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{U}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {U}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}{U}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Creature",
-                        "Enchantment",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "timing": "Any",
-                "where": "Hand",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {3}{U}, Discard this card: Return target artifact, creature, enchantment, or planeswalker to its owner\u0027s hand."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  },
-                  "delta": {
-                    "kind": "Times",
-                    "value": {
-                      "kind": "CountOf",
-                      "filter": {
-                        "types": [
-                          "Creature"
-                        ],
-                        "supertypes": [
-                          "Legendary"
-                        ],
-                        "controlledBy": {
-                          "kind": "You"
-                        }
-                      }
-                    },
-                    "factor": -1
-                  },
-                  "who": {
-                    "kind": "You"
-                  },
-                  "ability": "NonMana"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "This ability costs {1} less to activate for each legendary creature you control."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "e9b6a394-691c-425a-9307-76d8edc7375e",
-        "name": "Otawara, Soaring City",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Otawara, Soaring City",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{U}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {U}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{3}{U}"
-                  },
-                  {
-                    "kind": "DiscardSelfCost"
-                  }
-                ],
-                "do": {
-                  "kind": "Move",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "anyTypes": [
-                        "Artifact",
-                        "Creature",
-                        "Enchantment",
-                        "Planeswalker"
-                      ]
-                    },
-                    "upTo": false,
-                    "distinct": true
-                  },
-                  "to": "Hand",
-                  "where": "Default",
-                  "tapped": false,
-                  "faceDown": false,
-                  "attacking": false,
-                  "transformed": false,
-                  "ownersChoiceOfOrder": true
-                },
-                "timing": "Any",
-                "where": "Hand",
-                "anyPlayerMayActivate": false,
-                "text": "Channel \u2014 {3}{U}, Discard this card: Return target artifact, creature, enchantment, or planeswalker to its owner\u0027s hand."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "AbilityCostModifier",
-                  "sources": {
-                    "in": "Hand",
                     "also": {
                       "kind": "IsThisObject"
                     }
@@ -892,7 +665,6 @@
                 "effect": {
                   "kind": "AbilityCostModifier",
                   "sources": {
-                    "in": "Hand",
                     "also": {
                       "kind": "IsThisObject"
                     }

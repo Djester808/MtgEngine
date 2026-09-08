@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No trigger watches damage being prevented, so the reflexive trigger and its \u0027that much damage\u0027 cannot be said inside a replacement; AnyTarget also cannot exclude this creature to say \u0027any other target\u0027.",
+      "message": "Unsupported: No trigger watches damage being prevented, and no amount reads the damage a prevention shield stopped, so the reflexive trigger and its \u0022that much damage\u0022 cannot be said; \u0022any other target\u0022 also has no spelling, since AnyTarget cannot exclude this creature.",
       "path": "faces[0].abilities[1]"
     }
   ],

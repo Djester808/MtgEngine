@@ -428,7 +428,7 @@
     "models": [
       "claude-opus-5"
     ],
-    "promptVersion": "pilot-052d1541ff2e",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": false
   },
   "scryfallKeywords": [],
@@ -1036,389 +1036,29 @@
                       "attacking": false,
                       "transformed": false,
                       "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{W}{W}, {T}: Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."
-              }
-            ],
-            "oracleText": "This land enters tapped unless you control a Plains.\n{T}: Add {W}.\n{2}{W}{W}, {T}: Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. (Artifacts, legendaries, and Sagas are historic.)",
-            "abilityList": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "subtypes": [
-                        "Plains"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Plains."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}{W}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LookAt",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 5
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Reveal",
-                            "what": {
-                              "kind": "Choose",
-                              "filter": {
-                                "historic": true
-                              },
-                              "chooser": {
-                                "kind": "You"
-                              },
-                              "upTo": false,
-                              "key": "k2",
-                              "among": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              }
-                            }
-                          },
-                          {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Remembered",
-                              "key": "k2"
-                            },
-                            "to": "Hand",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "also": {
-                            "kind": "AllOf",
-                            "of": [
-                              {
-                                "kind": "IsRemembered",
-                                "key": "k1"
-                              },
-                              {
-                                "kind": "NotPredicate",
-                                "of": {
-                                  "kind": "IsRemembered",
-                                  "key": "k2"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      },
-                      "to": "Library",
-                      "where": "Bottom",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
-                    }
-                  ]
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{2}{W}{W}, {T}: Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "c48df45c-3513-4d56-aed6-30c2f3a759cd",
-        "name": "Monumental Henge",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Monumental Henge",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "ReplacementAbility",
-                "instead": {
-                  "kind": "WouldEnterBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "with": {
-                  "kind": "EntersTapped"
-                },
-                "if": {
-                  "kind": "NotCondition",
-                  "of": {
-                    "kind": "Controls",
-                    "who": {
-                      "kind": "You"
-                    },
-                    "what": {
-                      "subtypes": [
-                        "Plains"
-                      ]
-                    },
-                    "count": {
-                      "op": "Ge",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 1
-                      }
-                    }
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "selfOnly": true,
-                "text": "This land enters tapped unless you control a Plains."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "AddMana",
-                  "mana": {
-                    "fixed": "{W}",
-                    "anyColor": false,
-                    "commanderIdentity": false,
-                    "chosenColor": false,
-                    "colorOfAttachedOrTarget": false,
-                    "landCouldProduce": false,
-                    "anyType": false,
-                    "restriction": false
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {W}."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "ManaCost",
-                    "mana": "{2}{W}{W}"
-                  },
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "LookAt",
-                      "what": {
-                        "kind": "Top",
-                        "whose": {
-                          "kind": "You"
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 5
-                        },
-                        "zone": "Library"
-                      },
-                      "rememberAs": "k1"
-                    },
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "Reveal",
-                            "what": {
-                              "kind": "Choose",
-                              "filter": {
-                                "historic": true
-                              },
-                              "chooser": {
-                                "kind": "You"
-                              },
-                              "upTo": false,
-                              "key": "k2",
-                              "among": {
-                                "kind": "Remembered",
-                                "key": "k1"
-                              }
-                            }
-                          },
-                          {
-                            "kind": "Move",
-                            "what": {
-                              "kind": "Remembered",
-                              "key": "k2"
-                            },
-                            "to": "Hand",
-                            "where": "Default",
-                            "tapped": false,
-                            "faceDown": false,
-                            "attacking": false,
-                            "transformed": false,
-                            "ownersChoiceOfOrder": true
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Remember",
-                      "key": "k3",
-                      "what": {
-                        "kind": "Each",
-                        "filter": {
-                          "in": "Library",
-                          "also": {
-                            "kind": "AllOf",
-                            "of": [
-                              {
-                                "kind": "IsRemembered",
-                                "key": "k1"
-                              },
-                              {
-                                "kind": "NotPredicate",
-                                "of": {
-                                  "kind": "IsRemembered",
-                                  "key": "k2"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k3"
-                      },
-                      "to": "Library",
-                      "where": "Bottom",
-                      "tapped": false,
-                      "faceDown": false,
-                      "attacking": false,
-                      "transformed": false,
-                      "ownersChoiceOfOrder": true
                     },
                     {
                       "kind": "Reorder",
                       "what": {
-                        "kind": "Remembered",
-                        "key": "k3"
+                        "kind": "Each",
+                        "filter": {
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k2"
+                                }
+                              }
+                            ]
+                          }
+                        }
                       },
                       "where": "RandomOrder"
                     }
@@ -1566,12 +1206,10 @@
                       }
                     },
                     {
-                      "kind": "Remember",
-                      "key": "k3",
+                      "kind": "Move",
                       "what": {
                         "kind": "Each",
                         "filter": {
-                          "in": "Library",
                           "also": {
                             "kind": "AllOf",
                             "of": [
@@ -1589,13 +1227,6 @@
                             ]
                           }
                         }
-                      }
-                    },
-                    {
-                      "kind": "Move",
-                      "what": {
-                        "kind": "Remembered",
-                        "key": "k3"
                       },
                       "to": "Library",
                       "where": "Bottom",
@@ -1608,8 +1239,25 @@
                     {
                       "kind": "Reorder",
                       "what": {
-                        "kind": "Remembered",
-                        "key": "k3"
+                        "kind": "Each",
+                        "filter": {
+                          "also": {
+                            "kind": "AllOf",
+                            "of": [
+                              {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              },
+                              {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k2"
+                                }
+                              }
+                            ]
+                          }
+                        }
                       },
                       "where": "RandomOrder"
                     }

@@ -26,7 +26,7 @@
               "kind": "ChooseMode",
               "modes": [
                 {
-                  "text": "\u2022 Prevent all combat damage that would be dealt this turn.",
+                  "text": "Prevent all combat damage that would be dealt this turn.",
                   "do": {
                     "kind": "Apply",
                     "what": {
@@ -44,7 +44,7 @@
                   }
                 },
                 {
-                  "text": "\u2022 Regenerate target creature.",
+                  "text": "Regenerate target creature.",
                   "do": {
                     "kind": "Regenerate",
                     "what": {
@@ -60,10 +60,10 @@
                   }
                 },
                 {
-                  "text": "\u2022 Counter target spell that targets you.",
+                  "text": "Counter target spell that targets you.",
                   "do": {
                     "kind": "Unsupported",
-                    "reason": "No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+                    "reason": "No filter or predicate describes a spell by the player it targets: Targets takes an ObjectFilter and cannot say \u0022targets you\u0022, and TargetedBy runs the other way and admits objects rather than players.",
                     "text": "Counter target spell that targets you."
                   }
                 }
@@ -83,7 +83,7 @@
               "kind": "ChooseMode",
               "modes": [
                 {
-                  "text": "\u2022 Prevent all combat damage that would be dealt this turn.",
+                  "text": "Prevent all combat damage that would be dealt this turn.",
                   "do": {
                     "kind": "Apply",
                     "what": {
@@ -101,7 +101,7 @@
                   }
                 },
                 {
-                  "text": "\u2022 Regenerate target creature.",
+                  "text": "Regenerate target creature.",
                   "do": {
                     "kind": "Regenerate",
                     "what": {
@@ -117,10 +117,10 @@
                   }
                 },
                 {
-                  "text": "\u2022 Counter target spell that targets you.",
+                  "text": "Counter target spell that targets you.",
                   "do": {
                     "kind": "Unsupported",
-                    "reason": "No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+                    "reason": "No filter or predicate describes a spell by the player it targets: Targets takes an ObjectFilter and cannot say \u0022targets you\u0022, and TargetedBy runs the other way and admits objects rather than players.",
                     "text": "Counter target spell that targets you."
                   }
                 }
@@ -142,7 +142,7 @@
       "claude-opus-5",
       "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-101db83b85cb",
+    "promptVersion": "pilot-557eb2712d2f",
     "agreed": true
   },
   "scryfallKeywords": [

@@ -47,23 +47,26 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ]
+                  "kind": "May",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "notTypes": [
+                          "Creature"
+                        ]
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 3
+                      },
+                      "upTo": true,
+                      "distinct": true
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 3
-                    },
-                    "upTo": true,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
+                    "cantBeRegenerated": false,
+                    "rememberAs": "k1"
+                  }
                 },
                 {
                   "kind": "ForEach",
@@ -102,7 +105,7 @@
                 }
               ]
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
@@ -124,23 +127,26 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Destroy",
-                  "what": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ]
+                  "kind": "May",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "notTypes": [
+                          "Creature"
+                        ]
+                      },
+                      "count": {
+                        "kind": "Fixed",
+                        "n": 3
+                      },
+                      "upTo": true,
+                      "distinct": true
                     },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 3
-                    },
-                    "upTo": true,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "cantBeRegenerated": false
+                    "cantBeRegenerated": false,
+                    "rememberAs": "k1"
+                  }
                 },
                 {
                   "kind": "ForEach",
@@ -179,7 +185,7 @@
                 }
               ]
             },
-            "optional": true,
+            "optional": false,
             "where": "Battlefield",
             "oncePerTurn": false,
             "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
@@ -188,616 +194,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
-    "promptVersion": "pilot-101db83b85cb",
-    "agreed": false
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
-        "name": "Terastodon",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-17975a20-2c13-4325-be1e-0bcda5063a2d",
+      "title": "casting Terastodon does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Terastodon",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Elephant"
-              ],
-              "subtypeList": [
-                "Elephant"
-              ]
-            },
-            "manaCost": "{6}{G}{G}",
-            "power": {
-              "text": "9",
-              "number": 9
-            },
-            "toughness": {
-              "text": "9",
-              "number": 9
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Creature"
-                          ]
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 3
-                        },
-                        "upTo": true,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "CreateToken",
-                        "token": {
-                          "name": "Elephant",
-                          "colors": [
-                            "Green"
-                          ],
-                          "types": [
-                            "Creature"
-                          ],
-                          "subtypes": [
-                            "Elephant"
-                          ],
-                          "supertypes": [],
-                          "power": 3,
-                          "toughness": 3,
-                          "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        },
-                        "tapped": false,
-                        "attacking": false
-                      }
-                    }
-                  ]
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+                "name": "Terastodon",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Destroy",
-                      "what": {
-                        "kind": "Target",
-                        "filter": {
-                          "notTypes": [
-                            "Creature"
-                          ]
-                        },
-                        "count": {
-                          "kind": "Fixed",
-                          "n": 3
-                        },
-                        "upTo": true,
-                        "key": "k1",
-                        "distinct": true
-                      },
-                      "cantBeRegenerated": false
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "CreateToken",
-                        "token": {
-                          "name": "Elephant",
-                          "colors": [
-                            "Green"
-                          ],
-                          "types": [
-                            "Creature"
-                          ],
-                          "subtypes": [
-                            "Elephant"
-                          ],
-                          "supertypes": [],
-                          "power": 3,
-                          "toughness": 3,
-                          "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        },
-                        "tapped": false,
-                        "attacking": false
-                      }
-                    }
-                  ]
-                },
-                "optional": true,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
-        "name": "Terastodon",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Terastodon",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Elephant"
-              ],
-              "subtypeList": [
-                "Elephant"
-              ]
-            },
-            "manaCost": "{6}{G}{G}",
-            "power": {
-              "text": "9",
-              "number": 9
-            },
-            "toughness": {
-              "text": "9",
-              "number": 9
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "ForEach",
-                  "over": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ]
-                    },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 3
-                    },
-                    "upTo": true,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "May",
-                        "do": {
-                          "kind": "Destroy",
-                          "what": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "cantBeRegenerated": false
-                        }
-                      },
-                      {
-                        "kind": "If",
-                        "test": {
-                          "kind": "IsInZone",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "zone": "Graveyard"
-                        },
-                        "then": {
-                          "kind": "CreateToken",
-                          "token": {
-                            "name": "Elephant",
-                            "colors": [
-                              "Green"
-                            ],
-                            "types": [
-                              "Creature"
-                            ],
-                            "subtypes": [
-                              "Elephant"
-                            ],
-                            "supertypes": [],
-                            "power": 3,
-                            "toughness": 3,
-                            "isPredefined": false
-                          },
-                          "who": {
-                            "kind": "ControllerOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          },
-                          "tapped": false,
-                          "attacking": false
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
-              }
-            ],
-            "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "ForEach",
-                  "over": {
-                    "kind": "Target",
-                    "filter": {
-                      "notTypes": [
-                        "Creature"
-                      ]
-                    },
-                    "count": {
-                      "kind": "Fixed",
-                      "n": 3
-                    },
-                    "upTo": true,
-                    "key": "k1",
-                    "distinct": true
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "May",
-                        "do": {
-                          "kind": "Destroy",
-                          "what": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "cantBeRegenerated": false
-                        }
-                      },
-                      {
-                        "kind": "If",
-                        "test": {
-                          "kind": "IsInZone",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          },
-                          "zone": "Graveyard"
-                        },
-                        "then": {
-                          "kind": "CreateToken",
-                          "token": {
-                            "name": "Elephant",
-                            "colors": [
-                              "Green"
-                            ],
-                            "types": [
-                              "Creature"
-                            ],
-                            "subtypes": [
-                              "Elephant"
-                            ],
-                            "supertypes": [],
-                            "power": 3,
-                            "toughness": 3,
-                            "isPredefined": false
-                          },
-                          "who": {
-                            "kind": "ControllerOf",
-                            "of": {
-                              "kind": "Triggering",
-                              "role": "Subject"
-                            }
-                          },
-                          "tapped": false,
-                          "attacking": false
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
-        "name": "Terastodon",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Terastodon",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Elephant"
-              ],
-              "subtypeList": [
-                "Elephant"
-              ]
-            },
-            "manaCost": "{6}{G}{G}",
-            "power": {
-              "text": "9",
-              "number": 9
-            },
-            "toughness": {
-              "text": "9",
-              "number": 9
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "notTypes": [
-                              "Creature"
-                            ]
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 3
-                          },
-                          "upTo": true,
-                          "key": "k1",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "CreateToken",
-                        "token": {
-                          "name": "Elephant",
-                          "colors": [
-                            "Green"
-                          ],
-                          "types": [
-                            "Creature"
-                          ],
-                          "subtypes": [
-                            "Elephant"
-                          ],
-                          "supertypes": [],
-                          "power": 3,
-                          "toughness": 3,
-                          "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        },
-                        "tapped": false,
-                        "attacking": false
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
-              }
-            ],
-            "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "May",
-                      "do": {
-                        "kind": "Destroy",
-                        "what": {
-                          "kind": "Target",
-                          "filter": {
-                            "notTypes": [
-                              "Creature"
-                            ]
-                          },
-                          "count": {
-                            "kind": "Fixed",
-                            "n": 3
-                          },
-                          "upTo": true,
-                          "key": "k1",
-                          "distinct": true
-                        },
-                        "cantBeRegenerated": false
-                      }
-                    },
-                    {
-                      "kind": "ForEach",
-                      "over": {
-                        "kind": "Remembered",
-                        "key": "k1"
-                      },
-                      "do": {
-                        "kind": "CreateToken",
-                        "token": {
-                          "name": "Elephant",
-                          "colors": [
-                            "Green"
-                          ],
-                          "types": [
-                            "Creature"
-                          ],
-                          "subtypes": [
-                            "Elephant"
-                          ],
-                          "supertypes": [],
-                          "power": 3,
-                          "toughness": 3,
-                          "isPredefined": false
-                        },
-                        "who": {
-                          "kind": "ControllerOf",
-                          "of": {
-                            "kind": "Triggering",
-                            "role": "Subject"
-                          }
-                        },
-                        "tapped": false,
-                        "attacking": false
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Terastodon"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Terastodon",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:9781a597f8c8ddfa",
+    "runId": "verify-20260908T054131-6fa50a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T05:41:31.538942+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-17975a20-2c13-4325-be1e-0bcda5063a2d",
+      "title": "casting Terastodon does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Terastodon",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Terastodon"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Terastodon",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

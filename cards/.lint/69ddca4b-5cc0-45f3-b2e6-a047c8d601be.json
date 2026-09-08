@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L002",
+      "message": "Scryfall lists the keyword action \u0027Connive\u0027 and the definition has no Connive effect.",
+      "path": "scryfallKeywords"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No Amount counts the creatures that died this turn. Morbid answers only yes or no, and CardsInZoneOf over creature cards in graveyards is a different number: it misses tokens and cards that have since left, and counts creature cards that were milled or discarded rather than dying.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

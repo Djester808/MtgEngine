@@ -1,0 +1,236 @@
+{
+  "oracleId": "dba16032-66c1-4ccb-9d65-d41ac550d182",
+  "name": "Amulet of Vigor",
+  "oracleHash": "sha256:ff09b8e1cbe9185c0a35713f443316426ce9e8aefef1aaf934cb1949fa329df4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "dba16032-66c1-4ccb-9d65-d41ac550d182",
+    "name": "Amulet of Vigor",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Amulet of Vigor",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "tapped": true
+              }
+            },
+            "do": {
+              "kind": "Untap",
+              "what": {
+                "kind": "Triggering",
+                "role": "Subject"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a permanent you control enters tapped, untap it."
+          }
+        ],
+        "oracleText": "Whenever a permanent you control enters tapped, untap it.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "tapped": true
+              }
+            },
+            "do": {
+              "kind": "Untap",
+              "what": {
+                "kind": "Triggering",
+                "role": "Subject"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a permanent you control enters tapped, untap it."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-557eb2712d2f",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "dba16032-66c1-4ccb-9d65-d41ac550d182",
+        "name": "Amulet of Vigor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Amulet of Vigor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "tapped": true
+                  }
+                },
+                "do": {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a permanent you control enters tapped, untap it."
+              }
+            ],
+            "oracleText": "Whenever a permanent you control enters tapped, untap it.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "tapped": true
+                  }
+                },
+                "do": {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a permanent you control enters tapped, untap it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "dba16032-66c1-4ccb-9d65-d41ac550d182",
+        "name": "Amulet of Vigor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Amulet of Vigor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "tapped": true
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a permanent you control enters tapped, untap it."
+              }
+            ],
+            "oracleText": "Whenever a permanent you control enters tapped, untap it.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "tapped": true
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Untap",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a permanent you control enters tapped, untap it."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}
