@@ -54,7 +54,13 @@ internal sealed partial class SmokeBoard(string card)
     /// Nothing was asserted, so there is no scenario: a check that always passes is worse than
     /// none. A zone that changed counts, even though its expectation is only written at the end.
     /// </summary>
-    internal bool Empty => _expect.Count == 0 && !Moved && SpellEndsIn == Zone.Graveyard;
+    /// <remarks>
+    /// A hand the board was told holds (<see cref="HandHolds"/>) is something to say even when its
+    /// deltas cancel: "draw two, then put two cards back on top of your library" moves four cards
+    /// and leaves every count where it started, and a scenario that said nothing would pass on a
+    /// play that did none of it.
+    /// </remarks>
+    internal bool Empty => _expect.Count == 0 && !Moved && !_casterHandHolds && SpellEndsIn == Zone.Graveyard;
 
     private bool Moved =>
         (_casterArrivals | _casterHand | _casterLibrary | _casterGraveyard | _opponentHand | _opponentLibrary | _opponentGraveyard | _casterLife | _opponentLife) != 0;

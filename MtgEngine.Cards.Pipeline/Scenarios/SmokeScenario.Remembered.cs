@@ -50,6 +50,21 @@ public static partial class SmokeScenario
                 board.Caster(library: 1, graveyard: -1);
                 break;
 
+            // CR 401.1 with CR 121.1: "draw three cards, then put two cards from your hand on top
+            // of your library" — the caster chooses N cards out of a hand of filler and the two
+            // counts move against each other. The hand is asserted however the draw before it went,
+            // because a draw and a put-back cancel: a scenario that only counted the library would
+            // pass on a play that never put anything back. Which cards went is not asserted — the
+            // choice is the player's (CR 601.2c is not this, the resolution's chooser is), and the
+            // order on top of the library is not a zone a scenario can read.
+            case Move { What: Choose { Among: null, Chooser: You, Count: Fixed { N: var back }, UpTo: false } put, To: Zone.Library, UnderControlOf: null, Tapped: false, FaceDown: false, Attacking: false, Transformed: false, WithCounters: null, AttachedTo: null }
+                when put.Filter is { In: Zone.Hand, OwnedBy: null or You } hand
+                    && hand == new ObjectFilter(In: Zone.Hand, OwnedBy: hand.OwnedBy)
+                    && back > 0 && back <= HandSize:
+                board.Caster(hand: -back, library: back);
+                board.HandHolds();
+                break;
+
             // CR 400.7 with CR 110.6: "put this artifact on top of its owner's library" moves the
             // source itself off the battlefield, so what the play shows is the zone it went to —
             // and a card there is neither tapped nor untapped, which is why the tap the activation
