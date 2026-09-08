@@ -133,6 +133,15 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// <para>
 /// NotInCommanderIdentityColors is "colors not in your commander's color identity", CR 903.4: true
 /// admits an object of a colour outside that identity and false admits one wholly inside it. It is
+/// CastFrom and NotCastFrom are the zone a spell was cast from, CR 601.3 read as a description of the
+/// spell rather than of the caster: "players cannot cast spells from anywhere other than their hands"
+/// is a CantCastSpells whose Matching filter has Spell true and NotCastFrom Hand. Set one or the
+/// other, never both — a card names the zone it allows or the one it forbids, and both together
+/// admits nothing (L038) — and only on a filter that describes a spell: a permanent was never cast
+/// from anywhere the game still remembers. It is not the CastFromZone condition, which asks where
+/// this card was cast from and can say nothing about anyone else spell.
+/// </para>
+/// <para>
 /// the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of
 /// its own, because the set is the game's and not the card's. Never write it as a Colors or
 /// NotColors list, which would fix at translation time a set that depends on the deck.
@@ -180,6 +189,8 @@ public sealed record ObjectFilter(
     bool? HasBasicLandType = null,
     IReadOnlyList<string>? ManaCostIs = null,
     bool? NotInCommanderIdentityColors = null,
+    Zone? CastFrom = null,
+    Zone? NotCastFrom = null,
     Predicate? Also = null)
 {
     public static ObjectFilter Creature => new(Types: CardType.Creature);
@@ -202,6 +213,7 @@ public sealed record ObjectFilter(
 [JsonDerivedType(typeof(DealtDamageThisTurn), nameof(DealtDamageThisTurn))]
 [JsonDerivedType(typeof(WasDealtDamageThisTurn), nameof(WasDealtDamageThisTurn))]
 [JsonDerivedType(typeof(TargetedBy), nameof(TargetedBy))]
+[JsonDerivedType(typeof(Targets), nameof(Targets))]
 [JsonDerivedType(typeof(IsChosenName), nameof(IsChosenName))]
 [JsonDerivedType(typeof(IsChosenType), nameof(IsChosenType))]
 [JsonDerivedType(typeof(IsChosenColor), nameof(IsChosenColor))]
@@ -322,6 +334,22 @@ public sealed record WasDealtDamageThisTurn : Predicate;
 
 /// <summary>Currently targeted by the given object, typically <see cref="Self"/>.</summary>
 public sealed record TargetedBy(Selector By) : Predicate;
+
+/// <summary>
+/// "target spell that targets a permanent you control", CR 115.1: the candidate is a spell or ability
+/// on the stack that has chosen a target <paramref name="Of"/> admits. It reads the targets the
+/// candidate announced (CR 601.2c), so a spell with no targets matches nothing here, and a spell
+/// whose only target has since become illegal still targeted it.
+/// <para>
+/// It runs the opposite way from <see cref="TargetedBy"/>, which admits the object a spell points at;
+/// this admits the spell doing the pointing, and a filter that means one and writes the other matches
+/// the wrong half of the same pair. The filter it rides on carries the spell itself — Spell true,
+/// with In Stack where the card names the zone — and a filter that says this of a permanent describes
+/// an object that cannot target (L037).
+/// </para>
+/// </summary>
+[RuleRef("115.1")]
+public sealed record Targets(ObjectFilter Of) : Predicate;
 
 public sealed record IsChosenName(string Key) : Predicate;
 

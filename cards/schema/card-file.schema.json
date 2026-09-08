@@ -4987,6 +4987,9 @@
           "$ref": "#/$defs/ChooseMode"
         },
         {
+          "$ref": "#/$defs/ChooseNumberSecretly"
+        },
+        {
           "$ref": "#/$defs/ChooseValue"
         },
         {
@@ -5334,6 +5337,9 @@
           "$ref": "#/$defs/AttackersAgainst"
         },
         {
+          "$ref": "#/$defs/CardsDrawnThisTurn"
+        },
+        {
           "$ref": "#/$defs/CardsInHandOf"
         },
         {
@@ -5373,7 +5379,16 @@
           "$ref": "#/$defs/Half"
         },
         {
+          "$ref": "#/$defs/HighestChosen"
+        },
+        {
+          "$ref": "#/$defs/LandsEnteredThisTurn"
+        },
+        {
           "$ref": "#/$defs/LifeOf"
+        },
+        {
+          "$ref": "#/$defs/LowestChosen"
         },
         {
           "$ref": "#/$defs/ManaSpentOnThis"
@@ -6162,6 +6177,46 @@
             }
           ]
         },
+        "castFrom": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Library",
+                "Hand",
+                "Battlefield",
+                "Graveyard",
+                "Stack",
+                "Exile",
+                "Command",
+                "OutsideTheGame"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notCastFrom": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Library",
+                "Hand",
+                "Battlefield",
+                "Graveyard",
+                "Stack",
+                "Exile",
+                "Command",
+                "OutsideTheGame"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "also": {
           "anyOf": [
             {
@@ -6174,7 +6229,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022. ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is \u0022any of\u0022, and an object matches when its printed cost is one of the listed symbol strings exactly as printed \u2014 [\u0022{0}\u0022, \u0022{1}\u0022] is \u0022with mana value 0 or 1\u0022 said the way a card that cares about the printed cost says it. It is not ManaValue, which counts the cost and so admits \u0022{W}\u0022 for 1 and cannot tell \u0022{0}\u0022 from a land\u0027s absent cost; use ManaValue whenever the card prints a number, and this only where the printed symbols themselves are named. An object with no printed mana cost matches no entry, and an empty list matches nothing at all rather than everything. NotInCommanderIdentityColors is \u0022colors not in your commander\u0027s color identity\u0022, CR 903.4: true admits an object of a colour outside that identity and false admits one wholly inside it. It is the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of its own, because the set is the game\u0027s and not the card\u0027s. Never write it as a Colors or NotColors list, which would fix at translation time a set that depends on the deck."
+      "description": "A description of objects. Every field is optional and every set field must hold. This is the noun phrase of the game: \u0022another nontoken creature you control with power 4 or greater\u0022 is one filter. Anything the fields cannot say goes in Also. The fields are joined with \u0022and\u0022, except the two subtype lists, which are \u0022any of\u0022: Subtypes [\u0022Forest\u0022, \u0022Island\u0022] is \u0022a Forest or Island card\u0022 (CR 205.3, an object has each of its subtypes), and NotSubtypes excludes an object that has any listed one; \u0022a Forest Island\u0022 (both) is two nested filters, not one list. The fixed fields otherwise cannot say \u0022or\u0022: \u0022attacking or blocking creature\u0022 is not Attacking plus Blocking, which would match nothing. That one disjunction is common enough to have its own field \u2014 InCombat, true for a creature that is an attacking or a blocking creature (CR 506.2, 506.4) and false for one that is neither. Any other disjunction is written with AnyOf in Also. \u0022Attacking or blocking creature\u0022 is InCombat and has no second spelling: there is no AttackingOrBlocking field, and writing Attacking beside Blocking matches nothing. HasBasicLandType is \u0022a land card with a basic land type\u0022, CR 205.3i: true when the object has any of Forest, Island, Mountain, Plains or Swamp among its subtypes, whatever else it also has, and false for a nonbasic land with none of them. It is not Supertype.Basic \u2014 a shockland and a dual land have a basic land type and are not basic \u2014 and it is not a Subtypes list, which is joined with \u0022and\u0022 and so cannot say \u0022any of the five\u0022. ManaCostIs is the printed mana cost read as a whole string, CR 202.1: the list is \u0022any of\u0022, and an object matches when its printed cost is one of the listed symbol strings exactly as printed \u2014 [\u0022{0}\u0022, \u0022{1}\u0022] is \u0022with mana value 0 or 1\u0022 said the way a card that cares about the printed cost says it. It is not ManaValue, which counts the cost and so admits \u0022{W}\u0022 for 1 and cannot tell \u0022{0}\u0022 from a land\u0027s absent cost; use ManaValue whenever the card prints a number, and this only where the printed symbols themselves are named. An object with no printed mana cost matches no entry, and an empty list matches nothing at all rather than everything. NotInCommanderIdentityColors is \u0022colors not in your commander\u0027s color identity\u0022, CR 903.4: true admits an object of a colour outside that identity and false admits one wholly inside it. It is CastFrom and NotCastFrom are the zone a spell was cast from, CR 601.3 read as a description of the spell rather than of the caster: \u0022players cannot cast spells from anywhere other than their hands\u0022 is a CantCastSpells whose Matching filter has Spell true and NotCastFrom Hand. Set one or the other, never both \u2014 a card names the zone it allows or the one it forbids, and both together admits nothing (L038) \u2014 and only on a filter that describes a spell: a permanent was never cast from anywhere the game still remembers. It is not the CastFromZone condition, which asks where this card was cast from and can say nothing about anyone else spell. the narrow spelling of the one colour-set reference the pilot asked for and takes no colours of its own, because the set is the game\u0027s and not the card\u0027s. Never write it as a Colors or NotColors list, which would fix at translation time a set that depends on the deck."
     },
     "PlayerFilter": {
       "type": "object",
@@ -6318,6 +6373,9 @@
         },
         {
           "$ref": "#/$defs/BecomesCopyOf"
+        },
+        {
+          "$ref": "#/$defs/BecomesCopyOfNamed"
         },
         {
           "$ref": "#/$defs/CantActivateAbilities"
@@ -6576,6 +6634,9 @@
           "$ref": "#/$defs/OwnerOf"
         },
         {
+          "$ref": "#/$defs/PlayerWhoChose"
+        },
+        {
           "$ref": "#/$defs/PlayerWithMostOf"
         },
         {
@@ -6744,6 +6805,9 @@
         },
         {
           "$ref": "#/$defs/Scries"
+        },
+        {
+          "$ref": "#/$defs/Searches"
         },
         {
           "$ref": "#/$defs/SpellCast"
@@ -7263,6 +7327,53 @@
         "modes"
       ],
       "description": "\u0022Choose one \u2014\u0022, \u0022choose two\u0022, \u0022choose one or more\u0022. Entwine and escalate set Max to the mode count. MaxIf is a mode count that depends on the game as the spell is cast: \u0022choose one. If you control a commander as you cast this spell, you may choose both instead\u0022 is Max 1 with MaxIf a Controls condition over a filter of isCommander and MaxIfMet 2. The modes are announced as the spell is cast (CR 601.2b, which sends the count to CR 700.2), so the condition is read at that announcement and never again: a commander that leaves later changes nothing. MaxIfMet is the ceiling while the condition holds and must exceed Max, or the rider says nothing (L024); Min is the same either way. Never an If around a ChooseMode, which would read the condition on resolution, and never two ChooseModes for one printed list. Budget is a mode count spent rather than counted: \u0022choose modes with total cost {5} or less\u0022 over modes that each print a price. The modes are still announced as the spell is cast (CR 601.2b sends the choice to CR 700.2), and the announcement is legal only while the prices of the modes chosen total no more than the budget. Every mode then needs its own Cost and a priced mode needs a budget to spend against, so the two fields are set together or not at all (L032). Max stops meaning the number of modes when a budget rules them \u2014 leave it at its default and let the prices do the counting \u2014 and SameModeTwice is what \u0022you may choose the same mode more than once\u0022 says here, each repeat paying its price again."
+    },
+    "ChooseNumberSecretly": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ChooseNumberSecretly"
+        },
+        "key": {
+          "type": "string"
+        },
+        "who": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key"
+      ],
+      "description": "\u0022Each player secretly chooses a number, then those numbers are revealed\u0022, CR 700.2 with 101.4: one step in which every player Who admits chooses a number without seeing what the others chose, and the choices are revealed as the step finishes. The reveal is part of this step and never a second one \u2014 there is nothing for a later step to reveal, and a choice that was never secret is a different card. The numbers are stored under Key, and the ability reads them back with HighestChosen, LowestChosen and the PlayerWhoChose player reference. Min and Max are the printed bounds where a card prints them; leave them out for an unbounded choice. It is not ChooseValue with ChooseWhat.Number, which is one player choosing in the open and read back as a ChosenNumber, and it is not a ForEachPlayer around one: choices made in APNAP order are made in turn and each player would see the ones before theirs (CR 101.4), which is the whole of what this record says. A secret choice nothing reads back is a lost sentence (L035)."
     },
     "ChooseValue": {
       "type": "object",
@@ -10793,6 +10904,23 @@
       ],
       "description": "\u0022two or more of those creatures are attacking you and/or planeswalkers you control\u0022: the creatures of the current declaration of attackers, CR 508.1, that are attacking the player Who names \u2014 and, while IncludingPermanentsTheyControl stands, the planeswalkers and battles that player controls, because a creature attacking one of those is attacking that player\u0027s side of the board and the printed phrase says \u0022and/or\u0022. It counts the declaration, so it is read in the same moment as AttacksWithCreatures \u2014 the condition of an ability that trigger put on the stack, CR 603.4 \u2014 and it is not CountOf with an Attacking filter, which counts every attacking creature in the combat whoever declared it and whoever it is aimed at, so a two-player attack in a three-player game reads the wrong number. Clear the flag only for a card that names the player alone."
     },
+    "CardsDrawnThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "CardsDrawnThisTurn"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022the number of cards you have drawn this turn\u0022, CR 121.1: a draw is one event per card, so this counts events and not the cards still in hand \u2014 a card drawn and then discarded, played or exiled is still a card that player drew this turn. It is per player and per turn. It is not CardsInHandOf, which counts a hand however those cards got there, and it is not the DrawnThisTurn predicate, which describes one card in a hand rather than counting a turn of draws; a card drawn and then discarded is counted here and matched by neither."
+    },
     "CardsInHandOf": {
       "type": "object",
       "properties": {
@@ -11100,6 +11228,40 @@
         "roundUp"
       ]
     },
+    "HighestChosen": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "HighestChosen"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key"
+      ],
+      "description": "The highest number chosen in a secret simultaneous choice, CR 700.2 with 101.4: the greatest of the numbers the players chose under Key, read once they are revealed. Key names the ChooseNumberSecretly step of the same ability that asked for them, which is the only thing that produces it (L035). It is not ChosenNumber, which is one player choice and cannot say whose is greatest, and it is not GreatestAmong, which reads a characteristic off objects on the board. The players who chose it are PlayerWhoChose, and a tie names them all."
+    },
+    "LandsEnteredThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "LandsEnteredThisTurn"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "The lands that entered the battlefield under a player control this turn, CR 121.1: the other event a turn keeps per player. Every land that entered counts, whether it was played from a hand (CR 305.1), put onto the battlefield by a search or returned by an effect, and a land that has since left still counts \u2014 the count is of the entering and not of the board. It is not CountOf over a land filter with an EnteredThisTurn predicate, which counts the lands still on the battlefield and reads a smaller number the moment one is sacrificed, and it is not the land drop the turn structure limits (CR 305.2), which counts plays and not entries."
+    },
     "LifeOf": {
       "type": "object",
       "properties": {
@@ -11115,6 +11277,23 @@
         "kind",
         "who"
       ]
+    },
+    "LowestChosen": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "LowestChosen"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key"
+      ],
+      "description": "The lowest number chosen in that same secret choice, CR 700.2: the mirror of HighestChosen."
     },
     "ManaSpentOnThis": {
       "type": "object",
@@ -11507,6 +11686,9 @@
         },
         {
           "$ref": "#/$defs/TargetedBy"
+        },
+        {
+          "$ref": "#/$defs/Targets"
         },
         {
           "$ref": "#/$defs/WasDealtDamageThisTurn"
@@ -12367,6 +12549,36 @@
       ],
       "description": "Layer 1: becomes a copy of another object, with the printed exceptions. ExceptThisAbility is the self-referential exception, CR 707.9b: \u0022target land becomes a copy of this land, except it has this ability\u0022. \u0022This ability\u0022 is the very ability the effect is part of, so the copy keeps a copy of it and can be used again \u2014 the exception is a flag and never a nested ability inside Except. Writing the ability out would nest one reading of it inside another with no end to the nesting, and a reader that stopped early would produce a copy that cannot copy, which is a different card. The ability the flag points at is the activated or triggered ability that created this effect (CR 707.9b names an ability of the object, and CR 109.5 says \u0022this\u0022 means the object the ability is on). A static ability or a spell ability has no such ability to hand back \u2014 a spell ability goes to the graveyard with the card \u2014 so the flag on either is a lost sentence (L029)."
     },
+    "BecomesCopyOfNamed": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "BecomesCopyOfNamed"
+        },
+        "name": {
+          "type": "string"
+        },
+        "except": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ContinuousEffect"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name"
+      ],
+      "description": "CR 613.1c"
+    },
     "CantActivateAbilities": {
       "type": "object",
       "properties": {
@@ -12748,7 +12960,7 @@
         "from",
         "to"
       ],
-      "description": "CR 613.1c"
+      "description": "CR 613"
     },
     "ControlBy": {
       "type": "object",
@@ -14737,6 +14949,26 @@
         "of"
       ]
     },
+    "PlayerWhoChose": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PlayerWhoChose"
+        },
+        "key": {
+          "type": "string"
+        },
+        "lowest": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key"
+      ],
+      "description": "\u0022each player who chose the highest number\u0022, CR 700.2 with 101.4: every player whose secret choice under Key was the greatest of those revealed, or the least when Lowest stands. It names every one of them, because two players may choose the same number and the printed line reads \u0022each player who chose\u0022. Key is the ChooseNumberSecretly step of the same ability that asked for the numbers, and nothing else produces it (L035). It is not PlayerWithMostOf, which reads an amount off the game for every player and knows nothing of a choice, and it is not ChosenPlayer, which is a player somebody picked."
+    },
     "PlayerWithMostOf": {
       "type": "object",
       "properties": {
@@ -15990,6 +16222,23 @@
       ],
       "description": "CR 603"
     },
+    "Searches": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Searches"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerFilter"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022Whenever an opponent searches their library\u0022, CR 701.19: the search itself is the event, and it fires once per search however many cards that search finds and whether it finds any. The search a card, spell or ability instructed is the one this watches (CR 701.19a); a player looking at their own library with no instruction to search is not searching. Who describes the searcher, so \u0022an opponent\u0022 is a PlayerFilter with Opponent true \u2014 a filter and not a PlayerRef, because the trigger matches whoever searched rather than naming a player in advance, the same reading DealsDamage takes of ToPlayer. The library searched is the searcher\u0027s own, which is every printed sentence of this shape; a card that watches a search of someone else\u0027s library is a different trigger and does not exist yet. It is not the Search effect, which is this card telling a player to search, and it is not a ZoneChange or a Mills: nothing has left the library when this fires, and CR 701.19c shuffles only if the search moved a card."
+    },
     "SpellCast": {
       "type": "object",
       "properties": {
@@ -17156,6 +17405,23 @@
         "by"
       ],
       "description": "Currently targeted by the given object, typically Self."
+    },
+    "Targets": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "Targets"
+        },
+        "of": {
+          "$ref": "#/$defs/ObjectFilter"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "of"
+      ],
+      "description": "\u0022target spell that targets a permanent you control\u0022, CR 115.1: the candidate is a spell or ability on the stack that has chosen a target Of admits. It reads the targets the candidate announced (CR 601.2c), so a spell with no targets matches nothing here, and a spell whose only target has since become illegal still targeted it. It runs the opposite way from TargetedBy, which admits the object a spell points at; this admits the spell doing the pointing, and a filter that means one and writes the other matches the wrong half of the same pair. The filter it rides on carries the spell itself \u2014 Spell true, with In Stack where the card names the zone \u2014 and a filter that says this of a permanent describes an object that cannot target (L037)."
     },
     "WasDealtDamageThisTurn": {
       "type": "object",

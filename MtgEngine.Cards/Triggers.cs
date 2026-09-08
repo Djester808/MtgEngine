@@ -36,6 +36,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(AbilityActivated), nameof(AbilityActivated))]
 [JsonDerivedType(typeof(LandPlayed), nameof(LandPlayed))]
 [JsonDerivedType(typeof(TokenCreated), nameof(TokenCreated))]
+[JsonDerivedType(typeof(Searches), nameof(Searches))]
 [JsonDerivedType(typeof(Scries), nameof(Scries))]
 [JsonDerivedType(typeof(Surveils), nameof(Surveils))]
 [JsonDerivedType(typeof(Mills), nameof(Mills))]
@@ -204,6 +205,27 @@ public sealed record AbilityActivated(ObjectFilter Source, AbilityKind Ability =
 public sealed record LandPlayed(PlayerRef By) : Trigger;
 
 public sealed record TokenCreated(PlayerRef By, ObjectFilter? What = null) : Trigger;
+
+/// <summary>
+/// "Whenever an opponent searches their library", CR 701.19: the search itself is the event, and it
+/// fires once per search however many cards that search finds and whether it finds any. The search
+/// a card, spell or ability instructed is the one this watches (CR 701.19a); a player looking at
+/// their own library with no instruction to search is not searching.
+/// <para>
+/// <paramref name="Who"/> describes the searcher, so "an opponent" is a PlayerFilter with Opponent
+/// true — a filter and not a PlayerRef, because the trigger matches whoever searched rather than
+/// naming a player in advance, the same reading DealsDamage takes of ToPlayer. The library searched
+/// is the searcher's own, which is every printed sentence of this shape; a card that watches a
+/// search of someone else's library is a different trigger and does not exist yet.
+/// </para>
+/// <para>
+/// It is not the Search effect, which is this card telling a player to search, and it is not a
+/// ZoneChange or a Mills: nothing has left the library when this fires, and CR 701.19c shuffles
+/// only if the search moved a card.
+/// </para>
+/// </summary>
+[RuleRef("701.19")]
+public sealed record Searches(PlayerFilter Who) : Trigger;
 
 public sealed record Scries(PlayerRef Who) : Trigger;
 

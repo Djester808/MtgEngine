@@ -21,6 +21,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(RememberedPlayer), nameof(RememberedPlayer))]
 [JsonDerivedType(typeof(Monarch), nameof(Monarch))]
 [JsonDerivedType(typeof(PlayerWithMostOf), nameof(PlayerWithMostOf))]
+[JsonDerivedType(typeof(PlayerWhoChose), nameof(PlayerWhoChose))]
 [JsonDerivedType(typeof(AttachedPlayer), nameof(AttachedPlayer))]
 public abstract record PlayerRef;
 
@@ -59,6 +60,21 @@ public sealed record RememberedPlayer(string Key) : PlayerRef;
 
 [RuleRef("724")]
 public sealed record Monarch : PlayerRef;
+
+/// <summary>
+/// "each player who chose the highest number", CR 700.2 with 101.4: every player whose secret choice
+/// under <paramref name="Key"/> was the greatest of those revealed, or the least when
+/// <paramref name="Lowest"/> stands. It names every one of them, because two players may choose the
+/// same number and the printed line reads "each player who chose".
+/// <para>
+/// <paramref name="Key"/> is the ChooseNumberSecretly step of the same ability that asked for the
+/// numbers, and nothing else produces it (L035). It is not <see cref="PlayerWithMostOf"/>, which
+/// reads an amount off the game for every player and knows nothing of a choice, and it is not
+/// <see cref="ChosenPlayer"/>, which is a player somebody picked.
+/// </para>
+/// </summary>
+[RuleRef("700.2")]
+public sealed record PlayerWhoChose(string Key, bool Lowest = false) : PlayerRef;
 
 /// <summary>"the player with the most life", "the player who controls the most creatures".</summary>
 public sealed record PlayerWithMostOf(Amount Of, bool Fewest = false) : PlayerRef;
