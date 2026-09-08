@@ -19,6 +19,7 @@ ExtraTurnTaken
 GameEnded
 GameStarted
 LandPlayed
+LibrarySearched
 LifeChanged
 ManaChanged
 ManaPoolEmptied

@@ -207,9 +207,9 @@ public sealed record LandPlayed(PlayerRef By) : Trigger;
 public sealed record TokenCreated(PlayerRef By, ObjectFilter? What = null) : Trigger;
 
 /// <summary>
-/// "Whenever an opponent searches their library", CR 701.19: the search itself is the event, and it
+/// "Whenever an opponent searches their library", CR 701.23: the search itself is the event, and it
 /// fires once per search however many cards that search finds and whether it finds any. The search
-/// a card, spell or ability instructed is the one this watches (CR 701.19a); a player looking at
+/// a card, spell or ability instructed is the one this watches (CR 701.23a); a player looking at
 /// their own library with no instruction to search is not searching.
 /// <para>
 /// <paramref name="Who"/> describes the searcher, so "an opponent" is a PlayerFilter with Opponent
@@ -220,11 +220,11 @@ public sealed record TokenCreated(PlayerRef By, ObjectFilter? What = null) : Tri
 /// </para>
 /// <para>
 /// It is not the Search effect, which is this card telling a player to search, and it is not a
-/// ZoneChange or a Mills: nothing has left the library when this fires, and CR 701.19c shuffles
+/// ZoneChange or a Mills: nothing has left the library when this fires, and CR 701.23c shuffles
 /// only if the search moved a card.
 /// </para>
 /// </summary>
-[RuleRef("701.19")]
+[RuleRef("701.23")]
 public sealed record Searches(PlayerFilter Who) : Trigger;
 
 public sealed record Scries(PlayerRef Who) : Trigger;
