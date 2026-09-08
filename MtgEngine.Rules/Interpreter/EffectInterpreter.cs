@@ -229,9 +229,11 @@ public sealed partial class EffectInterpreter(
         if (run.Halted)
             return run;
 
+        // CR 608.2: a resolution the engine cannot carry out is refused by name, never crashed
+        // through. The name is the vocabulary record's, which is engine data and never a card's.
         return Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
             ?? Backlog(run, effect)
-            ?? throw new NotImplementedException($"no interpreter arm for {effect.GetType().Name}");
+            ?? throw new RefusedException($"There is no interpreter arm for {effect.GetType().Name}.", "608.2");
     }
 
     /// <summary>

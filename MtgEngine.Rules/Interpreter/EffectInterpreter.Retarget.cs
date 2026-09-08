@@ -224,7 +224,10 @@ public sealed partial class EffectInterpreter
         {
             copied = zones.CopyInPlace(run.State, card, owner);
         }
-        catch (NotImplementedException)
+        // The refusal a zone system gives for a copy it cannot make, and the NotImplementedException
+        // the unbuilt seam default still throws (Seams.cs, not this box's — asked for in
+        // seam-requests/E9q.md). Either way the walk refuses by name rather than crashing.
+        catch (Exception thrown) when (thrown is RefusedException or NotImplementedException)
         {
             throw new RefusedException(
                 "A copy of that card is not this card being cast; asked for in seam-requests/E9g.md",
