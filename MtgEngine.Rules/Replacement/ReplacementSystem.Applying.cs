@@ -108,7 +108,11 @@ public sealed partial class ReplacementSystem
     [RuleRef("614.1a")]
     private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current)
     {
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate));
+        // CR 614.1a with 400.7: the event does not happen, so the object that was entering never
+        // exists outside the probe; a question this walk raises has to travel under the card as it
+        // still is, or no answer could find the effect that asked (CR 101.4).
+        var source = Leaving(state, current, candidate);
+        var outcome = _interpreter.Run(state, effect, Context(source, candidate.Controller, current), IndexOf(state, current, candidate, source));
         return new Applied(null, outcome.State, outcome.Events);
     }
 
@@ -122,7 +126,9 @@ public sealed partial class ReplacementSystem
     [RuleRef("614.1c")]
     private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current)
     {
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate));
+        // The entering happens, so by the time an answer arrives the object exists under the id it
+        // was probed with; that id is what the question carries and what CR 608.2d writes on.
+        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current), IndexOf(state, current, candidate, candidate.Source));
         return new Applied(current, outcome.State, outcome.Events);
     }
 
@@ -152,9 +158,9 @@ public sealed partial class ReplacementSystem
     /// every enters-replacement question would travel with no index and no answer could find it.
     /// </summary>
     [RuleRef("101.4")]
-    private static int? IndexOf(GameState state, GameEvent current, Candidate candidate)
+    private static int? IndexOf(GameState state, GameEvent current, Candidate candidate, ObjectId? under)
     {
-        if (candidate.Source is not { } source || candidate.Ability is not { } ability)
+        if (under is not { } source || candidate.Ability is not { } ability)
             return null;
 
         if (!Probe(state, current).Objects.TryGetValue(source, out var obj))
@@ -162,6 +168,27 @@ public sealed partial class ReplacementSystem
 
         var index = obj.Face.AbilityList.ToList().IndexOf(ability);
         return index >= 0 ? index : null;
+    }
+
+    /// <summary>
+    /// CR 101.4 with 400.7 and 614.12: the id a question raised by a CR 614.1a "instead" must
+    /// travel under. The candidate's source is the object as it would exist on the battlefield,
+    /// which lives in the probe state alone; an "instead" means it never arrives, so nothing in the
+    /// state the answer comes back to carries that id and the effect that asked could never be
+    /// found again. The card it was made from is still where it was — on the stack, in a hand, in a
+    /// library — so the question travels under that, which is the same card, carries the same
+    /// abilities, and is what the walk's <c>Self</c> then names. Every other event's source already
+    /// exists and is handed back untouched.
+    /// </summary>
+    [RuleRef("101.4")]
+    private static ObjectId? Leaving(GameState state, GameEvent current, Candidate candidate)
+    {
+        if (candidate.Source is not { } source || state.Objects.ContainsKey(source))
+            return candidate.Source;
+
+        return current is ObjectMoved moved && moved.To.Id == source && state.Objects.ContainsKey(moved.From)
+            ? moved.From
+            : candidate.Source;
     }
 
     /// <summary>
