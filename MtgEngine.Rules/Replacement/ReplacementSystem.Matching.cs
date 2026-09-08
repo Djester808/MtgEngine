@@ -66,9 +66,12 @@ public sealed partial class ReplacementSystem
             && Combat(w.Combat, dealt)
             && _query.Matches(state, w.Source, dealt.Source, context),
 
+        // CR 121.1: "except the first one they draw in each of their draw steps" is a narrowing of
+        // which draws this replaces, not of what it does to them.
         WouldDraw w => proposed is ObjectDrawn drawn
             && Names(state, w.Who, context, drawn.Player)
-            && (w.FirstEachTurn is not true || state.Player(drawn.Player).ObjectsDrawnThisTurn == 0),
+            && (w.FirstEachTurn is not true || state.Player(drawn.Player).ObjectsDrawnThisTurn == 0)
+            && (!w.ExceptFirstInDrawStep || !TheirDrawStepsFirstDraw(state, drawn.Player)),
 
         WouldGainLife w => proposed is LifeChanged gained
             && gained.Delta > 0
@@ -110,8 +113,11 @@ public sealed partial class ReplacementSystem
         WouldBeTurnedFaceUp w => proposed is ObjectChanged { FaceDown: false } up
             && _query.Matches(state, w.What, up.Id, context),
 
+        // CR 605.1a with 106.12: the rider narrows this to mana a mana ability added for a
+        // permanent that was tapped to pay for it.
         WouldAddMana w => proposed is ManaChanged mana
-            && Names(state, w.Who, context, mana.Player),
+            && Names(state, w.Who, context, mana.Player)
+            && (!w.TappedFor || TappedForMana(state, mana)),
 
         WouldLoseGame w => proposed is PlayerLost defeat
             && Names(state, w.Who, context, defeat.Player),

@@ -103,7 +103,9 @@ public sealed partial class ReplacementEffectTests
 
         var first = system.Replace(Shield(board.State, creature, new Fixed(3)), Damage(source, creature, 3), new PlayerId(0));
 
-        Assert.Null(Assert.IsType<ActiveEffectChanged>(Assert.Single(first.Events)).Effect);
+        // CR 615.13: the spending and the prevention it paid for are both in the log now (E8f).
+        Assert.Null(Assert.IsType<ActiveEffectChanged>(first.Events[0]).Effect);
+        Assert.Equal(3, Wave28Prevention(first).Prevented);
         Assert.Empty(first.State.ActiveEffects);
         Assert.Equal(0, first.State.Objects[creature].Damage);
 
@@ -124,7 +126,8 @@ public sealed partial class ReplacementEffectTests
 
         var first = system.Replace(Shield(board.State, creature, new Fixed(3)), Damage(source, creature, 1), new PlayerId(0));
 
-        Assert.Equal(new PreventDamage(new Fixed(2)), Assert.IsType<ActiveEffectChanged>(Assert.Single(first.Events)).Effect);
+        Assert.Equal(new PreventDamage(new Fixed(2)), Assert.IsType<ActiveEffectChanged>(first.Events[0]).Effect);
+        Assert.Equal(1, Wave28Prevention(first).Prevented);
         Assert.Equal(new PreventDamage(new Fixed(2)), Assert.Single(first.State.ActiveEffects).Effect);
 
         var second = system.Replace(first.State, Damage(source, creature, 5), new PlayerId(0));
@@ -147,7 +150,9 @@ public sealed partial class ReplacementEffectTests
 
         var outcome = System().Replace(state, Damage(source, creature, 5), new PlayerId(0));
 
-        Assert.Empty(outcome.Events);
+        // CR 615.13: no damage event, and the prevention is the only thing the log says happened.
+        Assert.Equal(5, Wave28Prevention(outcome).Prevented);
+        Assert.DoesNotContain(outcome.Events, e => e is DamageDealt);
         Assert.Equal(0, outcome.State.Objects[creature].Damage);
         Assert.Single(outcome.State.ActiveEffects);
     }
