@@ -7,7 +7,7 @@ namespace MtgEngine.Cards.Pipeline.Tests;
 /// point: a member no record has is an error naming it, because a translator found that a marker
 /// dropped into a filter slot used to read as an empty filter and lint clean.
 /// </summary>
-public sealed class TranslationPromptTests
+public sealed partial class TranslationPromptTests
 {
     private const string OracleId = "00000000-0000-0000-0000-0000000000d1";
 
