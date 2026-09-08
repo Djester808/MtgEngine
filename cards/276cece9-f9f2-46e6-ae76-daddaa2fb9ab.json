@@ -1,0 +1,579 @@
+{
+  "oracleId": "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
+  "name": "Kor Haven",
+  "oracleHash": "sha256:ec59969c602246eb2060013bff6bf9e474a3eb2e9217e5f3ed980ea2c1d3f52e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
+    "name": "Kor Haven",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Kor Haven",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Remember",
+                  "key": "k1",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "attacking": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{W}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Remember",
+                  "key": "k1",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "attacking": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsRemembered",
+                        "key": "k1"
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": true
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {}
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
+        "name": "Kor Haven",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kor Haven",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "attacking": true
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "PreventDamage",
+                        "from": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "combat": true,
+                        "toPlayersToo": true
+                      },
+                      "to": {
+                        "kind": "Each",
+                        "filter": {}
+                      },
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
+        "name": "Kor Haven",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kor Haven",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Land"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsOneOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "attacking": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "attacking": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{W}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "PreventDamage",
+                    "from": {
+                      "also": {
+                        "kind": "IsOneOf",
+                        "of": {
+                          "kind": "Target",
+                          "filter": {
+                            "attacking": true
+                          },
+                          "upTo": false,
+                          "key": "k1",
+                          "distinct": true
+                        }
+                      }
+                    },
+                    "combat": true,
+                    "toPlayersToo": false
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "attacking": true
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

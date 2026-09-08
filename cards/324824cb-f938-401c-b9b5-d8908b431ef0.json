@@ -1,0 +1,114 @@
+{
+  "oracleId": "324824cb-f938-401c-b9b5-d8908b431ef0",
+  "name": "Snuff Out",
+  "oracleHash": "sha256:d32c1690d70da2d8cf261e8ee9bd20a068850f527e552bca279e3d1fa89b7b68",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "324824cb-f938-401c-b9b5-d8908b431ef0",
+    "name": "Snuff Out",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Snuff Out",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "notColors": [
+                    "Black"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": true
+            },
+            "text": "Destroy target nonblack creature. It can\u0027t be regenerated."
+          }
+        ],
+        "oracleText": "If you control a Swamp, you may pay 4 life rather than pay this spell\u0027s mana cost.\nDestroy target nonblack creature. It can\u0027t be regenerated.",
+        "alternativeCosts": [
+          {
+            "cost": {
+              "kind": "PayLife",
+              "amount": {
+                "kind": "Fixed",
+                "n": 4
+              }
+            },
+            "onlyIf": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "subtypes": [
+                  "Swamp"
+                ]
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              }
+            }
+          }
+        ],
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "notColors": [
+                    "Black"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "cantBeRegenerated": true
+            },
+            "text": "Destroy target nonblack creature. It can\u0027t be regenerated."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

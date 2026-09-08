@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No Amount reads how much life the triggering GainsLife event gained: TriggeringDamage is damage only, and no step of this card stored the amount, so LoseLife has no amount to take.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

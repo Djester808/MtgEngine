@@ -1,0 +1,386 @@
+{
+  "oracleId": "9396546c-d067-4ce3-9c3d-b62cca970b4f",
+  "name": "Asceticism",
+  "oracleHash": "sha256:89c239ae388f956310e8d09ac80f6654b851ae597127317a8cdb289641ef9ac9",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "9396546c-d067-4ce3-9c3d-b62cca970b4f",
+    "name": "Asceticism",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Asceticism",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{G}{G}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Hexproof"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control have hexproof."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              }
+            ],
+            "do": {
+              "kind": "Regenerate",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)"
+          }
+        ],
+        "oracleText": "Creatures you control have hexproof.\n{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Hexproof"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures you control have hexproof."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              }
+            ],
+            "do": {
+              "kind": "Regenerate",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ]
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Heal",
+    "Regenerate"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "9396546c-d067-4ce3-9c3d-b62cca970b4f",
+        "name": "Asceticism",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Asceticism",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{G}{G}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Hexproof"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have hexproof."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  }
+                ],
+                "do": {
+                  "kind": "Regenerate",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)"
+              }
+            ],
+            "oracleText": "Creatures you control have hexproof.\n{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Hexproof"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have hexproof."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  }
+                ],
+                "do": {
+                  "kind": "Regenerate",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}: Regenerate target creature. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "9396546c-d067-4ce3-9c3d-b62cca970b4f",
+        "name": "Asceticism",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Asceticism",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{3}{G}{G}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Hexproof"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have hexproof."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  }
+                ],
+                "do": {
+                  "kind": "Regenerate",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}: Regenerate target creature."
+              }
+            ],
+            "oracleText": "Creatures you control have hexproof.\n{1}{G}: Regenerate target creature.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Hexproof"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures you control have hexproof."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  }
+                ],
+                "do": {
+                  "kind": "Regenerate",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}: Regenerate target creature."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Heal",
+    "Regenerate"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,498 @@
+{
+  "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
+  "name": "Bontu\u0027s Monument",
+  "oracleHash": "sha256:fac16b6568cdfa3c2fa1e6afa0de334328be2087e5766584f50829307268bca5",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
+    "name": "Bontu\u0027s Monument",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Bontu\u0027s Monument",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypeList": []
+        },
+        "manaCost": "{3}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "colors": [
+                  "Black"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Black creature spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+          }
+        ],
+        "oracleText": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "types": [
+                  "Creature"
+                ],
+                "colors": [
+                  "Black"
+                ],
+                "spell": true
+              },
+              "delta": {
+                "kind": "Fixed",
+                "n": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Black creature spells you cast cost {1} less to cast."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "types": [
+                  "Creature"
+                ]
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "LoseLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  },
+                  "who": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
+        "name": "Bontu\u0027s Monument",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bontu\u0027s Monument",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "Black"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Black creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+              }
+            ],
+            "oracleText": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "Black"
+                    ],
+                    "spell": true
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Black creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "940ba435-7abc-40f8-a5af-c1c653b3284e",
+        "name": "Bontu\u0027s Monument",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Bontu\u0027s Monument",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypeList": []
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "Black"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Black creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+              }
+            ],
+            "oracleText": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "colors": [
+                      "Black"
+                    ]
+                  },
+                  "delta": {
+                    "kind": "Fixed",
+                    "n": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Black creature spells you cast cost {1} less to cast."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "LoseLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      },
+                      "who": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    {
+                      "kind": "GainLife",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a creature spell, each opponent loses 1 life and you gain 1 life."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

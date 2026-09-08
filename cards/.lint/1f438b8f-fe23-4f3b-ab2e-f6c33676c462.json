@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No record for controlling another player, and none for the window while a player is searching their library.",
+      "path": "faces[0].abilities[1]"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

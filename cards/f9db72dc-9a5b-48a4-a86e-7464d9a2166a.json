@@ -1,0 +1,143 @@
+{
+  "oracleId": "f9db72dc-9a5b-48a4-a86e-7464d9a2166a",
+  "name": "Abrade",
+  "oracleHash": "sha256:ad1cf89df23f42a639a4bef3e6003cf7270eebc01cfb9742898df13429b01ec1",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f9db72dc-9a5b-48a4-a86e-7464d9a2166a",
+    "name": "Abrade",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Abrade",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Abrade deals 3 damage to target creature.",
+                  "do": {
+                    "kind": "DealDamage",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "to": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBePrevented": false
+                  }
+                },
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Abrade deals 3 damage to target creature.\n\u2022 Destroy target artifact."
+          }
+        ],
+        "oracleText": "Choose one \u2014\n\u2022 Abrade deals 3 damage to target creature.\n\u2022 Destroy target artifact.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "Abrade deals 3 damage to target creature.",
+                  "do": {
+                    "kind": "DealDamage",
+                    "n": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "to": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBePrevented": false
+                  }
+                },
+                {
+                  "text": "Destroy target artifact.",
+                  "do": {
+                    "kind": "Destroy",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Artifact"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    },
+                    "cantBeRegenerated": false
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Abrade deals 3 damage to target creature.\n\u2022 Destroy target artifact."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

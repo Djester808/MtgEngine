@@ -1,0 +1,79 @@
+{
+  "oracleId": "3407fe41-fdd3-4119-8f70-4bc4590a379f",
+  "name": "Negate",
+  "oracleHash": "sha256:36df929af71f70232a60fdc28fed53a4fbc27a97305ff744e4843c601e6a003a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3407fe41-fdd3-4119-8f70-4bc4590a379f",
+    "name": "Negate",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Negate",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Creature"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target noncreature spell."
+          }
+        ],
+        "oracleText": "Counter target noncreature spell.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Creature"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target noncreature spell."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

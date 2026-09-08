@@ -1,0 +1,79 @@
+{
+  "oracleId": "73089a39-a2f6-4aa2-a058-e6551475153d",
+  "name": "Sanguine Bond",
+  "oracleHash": "sha256:775571b10b62868058a6d841f571b9046211ddd9790452ef81e7b68eb5750e97",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "73089a39-a2f6-4aa2-a058-e6551475153d",
+    "name": "Sanguine Bond",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sanguine Bond",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{B}{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "GainsLife",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Amount reads how much life the triggering GainsLife event gained: TriggeringDamage is damage only, and no step of this card stored the amount, so LoseLife has no amount to take.",
+              "text": "target opponent loses that much life"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you gain life, target opponent loses that much life."
+          }
+        ],
+        "oracleText": "Whenever you gain life, target opponent loses that much life.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "GainsLife",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Amount reads how much life the triggering GainsLife event gained: TriggeringDamage is damage only, and no step of this card stored the amount, so LoseLife has no amount to take.",
+              "text": "target opponent loses that much life"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you gain life, target opponent loses that much life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

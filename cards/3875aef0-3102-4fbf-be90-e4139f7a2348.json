@@ -1,0 +1,632 @@
+{
+  "oracleId": "3875aef0-3102-4fbf-be90-e4139f7a2348",
+  "name": "Wayward Swordtooth",
+  "oracleHash": "sha256:3c28afb9fab4f813e79ce0848faf2258e4c6e85836b10e92428b4de1047779c2",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3875aef0-3102-4fbf-be90-e4139f7a2348",
+    "name": "Wayward Swordtooth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Wayward Swordtooth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Dinosaur"
+          ],
+          "subtypeList": [
+            "Dinosaur"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "power": {
+          "text": "5",
+          "number": 5
+        },
+        "toughness": {
+          "text": "5",
+          "number": 5
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Ascend",
+            "repeatable": false,
+            "text": "Ascend"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ExtraLandDrops",
+              "who": {
+                "kind": "You"
+              },
+              "count": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play an additional land on each of your turns."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantAttack"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "CityBlessing",
+                "who": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This creature can\u0027t attack or block unless you have the city\u0027s blessing."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantBlock"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "CityBlessing",
+                "who": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This creature can\u0027t attack or block unless you have the city\u0027s blessing."
+          }
+        ],
+        "oracleText": "Ascend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nYou may play an additional land on each of your turns.\nThis creature can\u0027t attack or block unless you have the city\u0027s blessing.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Ascend",
+            "repeatable": false,
+            "text": "Ascend"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ExtraLandDrops",
+              "who": {
+                "kind": "You"
+              },
+              "count": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may play an additional land on each of your turns."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantAttack"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "CityBlessing",
+                "who": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This creature can\u0027t attack or block unless you have the city\u0027s blessing."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CantBlock"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "NotCondition",
+              "of": {
+                "kind": "CityBlessing",
+                "who": {
+                  "kind": "You"
+                }
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "This creature can\u0027t attack or block unless you have the city\u0027s blessing."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Verified",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Ascend"
+  ],
+  "scenarios": [
+    {
+      "id": "smoke-3875aef0-3102-4fbf-be90-e4139f7a2348",
+      "title": "casting Wayward Swordtooth does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Wayward Swordtooth",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Wayward Swordtooth"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Wayward Swordtooth",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260908T020147-8e334a",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T02:01:47.7709012+00:00"
+  },
+  "keywordList": [
+    "Ascend"
+  ],
+  "scenarioList": [
+    {
+      "id": "smoke-3875aef0-3102-4fbf-be90-e4139f7a2348",
+      "title": "casting Wayward Swordtooth does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Wayward Swordtooth",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Wayward Swordtooth"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Wayward Swordtooth",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,382 @@
+{
+  "oracleId": "e46d0b57-5eec-4ab6-b9a7-a5c5cc01cc34",
+  "name": "Galadriel\u0027s Dismissal",
+  "oracleHash": "sha256:13e4968404773f9849cd00c6675297085ee6f9174018dbbb192137f71ec1bfda",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "e46d0b57-5eec-4ab6-b9a7-a5c5cc01cc34",
+    "name": "Galadriel\u0027s Dismissal",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Galadriel\u0027s Dismissal",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{W}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Kicker",
+            "cost": "{2}{W}",
+            "repeatable": false,
+            "text": "Kicker {2}{W}"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "WasKickedCondition"
+              },
+              "then": {
+                "kind": "PhaseOut",
+                "what": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "TargetPlayer",
+                      "filter": {},
+                      "upTo": false
+                    }
+                  }
+                }
+              },
+              "else": {
+                "kind": "PhaseOut",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead."
+          }
+        ],
+        "oracleText": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nTarget creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don\u0027t exist until their controller\u0027s next turn.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Kicker",
+            "cost": "{2}{W}",
+            "repeatable": false,
+            "text": "Kicker {2}{W}"
+          },
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "WasKickedCondition"
+              },
+              "then": {
+                "kind": "PhaseOut",
+                "what": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "TargetPlayer",
+                      "filter": {},
+                      "upTo": false
+                    }
+                  }
+                }
+              },
+              "else": {
+                "kind": "PhaseOut",
+                "what": {
+                  "kind": "Target",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  },
+                  "upTo": false,
+                  "distinct": true
+                }
+              }
+            },
+            "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Kicker"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "e46d0b57-5eec-4ab6-b9a7-a5c5cc01cc34",
+        "name": "Galadriel\u0027s Dismissal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Galadriel\u0027s Dismissal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}{W}",
+                "repeatable": false,
+                "text": "Kicker {2}{W}"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "WasKickedCondition"
+                  },
+                  "then": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "TargetPlayer",
+                          "filter": {},
+                          "upTo": false
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                },
+                "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead."
+              }
+            ],
+            "oracleText": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nTarget creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don\u0027t exist until their controller\u0027s next turn.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}{W}",
+                "repeatable": false,
+                "text": "Kicker {2}{W}"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "WasKickedCondition"
+                  },
+                  "then": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "TargetPlayer",
+                          "filter": {},
+                          "upTo": false
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                },
+                "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "e46d0b57-5eec-4ab6-b9a7-a5c5cc01cc34",
+        "name": "Galadriel\u0027s Dismissal",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Galadriel\u0027s Dismissal",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{W}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}{W}",
+                "repeatable": false,
+                "text": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "WasKickedCondition"
+                  },
+                  "then": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "TargetPlayer",
+                          "filter": {},
+                          "upTo": false,
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "k2",
+                      "distinct": true
+                    }
+                  }
+                },
+                "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don\u0027t exist until their controller\u0027s next turn.)"
+              }
+            ],
+            "oracleText": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nTarget creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don\u0027t exist until their controller\u0027s next turn.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Kicker",
+                "cost": "{2}{W}",
+                "repeatable": false,
+                "text": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)"
+              },
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "WasKickedCondition"
+                  },
+                  "then": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Each",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "TargetPlayer",
+                          "filter": {},
+                          "upTo": false,
+                          "key": "k1"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "PhaseOut",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "key": "k2",
+                      "distinct": true
+                    }
+                  }
+                },
+                "text": "Target creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don\u0027t exist until their controller\u0027s next turn.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Kicker"
+  ],
+  "scenarioList": []
+}

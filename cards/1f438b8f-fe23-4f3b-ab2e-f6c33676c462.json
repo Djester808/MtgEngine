@@ -1,0 +1,339 @@
+{
+  "oracleId": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+  "name": "Opposition Agent",
+  "oracleHash": "sha256:4657324301158391f3933ff5c3acf5bcc69f6dd34fb98f328879c5a4fdf3b71f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+    "name": "Opposition Agent",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Opposition Agent",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Human",
+            "Rogue"
+          ],
+          "subtypeList": [
+            "Human",
+            "Rogue"
+          ]
+        },
+        "manaCost": "{2}{B}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for controlling another player, and none for the window while a player is searching their library.",
+              "text": "You control your opponents while they\u0027re searching their libraries."
+            },
+            "players": {
+              "kind": "EachOpponent"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You control your opponents while they\u0027re searching their libraries."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+              "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+            },
+            "players": {
+              "kind": "EachOpponent"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+          }
+        ],
+        "oracleText": "Flash\nYou control your opponents while they\u0027re searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for controlling another player, and none for the window while a player is searching their library.",
+              "text": "You control your opponents while they\u0027re searching their libraries."
+            },
+            "players": {
+              "kind": "EachOpponent"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You control your opponents while they\u0027re searching their libraries."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+              "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+            },
+            "players": {
+              "kind": "EachOpponent"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Flash"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+        "name": "Opposition Agent",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Opposition Agent",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Rogue"
+              ],
+              "subtypeList": [
+                "Human",
+                "Rogue"
+              ]
+            },
+            "manaCost": "{2}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for controlling another player, and none for the window while a player is searching their library.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ],
+            "oracleText": "Flash\nYou control your opponents while they\u0027re searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for controlling another player, and none for the window while a player is searching their library.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for the cards a player finds while searching a library, for exiling each of them, or for spending mana as though it were mana of any color; MayPlayFromZone cannot describe that set of exiled cards.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "players": {
+                  "kind": "EachOpponent"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+        "name": "Opposition Agent",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Opposition Agent",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Human",
+                "Rogue"
+              ],
+              "subtypeList": [
+                "Human",
+                "Rogue"
+              ]
+            },
+            "manaCost": "{2}{B}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No vocabulary for a static ability that gives a player control over another player\u0027s decisions.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No vocabulary for redirecting the cards another player\u0027s library search finds into exile, or for granting play permission and any-color mana spending tied to that redirection.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ],
+            "oracleText": "Flash\nYou control your opponents while they\u0027re searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No vocabulary for a static ability that gives a player control over another player\u0027s decisions.",
+                  "text": "You control your opponents while they\u0027re searching their libraries."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You control your opponents while they\u0027re searching their libraries."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No vocabulary for redirecting the cards another player\u0027s library search finds into exile, or for granting play permission and any-color mana spending tied to that redirection.",
+                  "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Flash"
+  ],
+  "scenarioList": []
+}

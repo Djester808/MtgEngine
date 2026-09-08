@@ -1,0 +1,609 @@
+{
+  "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
+  "name": "Terastodon",
+  "oracleHash": "sha256:81b378417c7aabab291a0225b19bc29dc63a63afb31e0bf299e6c4b0ee498d7e",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
+    "name": "Terastodon",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Terastodon",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Elephant"
+          ],
+          "subtypeList": [
+            "Elephant"
+          ]
+        },
+        "manaCost": "{6}{G}{G}",
+        "power": {
+          "text": "9",
+          "number": 9
+        },
+        "toughness": {
+          "text": "9",
+          "number": 9
+        },
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Creature"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "upTo": true,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "do": {
+                    "kind": "CreateToken",
+                    "token": {
+                      "name": "Elephant",
+                      "colors": [
+                        "Green"
+                      ],
+                      "types": [
+                        "Creature"
+                      ],
+                      "subtypes": [
+                        "Elephant"
+                      ],
+                      "supertypes": [],
+                      "power": 3,
+                      "toughness": 3,
+                      "isPredefined": false
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "tapped": false,
+                    "attacking": false
+                  }
+                }
+              ]
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+          }
+        ],
+        "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Creature"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "upTo": true,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "do": {
+                    "kind": "CreateToken",
+                    "token": {
+                      "name": "Elephant",
+                      "colors": [
+                        "Green"
+                      ],
+                      "types": [
+                        "Creature"
+                      ],
+                      "subtypes": [
+                        "Elephant"
+                      ],
+                      "supertypes": [],
+                      "power": 3,
+                      "toughness": 3,
+                      "isPredefined": false
+                    },
+                    "who": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      }
+                    },
+                    "tapped": false,
+                    "attacking": false
+                  }
+                }
+              ]
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
+        "name": "Terastodon",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Terastodon",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elephant"
+              ],
+              "subtypeList": [
+                "Elephant"
+              ]
+            },
+            "manaCost": "{6}{G}{G}",
+            "power": {
+              "text": "9",
+              "number": 9
+            },
+            "toughness": {
+              "text": "9",
+              "number": 9
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "notTypes": [
+                            "Creature"
+                          ]
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "upTo": true,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "CreateToken",
+                        "token": {
+                          "name": "Elephant",
+                          "colors": [
+                            "Green"
+                          ],
+                          "types": [
+                            "Creature"
+                          ],
+                          "subtypes": [
+                            "Elephant"
+                          ],
+                          "supertypes": [],
+                          "power": 3,
+                          "toughness": 3,
+                          "isPredefined": false
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          }
+                        },
+                        "tapped": false,
+                        "attacking": false
+                      }
+                    }
+                  ]
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+              }
+            ],
+            "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Destroy",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "notTypes": [
+                            "Creature"
+                          ]
+                        },
+                        "count": {
+                          "kind": "Fixed",
+                          "n": 3
+                        },
+                        "upTo": true,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBeRegenerated": false
+                    },
+                    {
+                      "kind": "ForEach",
+                      "over": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "do": {
+                        "kind": "CreateToken",
+                        "token": {
+                          "name": "Elephant",
+                          "colors": [
+                            "Green"
+                          ],
+                          "types": [
+                            "Creature"
+                          ],
+                          "subtypes": [
+                            "Elephant"
+                          ],
+                          "supertypes": [],
+                          "power": 3,
+                          "toughness": 3,
+                          "isPredefined": false
+                        },
+                        "who": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          }
+                        },
+                        "tapped": false,
+                        "attacking": false
+                      }
+                    }
+                  ]
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "17975a20-2c13-4325-be1e-0bcda5063a2d",
+        "name": "Terastodon",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Terastodon",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elephant"
+              ],
+              "subtypeList": [
+                "Elephant"
+              ]
+            },
+            "manaCost": "{6}{G}{G}",
+            "power": {
+              "text": "9",
+              "number": 9
+            },
+            "toughness": {
+              "text": "9",
+              "number": 9
+            },
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Creature"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "upTo": true,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Destroy",
+                          "what": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "cantBeRegenerated": false
+                        }
+                      },
+                      {
+                        "kind": "If",
+                        "test": {
+                          "kind": "IsInZone",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "zone": "Graveyard"
+                        },
+                        "then": {
+                          "kind": "CreateToken",
+                          "token": {
+                            "name": "Elephant",
+                            "colors": [
+                              "Green"
+                            ],
+                            "types": [
+                              "Creature"
+                            ],
+                            "subtypes": [
+                              "Elephant"
+                            ],
+                            "supertypes": [],
+                            "power": 3,
+                            "toughness": 3,
+                            "isPredefined": false
+                          },
+                          "who": {
+                            "kind": "ControllerOf",
+                            "of": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            }
+                          },
+                          "tapped": false,
+                          "attacking": false
+                        }
+                      }
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+              }
+            ],
+            "oracleText": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "ForEach",
+                  "over": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Creature"
+                      ]
+                    },
+                    "count": {
+                      "kind": "Fixed",
+                      "n": 3
+                    },
+                    "upTo": true,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "do": {
+                    "kind": "Sequence",
+                    "steps": [
+                      {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Destroy",
+                          "what": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "cantBeRegenerated": false
+                        }
+                      },
+                      {
+                        "kind": "If",
+                        "test": {
+                          "kind": "IsInZone",
+                          "of": {
+                            "kind": "Triggering",
+                            "role": "Subject"
+                          },
+                          "zone": "Graveyard"
+                        },
+                        "then": {
+                          "kind": "CreateToken",
+                          "token": {
+                            "name": "Elephant",
+                            "colors": [
+                              "Green"
+                            ],
+                            "types": [
+                              "Creature"
+                            ],
+                            "subtypes": [
+                              "Elephant"
+                            ],
+                            "supertypes": [],
+                            "power": 3,
+                            "toughness": 3,
+                            "isPredefined": false
+                          },
+                          "who": {
+                            "kind": "ControllerOf",
+                            "of": {
+                              "kind": "Triggering",
+                              "role": "Subject"
+                            }
+                          },
+                          "tapped": false,
+                          "attacking": false
+                        }
+                      }
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When this creature enters, you may destroy up to three target noncreature permanents. For each permanent put into a graveyard this way, its controller creates a 3/3 green Elephant creature token."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

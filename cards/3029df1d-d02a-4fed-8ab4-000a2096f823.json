@@ -1,0 +1,512 @@
+{
+  "oracleId": "3029df1d-d02a-4fed-8ab4-000a2096f823",
+  "name": "Return to Dust",
+  "oracleHash": "sha256:c8e51ffa66bf00e95de7228d2f46ae1a71e537163e6e40a37dfe1db220c6e9e5",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3029df1d-d02a-4fed-8ab4-000a2096f823",
+    "name": "Return to Dust",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Return to Dust",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ]
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "faceDown": false
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "And",
+                    "of": [
+                      {
+                        "kind": "IsYourTurn",
+                        "value": true
+                      },
+                      {
+                        "kind": "Or",
+                        "of": [
+                          {
+                            "kind": "IsStep",
+                            "step": "PrecombatMain"
+                          },
+                          {
+                            "kind": "IsStep",
+                            "step": "PostcombatMain"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ],
+                          "also": {
+                            "kind": "NotPredicate",
+                            "of": {
+                              "kind": "IsRemembered",
+                              "key": "k1"
+                            }
+                          }
+                        },
+                        "upTo": true,
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+          }
+        ],
+        "oracleText": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Exile",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Artifact",
+                        "Enchantment"
+                      ]
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "faceDown": false
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "And",
+                    "of": [
+                      {
+                        "kind": "IsYourTurn",
+                        "value": true
+                      },
+                      {
+                        "kind": "Or",
+                        "of": [
+                          {
+                            "kind": "IsStep",
+                            "step": "PrecombatMain"
+                          },
+                          {
+                            "kind": "IsStep",
+                            "step": "PostcombatMain"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "then": {
+                    "kind": "May",
+                    "do": {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ],
+                          "also": {
+                            "kind": "NotPredicate",
+                            "of": {
+                              "kind": "IsRemembered",
+                              "key": "k1"
+                            }
+                          }
+                        },
+                        "upTo": true,
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "3029df1d-d02a-4fed-8ab4-000a2096f823",
+        "name": "Return to Dust",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Return to Dust",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "And",
+                        "of": [
+                          {
+                            "kind": "IsYourTurn",
+                            "value": true
+                          },
+                          {
+                            "kind": "Or",
+                            "of": [
+                              {
+                                "kind": "IsStep",
+                                "step": "PrecombatMain"
+                              },
+                              {
+                                "kind": "IsStep",
+                                "step": "PostcombatMain"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Exile",
+                          "what": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Artifact",
+                                "Enchantment"
+                              ],
+                              "also": {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k1"
+                                }
+                              }
+                            },
+                            "upTo": true,
+                            "distinct": true
+                          },
+                          "faceDown": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+              }
+            ],
+            "oracleText": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "And",
+                        "of": [
+                          {
+                            "kind": "IsYourTurn",
+                            "value": true
+                          },
+                          {
+                            "kind": "Or",
+                            "of": [
+                              {
+                                "kind": "IsStep",
+                                "step": "PrecombatMain"
+                              },
+                              {
+                                "kind": "IsStep",
+                                "step": "PostcombatMain"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "then": {
+                        "kind": "May",
+                        "do": {
+                          "kind": "Exile",
+                          "what": {
+                            "kind": "Target",
+                            "filter": {
+                              "anyTypes": [
+                                "Artifact",
+                                "Enchantment"
+                              ],
+                              "also": {
+                                "kind": "NotPredicate",
+                                "of": {
+                                  "kind": "IsRemembered",
+                                  "key": "k1"
+                                }
+                              }
+                            },
+                            "upTo": true,
+                            "distinct": true
+                          },
+                          "faceDown": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "3029df1d-d02a-4fed-8ab4-000a2096f823",
+        "name": "Return to Dust",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Return to Dust",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{W}{W}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Or",
+                        "of": [
+                          {
+                            "kind": "IsStep",
+                            "step": "PrecombatMain"
+                          },
+                          {
+                            "kind": "IsStep",
+                            "step": "PostcombatMain"
+                          }
+                        ]
+                      },
+                      "then": {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": true,
+                          "key": "k2",
+                          "distinct": true
+                        },
+                        "faceDown": false
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+              }
+            ],
+            "oracleText": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Exile",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "anyTypes": [
+                            "Artifact",
+                            "Enchantment"
+                          ]
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "faceDown": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "Or",
+                        "of": [
+                          {
+                            "kind": "IsStep",
+                            "step": "PrecombatMain"
+                          },
+                          {
+                            "kind": "IsStep",
+                            "step": "PostcombatMain"
+                          }
+                        ]
+                      },
+                      "then": {
+                        "kind": "Exile",
+                        "what": {
+                          "kind": "Target",
+                          "filter": {
+                            "anyTypes": [
+                              "Artifact",
+                              "Enchantment"
+                            ]
+                          },
+                          "upTo": true,
+                          "key": "k2",
+                          "distinct": true
+                        },
+                        "faceDown": false
+                      }
+                    }
+                  ]
+                },
+                "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

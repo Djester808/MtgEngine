@@ -1,0 +1,155 @@
+{
+  "oracleId": "a8f5cfa7-4956-4182-8e44-acf3493239f0",
+  "name": "Dawn Charm",
+  "oracleHash": "sha256:b18ae1ae3c2e123ec524f49ee58c37d1c65c2bb1ababd77c01a7955109c956de",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "a8f5cfa7-4956-4182-8e44-acf3493239f0",
+    "name": "Dawn Charm",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Dawn Charm",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "\u2022 Prevent all combat damage that would be dealt this turn.",
+                  "do": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "PreventDamage",
+                      "combat": true,
+                      "toPlayersToo": true
+                    },
+                    "to": {
+                      "kind": "Each",
+                      "filter": {}
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  }
+                },
+                {
+                  "text": "\u2022 Regenerate target creature.",
+                  "do": {
+                    "kind": "Regenerate",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                },
+                {
+                  "text": "\u2022 Counter target spell that targets you.",
+                  "do": {
+                    "kind": "Unsupported",
+                    "reason": "No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+                    "text": "Counter target spell that targets you."
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Prevent all combat damage that would be dealt this turn.\n\u2022 Regenerate target creature.\n\u2022 Counter target spell that targets you."
+          }
+        ],
+        "oracleText": "Choose one \u2014\n\u2022 Prevent all combat damage that would be dealt this turn.\n\u2022 Regenerate target creature.\n\u2022 Counter target spell that targets you.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChooseMode",
+              "modes": [
+                {
+                  "text": "\u2022 Prevent all combat damage that would be dealt this turn.",
+                  "do": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "PreventDamage",
+                      "combat": true,
+                      "toPlayersToo": true
+                    },
+                    "to": {
+                      "kind": "Each",
+                      "filter": {}
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  }
+                },
+                {
+                  "text": "\u2022 Regenerate target creature.",
+                  "do": {
+                    "kind": "Regenerate",
+                    "what": {
+                      "kind": "Target",
+                      "filter": {
+                        "types": [
+                          "Creature"
+                        ]
+                      },
+                      "upTo": false,
+                      "distinct": true
+                    }
+                  }
+                },
+                {
+                  "text": "\u2022 Counter target spell that targets you.",
+                  "do": {
+                    "kind": "Unsupported",
+                    "reason": "No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+                    "text": "Counter target spell that targets you."
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 1,
+              "sameModeTwice": false
+            },
+            "text": "Choose one \u2014\n\u2022 Prevent all combat damage that would be dealt this turn.\n\u2022 Regenerate target creature.\n\u2022 Counter target spell that targets you."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-101db83b85cb",
+    "agreed": true
+  },
+  "scryfallKeywords": [
+    "Regenerate"
+  ],
+  "keywordList": [
+    "Regenerate"
+  ],
+  "scenarioList": []
+}

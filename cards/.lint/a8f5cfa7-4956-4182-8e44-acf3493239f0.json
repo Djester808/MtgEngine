@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No ObjectFilter field or Predicate says \u0022a spell that targets you\u0022: TargetedBy describes a candidate that is targeted by an object, the opposite direction, and nothing describes a spell by the player it targets.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}
