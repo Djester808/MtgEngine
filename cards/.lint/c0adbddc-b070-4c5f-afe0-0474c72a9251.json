@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

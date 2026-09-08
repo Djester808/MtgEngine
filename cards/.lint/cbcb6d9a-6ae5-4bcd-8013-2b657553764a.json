@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No trigger fires once for an opponent\u0027s whole declaration of attackers, and no condition counts how many of those attacking creatures are attacking a particular player and/or that player\u0027s planeswalkers.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

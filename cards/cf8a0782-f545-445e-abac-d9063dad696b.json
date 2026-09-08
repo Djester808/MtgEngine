@@ -76,11 +76,15 @@
                     ]
                   },
                   "do": {
-                    "kind": "Unsupported",
-                    "reason": "No amount reads the damage the trigger\u0027s own event dealt (\u0027that many\u0027), and DelayedTrigger carries no duration, so the delayed trigger cannot be limited to this turn.",
-                    "text": "Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "TriggeringDamage"
+                    }
                   },
-                  "once": true
+                  "once": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
                 }
               ]
             },
@@ -145,11 +149,15 @@
                     ]
                   },
                   "do": {
-                    "kind": "Unsupported",
-                    "reason": "No amount reads the damage the trigger\u0027s own event dealt (\u0027that many\u0027), and DelayedTrigger carries no duration, so the delayed trigger cannot be limited to this turn.",
-                    "text": "Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+                    "kind": "Draw",
+                    "n": {
+                      "kind": "TriggeringDamage"
+                    }
                   },
-                  "once": true
+                  "once": false,
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
                 }
               ]
             },
@@ -159,17 +167,481 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Disputed",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5",
-      "claude-fable-5-1"
+      "claude-opus-5"
     ],
     "promptVersion": "pilot-9a79507e633f",
-    "agreed": true
+    "agreed": false
   },
   "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "cf8a0782-f545-445e-abac-d9063dad696b",
+        "name": "Hunter\u0027s Insight",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Hunter\u0027s Insight",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AnyOfTriggers",
+                        "of": [
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toPlayer": {},
+                            "combat": true
+                          },
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toObject": {
+                              "types": [
+                                "Planeswalker"
+                              ]
+                            },
+                            "combat": true
+                          }
+                        ]
+                      },
+                      "do": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "TriggeringDamage"
+                        }
+                      },
+                      "once": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ],
+            "oracleText": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AnyOfTriggers",
+                        "of": [
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toPlayer": {},
+                            "combat": true
+                          },
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toObject": {
+                              "types": [
+                                "Planeswalker"
+                              ]
+                            },
+                            "combat": true
+                          }
+                        ]
+                      },
+                      "do": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "TriggeringDamage"
+                        }
+                      },
+                      "once": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "cf8a0782-f545-445e-abac-d9063dad696b",
+        "name": "Hunter\u0027s Insight",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Hunter\u0027s Insight",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "DealsDamage",
+                        "source": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "toObject": {
+                          "types": [
+                            "Planeswalker"
+                          ]
+                        },
+                        "toPlayer": {},
+                        "combat": true
+                      },
+                      "do": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "TriggeringDamage"
+                        }
+                      },
+                      "once": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ],
+            "oracleText": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "DealsDamage",
+                        "source": {
+                          "also": {
+                            "kind": "IsRemembered",
+                            "key": "k1"
+                          }
+                        },
+                        "toObject": {
+                          "types": [
+                            "Planeswalker"
+                          ]
+                        },
+                        "toPlayer": {},
+                        "combat": true
+                      },
+                      "do": {
+                        "kind": "Draw",
+                        "n": {
+                          "kind": "TriggeringDamage"
+                        }
+                      },
+                      "once": false,
+                      "until": {
+                        "kind": "UntilEndOfTurn"
+                      }
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "definition": {
+        "oracleId": "cf8a0782-f545-445e-abac-d9063dad696b",
+        "name": "Hunter\u0027s Insight",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Hunter\u0027s Insight",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AnyOfTriggers",
+                        "of": [
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toPlayer": {},
+                            "combat": true
+                          },
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toObject": {
+                              "types": [
+                                "Planeswalker"
+                              ]
+                            },
+                            "combat": true
+                          }
+                        ]
+                      },
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "\u0027That many\u0027 is the amount of combat damage the triggering event dealt; no Amount reads the damage of the event a trigger fired for. DamageDealtThisTurn counts every point the creature dealt all turn, which differs for double strike or an earlier fight, so it is not this number.",
+                        "text": "draw that many cards"
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ],
+            "oracleText": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Remember",
+                      "key": "k1",
+                      "what": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      }
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "AnyOfTriggers",
+                        "of": [
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toPlayer": {},
+                            "combat": true
+                          },
+                          {
+                            "kind": "DealsDamage",
+                            "source": {
+                              "also": {
+                                "kind": "IsRemembered",
+                                "key": "k1"
+                              }
+                            },
+                            "toObject": {
+                              "types": [
+                                "Planeswalker"
+                              ]
+                            },
+                            "combat": true
+                          }
+                        ]
+                      },
+                      "do": {
+                        "kind": "Unsupported",
+                        "reason": "\u0027That many\u0027 is the amount of combat damage the triggering event dealt; no Amount reads the damage of the event a trigger fired for. DamageDealtThisTurn counts every point the creature dealt all turn, which differs for double strike or an earlier fight, so it is not this number.",
+                        "text": "draw that many cards"
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "text": "Choose target creature you control. Whenever that creature deals combat damage to a player or planeswalker this turn, draw that many cards."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "keywordList": [],
   "scenarioList": []
 }

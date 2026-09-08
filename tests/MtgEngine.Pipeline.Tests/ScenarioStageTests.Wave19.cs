@@ -70,29 +70,6 @@ public sealed class ScenarioStageTestsWave19
     }
 
     /// <summary>
-    /// CR 306.5b: a planeswalker enters with loyalty counters equal to its printed loyalty. The
-    /// engine puts none on it, so CR 704.5i buries it as it arrives and the battlefield every
-    /// permanent's scenario asserts is right about the card and wrong about the play. Drop this test
-    /// with the seam (seam-requests/P20.md § 2).
-    /// </summary>
-    [Fact]
-    [RuleRef("306.5b")]
-    public void A_planeswalker_gets_no_scenario_until_it_enters_with_its_loyalty()
-    {
-        var file = new CardFile(
-            "oracle-wave19-walker",
-            "wave19 walker",
-            OracleHashing.Of(["wave19 walker"]),
-            IrVersion.Current,
-            new CardDefinition("oracle-wave19-walker", "wave19 walker", Layout.Normal,
-                [new Face("wave19 walker", FaceRole.Main, new TypeLine(CardType.Planeswalker), ManaCost: "{3}{W}{W}", Loyalty: "5")]),
-            ImplementationStatus.Translated,
-            new TemplateProvenance("test"));
-
-        Assert.Null(SmokeScenario.Of(file));
-    }
-
-    /// <summary>
     /// CR 701.19: "put target card from a graveyard on top of its owner's library" — the graveyard is
     /// stocked with a card the filter admits and afterwards that card is in the library. The
     /// placement is not asserted: a library's order is not a zone a scenario can read.
@@ -113,24 +90,6 @@ public sealed class ScenarioStageTestsWave19
         Assert.Equal([buried.Alias!], Assert.IsType<CastStep>(scenario.Steps[0]).Targets);
         Assert.Equal(Zone.Library, Assert.Single(scenario.Expect.OfType<InZone>(), z => z.Card == buried.Alias).Zone);
         Passes(scenario, file);
-    }
-
-    /// <summary>
-    /// CR 107.4f: a Phyrexian symbol may be paid with two life instead of the mana, and the engine's
-    /// casting system refuses such a cost outright, so the cast the scenario would stage never
-    /// happens. Drop this test with the seam (seam-requests/P20.md § 3).
-    /// </summary>
-    [Fact]
-    [RuleRef("107.4f")]
-    public void A_phyrexian_cost_gets_no_scenario_until_the_casting_system_can_pay_one()
-    {
-        var file = Spell(
-            "wave19 phyrexian revive",
-            new SpellAbility(new Move(new Target(new ObjectFilter(In: Zone.Graveyard)), Zone.Library, Placement.Top)),
-            CardType.Instant,
-            "{G/P}");
-
-        Assert.Null(SmokeScenario.Of(file));
     }
 
     /// <summary>

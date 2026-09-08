@@ -47,9 +47,8 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Store",
-                  "key": "k1",
-                  "value": {
+                  "kind": "LoseLife",
+                  "n": {
                     "kind": "Devotion",
                     "who": {
                       "kind": "You"
@@ -57,17 +56,11 @@
                     "colors": [
                       "Black"
                     ]
-                  }
-                },
-                {
-                  "kind": "LoseLife",
-                  "n": {
-                    "kind": "Stored",
-                    "key": "k1"
                   },
                   "who": {
                     "kind": "EachOpponent"
-                  }
+                  },
+                  "storeAs": "k1"
                 },
                 {
                   "kind": "GainLife",
@@ -100,9 +93,8 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Store",
-                  "key": "k1",
-                  "value": {
+                  "kind": "LoseLife",
+                  "n": {
                     "kind": "Devotion",
                     "who": {
                       "kind": "You"
@@ -110,17 +102,11 @@
                     "colors": [
                       "Black"
                     ]
-                  }
-                },
-                {
-                  "kind": "LoseLife",
-                  "n": {
-                    "kind": "Stored",
-                    "key": "k1"
                   },
                   "who": {
                     "kind": "EachOpponent"
-                  }
+                  },
+                  "storeAs": "k1"
                 },
                 {
                   "kind": "GainLife",
@@ -140,540 +126,461 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
-        "name": "Gray Merchant of Asphodel",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-38f3b157-0df4-409b-89cc-086e1531cd5b",
+      "title": "casting Gray Merchant of Asphodel does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Gray Merchant of Asphodel",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Zombie"
-              ],
-              "subtypeList": [
-                "Zombie"
-              ]
-            },
-            "manaCost": "{3}{B}{B}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "4",
-              "number": 4
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Devotion",
-                        "who": {
-                          "kind": "You"
-                        },
-                        "colors": [
-                          "Black"
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+                "name": "Gray Merchant of Asphodel",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
-            "abilityList": [
+            "library": [
               {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Devotion",
-                        "who": {
-                          "kind": "You"
-                        },
-                        "colors": [
-                          "Black"
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "LoseLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      },
-                      "who": {
-                        "kind": "EachOpponent"
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k1"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
-        "name": "Gray Merchant of Asphodel",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Gray Merchant of Asphodel",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Zombie"
-              ],
-              "subtypeList": [
-                "Zombie"
-              ]
-            },
-            "manaCost": "{3}{B}{B}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "4",
-              "number": 4
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Devotion",
-                        "who": {
-                          "kind": "You"
-                        },
-                        "colors": [
-                          "Black"
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Store",
-                      "key": "k2",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 0
-                      }
-                    },
-                    {
-                      "kind": "ForEachPlayer",
-                      "over": {
-                        "kind": "EachOpponent"
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "Stored",
-                              "key": "k1"
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Store",
-                            "key": "k2",
-                            "value": {
-                              "kind": "Sum",
-                              "left": {
-                                "kind": "Stored",
-                                "key": "k2"
-                              },
-                              "right": {
-                                "kind": "Stored",
-                                "key": "k1"
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k2"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
-              }
-            ],
-            "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "Sequence",
-                  "steps": [
-                    {
-                      "kind": "Store",
-                      "key": "k1",
-                      "value": {
-                        "kind": "Devotion",
-                        "who": {
-                          "kind": "You"
-                        },
-                        "colors": [
-                          "Black"
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "Store",
-                      "key": "k2",
-                      "value": {
-                        "kind": "Fixed",
-                        "n": 0
-                      }
-                    },
-                    {
-                      "kind": "ForEachPlayer",
-                      "over": {
-                        "kind": "EachOpponent"
-                      },
-                      "do": {
-                        "kind": "Sequence",
-                        "steps": [
-                          {
-                            "kind": "LoseLife",
-                            "n": {
-                              "kind": "Stored",
-                              "key": "k1"
-                            },
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          },
-                          {
-                            "kind": "Store",
-                            "key": "k2",
-                            "value": {
-                              "kind": "Sum",
-                              "left": {
-                                "kind": "Stored",
-                                "key": "k2"
-                              },
-                              "right": {
-                                "kind": "Stored",
-                                "key": "k1"
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "kind": "GainLife",
-                      "n": {
-                        "kind": "Stored",
-                        "key": "k2"
-                      }
-                    }
-                  ]
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "38f3b157-0df4-409b-89cc-086e1531cd5b",
-        "name": "Gray Merchant of Asphodel",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Gray Merchant of Asphodel",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Zombie"
-              ],
-              "subtypeList": [
-                "Zombie"
-              ]
-            },
-            "manaCost": "{3}{B}{B}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "4",
-              "number": 4
-            },
-            "abilities": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "ForEachPlayer",
-                  "over": {
-                    "kind": "EachOpponent"
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Store",
-                        "key": "k1",
-                        "value": {
-                          "kind": "LifeOf",
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      },
-                      {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Devotion",
-                          "who": {
-                            "kind": "You"
-                          },
-                          "colors": [
-                            "Black"
-                          ]
-                        },
-                        "who": {
-                          "kind": "TriggeringPlayer"
-                        }
-                      },
-                      {
-                        "kind": "GainLife",
-                        "n": {
-                          "kind": "Difference",
-                          "left": {
-                            "kind": "Stored",
-                            "key": "k1"
-                          },
-                          "right": {
-                            "kind": "LifeOf",
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
-              }
-            ],
-            "oracleText": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
-            "abilityList": [
-              {
-                "kind": "TriggeredAbility",
-                "when": {
-                  "kind": "EntersBattlefield",
-                  "what": {
-                    "also": {
-                      "kind": "IsThisObject"
-                    }
-                  }
-                },
-                "do": {
-                  "kind": "ForEachPlayer",
-                  "over": {
-                    "kind": "EachOpponent"
-                  },
-                  "do": {
-                    "kind": "Sequence",
-                    "steps": [
-                      {
-                        "kind": "Store",
-                        "key": "k1",
-                        "value": {
-                          "kind": "LifeOf",
-                          "who": {
-                            "kind": "TriggeringPlayer"
-                          }
-                        }
-                      },
-                      {
-                        "kind": "LoseLife",
-                        "n": {
-                          "kind": "Devotion",
-                          "who": {
-                            "kind": "You"
-                          },
-                          "colors": [
-                            "Black"
-                          ]
-                        },
-                        "who": {
-                          "kind": "TriggeringPlayer"
-                        }
-                      },
-                      {
-                        "kind": "GainLife",
-                        "n": {
-                          "kind": "Difference",
-                          "left": {
-                            "kind": "Stored",
-                            "key": "k1"
-                          },
-                          "right": {
-                            "kind": "LifeOf",
-                            "who": {
-                              "kind": "TriggeringPlayer"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                "optional": false,
-                "where": "Battlefield",
-                "oncePerTurn": false,
-                "text": "When this creature enters, each opponent loses X life, where X is your devotion to black. You gain life equal to the life lost this way. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)"
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Gray Merchant of Asphodel"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Gray Merchant of Asphodel",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260908T000250-a9e884",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T00:02:50.9202168+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-38f3b157-0df4-409b-89cc-086e1531cd5b",
+      "title": "casting Gray Merchant of Asphodel does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Gray Merchant of Asphodel",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Gray Merchant of Asphodel"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Gray Merchant of Asphodel",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

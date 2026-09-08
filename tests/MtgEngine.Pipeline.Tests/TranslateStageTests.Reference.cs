@@ -16,7 +16,9 @@ public sealed class TranslateStageReferenceTests
     /// away from being the largest thing in the call. The number is a ceiling with room to grow a
     /// half again, not a measurement: a change that doubles the reference should have to say so.
     /// </summary>
-    private const int PrefixBudget = 100_000;
+    // V9 to V11 (waves 15 to 19) grew the reference from 68k to 103k characters; the readings now travel
+    // as files read by agents, so the budget is the reader's, not an API cache window's.
+    private const int PrefixBudget = 130_000;
 
     /// <summary>The records added after the pilot's prompt was written; each needs its one reading said.</summary>
     private static readonly string[] Later =

@@ -56,21 +56,6 @@ public static partial class SmokeScenario
             return board.Build(id, $"playing {file.Name} puts it onto the battlefield", new PlayLandStep(Caster, file.Name), spellGoesToTheGraveyard: false, usedTheStack: false);
         }
 
-        // CR 306.5b: a planeswalker enters the battlefield with loyalty counters equal to its
-        // printed loyalty. The engine puts none on it, so CR 704.5i buries it the moment it
-        // arrives and the battlefield a permanent's scenario asserts (CR 110.1) is right about the
-        // card and wrong about the play. No scenario until it has its loyalty
-        // (seam-requests/P20.md § 2).
-        if ((face.Types.Types & CardType.Planeswalker) != 0)
-            return null;
-
-        // CR 107.4f: a Phyrexian symbol may be paid with two life instead of the mana. The engine's
-        // casting system refuses such a cost outright ("Phyrexian mana {G/P} is not supported yet"),
-        // so a scenario staged against one reports the engine's gap as the card failing
-        // (seam-requests/P20.md § 3).
-        if (face.ManaCost is { Length: > 0 } phyrexian && phyrexian.Contains("/P", StringComparison.OrdinalIgnoreCase))
-            return null;
-
         if (!Costs(board, face))
             return null;
         board.Printed(face.ManaCost);

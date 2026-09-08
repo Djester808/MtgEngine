@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No amount reads the damage the trigger\u0027s own event dealt (\u0027that many\u0027), and DelayedTrigger carries no duration, so the delayed trigger cannot be limited to this turn.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

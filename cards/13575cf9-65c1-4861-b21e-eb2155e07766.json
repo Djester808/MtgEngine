@@ -183,7 +183,7 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -622,21 +622,22 @@
       ],
       "expect": [
         {
-          "kind": "TappedIs",
+          "kind": "InZone",
           "card": "Sensei\u0027s Divining Top",
-          "tapped": true
+          "zone": "Library",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Battlefield",
+          "count": 0
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
           "count": 4
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Library",
-          "count": 7
         },
         {
           "kind": "StackEmpty"
@@ -646,10 +647,10 @@
   ],
   "verification": {
     "engineHash": "engine:c8d2deb7a915f0d1",
-    "runId": "verify-20260907T232216-de57b0",
-    "passed": 1,
+    "runId": "verify-20260908T000250-a9e884",
+    "passed": 2,
     "total": 2,
-    "at": "2026-09-07T23:22:16.2228642+00:00"
+    "at": "2026-09-08T00:02:50.9202168+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -1080,21 +1081,22 @@
       ],
       "expect": [
         {
-          "kind": "TappedIs",
+          "kind": "InZone",
           "card": "Sensei\u0027s Divining Top",
-          "tapped": true
+          "zone": "Library",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Battlefield",
+          "count": 0
         },
         {
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
           "count": 4
-        },
-        {
-          "kind": "ZoneCount",
-          "player": "A",
-          "zone": "Library",
-          "count": 7
         },
         {
           "kind": "StackEmpty"

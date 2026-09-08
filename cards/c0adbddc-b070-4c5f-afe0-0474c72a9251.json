@@ -24,9 +24,37 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
-              "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              "kind": "MayBeginGameOnBattlefield",
+              "onlyIf": {
+                "kind": "IsYourTurn",
+                "value": false
+              },
+              "withCounters": [
+                {
+                  "counter": "luck",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ],
+              "ifYouDo": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "faceDown": false
+              }
             },
             "where": "Hand",
             "characteristicDefining": false,
@@ -87,9 +115,37 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
-              "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+              "kind": "MayBeginGameOnBattlefield",
+              "onlyIf": {
+                "kind": "IsYourTurn",
+                "value": false
+              },
+              "withCounters": [
+                {
+                  "counter": "luck",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ],
+              "ifYouDo": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "ownedBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "faceDown": false
+              }
             },
             "where": "Hand",
             "characteristicDefining": false,
@@ -148,462 +204,455 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-9a79507e633f",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
-        "name": "Gemstone Caverns",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-c0adbddc-b070-4c5f-afe0-0474c72a9251",
+      "title": "playing Gemstone Caverns puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Gemstone Caverns",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                "name": "Gemstone Caverns",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": true,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "Nothing in the vocabulary describes an ability that functions from the opening hand before the game begins (CR 103.6): there is no condition for \u0027in your opening hand\u0027 or \u0027you\u0027re not the starting player\u0027, and no effect that begins the game with a permanent on the battlefield.",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": true,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
-        "name": "Gemstone Caverns",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Gemstone Caverns",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "no record for beginning the game with a permanent already on the battlefield from the opening hand, or for placing a counter as part of game setup",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": true,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
-              }
-            ],
-            "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "no record for beginning the game with a permanent already on the battlefield from the opening hand, or for placing a counter as part of game setup",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": true,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-fable-5-1",
-      "definition": {
-        "oracleId": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
-        "name": "Gemstone Caverns",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Gemstone Caverns",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Land"
-              ],
-              "supertypes": [
-                "Legendary"
-              ],
-              "subtypeList": []
-            },
-            "abilities": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record says \u0027begin the game with this card on the battlefield\u0027 from the opening hand (CR 103.6): nothing watches the start of the game, nothing tests the opening hand or the starting player, and the luck counter and the exile from hand hang on that action.",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": true,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
-              }
-            ],
-            "oracleText": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color.",
-            "abilityList": [
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record says \u0027begin the game with this card on the battlefield\u0027 from the opening hand (CR 103.6): nothing watches the start of the game, nothing tests the opening hand or the starting player, and the luck counter and the exile from hand hang on that action.",
-                  "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-                },
-                "where": "Hand",
-                "characteristicDefining": false,
-                "text": "If this card is in your opening hand and you\u0027re not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand."
-              },
-              {
-                "kind": "ActivatedAbility",
-                "costs": [
-                  {
-                    "kind": "TapSelf"
-                  }
-                ],
-                "do": {
-                  "kind": "If",
-                  "test": {
-                    "kind": "Matches",
-                    "of": {
-                      "kind": "Self"
-                    },
-                    "filter": {
-                      "withCounter": "luck"
-                    }
-                  },
-                  "then": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "anyColor": true,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  },
-                  "else": {
-                    "kind": "AddMana",
-                    "mana": {
-                      "fixed": "{C}",
-                      "anyColor": false,
-                      "commanderIdentity": false,
-                      "chosenColor": false,
-                      "colorOfAttachedOrTarget": false,
-                      "landCouldProduce": false,
-                      "anyType": false,
-                      "restriction": false
-                    }
-                  }
-                },
-                "timing": "Any",
-                "where": "Battlefield",
-                "anyPlayerMayActivate": false,
-                "text": "{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Gemstone Caverns"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Gemstone Caverns",
+          "zone": "Battlefield"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:c8d2deb7a915f0d1",
+    "runId": "verify-20260908T000250-a9e884",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T00:02:50.9202168+00:00"
+  },
   "keywordList": [],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-c0adbddc-b070-4c5f-afe0-0474c72a9251",
+      "title": "playing Gemstone Caverns puts it onto the battlefield",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Gemstone Caverns",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "PlayLandStep",
+          "player": "A",
+          "card": "Gemstone Caverns"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Gemstone Caverns",
+          "zone": "Battlefield"
+        }
+      ]
+    }
+  ]
 }
