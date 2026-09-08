@@ -1,0 +1,493 @@
+{
+  "oracleId": "d69b1e68-8d8e-460b-9eb4-6a68be886197",
+  "name": "Kodama of the West Tree",
+  "oracleHash": "sha256:17a0cea6157b95a88c747860aeb124b1f22d950295c906276f9dad84807d929d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d69b1e68-8d8e-460b-9eb4-6a68be886197",
+    "name": "Kodama of the West Tree",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Kodama of the West Tree",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Spirit"
+          ],
+          "subtypeList": [
+            "Spirit"
+          ]
+        },
+        "manaCost": "{2}{G}",
+        "power": {
+          "text": "3",
+          "number": 3
+        },
+        "toughness": {
+          "text": "3",
+          "number": 3
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No ObjectFilter field or Predicate says \u0022modified\u0022 - a creature that has a counter on it, is equipped, or is enchanted by an Aura its controller controls. withAnyCounter says only the counter half, and no predicate reads the objects attached to a candidate (AttachedTo and IsAttached both describe the attachment, not the thing it hangs on).",
+              "text": "Modified creatures you control have trample."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "DealsDamage",
+              "source": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              },
+              "toPlayer": {},
+              "combat": true
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "The trigger\u0027s source filter cannot be narrowed to a modified creature: no ObjectFilter field or Predicate says \u0022modified\u0022 (a counter on it, equipped, or enchanted by an Aura you control), so this ability fires for every creature you control instead.",
+                  "text": "a modified creature you control"
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ],
+        "oracleText": "Reach\nModified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)\nWhenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Reach",
+            "repeatable": false,
+            "text": "Reach"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No ObjectFilter field or Predicate says \u0022modified\u0022 - a creature that has a counter on it, is equipped, or is enchanted by an Aura its controller controls. withAnyCounter says only the counter half, and no predicate reads the objects attached to a candidate (AttachedTo and IsAttached both describe the attachment, not the thing it hangs on).",
+              "text": "Modified creatures you control have trample."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "DealsDamage",
+              "source": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              },
+              "toPlayer": {},
+              "combat": true
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Unsupported",
+                  "reason": "The trigger\u0027s source filter cannot be narrowed to a modified creature: no ObjectFilter field or Predicate says \u0022modified\u0022 (a counter on it, equipped, or enchanted by an Aura you control), so this ability fires for every creature you control instead.",
+                  "text": "a modified creature you control"
+                },
+                {
+                  "kind": "Search",
+                  "for": {
+                    "types": [
+                      "Land"
+                    ],
+                    "supertypes": [
+                      "Basic"
+                    ]
+                  },
+                  "to": "Battlefield",
+                  "from": "Library",
+                  "where": "Default",
+                  "reveal": false,
+                  "tapped": true,
+                  "shuffleAfter": true,
+                  "shuffleOnlyIfFound": false,
+                  "othersTapped": false
+                }
+              ]
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Reach"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "d69b1e68-8d8e-460b-9eb4-6a68be886197",
+        "name": "Kodama of the West Tree",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kodama of the West Tree",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Spirit"
+              ],
+              "subtypeList": [
+                "Spirit"
+              ]
+            },
+            "manaCost": "{2}{G}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Reach",
+                "repeatable": false,
+                "text": "Reach"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No ObjectFilter field or Predicate says \u0022modified\u0022 - a creature that has a counter on it, is equipped, or is enchanted by an Aura its controller controls. withAnyCounter says only the counter half, and no predicate reads the objects attached to a candidate (AttachedTo and IsAttached both describe the attachment, not the thing it hangs on).",
+                  "text": "Modified creatures you control have trample."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The trigger\u0027s source filter cannot be narrowed to a modified creature: no ObjectFilter field or Predicate says \u0022modified\u0022 (a counter on it, equipped, or enchanted by an Aura you control), so this ability fires for every creature you control instead.",
+                      "text": "a modified creature you control"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": false,
+                      "tapped": true,
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Reach\nModified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)\nWhenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Reach",
+                "repeatable": false,
+                "text": "Reach"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No ObjectFilter field or Predicate says \u0022modified\u0022 - a creature that has a counter on it, is equipped, or is enchanted by an Aura its controller controls. withAnyCounter says only the counter half, and no predicate reads the objects attached to a candidate (AttachedTo and IsAttached both describe the attachment, not the thing it hangs on).",
+                  "text": "Modified creatures you control have trample."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "toPlayer": {},
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Unsupported",
+                      "reason": "The trigger\u0027s source filter cannot be narrowed to a modified creature: no ObjectFilter field or Predicate says \u0022modified\u0022 (a counter on it, equipped, or enchanted by an Aura you control), so this ability fires for every creature you control instead.",
+                      "text": "a modified creature you control"
+                    },
+                    {
+                      "kind": "Search",
+                      "for": {
+                        "types": [
+                          "Land"
+                        ],
+                        "supertypes": [
+                          "Basic"
+                        ]
+                      },
+                      "to": "Battlefield",
+                      "from": "Library",
+                      "where": "Default",
+                      "reveal": false,
+                      "tapped": true,
+                      "shuffleAfter": true,
+                      "shuffleOnlyIfFound": false,
+                      "othersTapped": false
+                    }
+                  ]
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "d69b1e68-8d8e-460b-9eb4-6a68be886197",
+        "name": "Kodama of the West Tree",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Kodama of the West Tree",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Spirit"
+              ],
+              "subtypeList": [
+                "Spirit"
+              ]
+            },
+            "manaCost": "{2}{G}",
+            "power": {
+              "text": "3",
+              "number": 3
+            },
+            "toughness": {
+              "text": "3",
+              "number": 3
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Reach",
+                "repeatable": false,
+                "text": "Reach"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "no predicate or filter field expresses the \u0027modified\u0027 status (has a counter, is enchanted, or is equipped) needed to select which creatures gain trample",
+                  "text": "Modified creatures you control have trample."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "no predicate or filter field expresses the \u0027modified\u0027 status needed to restrict this trigger to modified creatures; the search itself would otherwise be Search(for: basic land card, to: Battlefield, tapped: true, shuffleAfter: true)",
+                  "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ],
+            "oracleText": "Reach\nModified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)\nWhenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Reach",
+                "repeatable": false,
+                "text": "Reach"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "no predicate or filter field expresses the \u0027modified\u0027 status (has a counter, is enchanted, or is equipped) needed to select which creatures gain trample",
+                  "text": "Modified creatures you control have trample."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Modified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "DealsDamage",
+                  "source": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "combat": true
+                },
+                "do": {
+                  "kind": "Unsupported",
+                  "reason": "no predicate or filter field expresses the \u0027modified\u0027 status needed to restrict this trigger to modified creatures; the search itself would otherwise be Search(for: basic land card, to: Battlefield, tapped: true, shuffleAfter: true)",
+                  "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Reach"
+  ],
+  "scenarioList": []
+}

@@ -1,0 +1,298 @@
+{
+  "oracleId": "cac95494-0db0-4bec-8665-998431a6f76b",
+  "name": "Colossal Majesty",
+  "oracleHash": "sha256:010246973b3e14a4219d188b82ccaec937859e0eeabeeea8b45c837ec4dc2e63",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "cac95494-0db0-4bec-8665-998431a6f76b",
+    "name": "Colossal Majesty",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Colossal Majesty",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "if": {
+              "kind": "Ferocious",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+          }
+        ],
+        "oracleText": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "AtStep",
+              "step": "Upkeep",
+              "whose": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "if": {
+              "kind": "Ferocious",
+              "who": {
+                "kind": "You"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "cac95494-0db0-4bec-8665-998431a6f76b",
+        "name": "Colossal Majesty",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Colossal Majesty",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Ferocious",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+              }
+            ],
+            "oracleText": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Ferocious",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "cac95494-0db0-4bec-8665-998431a6f76b",
+        "name": "Colossal Majesty",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Colossal Majesty",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+              }
+            ],
+            "oracleText": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "AtStep",
+                  "step": "Upkeep",
+                  "whose": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "if": {
+                  "kind": "Controls",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "power": {
+                      "op": "Ge",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 4
+                      }
+                    }
+                  },
+                  "count": {
+                    "op": "Ge",
+                    "value": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "At the beginning of your upkeep, if you control a creature with power 4 or greater, draw a card."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

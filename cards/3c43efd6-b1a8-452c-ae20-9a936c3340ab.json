@@ -1,0 +1,602 @@
+{
+  "oracleId": "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+  "name": "Treasure Vault",
+  "oracleHash": "sha256:9de48a0e1b27edfb55440addcf001508d41decd08b2f44a5ff973ca583e379d4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+    "name": "Treasure Vault",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Treasure Vault",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact",
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{X}{X}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "abilities": [
+                  {
+                    "kind": "ActivatedAbility",
+                    "costs": [
+                      {
+                        "kind": "TapSelf"
+                      },
+                      {
+                        "kind": "SacrificeSelf"
+                      }
+                    ],
+                    "do": {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    "timing": "Any",
+                    "where": "Battlefield",
+                    "anyPlayerMayActivate": false,
+                    "text": "{T}, Sacrifice this token: Add one mana of any color."
+                  }
+                ],
+                "isPredefined": true
+              },
+              "n": {
+                "kind": "X"
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{X}{X}"
+              },
+              {
+                "kind": "TapSelf"
+              },
+              {
+                "kind": "SacrificeSelf"
+              }
+            ],
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treasure",
+                "colors": [],
+                "types": [
+                  "Artifact"
+                ],
+                "subtypes": [
+                  "Treasure"
+                ],
+                "supertypes": [],
+                "abilities": [
+                  {
+                    "kind": "ActivatedAbility",
+                    "costs": [
+                      {
+                        "kind": "TapSelf"
+                      },
+                      {
+                        "kind": "SacrificeSelf"
+                      }
+                    ],
+                    "do": {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      }
+                    },
+                    "timing": "Any",
+                    "where": "Battlefield",
+                    "anyPlayerMayActivate": false,
+                    "text": "{T}, Sacrifice this token: Add one mana of any color."
+                  }
+                ],
+                "isPredefined": true
+              },
+              "n": {
+                "kind": "X"
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Treasure"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+        "name": "Treasure Vault",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Treasure Vault",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact",
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{X}{X}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": true
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{X}{X}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "abilities": [
+                      {
+                        "kind": "ActivatedAbility",
+                        "costs": [
+                          {
+                            "kind": "TapSelf"
+                          },
+                          {
+                            "kind": "SacrificeSelf"
+                          }
+                        ],
+                        "do": {
+                          "kind": "AddMana",
+                          "mana": {
+                            "anyColor": true,
+                            "commanderIdentity": false,
+                            "chosenColor": false,
+                            "colorOfAttachedOrTarget": false,
+                            "landCouldProduce": false,
+                            "anyType": false,
+                            "restriction": false
+                          }
+                        },
+                        "timing": "Any",
+                        "where": "Battlefield",
+                        "anyPlayerMayActivate": false,
+                        "text": "{T}, Sacrifice this token: Add one mana of any color."
+                      }
+                    ],
+                    "isPredefined": true
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+        "name": "Treasure Vault",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Treasure Vault",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact",
+                "Land"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{X}{X}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "isPredefined": true
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{X}{X}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  },
+                  {
+                    "kind": "SacrificeSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treasure",
+                    "colors": [],
+                    "types": [
+                      "Artifact"
+                    ],
+                    "subtypes": [
+                      "Treasure"
+                    ],
+                    "supertypes": [],
+                    "isPredefined": true
+                  },
+                  "n": {
+                    "kind": "X"
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Treasure"
+  ],
+  "scenarioList": []
+}

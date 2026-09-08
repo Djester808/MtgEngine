@@ -1,0 +1,251 @@
+{
+  "oracleId": "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
+  "name": "Valakut Awakening // Valakut Stoneforge",
+  "oracleHash": "sha256:0e1c26a22b48651a17ff68589295fc94ac91bbd9c3dcf611e984a2967f88009d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
+    "name": "Valakut Awakening // Valakut Stoneforge",
+    "layout": "ModalDfc",
+    "faces": [
+      {
+        "name": "Valakut Awakening",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": true,
+                    "key": "k1"
+                  },
+                  "to": "Library",
+                  "where": "Bottom",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Sum",
+                    "left": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Library",
+                        "also": {
+                          "kind": "IsRemembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one."
+          }
+        ],
+        "oracleText": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": true,
+                    "key": "k1"
+                  },
+                  "to": "Library",
+                  "where": "Bottom",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Sum",
+                    "left": {
+                      "kind": "CountOf",
+                      "filter": {
+                        "in": "Library",
+                        "also": {
+                          "kind": "IsRemembered",
+                          "key": "k1"
+                        }
+                      }
+                    },
+                    "right": {
+                      "kind": "Fixed",
+                      "n": 1
+                    }
+                  }
+                }
+              ]
+            },
+            "text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one."
+          }
+        ]
+      },
+      {
+        "name": "Valakut Stoneforge",
+        "role": "Back",
+        "types": {
+          "types": [
+            "Land"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "abilities": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {R}."
+          }
+        ],
+        "oracleText": "This land enters tapped.\n{T}: Add {R}.",
+        "abilityList": [
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldEnterBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "with": {
+              "kind": "EntersTapped"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": true,
+            "text": "This land enters tapped."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{R}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {R}."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

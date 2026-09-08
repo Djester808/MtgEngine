@@ -1,0 +1,292 @@
+{
+  "oracleId": "8b610f8f-c8dd-4eeb-bc6e-3bc706d5f63e",
+  "name": "Nyxbloom Ancient",
+  "oracleHash": "sha256:2704c2be80e0d424ced0149f6e1f2cb8efaa9251eaceb8689c4d156db63e1e1c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8b610f8f-c8dd-4eeb-bc6e-3bc706d5f63e",
+    "name": "Nyxbloom Ancient",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Nyxbloom Ancient",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature",
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Elemental"
+          ],
+          "subtypeList": [
+            "Elemental"
+          ]
+        },
+        "manaCost": "{4}{G}{G}{G}",
+        "power": {
+          "text": "5",
+          "number": 5
+        },
+        "toughness": {
+          "text": "5",
+          "number": 5
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldAddMana",
+              "who": {
+                "kind": "You"
+              },
+              "fromSource": {}
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 3,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+          }
+        ],
+        "oracleText": "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          },
+          {
+            "kind": "ReplacementAbility",
+            "instead": {
+              "kind": "WouldAddMana",
+              "who": {
+                "kind": "You"
+              },
+              "fromSource": {}
+            },
+            "with": {
+              "kind": "ModifyAmount",
+              "multiply": 3,
+              "add": 0
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "selfOnly": false,
+            "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Trample"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8b610f8f-c8dd-4eeb-bc6e-3bc706d5f63e",
+        "name": "Nyxbloom Ancient",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Nyxbloom Ancient",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature",
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elemental"
+              ],
+              "subtypeList": [
+                "Elemental"
+              ]
+            },
+            "manaCost": "{4}{G}{G}{G}",
+            "power": {
+              "text": "5",
+              "number": 5
+            },
+            "toughness": {
+              "text": "5",
+              "number": 5
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "fromSource": {}
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 3,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+              }
+            ],
+            "oracleText": "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "fromSource": {}
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 3,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8b610f8f-c8dd-4eeb-bc6e-3bc706d5f63e",
+        "name": "Nyxbloom Ancient",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Nyxbloom Ancient",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature",
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Elemental"
+              ],
+              "subtypeList": [
+                "Elemental"
+              ]
+            },
+            "manaCost": "{4}{G}{G}{G}",
+            "power": {
+              "text": "5",
+              "number": 5
+            },
+            "toughness": {
+              "text": "5",
+              "number": 5
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 3,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+              }
+            ],
+            "oracleText": "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "ReplacementAbility",
+                "instead": {
+                  "kind": "WouldAddMana",
+                  "who": {
+                    "kind": "You"
+                  }
+                },
+                "with": {
+                  "kind": "ModifyAmount",
+                  "multiply": 3,
+                  "add": 0
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "selfOnly": false,
+                "text": "If you tap a permanent for mana, it produces three times as much of that mana instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Trample"
+  ],
+  "scenarioList": []
+}

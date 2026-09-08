@@ -1,0 +1,317 @@
+{
+  "oracleId": "2d513c3e-bd27-479e-af32-7f66d96d0de0",
+  "name": "Yeva, Nature\u0027s Herald",
+  "oracleHash": "sha256:89f5b7ac5f8a56e5e6df958aa4dd6f369ef5d04455ac4d1bf4db453bc3ace09c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "2d513c3e-bd27-479e-af32-7f66d96d0de0",
+    "name": "Yeva, Nature\u0027s Herald",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Yeva, Nature\u0027s Herald",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elf",
+            "Shaman"
+          ],
+          "subtypeList": [
+            "Elf",
+            "Shaman"
+          ]
+        },
+        "manaCost": "{2}{G}{G}",
+        "power": {
+          "text": "4",
+          "number": 4
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash (You may cast this spell any time you could cast an instant.)"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Flash"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Hand",
+                "types": [
+                  "Creature"
+                ],
+                "ownedBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may cast green creature spells as though they had flash."
+          }
+        ],
+        "oracleText": "Flash (You may cast this spell any time you could cast an instant.)\nYou may cast green creature spells as though they had flash.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash (You may cast this spell any time you could cast an instant.)"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Flash"
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "in": "Hand",
+                "types": [
+                  "Creature"
+                ],
+                "ownedBy": {
+                  "kind": "You"
+                },
+                "colors": [
+                  "Green"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "You may cast green creature spells as though they had flash."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Flash"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "2d513c3e-bd27-479e-af32-7f66d96d0de0",
+        "name": "Yeva, Nature\u0027s Herald",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Yeva, Nature\u0027s Herald",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elf",
+                "Shaman"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Shaman"
+              ]
+            },
+            "manaCost": "{2}{G}{G}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record grants the timing permission to cast other cards as though they had flash. GrantKeyword would have to hang on a selector whose filter names one zone, so it cannot reach green creature cards wherever they are cast from, and MayPlayFromZone grants a zone rather than a time.",
+                  "text": "You may cast green creature spells as though they had flash."
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may cast green creature spells as though they had flash."
+              }
+            ],
+            "oracleText": "Flash (You may cast this spell any time you could cast an instant.)\nYou may cast green creature spells as though they had flash.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record grants the timing permission to cast other cards as though they had flash. GrantKeyword would have to hang on a selector whose filter names one zone, so it cannot reach green creature cards wherever they are cast from, and MayPlayFromZone grants a zone rather than a time.",
+                  "text": "You may cast green creature spells as though they had flash."
+                },
+                "players": {
+                  "kind": "You"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may cast green creature spells as though they had flash."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "2d513c3e-bd27-479e-af32-7f66d96d0de0",
+        "name": "Yeva, Nature\u0027s Herald",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Yeva, Nature\u0027s Herald",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elf",
+                "Shaman"
+              ],
+              "subtypeList": [
+                "Elf",
+                "Shaman"
+              ]
+            },
+            "manaCost": "{2}{G}{G}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash (You may cast this spell any time you could cast an instant.)"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flash"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may cast green creature spells as though they had flash."
+              }
+            ],
+            "oracleText": "Flash (You may cast this spell any time you could cast an instant.)\nYou may cast green creature spells as though they had flash.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash (You may cast this spell any time you could cast an instant.)"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flash"
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Creature"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    },
+                    "colors": [
+                      "Green"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "You may cast green creature spells as though they had flash."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Flash"
+  ],
+  "scenarioList": []
+}

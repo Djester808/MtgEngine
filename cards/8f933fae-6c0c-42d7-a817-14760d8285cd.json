@@ -1,0 +1,79 @@
+{
+  "oracleId": "8f933fae-6c0c-42d7-a817-14760d8285cd",
+  "name": "Exquisite Blood",
+  "oracleHash": "sha256:9b0ab8a6b988e8808f1da1f4b3ab44efbd81540daa975cbf656fb23456ed702c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8f933fae-6c0c-42d7-a817-14760d8285cd",
+    "name": "Exquisite Blood",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Exquisite Blood",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{B}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "LosesLife",
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Amount reads how much life the triggering event took. TriggeringDamage is damage only and belongs to a damage trigger, LoseLife\u0027s storeAs holds only life this card\u0027s own instruction took, and no step of this card lost the life, so nothing produces a Stored key for it.",
+              "text": "you gain that much life"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent loses life, you gain that much life."
+          }
+        ],
+        "oracleText": "Whenever an opponent loses life, you gain that much life.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "LosesLife",
+              "who": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Unsupported",
+              "reason": "No Amount reads how much life the triggering event took. TriggeringDamage is damage only and belongs to a damage trigger, LoseLife\u0027s storeAs holds only life this card\u0027s own instruction took, and no step of this card lost the life, so nothing produces a Stored key for it.",
+              "text": "you gain that much life"
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent loses life, you gain that much life."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

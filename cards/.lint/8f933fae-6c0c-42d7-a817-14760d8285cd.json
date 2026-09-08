@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No Amount reads how much life the triggering event took. TriggeringDamage is damage only and belongs to a damage trigger, LoseLife\u0027s storeAs holds only life this card\u0027s own instruction took, and no step of this card lost the life, so nothing produces a Stored key for it.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

@@ -1,0 +1,196 @@
+{
+  "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+  "name": "Propaganda",
+  "oracleHash": "sha256:4855567076dcb70b4d3b338ebfa85f9ac886ecd34157798dde0bb776eb73343d",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+    "name": "Propaganda",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Propaganda",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{U}",
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
+              "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+          }
+        ],
+        "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
+              "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+            },
+            "to": {
+              "kind": "Each",
+              "filter": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+        "name": "Propaganda",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Propaganda",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{U}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ],
+            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record for an attack tax: CantAttack\u0027s Unless is an ObjectFilter describing a permanent, so it cannot say that the attacking creature\u0027s controller must pay {2} for each creature they control that\u0027s attacking me. There is no cost-to-attack continuous effect in the vocabulary (CostModifier is spells, AbilityCostModifier is abilities, OptionalAdditionalCost rides on spells), and no amount for \u0022each creature they control that\u0027s attacking you\u0022 in a payment position.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "to": {
+                  "kind": "Each",
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+        "name": "Propaganda",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Propaganda",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}{U}",
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The vocabulary\u0027s CantAttack only takes an ObjectFilter exception, not a per-attacking-creature mana tax that permits the attack when paid; no ContinuousEffect expresses a payable tax on attacking.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ],
+            "oracleText": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you.",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "The vocabulary\u0027s CantAttack only takes an ObjectFilter exception, not a per-attacking-creature mana tax that permits the attack when paid; no ContinuousEffect expresses a payable tax on attacking.",
+                  "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Creatures can\u0027t attack you unless their controller pays {2} for each creature they control that\u0027s attacking you."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

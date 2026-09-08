@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: No ObjectFilter field or Predicate says \u0022modified\u0022 - a creature that has a counter on it, is equipped, or is enchanted by an Aura its controller controls. withAnyCounter says only the counter half, and no predicate reads the objects attached to a candidate (AttachedTo and IsAttached both describe the attachment, not the thing it hangs on).",
+      "path": "faces[0].abilities[1]"
+    },
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: The trigger\u0027s source filter cannot be narrowed to a modified creature: no ObjectFilter field or Predicate says \u0022modified\u0022 (a counter on it, equipped, or enchanted by an Aura you control), so this ability fires for every creature you control instead.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": true
+}

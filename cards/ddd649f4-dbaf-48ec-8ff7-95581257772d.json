@@ -1,0 +1,580 @@
+{
+  "oracleId": "ddd649f4-dbaf-48ec-8ff7-95581257772d",
+  "name": "Isochron Scepter",
+  "oracleHash": "sha256:64c4525b3b0dafa3042ce143e1aacdd24b3640476ef4e104108957a6440e3a4c",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ddd649f4-dbaf-48ec-8ff7-95581257772d",
+    "name": "Isochron Scepter",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Isochron Scepter",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Instant"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    },
+                    "manaValue": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "MayCast",
+              "what": {
+                "kind": "Remembered",
+                "key": "k1"
+              },
+              "withoutPayingManaCost": true,
+              "asCopy": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+          }
+        ],
+        "oracleText": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "May",
+              "do": {
+                "kind": "Exile",
+                "what": {
+                  "kind": "Choose",
+                  "filter": {
+                    "in": "Hand",
+                    "types": [
+                      "Instant"
+                    ],
+                    "ownedBy": {
+                      "kind": "You"
+                    },
+                    "manaValue": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    }
+                  },
+                  "chooser": {
+                    "kind": "You"
+                  },
+                  "upTo": false
+                },
+                "faceDown": false,
+                "rememberAs": "k1"
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{2}"
+              },
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "MayCast",
+              "what": {
+                "kind": "Remembered",
+                "key": "k1"
+              },
+              "withoutPayingManaCost": true,
+              "asCopy": true
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-f942b227ec6c",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Imprint"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "ddd649f4-dbaf-48ec-8ff7-95581257772d",
+        "name": "Isochron Scepter",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Isochron Scepter",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Instant"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        },
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": true,
+                  "asCopy": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+              }
+            ],
+            "oracleText": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Instant"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        },
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "MayCast",
+                  "what": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "withoutPayingManaCost": true,
+                  "asCopy": true
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "ddd649f4-dbaf-48ec-8ff7-95581257772d",
+        "name": "Isochron Scepter",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Isochron Scepter",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{2}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Instant"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        },
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "CopySpell",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "mayChooseNewTargets": true,
+                        "rememberAs": "k2"
+                      },
+                      "storeChoiceAs": "k3"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "ChoiceIs",
+                        "key": "k3",
+                        "value": "yes"
+                      },
+                      "then": {
+                        "kind": "MayCast",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "withoutPayingManaCost": true,
+                        "asCopy": false
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+              }
+            ],
+            "oracleText": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Exile",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Instant"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        },
+                        "manaValue": {
+                          "op": "Le",
+                          "value": {
+                            "kind": "Fixed",
+                            "n": 2
+                          }
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "faceDown": false,
+                    "rememberAs": "k1"
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "May",
+                      "do": {
+                        "kind": "CopySpell",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "mayChooseNewTargets": true,
+                        "rememberAs": "k2"
+                      },
+                      "storeChoiceAs": "k3"
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "ChoiceIs",
+                        "key": "k3",
+                        "value": "yes"
+                      },
+                      "then": {
+                        "kind": "MayCast",
+                        "what": {
+                          "kind": "Remembered",
+                          "key": "k2"
+                        },
+                        "withoutPayingManaCost": true,
+                        "asCopy": false
+                      }
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Imprint"
+  ],
+  "scenarioList": []
+}
