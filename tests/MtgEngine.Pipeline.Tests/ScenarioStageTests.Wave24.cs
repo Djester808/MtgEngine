@@ -94,14 +94,15 @@ public sealed class ScenarioStageTestsWave24
     }
 
     /// <summary>
-    /// CR 115.7 with CR 608.2h: a retarget whose own target carries a key changes nothing in the
-    /// engine — the bolt stays where it was announced and the keyed "that spell's mana value" reads
-    /// no number — so the card gets no scenario rather than one that always fails. This test is the
-    /// record of that gap; it flips to a play when the engine answers seam-requests/P23.md § 2.
+    /// CR 115.7 with CR 608.2h: a retarget whose own target carries a key is a play since wave 26.
+    /// It was withheld while the same shape changed nothing in the engine (seam-requests/P23.md
+    /// § 2); E9t measured that the gap was the query's zoneless spell filter and not the
+    /// interpreter's (CR 112.1), and with that filter reading the stack the announcement is
+    /// remembered and the keyed "that spell's mana value" reads the bolt's own printed cost.
     /// </summary>
     [Fact]
     [RuleRef("115.7")]
-    public void A_retarget_that_keys_its_target_gets_no_scenario()
+    public void A_retarget_that_keys_its_target_plays()
     {
         var file = Spell(
             "wave24 mischief",
@@ -113,7 +114,7 @@ public sealed class ScenarioStageTestsWave24
             CardType.Instant,
             "{1}{B}");
 
-        Assert.Null(SmokeScenario.Of(file));
+        Assert.NotNull(SmokeScenario.Of(file));
     }
 
     /// <summary>

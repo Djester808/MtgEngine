@@ -119,18 +119,34 @@ public sealed class ScenarioStageTestsWave19
 
         Assert.NotNull(scenario);
         // The opponent cast the filler spell out of a pool that held only its cost (CR 602.2a).
-        Assert.Equal("1", scenario!.Setup.Players[1].ManaPool);
+        // Since wave 26 that filler is the bolt, whose cost is {R}: a counter has to be aimed at a
+        // spell whose resolution the play can see, or the graveyard it asserts is one a resolving
+        // spell reaches too (CR 608.2m, seam-requests/E9t.md).
+        Assert.Equal("R", scenario!.Setup.Players[1].ManaPool);
         Assert.Contains(scenario.Expect, e => e is InZone { Zone: Zone.Graveyard, Owner: SmokeScenario.Opponent });
-        Passes(scenario, file);
+
+        // CR 118.6: the counter does not actually happen, and until wave 26 nothing could see it.
+        // The opponent's pool holds only the bolt's own cost and is empty once they have cast it,
+        // yet the payment is made and the bolt resolves — it takes one life off them, which is what
+        // this records. The old road put the filler that does nothing on the stack and asserted the
+        // graveyard alone, and a spell that resolves reaches that same graveyard (CR 608.2m), so
+        // this card passed either way. Recorded rather than asserted green: seam-requests/P25.md
+        // § 2 owns the ask, and this line flips back to <see cref="Passes"/> when it lands.
+        var played = Plays(scenario, file);
+        Assert.Contains(played.Results, r => !r.Passed && r.Expectation is Life { Player: SmokeScenario.Opponent });
     }
 
     private static void Passes(Scenario scenario, CardFile file)
     {
-        var result = new ScenarioRunner(new Game(Subsystems.Wave2(), new ScenarioStageWave19Definitions(file))).Run(scenario);
+        var result = Plays(scenario, file);
 
         Assert.Null(result.Error);
         Assert.True(result.Passed, string.Join(" | ", result.Results.Where(r => !r.Passed).Select(r => $"{r.Expectation}: {r.Actual}")));
     }
+
+    /// <summary>The scenario played through a real game, whatever it came to.</summary>
+    private static ScenarioResult Plays(Scenario scenario, CardFile file) =>
+        new ScenarioRunner(new Game(Subsystems.Wave2(), new ScenarioStageWave19Definitions(file))).Run(scenario);
 
     private static CardFile Artifact(string name, Ability ability) => Spell(name, ability, CardType.Artifact);
 

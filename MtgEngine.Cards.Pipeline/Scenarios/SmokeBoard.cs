@@ -83,6 +83,26 @@ internal sealed class SmokeBoard(string card)
             _opponentLife += delta;
     }
 
+    private bool _casterLifeHolds;
+    private bool _opponentLifeHolds;
+
+    /// <summary>
+    /// CR 119.1: this player's life total is asserted even when the card under test never moves it,
+    /// because <em>not</em> moving is what the play is about — a countered spell is a spell whose
+    /// damage never happened, and a scenario that only names the graveyard the countered spell went
+    /// to would pass over a counter that did nothing at all (CR 608.2m puts a spell that resolved
+    /// in the same graveyard). The delta is still whatever every other generator added, so a card
+    /// that counters and drains asserts one total rather than two that cannot both hold.
+    /// </summary>
+    [RuleRef("119.1")]
+    internal void LifeHolds(bool mine)
+    {
+        if (mine)
+            _casterLifeHolds = true;
+        else
+            _opponentLifeHolds = true;
+    }
+
     /// <summary>CR 608.2h: an object a step remembered under a key, so a later step can read it back.</summary>
     [RuleRef("608.2h")]
     internal void Remember(string key, string alias, string card)
@@ -553,9 +573,9 @@ internal sealed class SmokeBoard(string card)
             _expect.Add(new ZoneCount(SmokeScenario.Opponent, Zone.Graveyard, _opponentGraveyard));
 
         // CR 119.1: each player starts at twenty, and what the card did to that is one number.
-        if (_casterLife != 0)
+        if (_casterLife != 0 || _casterLifeHolds)
             _expect.Add(new Life(SmokeScenario.Caster, 20 + _casterLife));
-        if (_opponentLife != 0)
+        if (_opponentLife != 0 || _opponentLifeHolds)
             _expect.Add(new Life(SmokeScenario.Opponent, 20 + _opponentLife));
     }
 

@@ -28,16 +28,6 @@ public static partial class SmokeScenario
         Simple(filter) && filter.Types == CardType.Creature && filter.ControlledBy is You && filter.In is null or Zone.Battlefield;
 
     /// <summary>
-    /// CR 601.2c: which filler spell the board can put on the stack for this target, or null when
-    /// the filter describes a spell it has no card for. The filter is read against the fillers'
-    /// printed type lines, so "target noncreature spell" and "target instant or sorcery spell" are
-    /// answered by the same reading that answers "target spell".
-    /// </summary>
-    [RuleRef("601.2c")]
-    private static string? Spell(Target target) =>
-        target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Cast(target.Filter) : null;
-
-    /// <summary>
     /// Every field the board cannot honour is null: a filter with a colour, a power or a predicate
     /// describes a permanent the runner has no card for, and guessing one would be inventing a card.
     /// </summary>
