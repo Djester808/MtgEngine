@@ -141,6 +141,15 @@ public sealed partial class Query
             You => [context.Controller], // CR 109.5
             EachPlayer => InGame(state),
             EachOpponent => [.. InGame(state).Where(p => p != context.Controller)], // CR 102.1
+
+            // CR 102.2: "an opponent" is some opponent, and the only question it can answer is a
+            // condition about one. The condition layer binds it to one opponent at a time and asks
+            // the condition once per opponent (CR 103.1 gives the seats); this reads that binding.
+            // With none, the reference is being used to act on a player it never named, and it is
+            // refused rather than answered with the first opponent — which is a different card at
+            // four players and the same card in a duel, so the wrong reading survives every
+            // two-player test. The linter refuses the shape too (L041); this is the engine's half.
+            AnOpponent => BoundOpponent(context) is { } one ? [one] : throw Unanswerable(nameof(AnOpponent), NoAnOpponentToAct, "102.2"),
             TargetPlayer => context.TargetPlayers, // CR 601.2c
             ActivePlayer => [state.Turn.ActivePlayer], // CR 102.1
             TriggeringPlayer => context.TriggeringPlayer is { } who ? [who] : [], // CR 603.6
@@ -261,6 +270,27 @@ public sealed partial class Query
     private const string NoPlayerChoice =
         "choosing a player is a question and the query layer only reads; the choice system asks it " +
         "and records the answer under the key";
+
+    /// <summary>
+    /// The key one opponent of an existential condition is bound under while that condition is
+    /// asked about them, CR 102.2. It travels in <see cref="EffectContext.RememberedPlayers"/>
+    /// because that is the one place the query layer already carries a player by name, and the
+    /// colon keeps it apart from every key a card could write (no vocabulary key contains one).
+    /// </summary>
+    [RuleRef("102.2")]
+    private const string AnOpponentBinding = "an-opponent:bound";
+
+    /// <summary>The opponent an existential condition is currently asked about, or none outside one.</summary>
+    private static PlayerId? BoundOpponent(EffectContext context) =>
+        context.RememberedPlayers is { } remembered
+        && remembered.TryGetValue(AnOpponentBinding, out var bound)
+        && bound.Count > 0
+            ? bound[0]
+            : null;
+
+    private const string NoAnOpponentToAct =
+        "\"an opponent\" names some opponent rather than one to act on, so it can only be read " +
+        "inside a condition; an effect aimed at one wants ChoosePlayer, TargetPlayer or EachOpponent";
 
     private const string NoChosenPlayer =
         "the values an object keeps from a linked ability are strings, so a chosen player has " +

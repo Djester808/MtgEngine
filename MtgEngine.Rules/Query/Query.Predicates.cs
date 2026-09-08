@@ -94,7 +94,12 @@ public sealed partial class Query
 
             HasAbilityOfKind kind => HasAbility(_layers.Of(state, candidate), kind.Ability), // CR 602.1
             ProducesMana produces => _layers.Of(state, candidate).Abilities
-                .OfType<ActivatedAbility>().Any(a => Produces(a.Do, produces.Colors)), // CR 605.1a
+                .OfType<ActivatedAbility>().Any(a => ManaAbilities.CouldAddMana(a.Do, produces.Colors)), // CR 605.1a
+
+            // CR 700.9: modified is one word with three ways to be true, and any one of them is
+            // enough. Only a permanent is modified, so an object anywhere but the battlefield
+            // answers no rather than being asked about counters it may well carry (CR 110.1).
+            IsModified => obj.Zone.Zone == Cards.Zone.Battlefield && Modified(state, obj, candidate),
 
             // CR 603.10: the turn's history is what "this turn" means, and a zone change folds it
             // as it happens, so the answer survives the object it is about ceasing to exist.
@@ -149,6 +154,40 @@ public sealed partial class Query
     private bool OneOf(GameState state, Selector of, ObjectId candidate, EffectContext ctx) =>
         Resolve(state, of, ctx).Contains(candidate);
 
+    /// <summary>The subtypes CR 301.5 and CR 303.4 give the two kinds of attachment a permanent can carry.</summary>
+    private const string EquipmentSubtype = "Equipment";
+    private const string AuraSubtype = "Aura";
+
+    /// <summary>
+    /// CR 700.9: a permanent is modified if it has one or more counters on it (CR 122), if it is
+    /// equipped (CR 301.5), or if it is enchanted by an Aura <em>that permanent's controller
+    /// controls</em> (CR 303.4). The third clause is the half a reading loses: an opponent's Aura
+    /// on your creature does not modify it, and a counter of any kind — not only +1/+1 — does.
+    /// The attachments are found from the other end of the link, because a permanent does not
+    /// record what is attached to it; each attachment records its host (CR 301.5c).
+    /// </summary>
+    [RuleRef("700.9")]
+    private bool Modified(GameState state, GameObject obj, ObjectId candidate)
+    {
+        if (obj.Counters.Values.Any(n => n > 0)) // CR 122.1: counters of any kind
+            return true;
+
+        var controller = _layers.ControllerOf(state, candidate);
+        foreach (var other in state.Objects.Values)
+        {
+            if (other.AttachedTo != candidate || other.Zone.Zone != Cards.Zone.Battlefield)
+                continue;
+
+            var attachment = _layers.Of(state, other.Id);
+            if (HasSubtype(attachment, EquipmentSubtype)) // CR 301.5: equipped
+                return true;
+            if (HasSubtype(attachment, AuraSubtype) && attachment.Controller == controller) // CR 303.4
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// CR 702.32b: kicker's cost may be paid more than once when it is repeatable, and casting
     /// records one entry per payment, so the count is the number of entries and "was kicked" is
@@ -199,36 +238,11 @@ public sealed partial class Query
         {
             AbilityKind.Any => activated.Count > 0,
             AbilityKind.Loyalty => activated.Any(a => a.Costs.OfType<LoyaltyCost>().Any()), // CR 606.1
-            AbilityKind.Mana => activated.Any(IsManaAbility),
-            AbilityKind.NonMana => activated.Any(a => !IsManaAbility(a)),
+            // CR 605.1a is read in exactly one place for every subsystem that asks it; a second
+            // copy here is what seam-requests/R2.md § 4 records three of, disagreeing.
+            AbilityKind.Mana => activated.Any(ManaAbilities.Is),
+            AbilityKind.NonMana => activated.Any(a => !ManaAbilities.Is(a)),
             _ => throw new NotImplementedException($"Ability kind {kind} is not implemented."),
         };
-    }
-
-    /// <summary>CR 605.1a: an activated mana ability has no target, is not a loyalty ability, and could add mana.</summary>
-    private static bool IsManaAbility(ActivatedAbility ability) =>
-        !ability.Costs.OfType<LoyaltyCost>().Any() && Produces(ability.Do, null);
-
-    /// <summary>Whether an effect tree adds mana, optionally of one of the given colors, CR 106.1.</summary>
-    private static bool Produces(Effect effect, Color? colors) => effect switch
-    {
-        AddMana mana => colors is null || ProducesColor(mana.Mana, colors.Value),
-        Sequence sequence => sequence.Steps.Any(s => Produces(s, colors)),
-        If branch => Produces(branch.Then, colors) || (branch.Else is not null && Produces(branch.Else, colors)),
-        May may => Produces(may.Do, colors),
-        _ => false,
-    };
-
-    private static bool ProducesColor(ManaProduction production, Color colors)
-    {
-        if (production.AnyColor || production.AnyType || production.ChosenColor || production.CommanderIdentity
-            || production.ColorOfAttachedOrTarget || production.LandCouldProduce)
-        {
-            return true;
-        }
-
-        if (production.OneOf is { } oneOf && (oneOf & colors) != 0)
-            return true;
-        return production.Fixed is { } fixedMana && ManaCosts.Devotion(fixedMana, colors) > 0;
     }
 }
