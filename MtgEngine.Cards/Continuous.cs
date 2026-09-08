@@ -228,29 +228,6 @@ public sealed record BecomesCopyOfNamed(string Name, IReadOnlyList<ContinuousEff
 
 public sealed record ChangeText(string From, string To) : ContinuousEffect;
 
-/// <summary>
-/// "Creatures can't attack you", "creatures can't attack unless their controller pays {2} for each
-/// creature they control that's attacking you". <paramref name="Player"/> is the player being
-/// protected and <paramref name="Unless"/> the board exception ("unless it's a Zombie"); neither of
-/// them can carry a cost, which is why the tax is its own field.
-/// <para>
-/// <paramref name="UnlessPays"/> is the attack tax, CR 508.1h: a cost the attacking creature's
-/// controller must pay while declaring attackers, determined and locked in as the declaration is
-/// made, and the attack is simply illegal without it. A scaling tax is the cost with an
-/// <see cref="Amount"/> inside it — "{2} for each creature they control that's attacking you" is a
-/// PayManaCost whose generic is Times(AttackersAgainst(You), 2) — so no per-creature field is
-/// needed and none exists. It is not a <see cref="CostModifier"/>, which raises the cost of casting
-/// a spell, and it is not <see cref="MustAttack"/> read backwards.
-/// </para>
-/// <para>
-/// A card prints one exception or the other, so setting both <paramref name="Unless"/> and
-/// <paramref name="UnlessPays"/> is a contradiction the linter refuses (L040) — two exceptions on
-/// one restriction would let an attack through by satisfying either, and no printed card says that.
-/// </para>
-/// </summary>
-[RuleRef("508.1h")]
-public sealed record CantAttack(PlayerRef? Player = null, ObjectFilter? Unless = null, Cost? UnlessPays = null) : ContinuousEffect;
-
 public sealed record CantBlock(ObjectFilter? Attackers = null) : ContinuousEffect;
 
 /// <summary>"can't be blocked", "can't be blocked by creatures with power 2 or less", "can't be blocked except by two or more creatures".</summary>

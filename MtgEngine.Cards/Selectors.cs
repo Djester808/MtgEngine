@@ -167,6 +167,15 @@ public sealed record Union(IReadOnlyList<Selector> Of) : Selector;
 /// its own, because the set is the game's and not the card's. Never write it as a Colors or
 /// NotColors list, which would fix at translation time a set that depends on the deck.
 /// </para>
+/// <para>
+/// <c>NotHas</c> is the printed negation, "creatures without flying" (CR 702.1, and 702.9 for the
+/// keyword that prints it most): the objects this filter admits are the ones that do <b>not</b>
+/// have that keyword ability, whether it is printed on them or granted. It is the mirror of
+/// <c>Has</c> and never the same field with anything turned around, so a card that says "without"
+/// is this member and a card that says "with" is that one; setting both to the same keyword admits
+/// nothing (L045). It is not <c>NotSubtypes</c>, which is a creature type, and not a Predicate: the
+/// absence of a keyword is a fixed field because the presence of one already is.
+/// </para>
 /// </summary>
 [RuleRef("202.1")]
 public sealed record ObjectFilter(
@@ -212,7 +221,8 @@ public sealed record ObjectFilter(
     bool? NotInCommanderIdentityColors = null,
     Zone? CastFrom = null,
     Zone? NotCastFrom = null,
-    Predicate? Also = null)
+    Predicate? Also = null,
+    KeywordKind? NotHas = null)
 {
     public static ObjectFilter Creature => new(Types: CardType.Creature);
 

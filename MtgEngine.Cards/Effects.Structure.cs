@@ -184,9 +184,19 @@ public sealed record ChooseMode(IReadOnlyList<Mode> Modes, int Min = 1, int Max 
 /// else. A cost a player really pays to choose a mode is an additional cost on the face, not this.
 /// Leave it null for an ordinary numbered list of modes.
 /// </para>
+/// <para>
+/// <paramref name="PaidCost"/> is spree, CR 702.172: "choose one or more. As an additional cost to
+/// cast this spell, pay the costs associated with those modes." Here the price in front of the mode
+/// is <b>really paid</b> — it is an additional cost of the spell (CR 601.2f–601.2h), announced with
+/// the modes and paid with the rest of the total cost, and a mode nobody can pay for cannot be
+/// chosen. That is the opposite of <paramref name="Cost"/>, which is spent against a
+/// <see cref="ChooseMode.Budget"/> and paid to nobody, so a mode carries one or the other and never
+/// both (L046), and a spree spell's <see cref="ChooseMode"/> has no budget to spend (L046): its
+/// modes are counted, from one up to all of them, and priced in the real cost.
+/// </para>
 /// </summary>
 [RuleRef("700.2")]
-public sealed record Mode(string Text, Effect Do, Cost? Cost = null);
+public sealed record Mode(string Text, Effect Do, Cost? Cost = null, Cost? PaidCost = null);
 
 /// <summary>"If you do, ...", "if it's a creature card, ...".</summary>
 public sealed record If(Condition Test, Effect Then, Effect? Else = null) : Effect;

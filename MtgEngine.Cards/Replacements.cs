@@ -100,8 +100,24 @@ public sealed record WouldTap(ObjectFilter What, bool ForMana = false) : Replace
 
 public sealed record WouldBeTapped(ObjectFilter What) : ReplacedEvent;
 
+/// <summary>
+/// "If a player would add mana, …", CR 106.7 with CR 614. <paramref name="TappedFor"/> is the rider
+/// the printed line puts in front of it: "if you tap a permanent for mana, add one mana of any type
+/// that permanent produced in addition" — the mana this replaces is only the mana a mana ability
+/// added as the cost of tapping a permanent was paid (CR 605.1a with CR 106.11a), and never mana a
+/// spell, a resolved ability or an untapped source added.
+/// <para>
+/// It is a rider on this event and not <c>WouldTap(ForMana: true)</c>, which replaces the tapping
+/// and gets no mana to work with, and it is not a <c>FromSource</c> filter of <c>Tapped: true</c>:
+/// a permanent tapped for mana is tapped as the ability is activated, so every source would pass
+/// that filter, including the ones that were already tapped and added mana some other way.
+/// <paramref name="FromSource"/> still narrows which permanents count — "whenever you tap a Forest
+/// for mana" — and a source filter that admits a spell is refused beside this rider, because only a
+/// permanent can be tapped for mana (L045).
+/// </para>
+/// </summary>
 [RuleRef("106.7")]
-public sealed record WouldAddMana(PlayerRef Who, ObjectFilter? FromSource = null) : ReplacedEvent;
+public sealed record WouldAddMana(PlayerRef Who, ObjectFilter? FromSource = null, bool TappedFor = false) : ReplacedEvent;
 
 [RuleRef("104.3")]
 public sealed record WouldLoseGame(PlayerRef Who) : ReplacedEvent;
