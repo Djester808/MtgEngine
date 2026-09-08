@@ -47,8 +47,16 @@ public sealed class ScenarioStageTestsWave21
 
     /// <summary>
     /// An activation of a source on the battlefield is a road of its own (<see cref="SmokeActivation"/>):
-    /// the source is not a spell, so nothing about where a resolved spell goes is said for it.
+    /// the source is not a spell, so nothing about where a resolved spell goes is said for it — the
+    /// library it ends in is its own effect's doing (CR 400.7) and never CR 608.2m's.
     /// </summary>
+    /// <remarks>
+    /// Wave 21 asserted the absence of that expectation, which was a proxy for the spell road not
+    /// leaking and stood only while an activation said nothing about its source's zone at all. Wave
+    /// 27 makes it say so — the tap it used to assert is a question a departed object cannot answer
+    /// — so the test asserts the same thing the right way round: the zone is there, and it is the
+    /// one the ability named, while the graveyard a resolved spell would have reached is not.
+    /// </remarks>
     [Fact]
     [RuleRef("608.2m")]
     public void An_activation_that_shuffles_its_source_away_is_not_read_as_a_spell_ending_in_a_library()
@@ -60,7 +68,10 @@ public sealed class ScenarioStageTestsWave21
 
         var scenario = Assert.Single(SmokeActivation.Of(file));
 
-        Assert.DoesNotContain(scenario.Expect, e => e is InZone { Zone: Zone.Library } z && z.Card == file.Name);
+        Assert.Equal(Zone.Library, Assert.Single(scenario.Expect.OfType<InZone>(), z => z.Card == file.Name).Zone);
+        Assert.DoesNotContain(scenario.Expect, e => e is InZone { Zone: Zone.Graveyard } z && z.Card == file.Name);
+        // CR 110.6: nothing in a library is tapped, so the tap the activation paid is not asserted.
+        Assert.DoesNotContain(scenario.Expect, e => e is TappedIs);
     }
 
     private static void Passes(Scenario scenario, CardFile file)

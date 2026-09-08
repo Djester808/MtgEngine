@@ -46,6 +46,12 @@ public static partial class SmokeScenario
         if (face is null)
             return null;
 
+        // CR 602.2: a marker on one of the face's activated abilities is that ability's problem —
+        // the cast still shows what the card itself does. A marker anywhere else is part of this
+        // play, and no cast scenario is written for a resolution half of which is not expressed.
+        if (!CastIsExpressible(face))
+            return null;
+
         var board = new SmokeBoard(file.Name);
         var id = "smoke-" + file.OracleId;
 

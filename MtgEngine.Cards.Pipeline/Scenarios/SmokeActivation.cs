@@ -43,6 +43,11 @@ public static class SmokeActivation
         if (ability.Where != Zone.Battlefield || ability.OnlyIf is not null || ability.PayOnlyWith is not null)
             return null;
 
+        // CR 602.2: this ability is what the scenario plays, so this ability is the one the marker
+        // refuses. Its neighbours on the same card are separate objects and keep their scenarios.
+        if (SmokeScenario.Markers(ability).Count > 0)
+            return null;
+
         // CR 608.2d: "add one mana of any colour" asks the activator which colour, and the engine
         // refuses an activation that did not bring the answer with it. The step carries the answer
         // (seam-requests/P12.md § 1), so the scenario chooses white and asserts the pool that
@@ -69,11 +74,19 @@ public static class SmokeActivation
             board.Expect(new ManaPoolIs(SmokeScenario.Caster, colors));
         }
 
-        // CR 110.6: only an object on the battlefield can be tapped or untapped, so an ability whose
-        // own effect takes its source away leaves nothing there to be tapped — the zone the source
-        // went to is what that scenario says instead (<see cref="SmokeScenario"/>). Asserting the
-        // tap of a departed source is what failed Sensei's Divining Top's activation in wave 18.
-        if (ability.Costs.Any(c => c is TapSelf) && !MovesItself(ability.Do))
+        // CR 110.6 with CR 400.7: only an object on the battlefield can be tapped or untapped, so an
+        // ability whose own effect takes its source away leaves nothing there to be tapped — the
+        // zone the source went to is what the scenario says instead, and it is the stronger of the
+        // two: a play that left the source standing fails it. Asserting the tap of a departed source
+        // is what failed Sensei's Divining Top's activation in wave 18 and Elixir of Immortality's
+        // in wave 26 (seam-requests/P26.md).
+        // The reading above already sent the source away for the shapes it has an arm for; this
+        // catches the ones it has none for, and the board's own road keeps the two from asserting
+        // the departure twice.
+        if (board.MovedItselfTo is null && Departs(ability.Do) is { } gone)
+            board.MovesItselfTo(gone);
+
+        if (board.MovedItselfTo is null && ability.Costs.Any(c => c is TapSelf))
             board.Expect(new TappedIs(file.Name, true));
 
         var step = new ActivateStep(
@@ -179,13 +192,49 @@ public static class SmokeActivation
     }
 
     /// <summary>
-    /// CR 400.7: whether the ability's own effect takes its source off the battlefield — a move, a
-    /// shuffle of itself into a library, or an exile of itself. A departed source is neither tapped
-    /// nor untapped (CR 110.6), so no scenario asserts a tap of one.
+    /// CR 400.7: where the ability's own effect takes its source, when it takes it off the
+    /// battlefield at all — a move, a shuffle of itself into a library, or an exile of itself. A
+    /// departed source is neither tapped nor untapped (CR 110.6), so no scenario asserts a tap of
+    /// one; the zone it went to is what a play can show instead.
     /// </summary>
+    /// <returns>The zone the source ends in, or null when the ability leaves it where it was.</returns>
     [RuleRef("400.7")]
-    private static bool MovesItself(Effect effect) =>
-        Parts(effect).Any(part => part is Move { What: Self } or Shuffle { IntoLibrary: Self } or Exile { What: Self });
+    private static Zone? Departs(Effect effect)
+    {
+        foreach (var part in Parts(effect))
+        {
+            switch (part)
+            {
+                case Move { What: { } moved, To: var away } when Itself(moved)
+                    && away is Zone.Library or Zone.Hand or Zone.Graveyard or Zone.Exile:
+                    return away;
+
+                // CR 701.20: a shuffle into a library takes what it names out of the battlefield,
+                // and the card names itself among the objects it gathers up (Elixir of Immortality
+                // shuffles itself and a graveyard together, so the selector is a union, not Self).
+                case Shuffle { IntoLibrary: { } gathered } when Itself(gathered):
+                    return Zone.Library;
+
+                case Exile { What: { } banished, Until: null } when Itself(banished):
+                    return Zone.Exile;
+
+                default:
+                    break;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// CR 109.2: whether a selector names the ability's own source, directly or as one member of a
+    /// union. Only these two shapes: a filter that happens to describe the source as well is not the
+    /// card naming itself, and a scenario that read one that way would assert a zone the effect
+    /// never promised.
+    /// </summary>
+    [RuleRef("109.2")]
+    private static bool Itself(Selector selector) =>
+        selector is Self || (selector is Union union && union.Of.Any(Itself));
 
     /// <summary>A sequence is its parts; an activation asserts only what always happens.</summary>
     private static IEnumerable<Effect> Parts(Effect effect) =>

@@ -46,4 +46,28 @@ public static partial class SmokeScenario
     /// <summary>A sequence is its parts; anything conditional is skipped, because a smoke scenario asserts only what always happens.</summary>
     private static IEnumerable<Effect> Flatten(Effect effect) =>
         effect is Sequence sequence ? sequence.Steps.SelectMany(Flatten) : [effect];
+
+    /// <summary>
+    /// Every <see cref="Unsupported"/> marker inside one node — one ability, one face or a whole
+    /// definition — counted by identity, because the reflective walk reaches a face's abilities
+    /// twice (<see cref="Face.Abilities"/> and the <see cref="Face.AbilityList"/> that reads them
+    /// back) and two markers that merely compare equal are still two clauses nobody wrote.
+    /// </summary>
+    internal static IReadOnlyList<Unsupported> Markers(object node) =>
+        [.. Linter.Walk(node).Distinct(ReferenceEqualityComparer.Instance).OfType<Unsupported>()];
+
+    /// <summary>
+    /// CR 602.2: an activated ability is a separate object from the spell that put its source on the
+    /// battlefield, so a marker on one of a face's activated abilities says nothing about the card's
+    /// own resolution. A marker anywhere else on the face — in a spell ability, a trigger, a static
+    /// ability or the printed data itself — is part of what casting the card does, and the cast
+    /// scenario is refused rather than asserting a resolution half of which is not written down.
+    /// </summary>
+    [RuleRef("602.2")]
+    internal static bool CastIsExpressible(Face face)
+    {
+        ArgumentNullException.ThrowIfNull(face);
+        var inActivations = face.AbilityList.OfType<ActivatedAbility>().Sum(a => Markers(a).Count);
+        return Markers(face).Count == inActivations;
+    }
 }
