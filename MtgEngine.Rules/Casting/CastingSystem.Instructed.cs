@@ -72,7 +72,18 @@ public sealed partial class CastingSystem
         // own new object is numbered from the state they leave behind (CR 400.7).
         // CR 601.2c: the objects that pay a cost naming some come off the command, read in the
         // order the costs are written.
-        var costs = new CostContext(card, chars, command.Player, command.X, zones, query, Chosen: new ChosenObjects(command.CostObjects ?? []));
+        var costs = new CostContext(
+            card,
+            chars,
+            command.Player,
+            command.X,
+            zones,
+            query,
+            Chosen: new ChosenObjects(command.CostObjects ?? []),
+
+            // CR 107.4f with 601.2h: the choice a Phyrexian symbol offers is announced with the
+            // cast, on the same channel every other cost choice travels.
+            PayPhyrexianWithLife: PaysWithLife(command.CostChoices));
         var others = CostPayment.Pay(state, costs, plan.NonMana);
         var paid = CostPayment.PaySymbols(others.State, costs, plan.Mana, "cast");
         ImmutableList<GameEvent> payments = [.. others.Events, .. paid.Outcome.Events];
