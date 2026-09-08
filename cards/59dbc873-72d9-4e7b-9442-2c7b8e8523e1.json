@@ -1,0 +1,81 @@
+{
+  "oracleId": "59dbc873-72d9-4e7b-9442-2c7b8e8523e1",
+  "name": "Ruination",
+  "oracleHash": "sha256:a80c7b38ef5c9da2b449ac77a37ce2d9d89d86ce54a99c8d460f2fad9a51134a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "59dbc873-72d9-4e7b-9442-2c7b8e8523e1",
+    "name": "Ruination",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ruination",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{3}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "notSupertypes": [
+                    "Basic"
+                  ]
+                }
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy all nonbasic lands."
+          }
+        ],
+        "oracleText": "Destroy all nonbasic lands.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Destroy",
+              "what": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Land"
+                  ],
+                  "notSupertypes": [
+                    "Basic"
+                  ]
+                }
+              },
+              "cantBeRegenerated": false
+            },
+            "text": "Destroy all nonbasic lands."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

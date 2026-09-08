@@ -1,0 +1,913 @@
+{
+  "oracleId": "8bcbae66-1854-480e-a449-33e5389610ab",
+  "name": "Sapling Nursery",
+  "oracleHash": "sha256:02fa2d8fd6c2c4dca8a31719be281c9561afa8665d7770cfd8d5373fe6a4504a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8bcbae66-1854-480e-a449-33e5389610ab",
+    "name": "Sapling Nursery",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Sapling Nursery",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{6}{G}{G}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Affinity",
+            "of": {
+              "subtypes": [
+                "Forest"
+              ]
+            },
+            "repeatable": false,
+            "text": "Affinity for Forests"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treefolk",
+                "colors": [
+                  "Green"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Treefolk"
+                ],
+                "supertypes": [],
+                "power": 3,
+                "toughness": 4,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Reach",
+                    "repeatable": false,
+                    "text": "Reach"
+                  }
+                ],
+                "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "ExileSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "GrantKeyword",
+                "keyword": "Indestructible"
+              },
+              "to": {
+                "kind": "Each",
+                "filter": {
+                  "subtypes": [
+                    "Treefolk",
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+          }
+        ],
+        "oracleText": "Affinity for Forests (This spell costs {1} less to cast for each Forest you control.)\nLandfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.\n{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Affinity",
+            "of": {
+              "subtypes": [
+                "Forest"
+              ]
+            },
+            "repeatable": false,
+            "text": "Affinity for Forests"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Land"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                }
+              }
+            },
+            "do": {
+              "kind": "CreateToken",
+              "token": {
+                "name": "Treefolk",
+                "colors": [
+                  "Green"
+                ],
+                "types": [
+                  "Creature"
+                ],
+                "subtypes": [
+                  "Treefolk"
+                ],
+                "supertypes": [],
+                "power": 3,
+                "toughness": 4,
+                "abilities": [
+                  {
+                    "kind": "KeywordAbility",
+                    "keyword": "Reach",
+                    "repeatable": false,
+                    "text": "Reach"
+                  }
+                ],
+                "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                "isPredefined": false
+              },
+              "tapped": false,
+              "attacking": false
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "ManaCost",
+                "mana": "{1}{G}"
+              },
+              {
+                "kind": "ExileSelfCost"
+              }
+            ],
+            "do": {
+              "kind": "Apply",
+              "what": {
+                "kind": "GrantKeyword",
+                "keyword": "Indestructible"
+              },
+              "to": {
+                "kind": "Each",
+                "filter": {
+                  "subtypes": [
+                    "Treefolk",
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "until": {
+                "kind": "UntilEndOfTurn"
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Affinity",
+    "Landfall"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8bcbae66-1854-480e-a449-33e5389610ab",
+        "name": "Sapling Nursery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sapling Nursery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}{G}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Affinity for Forests (This spell costs {1} less to cast for each Forest you control.)\nLandfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.\n{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8bcbae66-1854-480e-a449-33e5389610ab",
+        "name": "Sapling Nursery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sapling Nursery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}{G}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Affinity for Forests (This spell costs {1} less to cast for each Forest you control.)\nLandfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.\n{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ]
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ]
+                  },
+                  "underControlOf": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "8bcbae66-1854-480e-a449-33e5389610ab",
+        "name": "Sapling Nursery",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Sapling Nursery",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{6}{G}{G}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ],
+            "oracleText": "Affinity for Forests (This spell costs {1} less to cast for each Forest you control.)\nLandfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.\n{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Affinity",
+                "of": {
+                  "subtypes": [
+                    "Forest"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "repeatable": false,
+                "text": "Affinity for Forests"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Land"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "CreateToken",
+                  "token": {
+                    "name": "Treefolk",
+                    "colors": [
+                      "Green"
+                    ],
+                    "types": [
+                      "Creature"
+                    ],
+                    "subtypes": [
+                      "Treefolk"
+                    ],
+                    "supertypes": [],
+                    "power": 3,
+                    "toughness": 4,
+                    "abilities": [
+                      {
+                        "kind": "KeywordAbility",
+                        "keyword": "Reach",
+                        "repeatable": false,
+                        "text": "Reach"
+                      }
+                    ],
+                    "scryfallOracleId": "5d403f89-6862-4ed9-ba39-890c90ff487c",
+                    "isPredefined": false
+                  },
+                  "tapped": false,
+                  "attacking": false
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Landfall \u2014 Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{G}"
+                  },
+                  {
+                    "kind": "ExileSelfCost"
+                  }
+                ],
+                "do": {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "GrantKeyword",
+                    "keyword": "Indestructible"
+                  },
+                  "to": {
+                    "kind": "Each",
+                    "filter": {
+                      "subtypes": [
+                        "Treefolk",
+                        "Forest"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "until": {
+                    "kind": "UntilEndOfTurn"
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Affinity",
+    "Landfall"
+  ],
+  "scenarioList": []
+}

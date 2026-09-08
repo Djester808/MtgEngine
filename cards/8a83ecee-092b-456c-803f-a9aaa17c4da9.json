@@ -1,0 +1,827 @@
+{
+  "oracleId": "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+  "name": "Exploration Broodship",
+  "oracleHash": "sha256:18fc3d1848c8b979c9385e59d6353e727a175ff0ad2fbbd361b96525c868f8dc",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+    "name": "Exploration Broodship",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Exploration Broodship",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Spacecraft"
+          ],
+          "subtypeList": [
+            "Spacecraft"
+          ]
+        },
+        "manaCost": "{G}",
+        "power": {
+          "text": "4",
+          "number": 4
+        },
+        "toughness": {
+          "text": "4",
+          "number": 4
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Station",
+            "repeatable": false,
+            "text": "Station"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ExtraLandDrops",
+              "who": {
+                "kind": "You"
+              },
+              "count": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "while": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "3\u002B | You may play an additional land on each of your turns."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Flying"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 8
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "8\u002B | Flying"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "MayPlayFromZone can grant the cast from a graveyard, but it carries neither the once-each-of-your-turns limit nor an additional cost - sacrificing a land - paid on top of the spell\u0027s other costs, and no other record adds a cost to a play permission.",
+              "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+          }
+        ],
+        "oracleText": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)\n3\u002B | You may play an additional land on each of your turns.\n8\u002B | Flying\nOnce during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Station",
+            "repeatable": false,
+            "text": "Station"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "ExtraLandDrops",
+              "who": {
+                "kind": "You"
+              },
+              "count": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "while": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 3
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "3\u002B | You may play an additional land on each of your turns."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Flying"
+            },
+            "to": {
+              "kind": "Self"
+            },
+            "while": {
+              "kind": "Compare",
+              "left": {
+                "kind": "CountersOn",
+                "on": {
+                  "kind": "Self"
+                },
+                "counter": "charge"
+              },
+              "op": "Ge",
+              "right": {
+                "kind": "Fixed",
+                "n": 8
+              }
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "8\u002B | Flying"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "MayPlayFromZone can grant the cast from a graveyard, but it carries neither the once-each-of-your-turns limit nor an additional cost - sacrificing a land - paid on top of the spell\u0027s other costs, and no other record adds a cost to a play permission.",
+              "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Station"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+        "name": "Exploration Broodship",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Exploration Broodship",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Spacecraft"
+              ],
+              "subtypeList": [
+                "Spacecraft"
+              ]
+            },
+            "manaCost": "{G}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone can grant the cast from a graveyard, but it carries neither the once-each-of-your-turns limit nor an additional cost - sacrificing a land - paid on top of the spell\u0027s other costs, and no other record adds a cost to a play permission.",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ],
+            "oracleText": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)\n3\u002B | You may play an additional land on each of your turns.\n8\u002B | Flying\nOnce during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone can grant the cast from a graveyard, but it carries neither the once-each-of-your-turns limit nor an additional cost - sacrificing a land - paid on top of the spell\u0027s other costs, and no other record adds a cost to a play permission.",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+        "name": "Exploration Broodship",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Exploration Broodship",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Spacecraft"
+              ],
+              "subtypeList": [
+                "Spacecraft"
+              ]
+            },
+            "manaCost": "{G}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 8
+                },
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone has no field for a once-per-turn limit on the permission, and no field for an additional cost (sacrificing a land) tied to exercising a play/cast permission",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ],
+            "oracleText": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)\n3\u002B | You may play an additional land on each of your turns.\n8\u002B | Flying\nOnce during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "n": {
+                  "kind": "Fixed",
+                  "n": 8
+                },
+                "repeatable": false,
+                "text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone has no field for a once-per-turn limit on the permission, and no field for an additional cost (sacrificing a land) tied to exercising a play/cast permission",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-opus-5-b",
+      "definition": {
+        "oracleId": "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+        "name": "Exploration Broodship",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Exploration Broodship",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Spacecraft"
+              ],
+              "subtypeList": [
+                "Spacecraft"
+              ]
+            },
+            "manaCost": "{G}",
+            "power": {
+              "text": "4",
+              "number": 4
+            },
+            "toughness": {
+              "text": "4",
+              "number": 4
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone has no field for a once-per-turn limit on the permission, and none for a mandatory additional cost (sacrifice a land) paid on top of the spell\u0027s other costs; dropping either rider would be a different card.",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ],
+            "oracleText": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It\u0027s an artifact creature at 8\u002B.)\n3\u002B | You may play an additional land on each of your turns.\n8\u002B | Flying\nOnce during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Station",
+                "repeatable": false,
+                "text": "Station"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "ExtraLandDrops",
+                  "who": {
+                    "kind": "You"
+                  },
+                  "count": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 3
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "3\u002B | You may play an additional land on each of your turns."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Flying"
+                },
+                "to": {
+                  "kind": "Self"
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "8\u002B | Flying"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "MayPlayFromZone has no field for a once-per-turn limit on the permission, and none for a mandatory additional cost (sacrifice a land) paid on top of the spell\u0027s other costs; dropping either rider would be a different card.",
+                  "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+                },
+                "while": {
+                  "kind": "Compare",
+                  "left": {
+                    "kind": "CountersOn",
+                    "on": {
+                      "kind": "Self"
+                    },
+                    "counter": "charge"
+                  },
+                  "op": "Ge",
+                  "right": {
+                    "kind": "Fixed",
+                    "n": 8
+                  }
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Once during each of your turns, you may cast a permanent spell from your graveyard by sacrificing a land in addition to paying its other costs."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Station"
+  ],
+  "scenarioList": []
+}

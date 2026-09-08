@@ -1,0 +1,99 @@
+{
+  "oracleId": "ae120613-97d6-4393-b39d-c3e6c076f5d6",
+  "name": "Deflecting Swat",
+  "oracleHash": "sha256:c6a60ec3035447a23e1aadae058b4c602508264c2013df7ef67cbf2fddb18ce4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "ae120613-97d6-4393-b39d-c3e6c076f5d6",
+    "name": "Deflecting Swat",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Deflecting Swat",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{R}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChangeTarget",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Stack"
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "allTargets": true
+            },
+            "text": "You may choose new targets for target spell or ability."
+          }
+        ],
+        "oracleText": "If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.",
+        "alternativeCosts": [
+          {
+            "cost": {
+              "kind": "ManaCost",
+              "mana": "{0}"
+            },
+            "onlyIf": {
+              "kind": "Controls",
+              "who": {
+                "kind": "You"
+              },
+              "what": {
+                "isCommander": true
+              },
+              "count": {
+                "op": "Ge",
+                "value": {
+                  "kind": "Fixed",
+                  "n": 1
+                }
+              }
+            }
+          }
+        ],
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ChangeTarget",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Stack"
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "allTargets": true
+            },
+            "text": "You may choose new targets for target spell or ability."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

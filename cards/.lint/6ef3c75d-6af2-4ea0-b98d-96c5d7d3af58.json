@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: A token whose power and toughness are counted from the game when it is created. TokenSpec takes fixed integer power and toughness, and CreateToken has no place for an Amount, so an X/X token where X is the number of creatures destroyed this way cannot be said.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

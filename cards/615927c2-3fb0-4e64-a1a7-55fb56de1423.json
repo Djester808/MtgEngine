@@ -1,0 +1,129 @@
+{
+  "oracleId": "615927c2-3fb0-4e64-a1a7-55fb56de1423",
+  "name": "Soul Shatter",
+  "oracleHash": "sha256:82c3a24dae13c13c97f3b311c4042d9ab558f25842f8aa4d58051c3f093521bd",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "615927c2-3fb0-4e64-a1a7-55fb56de1423",
+    "name": "Soul Shatter",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Soul Shatter",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{2}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ForEachPlayer",
+              "over": {
+                "kind": "EachOpponent"
+              },
+              "do": {
+                "kind": "Sacrifice",
+                "choice": {
+                  "anyTypes": [
+                    "Creature",
+                    "Planeswalker"
+                  ],
+                  "manaValue": {
+                    "op": "Eq",
+                    "value": {
+                      "kind": "GreatestAmong",
+                      "among": {
+                        "anyTypes": [
+                          "Creature",
+                          "Planeswalker"
+                        ],
+                        "controlledBy": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "of": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  }
+                },
+                "who": {
+                  "kind": "TriggeringPlayer"
+                }
+              }
+            },
+            "text": "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control."
+          }
+        ],
+        "oracleText": "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "ForEachPlayer",
+              "over": {
+                "kind": "EachOpponent"
+              },
+              "do": {
+                "kind": "Sacrifice",
+                "choice": {
+                  "anyTypes": [
+                    "Creature",
+                    "Planeswalker"
+                  ],
+                  "manaValue": {
+                    "op": "Eq",
+                    "value": {
+                      "kind": "GreatestAmong",
+                      "among": {
+                        "anyTypes": [
+                          "Creature",
+                          "Planeswalker"
+                        ],
+                        "controlledBy": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "of": {
+                        "kind": "ManaValueOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    }
+                  }
+                },
+                "who": {
+                  "kind": "TriggeringPlayer"
+                }
+              }
+            },
+            "text": "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5-b"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Warning",
+      "code": "L006",
+      "message": "Counter kind \u0027indestructible\u0027 is not in Counters.Known.",
+      "path": "faces[0].abilities[2]"
+    }
+  ],
+  "hasErrors": false
+}

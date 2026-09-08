@@ -123,7 +123,7 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
@@ -562,9 +562,22 @@
       ],
       "expect": [
         {
-          "kind": "TappedIs",
+          "kind": "InZone",
           "card": "Elixir of Immortality",
-          "tapped": true
+          "zone": "Library",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Battlefield",
+          "count": 0
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Library",
+          "count": 9
         },
         {
           "kind": "Life",
@@ -579,10 +592,10 @@
   ],
   "verification": {
     "engineHash": "engine:9781a597f8c8ddfa",
-    "runId": "verify-20260908T055130-9ef6fa",
-    "passed": 1,
+    "runId": "verify-20260908T063710-34f8c0",
+    "passed": 2,
     "total": 2,
-    "at": "2026-09-08T05:51:30.3127789+00:00"
+    "at": "2026-09-08T06:37:10.6591346+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -1013,9 +1026,22 @@
       ],
       "expect": [
         {
-          "kind": "TappedIs",
+          "kind": "InZone",
           "card": "Elixir of Immortality",
-          "tapped": true
+          "zone": "Library",
+          "owner": "A"
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Battlefield",
+          "count": 0
+        },
+        {
+          "kind": "ZoneCount",
+          "player": "A",
+          "zone": "Library",
+          "count": 9
         },
         {
           "kind": "Life",

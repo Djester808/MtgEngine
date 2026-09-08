@@ -1,0 +1,95 @@
+{
+  "oracleId": "6ef3c75d-6af2-4ea0-b98d-96c5d7d3af58",
+  "name": "Phyrexian Rebirth",
+  "oracleHash": "sha256:a28162b5047d3d4ca416f84ae7d8dbfef4325a68a6ce14cc2f5707fb1689fcf4",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "6ef3c75d-6af2-4ea0-b98d-96c5d7d3af58",
+    "name": "Phyrexian Rebirth",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Phyrexian Rebirth",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Sorcery"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{4}{W}{W}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "A token whose power and toughness are counted from the game when it is created. TokenSpec takes fixed integer power and toughness, and CreateToken has no place for an Amount, so an X/X token where X is the number of creatures destroyed this way cannot be said.",
+                  "text": "create an X/X colorless Phyrexian Horror artifact creature token, where X is the number of creatures destroyed this way"
+                }
+              ]
+            },
+            "text": "Destroy all creatures, then create an X/X colorless Phyrexian Horror artifact creature token, where X is the number of creatures destroyed this way."
+          }
+        ],
+        "oracleText": "Destroy all creatures, then create an X/X colorless Phyrexian Horror artifact creature token, where X is the number of creatures destroyed this way.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Destroy",
+                  "what": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ]
+                    }
+                  },
+                  "cantBeRegenerated": false
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "A token whose power and toughness are counted from the game when it is created. TokenSpec takes fixed integer power and toughness, and CreateToken has no place for an Amount, so an X/X token where X is the number of creatures destroyed this way cannot be said.",
+                  "text": "create an X/X colorless Phyrexian Horror artifact creature token, where X is the number of creatures destroyed this way"
+                }
+              ]
+            },
+            "text": "Destroy all creatures, then create an X/X colorless Phyrexian Horror artifact creature token, where X is the number of creatures destroyed this way."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Translated",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-203b16eda4e8",
+    "agreed": true
+  },
+  "scryfallKeywords": [],
+  "keywordList": [],
+  "scenarioList": []
+}
