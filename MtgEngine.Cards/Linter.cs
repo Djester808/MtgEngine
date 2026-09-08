@@ -191,6 +191,14 @@ public static partial class Linter
             }
 
             var action = VocabularyNames.Action(name);
+
+            // CR 701.19a: regenerating removes all damage marked on the permanent, and Scryfall
+            // reads the keyword action Heal out of that reminder text, so every regenerator is
+            // listed as healing. The card prints Regenerate and nothing else; demanding a Heal
+            // effect of it is this check firing on a word the card never says.
+            if (action == KeywordAction.Heal && (actions.Contains("Regenerate") || actions.Contains(nameof(RegenerationShield))))
+                continue;
+
             if (action is { } a && !actions.Contains(a.ToString()) && !(a == KeywordAction.TapAndUntap && (actions.Contains("Tap") || actions.Contains("Untap"))))
                 findings.Add(new(LintSeverity.Error, "L002", $"Scryfall lists the keyword action '{name}' and the definition has no {a} effect.", "scryfallKeywords"));
         }
@@ -340,6 +348,7 @@ public static partial class Linter
         CheckWave19(ability, nodes, path, findings);
         CheckWave22(nodes, path, findings);
         CheckWave23(nodes, path, findings);
+        CheckWave25(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));

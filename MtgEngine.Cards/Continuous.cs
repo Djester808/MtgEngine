@@ -107,6 +107,7 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(DamageDoesNotReduceLifeBelow), nameof(DamageDoesNotReduceLifeBelow))]
 [JsonDerivedType(typeof(MayBeginGameOnBattlefield), nameof(MayBeginGameOnBattlefield))]
 [JsonDerivedType(typeof(MayPlayFromZone), nameof(MayPlayFromZone))]
+[JsonDerivedType(typeof(MayCastAsThoughFlash), nameof(MayCastAsThoughFlash))]
 [JsonDerivedType(typeof(MayLookAtTopCard), nameof(MayLookAtTopCard))]
 [JsonDerivedType(typeof(PlayWithHandRevealed), nameof(PlayWithHandRevealed))]
 [JsonDerivedType(typeof(SkipStepEffect), nameof(SkipStepEffect))]
@@ -225,7 +226,28 @@ public sealed record BecomesCopyOfNamed(string Name, IReadOnlyList<ContinuousEff
 
 public sealed record ChangeText(string From, string To) : ContinuousEffect;
 
-public sealed record CantAttack(PlayerRef? Player = null, ObjectFilter? Unless = null) : ContinuousEffect;
+/// <summary>
+/// "Creatures can't attack you", "creatures can't attack unless their controller pays {2} for each
+/// creature they control that's attacking you". <paramref name="Player"/> is the player being
+/// protected and <paramref name="Unless"/> the board exception ("unless it's a Zombie"); neither of
+/// them can carry a cost, which is why the tax is its own field.
+/// <para>
+/// <paramref name="UnlessPays"/> is the attack tax, CR 508.1h: a cost the attacking creature's
+/// controller must pay while declaring attackers, determined and locked in as the declaration is
+/// made, and the attack is simply illegal without it. A scaling tax is the cost with an
+/// <see cref="Amount"/> inside it — "{2} for each creature they control that's attacking you" is a
+/// PayManaCost whose generic is Times(AttackersAgainst(You), 2) — so no per-creature field is
+/// needed and none exists. It is not a <see cref="CostModifier"/>, which raises the cost of casting
+/// a spell, and it is not <see cref="MustAttack"/> read backwards.
+/// </para>
+/// <para>
+/// A card prints one exception or the other, so setting both <paramref name="Unless"/> and
+/// <paramref name="UnlessPays"/> is a contradiction the linter refuses (L040) — two exceptions on
+/// one restriction would let an attack through by satisfying either, and no printed card says that.
+/// </para>
+/// </summary>
+[RuleRef("508.1h")]
+public sealed record CantAttack(PlayerRef? Player = null, ObjectFilter? Unless = null, Cost? UnlessPays = null) : ContinuousEffect;
 
 public sealed record CantBlock(ObjectFilter? Attackers = null) : ContinuousEffect;
 
@@ -432,6 +454,29 @@ public sealed record AssignDamageAsThoughUnblocked : ContinuousEffect;
 /// </summary>
 [RuleRef("118.9")]
 public sealed record MayPlayFromZone(PlayerRef Who, Zone From, ObjectFilter? What = null, bool TopOfLibraryOnly = false, bool WithoutPayingManaCost = false, bool PayLifeEqualToManaValueInstead = false) : ContinuousEffect;
+
+/// <summary>
+/// "You may cast green creature spells as though they had flash", CR 702.8: a timing permission
+/// granted to a player, not an ability granted to a card. <paramref name="Who"/> is the player it
+/// is granted to and <paramref name="What"/> describes the spells they may cast that way — the
+/// filter is read as the spell is cast, so it sees the card in whatever zone the player is casting
+/// it from.
+/// <para>
+/// This is not <see cref="GrantKeyword"/> with Flash, which needs objects on the battlefield or in
+/// a zone a continuous effect reaches and cannot describe "spells you cast" at all, and it is not
+/// <see cref="MayPlayFromZone"/>, which is a permission to cast from somewhere the player otherwise
+/// could not — the two are different halves of casting and a card that prints both prints two
+/// sentences. It grants timing only: the spell still costs what it costs, and the cast is still a
+/// cast (CR 601), so anything watching casts sees it.
+/// </para>
+/// <para>
+/// A land is played and not cast (CR 305.1), so a filter that admits only lands says nothing here
+/// and is refused (L042); "you may play lands as though..." is an extra land drop or a play
+/// permission, never this record.
+/// </para>
+/// </summary>
+[RuleRef("702.8")]
+public sealed record MayCastAsThoughFlash(PlayerRef Who, ObjectFilter? What = null) : ContinuousEffect;
 
 public sealed record MayLookAtTopCard(PlayerRef Who, bool AnyTime = true) : ContinuousEffect;
 

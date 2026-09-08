@@ -87,6 +87,15 @@ public enum Step
     PostcombatMain,
     End,
     Cleanup,
+
+    /// <summary>
+    /// "At the beginning of your next main phase", CR 505.1: either main phase, whichever begins
+    /// next — the printed line names neither the precombat nor the postcombat one, and a reading
+    /// that picks one of them fires at the wrong time half of the games (a delayed trigger made
+    /// during combat would never see a PrecombatMain again this turn). Appended last so no stored
+    /// file's step shifts. Use PrecombatMain or PostcombatMain when the card names one.
+    /// </summary>
+    Main,
 }
 
 /// <summary>Phases, for effects that refer to a whole phase ("additional combat phase", "your main phase").</summary>

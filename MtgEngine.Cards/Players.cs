@@ -9,6 +9,7 @@ namespace MtgEngine.Cards;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(You), nameof(You))]
 [JsonDerivedType(typeof(EachOpponent), nameof(EachOpponent))]
+[JsonDerivedType(typeof(AnOpponent), nameof(AnOpponent))]
 [JsonDerivedType(typeof(EachPlayer), nameof(EachPlayer))]
 [JsonDerivedType(typeof(TargetPlayer), nameof(TargetPlayer))]
 [JsonDerivedType(typeof(ChoosePlayer), nameof(ChoosePlayer))]
@@ -33,6 +34,23 @@ public sealed record AttachedPlayer : PlayerRef;
 public sealed record You : PlayerRef;
 
 public sealed record EachOpponent : PlayerRef;
+
+/// <summary>
+/// "if an opponent controls three or more creatures", "as long as an opponent has no cards in
+/// hand", CR 102.2: **some** opponent, not every one of them. A condition around it is true when at
+/// least one opponent satisfies it, which is what the printed word "an" says and what
+/// <see cref="EachOpponent"/> cannot say — that reading is true only when every opponent satisfies
+/// it, so in a four-player game the two readings are different cards, and in a duel they agree,
+/// which is why the wrong one survives a two-player test.
+/// <para>
+/// It reads the game and nothing else: it names no single player, so an instruction cannot be aimed
+/// at it and nothing can be remembered about it (L041). A card that makes an opponent do something
+/// names them with <see cref="ChoosePlayer"/> or <see cref="TargetPlayer"/>, and one that makes all
+/// of them do it says <see cref="EachOpponent"/>.
+/// </para>
+/// </summary>
+[RuleRef("102.2")]
+public sealed record AnOpponent : PlayerRef;
 
 public sealed record EachPlayer : PlayerRef;
 

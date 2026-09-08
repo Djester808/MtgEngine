@@ -30,6 +30,8 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(SpellsCastThisTurn), nameof(SpellsCastThisTurn))]
 [JsonDerivedType(typeof(DamageDealtThisTurn), nameof(DamageDealtThisTurn))]
 [JsonDerivedType(typeof(TriggeringDamage), nameof(TriggeringDamage))]
+[JsonDerivedType(typeof(TriggeringLifeGained), nameof(TriggeringLifeGained))]
+[JsonDerivedType(typeof(TriggeringLifeLost), nameof(TriggeringLifeLost))]
 [JsonDerivedType(typeof(AttackersAgainst), nameof(AttackersAgainst))]
 [JsonDerivedType(typeof(CardsDrawnThisTurn), nameof(CardsDrawnThisTurn))]
 [JsonDerivedType(typeof(LandsEnteredThisTurn), nameof(LandsEnteredThisTurn))]
@@ -147,6 +149,31 @@ public sealed record DamageDealtThisTurn(Selector? By = null, PlayerRef? To = nu
 /// </summary>
 [RuleRef("603.10")]
 public sealed record TriggeringDamage : Amount;
+
+/// <summary>
+/// "you gain that much life": the life the event that triggered this ability gained, CR 603.10 — the
+/// amount half of a life-gain trigger, fixed at the moment the ability triggered and not recomputed
+/// when it resolves, exactly as <see cref="TriggeringDamage"/> is for damage.
+/// <para>
+/// It is not <see cref="LifeOf"/>, which reads a player's total, and it is not a
+/// <see cref="Stored"/> key: no step of this card gained the life, so nothing on the card could
+/// have stored it. The ability it appears in must trigger on life being gained — GainsLife, its own
+/// or its delayed trigger's — or there is no event to read and the amount is a lost sentence
+/// (L039). A trigger that watches life being lost reads <see cref="TriggeringLifeLost"/>: the two
+/// are separate events, and one written for the other reads nothing.
+/// </para>
+/// </summary>
+[RuleRef("603.10")]
+public sealed record TriggeringLifeGained : Amount;
+
+/// <summary>
+/// "that much life" on a life-loss trigger, CR 603.10: the life the triggering event lost, the
+/// mirror of <see cref="TriggeringLifeGained"/> and read the same way. Life lost is not damage — a
+/// payment, an edict and a Lava Spike all lose life and only one is damage — so this is not
+/// <see cref="TriggeringDamage"/>, and the ability must trigger on LosesLife (L039).
+/// </summary>
+[RuleRef("603.10")]
+public sealed record TriggeringLifeLost : Amount;
 
 /// <summary>
 /// "two or more of those creatures are attacking you and/or planeswalkers you control": the
