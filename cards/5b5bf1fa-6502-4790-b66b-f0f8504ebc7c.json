@@ -1,0 +1,330 @@
+{
+  "oracleId": "5b5bf1fa-6502-4790-b66b-f0f8504ebc7c",
+  "name": "Cabal Ritual",
+  "oracleHash": "sha256:98000f065f826bd162d6c456ce7145f717513b51dcf8341621e087c5937f69da",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "5b5bf1fa-6502-4790-b66b-f0f8504ebc7c",
+    "name": "Cabal Ritual",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cabal Ritual",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{B}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Threshold",
+                "who": {
+                  "kind": "You"
+                }
+              },
+              "then": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{B}{B}{B}{B}{B}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              },
+              "else": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{B}{B}{B}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              }
+            },
+            "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+          }
+        ],
+        "oracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "If",
+              "test": {
+                "kind": "Threshold",
+                "who": {
+                  "kind": "You"
+                }
+              },
+              "then": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{B}{B}{B}{B}{B}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              },
+              "else": {
+                "kind": "AddMana",
+                "mana": {
+                  "fixed": "{B}{B}{B}",
+                  "anyColor": false,
+                  "commanderIdentity": false,
+                  "chosenColor": false,
+                  "colorOfAttachedOrTarget": false,
+                  "landCouldProduce": false,
+                  "anyType": false,
+                  "restriction": false
+                }
+              }
+            },
+            "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Threshold"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "5b5bf1fa-6502-4790-b66b-f0f8504ebc7c",
+        "name": "Cabal Ritual",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cabal Ritual",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Threshold",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+              }
+            ],
+            "oracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Threshold",
+                    "who": {
+                      "kind": "You"
+                    }
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "5b5bf1fa-6502-4790-b66b-f0f8504ebc7c",
+        "name": "Cabal Ritual",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cabal Ritual",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{B}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Threshold"
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+              }
+            ],
+            "oracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "If",
+                  "test": {
+                    "kind": "Threshold"
+                  },
+                  "then": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  },
+                  "else": {
+                    "kind": "AddMana",
+                    "mana": {
+                      "fixed": "{B}{B}{B}",
+                      "anyColor": false,
+                      "commanderIdentity": false,
+                      "chosenColor": false,
+                      "colorOfAttachedOrTarget": false,
+                      "landCouldProduce": false,
+                      "anyType": false,
+                      "restriction": false
+                    }
+                  }
+                },
+                "text": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Threshold"
+  ],
+  "scenarioList": []
+}

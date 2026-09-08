@@ -1,0 +1,11 @@
+{
+  "findings": [
+    {
+      "severity": "Error",
+      "code": "L001",
+      "message": "Unsupported: Modes are paid for with a budget of five pawprint symbols and each printed mode has its own pawprint cost. Mode carries no cost and ChooseMode counts modes rather than symbols, so the budget cannot be stated.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": true
+}

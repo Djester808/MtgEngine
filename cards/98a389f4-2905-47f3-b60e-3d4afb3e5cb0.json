@@ -1,0 +1,810 @@
+{
+  "oracleId": "98a389f4-2905-47f3-b60e-3d4afb3e5cb0",
+  "name": "Enduring Innocence",
+  "oracleHash": "sha256:bead89726396d2a40849fa80e7189cd6d9c659687c43dc045b4aaf51af07825f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "98a389f4-2905-47f3-b60e-3d4afb3e5cb0",
+    "name": "Enduring Innocence",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Enduring Innocence",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature",
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Sheep",
+            "Glimmer"
+          ],
+          "subtypeList": [
+            "Sheep",
+            "Glimmer"
+          ]
+        },
+        "manaCost": "{1}{W}{W}",
+        "power": {
+          "text": "2",
+          "number": 2
+        },
+        "toughness": {
+          "text": "1",
+          "number": 1
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Lifelink",
+            "repeatable": false,
+            "text": "Lifelink"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "power": {
+                  "op": "Le",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "other": true
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "OwnerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "SetTypes",
+                    "types": [
+                      "Enchantment"
+                    ],
+                    "keepSubtypes": true
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                }
+              ]
+            },
+            "if": {
+              "kind": "Matches",
+              "of": {
+                "kind": "Triggering",
+                "role": "Subject"
+              },
+              "filter": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment."
+          }
+        ],
+        "oracleText": "Lifelink\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.\nWhen Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Lifelink",
+            "repeatable": false,
+            "text": "Lifelink"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "types": [
+                  "Creature"
+                ],
+                "controlledBy": {
+                  "kind": "You"
+                },
+                "power": {
+                  "op": "Le",
+                  "value": {
+                    "kind": "Fixed",
+                    "n": 2
+                  }
+                },
+                "other": true
+              }
+            },
+            "do": {
+              "kind": "Draw",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": true,
+            "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Dies",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "underControlOf": {
+                    "kind": "OwnerOf",
+                    "of": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    }
+                  },
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "rememberAs": "k1",
+                  "ownersChoiceOfOrder": true
+                },
+                {
+                  "kind": "Apply",
+                  "what": {
+                    "kind": "SetTypes",
+                    "types": [
+                      "Enchantment"
+                    ],
+                    "keepSubtypes": true
+                  },
+                  "to": {
+                    "kind": "Remembered",
+                    "key": "k1"
+                  },
+                  "until": {
+                    "kind": "Permanently"
+                  }
+                }
+              ]
+            },
+            "if": {
+              "kind": "Matches",
+              "of": {
+                "kind": "Triggering",
+                "role": "Subject"
+              },
+              "filter": {
+                "types": [
+                  "Creature"
+                ]
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Lifelink"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "98a389f4-2905-47f3-b60e-3d4afb3e5cb0",
+        "name": "Enduring Innocence",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Enduring Innocence",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature",
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Sheep",
+                "Glimmer"
+              ],
+              "subtypeList": [
+                "Sheep",
+                "Glimmer"
+              ]
+            },
+            "manaCost": "{1}{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Lifelink",
+                "repeatable": false,
+                "text": "Lifelink"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "other": true
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "SetTypes",
+                        "types": [
+                          "Enchantment"
+                        ],
+                        "keepSubtypes": true
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment."
+              }
+            ],
+            "oracleText": "Lifelink\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.\nWhen Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Lifelink",
+                "repeatable": false,
+                "text": "Lifelink"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "other": true
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "SetTypes",
+                        "types": [
+                          "Enchantment"
+                        ],
+                        "keepSubtypes": true
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "98a389f4-2905-47f3-b60e-3d4afb3e5cb0",
+        "name": "Enduring Innocence",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Enduring Innocence",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature",
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Sheep",
+                "Glimmer"
+              ],
+              "subtypeList": [
+                "Sheep",
+                "Glimmer"
+              ]
+            },
+            "manaCost": "{1}{W}{W}",
+            "power": {
+              "text": "2",
+              "number": 2
+            },
+            "toughness": {
+              "text": "1",
+              "number": 1
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Lifelink",
+                "repeatable": false,
+                "text": "Lifelink"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "other": true
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "SetTypes",
+                        "types": [
+                          "Enchantment"
+                        ],
+                        "keepSubtypes": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)"
+              }
+            ],
+            "oracleText": "Lifelink\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.\nWhen Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Lifelink",
+                "repeatable": false,
+                "text": "Lifelink"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    },
+                    "power": {
+                      "op": "Le",
+                      "value": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "other": true
+                  }
+                },
+                "do": {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": true,
+                "text": "Whenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "Dies",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "Move",
+                      "what": {
+                        "kind": "Triggering",
+                        "role": "Subject"
+                      },
+                      "to": "Battlefield",
+                      "where": "Default",
+                      "underControlOf": {
+                        "kind": "OwnerOf",
+                        "of": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        }
+                      },
+                      "tapped": false,
+                      "faceDown": false,
+                      "attacking": false,
+                      "transformed": false,
+                      "rememberAs": "k1",
+                      "ownersChoiceOfOrder": true
+                    },
+                    {
+                      "kind": "Apply",
+                      "what": {
+                        "kind": "SetTypes",
+                        "types": [
+                          "Enchantment"
+                        ],
+                        "keepSubtypes": false
+                      },
+                      "to": {
+                        "kind": "Remembered",
+                        "key": "k1"
+                      },
+                      "until": {
+                        "kind": "Permanently"
+                      }
+                    }
+                  ]
+                },
+                "if": {
+                  "kind": "Matches",
+                  "of": {
+                    "kind": "Triggering",
+                    "role": "Subject"
+                  },
+                  "filter": {
+                    "types": [
+                      "Creature"
+                    ]
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Lifelink"
+  ],
+  "scenarioList": []
+}

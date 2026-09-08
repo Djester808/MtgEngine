@@ -1,0 +1,541 @@
+{
+  "oracleId": "3dc364f3-3094-4660-80ca-9418588c7fde",
+  "name": "Mithril Coat",
+  "oracleHash": "sha256:84b0a54f54ed60d4232bb04effb4d6912d5303a1c3fd5c1c028ba91490c8563a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "3dc364f3-3094-4660-80ca-9418588c7fde",
+    "name": "Mithril Coat",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Mithril Coat",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Artifact"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Equipment"
+          ],
+          "subtypeList": [
+            "Equipment"
+          ]
+        },
+        "manaCost": "{3}",
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Indestructible",
+            "repeatable": false,
+            "text": "Indestructible"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "AttachAction",
+              "what": {
+                "kind": "Self"
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "supertypes": [
+                    "Legendary"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Indestructible"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has indestructible."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{3}",
+            "repeatable": false,
+            "text": "Equip {3}"
+          }
+        ],
+        "oracleText": "Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Flash",
+            "repeatable": false,
+            "text": "Flash"
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Indestructible",
+            "repeatable": false,
+            "text": "Indestructible"
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "EntersBattlefield",
+              "what": {
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              }
+            },
+            "do": {
+              "kind": "AttachAction",
+              "what": {
+                "kind": "Self"
+              },
+              "to": {
+                "kind": "Target",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "supertypes": [
+                    "Legendary"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "GrantKeyword",
+              "keyword": "Indestructible"
+            },
+            "to": {
+              "kind": "Attached"
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "Equipped creature has indestructible."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Equip",
+            "cost": "{3}",
+            "repeatable": false,
+            "text": "Equip {3}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Indestructible",
+    "Equip",
+    "Flash"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "3dc364f3-3094-4660-80ca-9418588c7fde",
+        "name": "Mithril Coat",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Mithril Coat",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Indestructible",
+                "repeatable": false,
+                "text": "Indestructible"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "AttachAction",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "supertypes": [
+                        "Legendary"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature has indestructible."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "repeatable": false,
+                "text": "Equip {3}"
+              }
+            ],
+            "oracleText": "Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Indestructible",
+                "repeatable": false,
+                "text": "Indestructible"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "AttachAction",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "supertypes": [
+                        "Legendary"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature has indestructible."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "repeatable": false,
+                "text": "Equip {3}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "3dc364f3-3094-4660-80ca-9418588c7fde",
+        "name": "Mithril Coat",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Mithril Coat",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Artifact"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Equipment"
+              ],
+              "subtypeList": [
+                "Equipment"
+              ]
+            },
+            "manaCost": "{3}",
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Indestructible",
+                "repeatable": false,
+                "text": "Indestructible"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "supertypes": [
+                        "Legendary"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature has indestructible."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "repeatable": false,
+                "text": "Equip {3}"
+              }
+            ],
+            "oracleText": "Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Flash",
+                "repeatable": false,
+                "text": "Flash"
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Indestructible",
+                "repeatable": false,
+                "text": "Indestructible"
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "EntersBattlefield",
+                  "what": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  }
+                },
+                "do": {
+                  "kind": "Attach",
+                  "what": {
+                    "kind": "Self"
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "supertypes": [
+                        "Legendary"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "When Mithril Coat enters, attach it to target legendary creature you control."
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "GrantKeyword",
+                  "keyword": "Indestructible"
+                },
+                "to": {
+                  "kind": "Attached"
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "Equipped creature has indestructible."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Equip",
+                "cost": "{3}",
+                "repeatable": false,
+                "text": "Equip {3}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Indestructible",
+    "Equip",
+    "Flash"
+  ],
+  "scenarioList": []
+}

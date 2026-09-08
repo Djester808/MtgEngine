@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Warning",
+      "code": "L004",
+      "message": "A negative literal amount (-5); use the record\u0027s own direction instead.",
+      "path": "faces[0].abilities[0]"
+    },
+    {
+      "severity": "Warning",
+      "code": "L004",
+      "message": "A negative literal amount (-5); use the record\u0027s own direction instead.",
+      "path": "faces[0].abilities[0]"
+    }
+  ],
+  "hasErrors": false
+}

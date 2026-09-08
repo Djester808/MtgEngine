@@ -1,0 +1,274 @@
+{
+  "oracleId": "0826cf7d-7ccc-459b-a92f-29dc169628f8",
+  "name": "Muddle the Mixture",
+  "oracleHash": "sha256:cd4bf679abc238c444099a1498cc9d33e4ca5a2202b850ee47fb986c997c14cd",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "0826cf7d-7ccc-459b-a92f-29dc169628f8",
+    "name": "Muddle the Mixture",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Muddle the Mixture",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{U}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target instant or sorcery spell."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Transmute",
+            "cost": "{1}{U}{U}",
+            "repeatable": false,
+            "text": "Transmute {1}{U}{U}"
+          }
+        ],
+        "oracleText": "Counter target instant or sorcery spell.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "anyTypes": [
+                    "Instant",
+                    "Sorcery"
+                  ],
+                  "spell": true
+                },
+                "upTo": false,
+                "distinct": true
+              }
+            },
+            "text": "Counter target instant or sorcery spell."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Transmute",
+            "cost": "{1}{U}{U}",
+            "repeatable": false,
+            "text": "Transmute {1}{U}{U}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Transmute"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "0826cf7d-7ccc-459b-a92f-29dc169628f8",
+        "name": "Muddle the Mixture",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Muddle the Mixture",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{U}{U}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "text": "Counter target instant or sorcery spell."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Transmute",
+                "cost": "{1}{U}{U}",
+                "repeatable": false,
+                "text": "Transmute {1}{U}{U}"
+              }
+            ],
+            "oracleText": "Counter target instant or sorcery spell.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "text": "Counter target instant or sorcery spell."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Transmute",
+                "cost": "{1}{U}{U}",
+                "repeatable": false,
+                "text": "Transmute {1}{U}{U}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "0826cf7d-7ccc-459b-a92f-29dc169628f8",
+        "name": "Muddle the Mixture",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Muddle the Mixture",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{U}{U}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "text": "Counter target instant or sorcery spell."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Transmute",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{U}{U}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "repeatable": false,
+                "text": "Transmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)"
+              }
+            ],
+            "oracleText": "Counter target instant or sorcery spell.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Counter",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "anyTypes": [
+                        "Instant",
+                        "Sorcery"
+                      ],
+                      "spell": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  }
+                },
+                "text": "Counter target instant or sorcery spell."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Transmute",
+                "costs": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{1}{U}{U}"
+                  },
+                  {
+                    "kind": "DiscardSelfCost"
+                  }
+                ],
+                "repeatable": false,
+                "text": "Transmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Transmute"
+  ],
+  "scenarioList": []
+}

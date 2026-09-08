@@ -1,0 +1,427 @@
+{
+  "oracleId": "b0b6be0c-41cf-4757-9f0e-87227b6ba6b3",
+  "name": "Ghalta, Primal Hunger",
+  "oracleHash": "sha256:a7a1e7f0268c7cda2672531520ce64cf9622885275c8ee594799d02ca0489a6f",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "b0b6be0c-41cf-4757-9f0e-87227b6ba6b3",
+    "name": "Ghalta, Primal Hunger",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ghalta, Primal Hunger",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [
+            "Legendary"
+          ],
+          "subtypes": [
+            "Elder",
+            "Dinosaur"
+          ],
+          "subtypeList": [
+            "Elder",
+            "Dinosaur"
+          ]
+        },
+        "manaCost": "{10}{G}{G}",
+        "power": {
+          "text": "12",
+          "number": 12
+        },
+        "toughness": {
+          "text": "12",
+          "number": 12
+        },
+        "abilities": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          }
+        ],
+        "oracleText": "This spell costs {X} less to cast, where X is the total power of creatures you control.\nTrample (This creature can deal excess combat damage to the player or planeswalker it\u0027s attacking.)",
+        "abilityList": [
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "CostModifier",
+              "spells": {
+                "spell": true,
+                "also": {
+                  "kind": "IsThisObject"
+                }
+              },
+              "delta": {
+                "kind": "Times",
+                "value": {
+                  "kind": "TotalAmong",
+                  "among": {
+                    "types": [
+                      "Creature"
+                    ],
+                    "controlledBy": {
+                      "kind": "You"
+                    }
+                  },
+                  "of": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Self"
+                    }
+                  }
+                },
+                "factor": -1
+              },
+              "who": {
+                "kind": "You"
+              },
+              "genericOnly": true
+            },
+            "where": "Stack",
+            "characteristicDefining": false,
+            "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Trample"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "b0b6be0c-41cf-4757-9f0e-87227b6ba6b3",
+        "name": "Ghalta, Primal Hunger",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ghalta, Primal Hunger",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elder",
+                "Dinosaur"
+              ],
+              "subtypeList": [
+                "Elder",
+                "Dinosaur"
+              ]
+            },
+            "manaCost": "{10}{G}{G}",
+            "power": {
+              "text": "12",
+              "number": 12
+            },
+            "toughness": {
+              "text": "12",
+              "number": 12
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "TotalAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              }
+            ],
+            "oracleText": "This spell costs {X} less to cast, where X is the total power of creatures you control.\nTrample (This creature can deal excess combat damage to the player or planeswalker it\u0027s attacking.)",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "spell": true,
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "TotalAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Stack",
+                "characteristicDefining": false,
+                "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "b0b6be0c-41cf-4757-9f0e-87227b6ba6b3",
+        "name": "Ghalta, Primal Hunger",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ghalta, Primal Hunger",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [
+                "Legendary"
+              ],
+              "subtypes": [
+                "Elder",
+                "Dinosaur"
+              ],
+              "subtypeList": [
+                "Elder",
+                "Dinosaur"
+              ]
+            },
+            "manaCost": "{10}{G}{G}",
+            "power": {
+              "text": "12",
+              "number": 12
+            },
+            "toughness": {
+              "text": "12",
+              "number": 12
+            },
+            "abilities": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "TotalAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              }
+            ],
+            "oracleText": "This spell costs {X} less to cast, where X is the total power of creatures you control.\nTrample (This creature can deal excess combat damage to the player or planeswalker it\u0027s attacking.)",
+            "abilityList": [
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "CostModifier",
+                  "spells": {
+                    "also": {
+                      "kind": "IsThisObject"
+                    }
+                  },
+                  "delta": {
+                    "kind": "Times",
+                    "value": {
+                      "kind": "TotalAmong",
+                      "among": {
+                        "types": [
+                          "Creature"
+                        ],
+                        "controlledBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "of": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Self"
+                        }
+                      }
+                    },
+                    "factor": -1
+                  },
+                  "who": {
+                    "kind": "You"
+                  },
+                  "genericOnly": true
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "This spell costs {X} less to cast, where X is the total power of creatures you control."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Trample"
+  ],
+  "scenarioList": []
+}

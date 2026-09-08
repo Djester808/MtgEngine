@@ -1,0 +1,338 @@
+{
+  "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+  "name": "Burgeoning",
+  "oracleHash": "sha256:f422b4c79dbbf44a067677953cd901c76a16372154f6c33eeeeb2a0aaec24e05",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+    "name": "Burgeoning",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Burgeoning",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Enchantment"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{G}",
+        "abilities": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "LandPlayed",
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Choose",
+                "filter": {
+                  "in": "Hand",
+                  "types": [
+                    "Land"
+                  ],
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "chooser": {
+                  "kind": "You"
+                },
+                "upTo": false
+              },
+              "to": "Battlefield",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+          }
+        ],
+        "oracleText": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
+        "abilityList": [
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "LandPlayed",
+              "by": {
+                "kind": "EachOpponent"
+              }
+            },
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Choose",
+                "filter": {
+                  "in": "Hand",
+                  "types": [
+                    "Land"
+                  ],
+                  "ownedBy": {
+                    "kind": "You"
+                  }
+                },
+                "chooser": {
+                  "kind": "You"
+                },
+                "upTo": false
+              },
+              "to": "Battlefield",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "optional": true,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+        "name": "Burgeoning",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Burgeoning",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LandPlayed",
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "types": [
+                        "Land"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+              }
+            ],
+            "oracleText": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LandPlayed",
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Choose",
+                    "filter": {
+                      "in": "Hand",
+                      "types": [
+                        "Land"
+                      ],
+                      "ownedBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "chooser": {
+                      "kind": "You"
+                    },
+                    "upTo": false
+                  },
+                  "to": "Battlefield",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "optional": true,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "88cf4c1a-5863-45fc-b76d-7ad33b175b2b",
+        "name": "Burgeoning",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Burgeoning",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Enchantment"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{G}",
+            "abilities": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LandPlayed",
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+              }
+            ],
+            "oracleText": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
+            "abilityList": [
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "LandPlayed",
+                  "by": {
+                    "kind": "EachOpponent"
+                  }
+                },
+                "do": {
+                  "kind": "May",
+                  "do": {
+                    "kind": "Move",
+                    "what": {
+                      "kind": "Choose",
+                      "filter": {
+                        "in": "Hand",
+                        "types": [
+                          "Land"
+                        ],
+                        "ownedBy": {
+                          "kind": "You"
+                        }
+                      },
+                      "chooser": {
+                        "kind": "You"
+                      },
+                      "upTo": false
+                    },
+                    "to": "Battlefield",
+                    "where": "Default",
+                    "tapped": false,
+                    "faceDown": false,
+                    "attacking": false,
+                    "transformed": false,
+                    "ownersChoiceOfOrder": true
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

@@ -1,0 +1,616 @@
+{
+  "oracleId": "4b1befff-48fa-47a3-832e-bdaf43495c02",
+  "name": "Ram Through",
+  "oracleHash": "sha256:6457f93d1af5abed57a24bf17ff2cc0fe9a6982373fc374d1494b2686b165db2",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "4b1befff-48fa-47a3-832e-bdaf43495c02",
+    "name": "Ram Through",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Ram Through",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{G}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "keyword": "Trample"
+                  },
+                  "then": {
+                    "kind": "DealDamage",
+                    "n": {
+                      "kind": "Max",
+                      "left": {
+                        "kind": "Fixed",
+                        "n": 0
+                      },
+                      "right": {
+                        "kind": "Difference",
+                        "left": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "right": {
+                          "kind": "ToughnessOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        }
+                      }
+                    },
+                    "toPlayer": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      }
+                    },
+                    "source": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "cantBePrevented": false
+                  }
+                }
+              ]
+            },
+            "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+          }
+        ],
+        "oracleText": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead.",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "PowerOf",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    }
+                  },
+                  "to": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k2",
+                    "distinct": true
+                  },
+                  "source": {
+                    "kind": "Target",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    },
+                    "upTo": false,
+                    "key": "k1",
+                    "distinct": true
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "If",
+                  "test": {
+                    "kind": "HasKeyword",
+                    "of": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "keyword": "Trample"
+                  },
+                  "then": {
+                    "kind": "DealDamage",
+                    "n": {
+                      "kind": "Max",
+                      "left": {
+                        "kind": "Fixed",
+                        "n": 0
+                      },
+                      "right": {
+                        "kind": "Difference",
+                        "left": {
+                          "kind": "PowerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k1"
+                          }
+                        },
+                        "right": {
+                          "kind": "ToughnessOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        }
+                      }
+                    },
+                    "toPlayer": {
+                      "kind": "ControllerOf",
+                      "of": {
+                        "kind": "Remembered",
+                        "key": "k2"
+                      }
+                    },
+                    "source": {
+                      "kind": "Remembered",
+                      "key": "k1"
+                    },
+                    "cantBePrevented": false
+                  }
+                }
+              ]
+            },
+            "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-sonnet-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "4b1befff-48fa-47a3-832e-bdaf43495c02",
+        "name": "Ram Through",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ram Through",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "DealDamage",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "source": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBePrevented": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "HasKeyword",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "keyword": "Trample"
+                      },
+                      "then": {
+                        "kind": "Unsupported",
+                        "reason": "Excess damage \u2014 the part of the damage above what was needed to destroy the damaged creature \u2014 has no record, and nothing redirects that remainder to the creature\u0027s controller.",
+                        "text": "excess damage is dealt to that creature\u0027s controller instead"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+              }
+            ],
+            "oracleText": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "DealDamage",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "distinct": true
+                      },
+                      "source": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBePrevented": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "HasKeyword",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "keyword": "Trample"
+                      },
+                      "then": {
+                        "kind": "Unsupported",
+                        "reason": "Excess damage \u2014 the part of the damage above what was needed to destroy the damaged creature \u2014 has no record, and nothing redirects that remainder to the creature\u0027s controller.",
+                        "text": "excess damage is dealt to that creature\u0027s controller instead"
+                      }
+                    }
+                  ]
+                },
+                "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "4b1befff-48fa-47a3-832e-bdaf43495c02",
+        "name": "Ram Through",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Ram Through",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{G}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "DealDamage",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k2",
+                        "distinct": true
+                      },
+                      "source": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBePrevented": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "HasKeyword",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "keyword": "Trample"
+                      },
+                      "then": {
+                        "kind": "DealDamage",
+                        "n": {
+                          "kind": "Max",
+                          "left": {
+                            "kind": "Fixed",
+                            "n": 0
+                          },
+                          "right": {
+                            "kind": "Difference",
+                            "left": {
+                              "kind": "PowerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "right": {
+                              "kind": "ToughnessOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            }
+                          }
+                        },
+                        "toPlayer": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        },
+                        "source": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "cantBePrevented": false
+                      }
+                    }
+                  ]
+                },
+                "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+              }
+            ],
+            "oracleText": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead.",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "DealDamage",
+                      "n": {
+                        "kind": "PowerOf",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        }
+                      },
+                      "to": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "EachOpponent"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k2",
+                        "distinct": true
+                      },
+                      "source": {
+                        "kind": "Target",
+                        "filter": {
+                          "types": [
+                            "Creature"
+                          ],
+                          "controlledBy": {
+                            "kind": "You"
+                          }
+                        },
+                        "upTo": false,
+                        "key": "k1",
+                        "distinct": true
+                      },
+                      "cantBePrevented": false
+                    },
+                    {
+                      "kind": "If",
+                      "test": {
+                        "kind": "HasKeyword",
+                        "of": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "keyword": "Trample"
+                      },
+                      "then": {
+                        "kind": "DealDamage",
+                        "n": {
+                          "kind": "Max",
+                          "left": {
+                            "kind": "Fixed",
+                            "n": 0
+                          },
+                          "right": {
+                            "kind": "Difference",
+                            "left": {
+                              "kind": "PowerOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k1"
+                              }
+                            },
+                            "right": {
+                              "kind": "ToughnessOf",
+                              "of": {
+                                "kind": "Remembered",
+                                "key": "k2"
+                              }
+                            }
+                          }
+                        },
+                        "toPlayer": {
+                          "kind": "ControllerOf",
+                          "of": {
+                            "kind": "Remembered",
+                            "key": "k2"
+                          }
+                        },
+                        "source": {
+                          "kind": "Remembered",
+                          "key": "k1"
+                        },
+                        "cantBePrevented": false
+                      }
+                    }
+                  ]
+                },
+                "text": "Target creature you control deals damage equal to its power to target creature you don\u0027t control. If the creature you control has trample, excess damage is dealt to that creature\u0027s controller instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

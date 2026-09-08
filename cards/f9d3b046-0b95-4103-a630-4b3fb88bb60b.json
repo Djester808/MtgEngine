@@ -1,0 +1,635 @@
+{
+  "oracleId": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+  "name": "Delighted Halfling",
+  "oracleHash": "sha256:a8cbf012f81463a8a742e7c477856a5eab788c616c1c8acae8f38c4b955cb194",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+    "name": "Delighted Halfling",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Delighted Halfling",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Halfling",
+            "Citizen"
+          ],
+          "subtypeList": [
+            "Halfling",
+            "Citizen"
+          ]
+        },
+        "manaCost": "{G}",
+        "power": {
+          "text": "1",
+          "number": 1
+        },
+        "toughness": {
+          "text": "2",
+          "number": 2
+        },
+        "abilities": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "spendOnlyOn": {
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "spell": true
+                  },
+                  "key": "k1"
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "ManaSpent",
+                    "manaKey": "halfling-mana"
+                  },
+                  "do": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "CantBeCountered"
+                    },
+                    "to": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+          }
+        ],
+        "oracleText": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered.",
+        "abilityList": [
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "AddMana",
+              "mana": {
+                "fixed": "{C}",
+                "anyColor": false,
+                "commanderIdentity": false,
+                "chosenColor": false,
+                "colorOfAttachedOrTarget": false,
+                "landCouldProduce": false,
+                "anyType": false,
+                "restriction": false
+              }
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add {C}."
+          },
+          {
+            "kind": "ActivatedAbility",
+            "costs": [
+              {
+                "kind": "TapSelf"
+              }
+            ],
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "AddMana",
+                  "mana": {
+                    "anyColor": true,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  },
+                  "spendOnlyOn": {
+                    "supertypes": [
+                      "Legendary"
+                    ],
+                    "spell": true
+                  },
+                  "key": "k1"
+                },
+                {
+                  "kind": "DelayedTrigger",
+                  "when": {
+                    "kind": "ManaSpent",
+                    "manaKey": "halfling-mana"
+                  },
+                  "do": {
+                    "kind": "Apply",
+                    "what": {
+                      "kind": "CantBeCountered"
+                    },
+                    "to": {
+                      "kind": "Triggering",
+                      "role": "Subject"
+                    },
+                    "until": {
+                      "kind": "UntilEndOfTurn"
+                    }
+                  },
+                  "once": true
+                }
+              ]
+            },
+            "timing": "Any",
+            "where": "Battlefield",
+            "anyPlayerMayActivate": false,
+            "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+        "name": "Delighted Halfling",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Delighted Halfling",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Halfling",
+                "Citizen"
+              ],
+              "subtypeList": [
+                "Halfling",
+                "Citizen"
+              ]
+            },
+            "manaCost": "{G}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "spendOnlyOn": {
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "spell": true
+                      },
+                      "key": "k1"
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "ManaSpent",
+                        "manaKey": "halfling-mana"
+                      },
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "CantBeCountered"
+                        },
+                        "to": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "spendOnlyOn": {
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "spell": true
+                      },
+                      "key": "k1"
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "ManaSpent",
+                        "manaKey": "halfling-mana"
+                      },
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "CantBeCountered"
+                        },
+                        "to": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "until": {
+                          "kind": "UntilEndOfTurn"
+                        }
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+        "name": "Delighted Halfling",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Delighted Halfling",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Halfling",
+                "Citizen"
+              ],
+              "subtypeList": [
+                "Halfling",
+                "Citizen"
+              ]
+            },
+            "manaCost": "{G}",
+            "power": {
+              "text": "1",
+              "number": 1
+            },
+            "toughness": {
+              "text": "2",
+              "number": 2
+            },
+            "abilities": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "spendOnlyOn": {
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "spell": true
+                      },
+                      "key": "k1"
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "ManaSpent",
+                        "manaKey": "hmana"
+                      },
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "CantBeCountered"
+                        },
+                        "to": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "until": {
+                          "kind": "Permanently"
+                        }
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+              }
+            ],
+            "oracleText": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered.",
+            "abilityList": [
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "AddMana",
+                  "mana": {
+                    "fixed": "{C}",
+                    "anyColor": false,
+                    "commanderIdentity": false,
+                    "chosenColor": false,
+                    "colorOfAttachedOrTarget": false,
+                    "landCouldProduce": false,
+                    "anyType": false,
+                    "restriction": false
+                  }
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add {C}."
+              },
+              {
+                "kind": "ActivatedAbility",
+                "costs": [
+                  {
+                    "kind": "TapSelf"
+                  }
+                ],
+                "do": {
+                  "kind": "Sequence",
+                  "steps": [
+                    {
+                      "kind": "AddMana",
+                      "mana": {
+                        "anyColor": true,
+                        "commanderIdentity": false,
+                        "chosenColor": false,
+                        "colorOfAttachedOrTarget": false,
+                        "landCouldProduce": false,
+                        "anyType": false,
+                        "restriction": false
+                      },
+                      "spendOnlyOn": {
+                        "supertypes": [
+                          "Legendary"
+                        ],
+                        "spell": true
+                      },
+                      "key": "k1"
+                    },
+                    {
+                      "kind": "DelayedTrigger",
+                      "when": {
+                        "kind": "ManaSpent",
+                        "manaKey": "hmana"
+                      },
+                      "do": {
+                        "kind": "Apply",
+                        "what": {
+                          "kind": "CantBeCountered"
+                        },
+                        "to": {
+                          "kind": "Triggering",
+                          "role": "Subject"
+                        },
+                        "until": {
+                          "kind": "Permanently"
+                        }
+                      },
+                      "once": true
+                    }
+                  ]
+                },
+                "timing": "Any",
+                "where": "Battlefield",
+                "anyPlayerMayActivate": false,
+                "text": "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can\u0027t be countered."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [],
+  "scenarioList": []
+}

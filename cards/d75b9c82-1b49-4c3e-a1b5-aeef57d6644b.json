@@ -1,0 +1,310 @@
+{
+  "oracleId": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
+  "name": "Cyclonic Rift",
+  "oracleHash": "sha256:c6622e2c086f9a84b9efddd4fb5cd1116d7a32a76c4df62ee460dedfb6ae4c4a",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
+    "name": "Cyclonic Rift",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Cyclonic Rift",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Instant"
+          ],
+          "supertypes": [],
+          "subtypeList": []
+        },
+        "manaCost": "{1}{U}",
+        "abilities": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Overload",
+            "cost": "{6}{U}",
+            "repeatable": false,
+            "text": "Overload {6}{U}"
+          }
+        ],
+        "oracleText": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \u0022target\u0022 in its text to \u0022each.\u0022)",
+        "abilityList": [
+          {
+            "kind": "SpellAbility",
+            "do": {
+              "kind": "Move",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "notTypes": [
+                    "Land"
+                  ],
+                  "controlledBy": {
+                    "kind": "EachOpponent"
+                  },
+                  "permanent": true
+                },
+                "upTo": false,
+                "distinct": true
+              },
+              "to": "Hand",
+              "where": "Default",
+              "tapped": false,
+              "faceDown": false,
+              "attacking": false,
+              "transformed": false,
+              "ownersChoiceOfOrder": true
+            },
+            "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+          },
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Overload",
+            "cost": "{6}{U}",
+            "repeatable": false,
+            "text": "Overload {6}{U}"
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Overload"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
+        "name": "Cyclonic Rift",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cyclonic Rift",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{U}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Overload",
+                "cost": "{6}{U}",
+                "repeatable": false,
+                "text": "Overload {6}{U}"
+              }
+            ],
+            "oracleText": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \u0022target\u0022 in its text to \u0022each.\u0022)",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      },
+                      "permanent": true
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Overload",
+                "cost": "{6}{U}",
+                "repeatable": false,
+                "text": "Overload {6}{U}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
+        "name": "Cyclonic Rift",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Cyclonic Rift",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Instant"
+              ],
+              "supertypes": [],
+              "subtypeList": []
+            },
+            "manaCost": "{1}{U}",
+            "abilities": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Overload",
+                "cost": "{6}{U}",
+                "repeatable": false,
+                "text": "Overload {6}{U}"
+              }
+            ],
+            "oracleText": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \u0022target\u0022 in its text to \u0022each.\u0022)",
+            "abilityList": [
+              {
+                "kind": "SpellAbility",
+                "do": {
+                  "kind": "Move",
+                  "what": {
+                    "kind": "Target",
+                    "filter": {
+                      "notTypes": [
+                        "Land"
+                      ],
+                      "controlledBy": {
+                        "kind": "EachOpponent"
+                      }
+                    },
+                    "upTo": false,
+                    "distinct": true
+                  },
+                  "to": "Hand",
+                  "where": "Default",
+                  "tapped": false,
+                  "faceDown": false,
+                  "attacking": false,
+                  "transformed": false,
+                  "ownersChoiceOfOrder": true
+                },
+                "text": "Return target nonland permanent you don\u0027t control to its owner\u0027s hand."
+              },
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Overload",
+                "cost": "{6}{U}",
+                "repeatable": false,
+                "text": "Overload {6}{U}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Overload"
+  ],
+  "scenarioList": []
+}

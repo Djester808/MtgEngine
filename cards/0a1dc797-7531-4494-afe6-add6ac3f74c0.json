@@ -1,0 +1,475 @@
+{
+  "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
+  "name": "Defiler of Vigor",
+  "oracleHash": "sha256:a07801f3271cc14dc543a7cf55101a333b4a97c17c244b3dcabd219e3b553f90",
+  "irVersion": 1,
+  "definition": {
+    "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
+    "name": "Defiler of Vigor",
+    "layout": "Normal",
+    "faces": [
+      {
+        "name": "Defiler of Vigor",
+        "role": "Main",
+        "types": {
+          "types": [
+            "Creature"
+          ],
+          "supertypes": [],
+          "subtypes": [
+            "Phyrexian",
+            "Wurm"
+          ],
+          "subtypeList": [
+            "Phyrexian",
+            "Wurm"
+          ]
+        },
+        "manaCost": "{3}{G}{G}",
+        "power": {
+          "text": "6",
+          "number": 6
+        },
+        "toughness": {
+          "text": "6",
+          "number": 6
+        },
+        "abilities": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
+              "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "colors": [
+                  "Green"
+                ],
+                "permanent": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ],
+        "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
+        "abilityList": [
+          {
+            "kind": "KeywordAbility",
+            "keyword": "Trample",
+            "repeatable": false,
+            "text": "Trample"
+          },
+          {
+            "kind": "StaticAbility",
+            "effect": {
+              "kind": "UnsupportedContinuous",
+              "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
+              "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+            },
+            "where": "Battlefield",
+            "characteristicDefining": false,
+            "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+          },
+          {
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "SpellCast",
+              "spell": {
+                "colors": [
+                  "Green"
+                ],
+                "permanent": true
+              },
+              "by": {
+                "kind": "You"
+              }
+            },
+            "do": {
+              "kind": "PutCounters",
+              "on": {
+                "kind": "Each",
+                "filter": {
+                  "types": [
+                    "Creature"
+                  ],
+                  "controlledBy": {
+                    "kind": "You"
+                  }
+                }
+              },
+              "counter": "\u002B1/\u002B1",
+              "n": {
+                "kind": "Fixed",
+                "n": 1
+              }
+            },
+            "optional": false,
+            "where": "Battlefield",
+            "oncePerTurn": false,
+            "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+          }
+        ]
+      }
+    ]
+  },
+  "status": "Disputed",
+  "source": {
+    "kind": "TranslatedProvenance",
+    "models": [
+      "claude-opus-5"
+    ],
+    "promptVersion": "pilot-052d1541ff2e",
+    "agreed": false
+  },
+  "scryfallKeywords": [
+    "Trample"
+  ],
+  "candidates": [
+    {
+      "model": "claude-opus-5",
+      "definition": {
+        "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
+        "name": "Defiler of Vigor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Defiler of Vigor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Phyrexian",
+                "Wurm"
+              ],
+              "subtypeList": [
+                "Phyrexian",
+                "Wurm"
+              ]
+            },
+            "manaCost": "{3}{G}{G}",
+            "power": {
+              "text": "6",
+              "number": 6
+            },
+            "toughness": {
+              "text": "6",
+              "number": 6
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
+                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "colors": [
+                      "Green"
+                    ],
+                    "permanent": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+              }
+            ],
+            "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "No record imposes an optional additional cost on other spells a player casts, nor ties a cost reduction to whether that optional cost was paid. CostModifier can only reduce a spell\u0027s cost unconditionally, has no way to say \u0027you may pay 2 life as an additional cost\u0027, and cannot restrict the reduction to the green mana paid.",
+                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "colors": [
+                      "Green"
+                    ],
+                    "permanent": true
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-sonnet-5",
+      "definition": {
+        "oracleId": "0a1dc797-7531-4494-afe6-add6ac3f74c0",
+        "name": "Defiler of Vigor",
+        "layout": "Normal",
+        "faces": [
+          {
+            "name": "Defiler of Vigor",
+            "role": "Main",
+            "types": {
+              "types": [
+                "Creature"
+              ],
+              "supertypes": [],
+              "subtypes": [
+                "Phyrexian",
+                "Wurm"
+              ],
+              "subtypeList": [
+                "Phyrexian",
+                "Wurm"
+              ]
+            },
+            "manaCost": "{3}{G}{G}",
+            "power": {
+              "text": "6",
+              "number": 6
+            },
+            "toughness": {
+              "text": "6",
+              "number": 6
+            },
+            "abilities": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "an optional additional cost of 2 life on other green permanent spells the controller casts that, when paid, reduces only the green mana in that spell\u0027s cost by {G} \u2014 there is no record for an optional per-spell additional cost that conditionally modifies that same spell\u0027s colored mana cost",
+                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+              }
+            ],
+            "oracleText": "Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control.",
+            "abilityList": [
+              {
+                "kind": "KeywordAbility",
+                "keyword": "Trample",
+                "repeatable": false,
+                "text": "Trample"
+              },
+              {
+                "kind": "StaticAbility",
+                "effect": {
+                  "kind": "UnsupportedContinuous",
+                  "reason": "an optional additional cost of 2 life on other green permanent spells the controller casts that, when paid, reduces only the green mana in that spell\u0027s cost by {G} \u2014 there is no record for an optional per-spell additional cost that conditionally modifies that same spell\u0027s colored mana cost",
+                  "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+                },
+                "where": "Battlefield",
+                "characteristicDefining": false,
+                "text": "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay."
+              },
+              {
+                "kind": "TriggeredAbility",
+                "when": {
+                  "kind": "SpellCast",
+                  "spell": {
+                    "colors": [
+                      "Green"
+                    ]
+                  },
+                  "by": {
+                    "kind": "You"
+                  }
+                },
+                "do": {
+                  "kind": "PutCounters",
+                  "on": {
+                    "kind": "Each",
+                    "filter": {
+                      "types": [
+                        "Creature"
+                      ],
+                      "controlledBy": {
+                        "kind": "You"
+                      }
+                    }
+                  },
+                  "counter": "\u002B1/\u002B1",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                "optional": false,
+                "where": "Battlefield",
+                "oncePerTurn": false,
+                "text": "Whenever you cast a green permanent spell, put a \u002B1/\u002B1 counter on each creature you control."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "keywordList": [
+    "Trample"
+  ],
+  "scenarioList": []
+}
