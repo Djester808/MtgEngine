@@ -147,6 +147,8 @@ internal sealed partial record CastPlan(
                 continue;
             if (permission.TopOfLibraryOnly && !IsTopOfLibrary(state, card))
                 continue;
+            if (permission.OncePerTurn && SpentThisTurn(state, permission, player))
+                continue;
 
             // The cards the resolution named, or the filter a static permission carries; an effect
             // that names neither is a permission for everything in that zone, which is what the
@@ -161,6 +163,27 @@ internal sealed partial record CastPlan(
 
         return null;
     }
+
+    /// <summary>
+    /// CR 116.2a's limit written on a permission: "once during each of your turns, you may cast …".
+    /// The count is of the casts <em>this permission allowed</em> — never of casts of that card, and
+    /// never once per turn cycle — so a spent permission stops applying for the rest of the turn and
+    /// every reader of <see cref="Permission"/> (the cast road and the land road alike) sees the
+    /// same answer without a second spelling of the limit.
+    /// <para>
+    /// The turn's record (<c>TurnHistory.SpellsCast</c>) says who cast each spell and the zone it
+    /// was cast from, and that pair is the closest thing to the permission's identity the state
+    /// keeps: a cast this player made this turn out of the permission's zone is counted as the one
+    /// it allowed. It is spent only when the cast was actually made, because the record is written
+    /// by the <c>SpellCast</c> event and a refused announcement emits none. Two permissions over
+    /// the same zone therefore share one count, and a land played under one is not counted at all
+    /// (a land play is not a cast and the state records no zone for it) — both want a permission id
+    /// on the record, which is a <c>State/**</c> ask in <c>seam-requests/E3r.md</c>.
+    /// </para>
+    /// </summary>
+    [RuleRef("116.2a")]
+    private static bool SpentThisTurn(GameState state, MayPlayFromZone permission, PlayerId player) =>
+        state.History.SpellsCast.Any(record => record.By == player && record.From == permission.From);
 
     /// <summary>
     /// CR 601.3a's "from the top of your library": the card is in a library and is the first card
@@ -217,6 +240,19 @@ internal sealed partial record CastPlan(
         // (CR 702.34a: flashback is paid from a graveyard and from nowhere else).
         if (command.AlternativeCost is null && zone != CardZone.Hand && !OnAdventure(card) && permission is null && !instructed)
             throw new RefusedException("A card in that zone cannot be cast without permission.", "601.3");
+
+        // CR 118.8: "…by sacrificing a land in addition to paying its other costs" is a cost the
+        // permission applies to the spell, paid at CR 601.2f with everything else, so it rides with
+        // the non-mana costs like every other additional cost. It is refused beside either waiver
+        // the same record can carry (CR 118.9's free cast and the life-instead rider): an additional
+        // cost is additional to a mana cost, and a permission that has set the mana cost aside has
+        // nothing left for this to be added to.
+        if (permission is { AdditionalCost: { } addition })
+        {
+            if (permission.WithoutPayingManaCost || permission.PayLifeEqualToManaValueInstead)
+                throw new RefusedException("A permission that waives the mana cost cannot also add to it.", "118.8");
+            extra.Add(addition);
+        }
 
         // CR 118.9 and 601.3a: an effect that lets the card be cast without paying its mana cost is
         // both the permission to cast it from where it is and the announcement that no mana cost is

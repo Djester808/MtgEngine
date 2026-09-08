@@ -45,6 +45,11 @@ public sealed partial class CastingSystem
         ArgumentNullException.ThrowIfNull(command);
         var card = Castable(state, command.Card, command.Player);
 
+        // CR 601.3: the prohibition half of the same sentence the permission answers, asked before
+        // anything is announced and on both roads — an instruction to cast allows the cast, it does
+        // not lift a prohibition.
+        RequireNoCastProhibition(state, command.Player, card);
+
         // CR 601.3b: the face and every optional cost are chosen before anything moves, so the
         // plan is what the spell costs and what it will be on the stack.
         var chars = characteristics.Of(state, card.Id);

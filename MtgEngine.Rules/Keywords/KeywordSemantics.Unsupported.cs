@@ -142,7 +142,6 @@ public static partial class KeywordSemantics
         KeywordKind.StartYourEngines,
         KeywordKind.Station,
         KeywordKind.Storied,
-        KeywordKind.Storm,
         KeywordKind.Sunburst,
         KeywordKind.Surge,
         KeywordKind.Suspend,
