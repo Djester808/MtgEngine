@@ -283,4 +283,14 @@ public interface IDefinitionStore
     CardDefinition? ByName(string name);
 
     CardDefinition? ByOracleId(string oracleId);
+
+    /// <summary>
+    /// Every card name this store knows, CR 201.3: the names a player may be asked to choose from
+    /// when a card says "choose a card name" and prints no options. A store that cannot enumerate
+    /// itself answers nothing, which is why the default is empty rather than a throw — the caller
+    /// offering the choice has to cope with an empty list by asking the player to name a card
+    /// freely, exactly as CR 201.3 has it. Order is not part of the contract; a caller that shows
+    /// the list sorts it.
+    /// </summary>
+    IEnumerable<string> Names => [];
 }

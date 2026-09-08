@@ -143,6 +143,7 @@ public static partial class Linter
             // sees the reader and never the producer, and calls a correct card L003.
             var faceProduced = ProducedKeys(face.AbilityList.SelectMany(Walk).Concat(FaceCosts(face).SelectMany(Walk)));
             CheckAlternativeCosts(face, $"faces[{faceIndex}]", findings);
+            CheckWave30Faces(face, $"faces[{faceIndex}]", findings);
             var abilityIndex = 0;
             foreach (var ability in face.AbilityList)
             {
@@ -362,6 +363,7 @@ public static partial class Linter
         CheckWave27(ability, nodes, path, findings);
         CheckWave28(ability, nodes, path, findings);
         CheckWave29(ability, nodes, path, findings);
+        CheckWave30(nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
