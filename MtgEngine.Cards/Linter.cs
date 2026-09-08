@@ -130,6 +130,7 @@ public static partial class Linter
         CheckStatus(file, findings);
         CheckScenarios(file, findings);
         CheckWave27Faces(file, findings);
+        CheckWave28Scenarios(file, findings);
 
         var faceIndex = 0;
         foreach (var face in file.Definition.Faces)
@@ -359,6 +360,7 @@ public static partial class Linter
         CheckWave25(ability, nodes, path, findings);
         CheckWave26(ability, nodes, path, findings);
         CheckWave27(ability, nodes, path, findings);
+        CheckWave28(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));

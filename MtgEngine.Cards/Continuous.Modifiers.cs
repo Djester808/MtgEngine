@@ -86,3 +86,48 @@ public sealed record DamageCantBePrevented(ObjectFilter? From = null, bool? Comb
 /// </summary>
 [RuleRef("401.5")]
 public sealed record PlayWithTopCardRevealed(PlayerRef Who) : ContinuousEffect;
+
+/// <summary>
+/// "Creature cards in graveyards and libraries can't enter the battlefield", "lands can't enter the
+/// battlefield": a continuous effect that modifies the rules of the game rather than the
+/// characteristics of any object, applied after every other continuous effect (CR 613.11).
+/// <para>
+/// <paramref name="What"/> is what may not enter. It is read wherever an object would be put onto
+/// the battlefield, not only where a spell resolves: a permanent spell whose controller can't put it
+/// onto the battlefield goes to its owner's graveyard instead (CR 608.3e), a token with a forbidden
+/// characteristic is never created at all (CR 111.5), and a card returned or searched into play
+/// simply stays where it is. Nothing is destroyed, countered or replaced — the move does not happen,
+/// so this is not a <see cref="ReplacementAbility"/> and never a <c>Counter</c>.
+/// </para>
+/// <para>
+/// The filter is where the printed zones live, so the record itself takes none: "creature cards in
+/// graveyards and libraries" is a filter with <c>Types: Creature</c> and an
+/// <c>InAnyOf: [Graveyard, Library]</c>, the two zones in one filter. A card that names no zone
+/// ("lands can't enter the battlefield") leaves both zone fields off and forbids the entry from
+/// anywhere, which is not the same restriction and must not be written as a list of every zone.
+/// </para>
+/// </summary>
+[RuleRef("613.11")]
+public sealed record CantEnterBattlefield(ObjectFilter What) : ContinuousEffect;
+
+/// <summary>
+/// "Your opponents can't cast spells", "players can't cast spells from graveyards or libraries": a
+/// rule-modifying continuous effect over casting itself (CR 601.3 with 613.11) — the cast is simply
+/// not a legal action, so nothing goes on the stack and there is nothing to counter.
+/// <para>
+/// <paramref name="CastFrom"/> is the printed list of zones the restriction covers, and it is a
+/// <b>list</b> because the sentence names more than one: "from graveyards or libraries" is one
+/// restriction over two zones (CR 400.1 — every zone is its own place), never two static abilities
+/// and never two records, whose durations and dependencies would then be independent. Leave it out
+/// when the card names no zone; a restriction with no zone covers every zone, so writing out the
+/// whole list is a second spelling of the same thing.
+/// </para>
+/// <para>
+/// It is the record's own field and not the filter's, because <see cref="ObjectFilter.CastFrom"/>
+/// and <see cref="ObjectFilter.NotCastFrom"/> describe one spell that was cast from somewhere and
+/// take one zone each. Set the field or those, never both (L047): two zone riders on one
+/// restriction can disagree, and only one of them would be read.
+/// </para>
+/// </summary>
+[RuleRef("601.3")]
+public sealed record CantCastSpells(PlayerRef Who, ObjectFilter? Matching = null, IReadOnlyList<Zone>? CastFrom = null) : ContinuousEffect;
