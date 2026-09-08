@@ -157,8 +157,8 @@ public sealed record AdvanceToStep(Step Step, int? Turn = null) : ScenarioStep;
 public sealed record AddManaStep(string Player, string Mana) : ScenarioStep;
 
 /// <summary>
-/// A permanent is tapped for mana: the runner activates its first mana ability (CR 605.1a), which
-/// resolves as it is activated and never uses the stack (CR 605.3a), so the permanent taps and the
+/// A permanent is tapped for mana: the runner activates a mana ability of it (CR 605.1a), which
+/// resolves as it is activated and never uses the stack (CR 605.3b), so the permanent taps and the
 /// mana it makes lands in a pool (CR 106.4). <see cref="AddManaStep"/> puts mana in a pool without
 /// anything having been tapped for it, so a "whenever ... is tapped for mana" trigger never sees
 /// it; this step is what such a card's scenario says instead.
@@ -168,8 +168,16 @@ public sealed record AddManaStep(string Player, string Mana) : ScenarioStep;
 /// the ability adds, one letter per mana in the order added, CR 608.2d. Null chooses nothing, which
 /// is right for a land that prints its colour and refused for one that does not.
 /// </param>
-[RuleRef("605.3a")]
-public sealed record TapForManaStep(string Player, string Card, string? ManaColors = null) : ScenarioStep;
+/// <param name="AbilityIndex">
+/// Which mana ability, counted from zero over the permanent's mana abilities alone and not over
+/// every ability it has: a permanent that prints two of them, or one whose mana ability carries a
+/// rider the scenario means to see, is tapped for the one the scenario names (CR 605.3). Null names
+/// the first, so a step written without it means what it meant before this parameter existed.
+/// Abilities that are not mana abilities are not counted, so an activated ability between two mana
+/// abilities does not move the number, and neither does an ability an effect grants the permanent.
+/// </param>
+[RuleRef("605.3")]
+public sealed record TapForManaStep(string Player, string Card, string? ManaColors = null, int? AbilityIndex = null) : ScenarioStep;
 
 /// <summary>The next step must be refused by the engine, with a reason containing the text.</summary>
 public sealed record ExpectRefusedStep(ScenarioStep Attempt, string? ReasonContains = null) : ScenarioStep;
