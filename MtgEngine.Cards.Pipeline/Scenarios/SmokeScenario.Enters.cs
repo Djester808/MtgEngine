@@ -27,6 +27,7 @@ public static partial class SmokeScenario
                 Returns(board, effect);
                 Edicts(board, effect);
                 Sacrifices(board, effect);
+                EachIsAsked(board, effect);
             }
         }
     }
@@ -88,6 +89,48 @@ public static partial class SmokeScenario
 
         // The filter has to name a kind the board can stand, and nothing about who controls it: a
         // sacrifice each player makes is made off their own battlefield (CR 701.16a).
+        if (offered.ControlledBy is not null || SmokeFillers.Bodies(offered) is not [var body, ..])
+            return;
+
+        board.Expect(new InZone(board.Bystander(mine: true, body), Zone.Graveyard, Caster));
+        board.Bystander(mine: false, body);
+        board.Caster(graveyard: 1);
+    }
+
+    /// <summary>
+    /// CR 701.21 with CR 603.3: "when this enters, each player sacrifices a creature or
+    /// planeswalker of their choice; each player who can't discards a card". The record is a
+    /// <see cref="ForEachPlayer"/> around an <see cref="If"/> — every player is asked in turn and
+    /// the branch taken depends on what that player controls — rather than the flat
+    /// <see cref="Sacrifice"/> over <see cref="EachPlayer"/> that <see cref="Edicts"/> reads, so
+    /// the same board is wanted for a shape the earlier arm cannot see. Without it the caster's
+    /// only creature is the one that just arrived: the trigger eats the card under test and the
+    /// arrival the scenario asserts cannot hold, which is what the play reported.
+    /// </summary>
+    /// <remarks>
+    /// The <see cref="If"/> is not evaluated here. The board stands a body the filter admits on
+    /// <em>both</em> battlefields, which is exactly what makes the test true for each player, so
+    /// the then-branch is the branch every player takes and the else-branch never runs. A filter
+    /// the board cannot stand leaves the trigger unstaged, as every other arm does.
+    /// </remarks>
+    [RuleRef("701.21")]
+    private static void EachIsAsked(SmokeBoard board, Effect effect)
+    {
+        if (effect is not ForEachPlayer { Over: EachPlayer, Do: var each })
+            return;
+
+        var sacrifice = each switch
+        {
+            If { Then: Sacrifice inner } => inner,
+            Sacrifice inner => inner,
+            _ => null,
+        };
+
+        if (sacrifice is not { What: null, Choice: { } offered, Who: TriggeringPlayer or EachPlayer, N: null or Fixed { N: 1 } })
+            return;
+
+        // Each player sacrifices off their own battlefield, so a filter that names a controller
+        // describes something only one of them could do and the board says nothing about it.
         if (offered.ControlledBy is not null || SmokeFillers.Bodies(offered) is not [var body, ..])
             return;
 
