@@ -49,12 +49,24 @@ public sealed partial class EffectInterpreter
                 }
 
             // CR 118.8: the effect happens unless the named player pays; paying is a question too.
+            // CR 118.6 with 601.2h (E3p ask 4): the cost is paid in full through the casting system or
+            // not at all — a player who cannot pay is not asked, and a "yes" that no longer goes
+            // through is a "no".
             case Unless unless:
                 {
                     var who = FirstPlayer(run, unless.Who);
                     var key = "unless:" + run.Path;
                     if (run.Context.Chosen.TryGetValue(key, out var paid))
-                        return Yes(paid) ? run : Child(run, 0, unless.Do);
+                    {
+                        if (!Yes(paid) || Casting is null)
+                            return Yes(paid) ? run : Child(run, 0, unless.Do);
+                        return Casting.CanPayForRule(run.State, who, unless.Paid, run.Context.Source) is null
+                            ? Merge(run, Casting.PayForRule(run.State, who, unless.Paid, run.Context.Source))
+                            : Child(run, 0, unless.Do);
+                    }
+
+                    if (Casting is not null && Casting.CanPayForRule(run.State, who, unless.Paid, run.Context.Source) is not null)
+                        return Child(run, 0, unless.Do);
                     return Ask(run, who, "unless", "Pay the cost to stop this?", YesNo, 1, 1, key);
                 }
 

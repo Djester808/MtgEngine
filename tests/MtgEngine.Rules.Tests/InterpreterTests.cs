@@ -390,6 +390,17 @@ internal sealed class InterpreterTestsCasting : ICastingSystem
     /// <summary>What <see cref="Check"/> answers regardless: null means the command is legal.</summary>
     public Refusal? Refusal { get; set; }
 
+    /// <summary>What a cost paid for a rule answers (CR 118.6): null pays it, at one life, as the mark a test reads.</summary>
+    public Refusal? PaymentRefusal { get; set; } = new("the fake pays nothing", "118.6");
+
+    public Refusal? CanPayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null) => PaymentRefusal;
+
+    public Outcome PayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null)
+    {
+        var paid = new LifeChanged(player, -1, "paid for a rule");
+        return new Outcome(paid.Apply(state), [paid]);
+    }
+
     /// <summary>CR 601.2c: what this system says a command still has to name, in cost order.</summary>
     public List<CostChoice> Choices { get; } = [];
 

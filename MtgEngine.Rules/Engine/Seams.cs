@@ -135,6 +135,16 @@ public interface ICastingSystem : ISubsystem
     /// <summary>Resolve the top object of the stack, CR 608.</summary>
     Outcome ResolveTop(GameState state);
 
+    /// <summary>CR 118.6 with 601.2h: a cost the rules or a resolving effect impose, paid in full or not at all (E3p ask 3).</summary>
+    [RuleRef("118.6")]
+    Outcome PayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null) =>
+        throw new NotImplementedException("PayForRule is not built in this casting system.");
+
+    /// <summary>Whether that payment would go through, with the rule when it would not, changing nothing.</summary>
+    [RuleRef("118.6")]
+    Refusal? CanPayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null) =>
+        new("A cost cannot be paid by this casting system.", "118.6");
+
     /// <summary>
     /// CR 608.2m and 608.2n: where a resolved spell or ability goes once its walk is finished.
     /// <see cref="ResolveTop"/> calls it when the resolution finished at once; a resolution that

@@ -35,6 +35,8 @@ public static class ScenarioAnswers
             // CR 608.2: an optional instruction. Saying yes is what makes the effect happen, and a
             // smoke scenario asserts the effect.
             ChoiceKinds.May => [Prefer(choice, "yes")],
+            // CR 601.2b with 118.6: the first legal answer to "you may pay" is to pay (E8e ask 1).
+            ChoiceKinds.MayPay => [Prefer(choice, "yes")],
 
             // CR 601.2b: the smallest value is the one a scenario can afford; ids that are not
             // numbers are ordered as the effect wrote them.
