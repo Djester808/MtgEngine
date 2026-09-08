@@ -353,3 +353,15 @@ sonnet, a third reading of its disputed on a fresh opus context under the label 
 | E6f | `StackZone.MoveSpellToStack` and `Game.Manual`'s move pass `Departed` so a cast from a graveyard records the zone it left | **Now** (coordinator): both sites; Syr Konrad verifies 2/2. `events.txt` lists type names only, so `ObjectMoved`'s added `FromZone` (defaulted, `LeftFrom` derived and not logged) changed no line; the round-trip test is the contract. |
 | P21 | none; P19's three withheld reveal-then-choose arms were never committed (SmokeBoard.Reveals and SmokeFillers.Unfindable are present and unused); a targeted filler spell would now unblock two cards | **Recorded** for P22: rewrite the arms; decide the targeted filler. |
 | coordinator | verify, agreement and gate on the wave-21 tip | **231 verified, 1 failed, 7 without a scenario, 0 unsupported, 0 crashed** over the 272 card files (`17758f9`); slice 002 agrees 19 of 40 on two readings (its third reading is being collected); gate green: 945 engine, 224 vocabulary, 262 pipeline and 633 API tests. The one failure is a bounce land whose enters-trigger returns itself (P22: the choice the runner takes, CR 603.3). |
+
+# Seam decisions after wave 22
+
+Wave 22 (E9q V12 P22, all on opus) ran beside the third corpus slice (40 deck faces on opus and
+sonnet, a third reading of the disputed on `claude-opus-5-b`) and the redo of the five cards V12 unblocked.
+
+| From | Request | Decision |
+|---|---|---|
+| E9q | the linter keeps `AttachAction`, refuses `Attach`, rewrites one to the other; the unbuilt seam defaults in `Engine/Seams.cs` should refuse rather than throw; one public reading of attachment legality (CR 702.5b, 301.5c) | **Recorded** for a P-series canonical rule, an E-series seam pass and a query seam; both spellings reach one arm meanwhile. `Retarget`'s catch keeps `NotImplementedException` beside the refusal until the seam defaults change. |
+| V12 | none outside the readers; two card ids in the brief were wrong (the excess-damage card is `4b1befff`, the draw-step exception `ea5103f5`) | **Recorded**; the redo used the corrected ids. Readers (casting: `OptionalAdditionalCost`, `Face.AlternativeCosts`; interpreter: `DealDamage.ExcessTo`, `PayCost.Then`; casting/trigger: `ChooseMode.Budget`; trigger: `Draws.ExceptFirstInDrawStep`) are **wave 23 and on**. |
+| P22 | the retarget arm cannot offer a player or an any-target slot (CR 114.6, 115.7a); the guard refuses `git checkout` of card files inside a worktree | **E9r (wave 23)** for the retarget; the restore is the coordinator's after a merge (the worktree's dirty card files are discarded with it). |
+| coordinator | verify, agreement and gate on the wave-22 tip | **260 verified, 1 failed, 12 without a scenario, 3 unsupported, 0 crashed** over the 312 card files (`7f9c597`); slice 002 agrees 32 of 40 (three readings), slice 003 24 of 40 (two, its third being collected); gate green: 952 engine, 235 vocabulary, 266 pipeline and 633 API tests. The one failure is a court's "you become the monarch" with no interpreter arm (E9r). |
