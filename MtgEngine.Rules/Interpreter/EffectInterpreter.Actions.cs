@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -35,7 +36,15 @@ public sealed partial class EffectInterpreter
 
             // CR 701.8b: a permanent with indestructible is not destroyed.
             case Destroy destroy:
-                return Leave(run, Objects(run, destroy.What), "destroyed", Zone.Graveyard, skipIndestructible: true);
+                {
+                    // CR 701.8: "for each creature destroyed this way" counts what the destruction
+                    // actually destroyed, so the key is set from the objects that changed zones and
+                    // not from the ones the selector named — an indestructible permanent, one whose
+                    // regeneration shield was used (CR 701.19a) and one already gone are all absent.
+                    var before = run.State;
+                    run = Leave(run, Objects(run, destroy.What), "destroyed", Zone.Graveyard, skipIndestructible: true);
+                    return Recall(run, destroy.RememberAs, Landed(before, run));
+                }
 
             case Cards.Exile exile:
                 {
@@ -51,14 +60,31 @@ public sealed partial class EffectInterpreter
                     if (sacrifice.What is { } named)
                         return Leave(run, Objects(run, named), "sacrificed", Zone.Graveyard, skipIndestructible: false);
 
-                    // CR 701.21a: the player has now chosen, so the permanents they named leave.
-                    if (Answered(run) is { } given)
-                        return Leave(run, Named(run.State, given), "sacrificed", Zone.Graveyard, skipIndestructible: false);
+                    // CR 701.16 with 102.1: "each player sacrifices" reaches every player the
+                    // reference admits, in APNAP order (CR 101.4), and each of them chooses their
+                    // own — so the walk asks one player, stops, and the answer puts it back here to
+                    // move that player's permanent and ask the next of them.
+                    var sacrificing = InTurnOrder(run.State, PlayersOrYou(run, sacrifice.Who));
+                    var next = 0;
+                    if (Answered(run) is { } given && run.Answer is { } answer)
+                    {
+                        run = Leave(run, Named(run.State, given), "sacrificed", Zone.Graveyard, skipIndestructible: false);
+                        next = sacrificing.IndexOf(answer.Player) + 1;
+                    }
 
-                    var chooser = FirstPlayer(run, sacrifice.Who);
-                    var options = OptionsFor(run.State, Controlled(run.State, chooser, sacrifice.Choice, run.Context));
-                    var count = Math.Max(1, Number(run, sacrifice.N));
-                    return Ask(run, chooser, "sacrifice", "Choose what to sacrifice.", options, count, count);
+                    foreach (var chooser in sacrificing.Skip(next))
+                    {
+                        var options = OptionsFor(run.State, Controlled(run.State, chooser, sacrifice.Choice, run.Context));
+
+                        // CR 701.16b: a player who controls nothing the effect admits sacrifices
+                        // nothing, and is not asked a question no answer could satisfy (CR 101.4).
+                        if (options.Count == 0)
+                            continue;
+                        var count = Math.Min(options.Count, Math.Max(1, Number(run, sacrifice.N)));
+                        return Ask(run, chooser, ChoiceKinds.Sacrifice, "Choose what to sacrifice.", options, count, count);
+                    }
+
+                    return run;
                 }
 
             // CR 701.6a: a countered spell goes to its owner's graveyard unless told otherwise.
@@ -88,7 +114,13 @@ public sealed partial class EffectInterpreter
                         {
                             var before = run.State;
                             run = Merge(run, zones.CreateToken(run.State, token.Token, player, token.Tapped, token.Attacking));
-                            created.AddRange(run.State.Objects.Keys.Where(id => !before.Objects.ContainsKey(id)));
+                            var arrived = run.State.Objects.Keys.Where(id => !before.Objects.ContainsKey(id)).ToList();
+
+                            // CR 508.4: the token attacks the player the effect names, not whoever
+                            // the attackers already declared were declared against.
+                            if (token.AttackingWhom is { } whom)
+                                run = Attacking(run, arrived, whom);
+                            created.AddRange(arrived);
                         }
                     }
 
