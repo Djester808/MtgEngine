@@ -23,6 +23,7 @@ LifeChanged
 ManaChanged
 ManaPoolEmptied
 ManualActionTaken
+MonarchChanged
 ObjectCeasedToExist
 ObjectChanged
 ObjectCreated

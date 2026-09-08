@@ -64,10 +64,9 @@ public sealed partial class EffectInterpreter
             // nothing that writes it, and a designation the log cannot carry would be lost on the
             // first replay. Refused by rule until the seam lands rather than silently doing nothing,
             // which would leave a court's card looking as though it worked.
-            case BecomeMonarch:
-                throw new RefusedException(
-                    "Becoming the monarch needs a MonarchChanged event that writes GameState.Monarch; asked for in seam-requests/E9r.md",
-                    "724.1");
+            // CR 724.1: the named player becomes the monarch, and the designation leaves whoever held it.
+            case BecomeMonarch monarch:
+                return Emit(run, new MonarchChanged(FirstPlayer(run, monarch.Who)));
 
             // CR 702.180: prepared is a designation, put on and taken off by these two.
             case Cards.Prepare prepare:

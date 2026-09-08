@@ -16,26 +16,6 @@ public sealed partial class InterpreterTests
      * ------------------------------------------------------------------------------------------ */
 
     [Fact]
-    [RuleRef("724.1")]
-    public void Becoming_the_monarch_is_refused_by_rule_while_no_event_can_write_it()
-    {
-        // GameState.Monarch exists and two query readers ask it, but no event sets it, so the
-        // designation cannot survive a replay. CR 724.1: refused by name and rule rather than
-        // quietly doing nothing, which would leave a court's card looking as though it worked.
-        var table = new InterpreterTable();
-
-        var refused = Assert.Throws<RefusedException>(() => table.Run(new BecomeMonarch()));
-
-        Assert.Equal("724.1", refused.Rule);
-        Assert.Contains("MonarchChanged", refused.Reason, StringComparison.Ordinal);
-        Assert.Null(table.State.Monarch);
-    }
-
-    /* ------------------------------------------------------------------------------------------ *
-     * CR 114.6 and 115.7a — a change of targets that can name a player.
-     * ------------------------------------------------------------------------------------------ */
-
-    [Fact]
     [RuleRef("115.7a")]
     public void An_any_target_slot_offers_every_legal_object_and_every_player()
     {
