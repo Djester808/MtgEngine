@@ -39,9 +39,8 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No continuous effect makes a permanent become a specific named card. BecomesCopyOf copies an object a selector names, and no Sol Ring object exists in the game to name; SetTypes cannot set a name or the copiable abilities the printed card carries.",
-              "text": "Enchanted permanent is a Sol Ring."
+              "kind": "BecomesCopyOfNamed",
+              "name": "Sol Ring"
             },
             "to": {
               "kind": "Attached"
@@ -67,9 +66,8 @@
           {
             "kind": "StaticAbility",
             "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No continuous effect makes a permanent become a specific named card. BecomesCopyOf copies an object a selector names, and no Sol Ring object exists in the game to name; SetTypes cannot set a name or the copiable abilities the printed card carries.",
-              "text": "Enchanted permanent is a Sol Ring."
+              "kind": "BecomesCopyOfNamed",
+              "name": "Sol Ring"
             },
             "to": {
               "kind": "Attached"
@@ -82,265 +80,18 @@
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Translated",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Enchant"
-  ],
-  "candidates": [
-    {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "e0e9eaae-ecb0-4f2f-8f61-6a15319ebd36",
-        "name": "Ensoul Ring",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Ensoul Ring",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{U}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No continuous effect makes a permanent become a specific named card. BecomesCopyOf copies an object a selector names, and no Sol Ring object exists in the game to name; SetTypes cannot set a name or the copiable abilities the printed card carries.",
-                  "text": "Enchanted permanent is a Sol Ring."
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring."
-              }
-            ],
-            "oracleText": "Enchant nonland permanent.\nEnchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No continuous effect makes a permanent become a specific named card. BecomesCopyOf copies an object a selector names, and no Sol Ring object exists in the game to name; SetTypes cannot set a name or the copiable abilities the printed card carries.",
-                  "text": "Enchanted permanent is a Sol Ring."
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "e0e9eaae-ecb0-4f2f-8f61-6a15319ebd36",
-        "name": "Ensoul Ring",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Ensoul Ring",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{U}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record turns a permanent into a copy of a specific named card. BecomesCopyOf takes a Selector pointing at an object already in the game, and no ContinuousEffect sets an object\u0027s name, so \u0027is a Sol Ring\u0027 (with its own name, type and mana ability) cannot be assembled from SetTypes/SetPt/GrantAbility alone.",
-                  "text": "Enchanted permanent is a Sol Ring."
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)"
-              }
-            ],
-            "oracleText": "Enchant nonland permanent.\nEnchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No record turns a permanent into a copy of a specific named card. BecomesCopyOf takes a Selector pointing at an object already in the game, and no ContinuousEffect sets an object\u0027s name, so \u0027is a Sol Ring\u0027 (with its own name, type and mana ability) cannot be assembled from SetTypes/SetPt/GrantAbility alone.",
-                  "text": "Enchanted permanent is a Sol Ring."
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "e0e9eaae-ecb0-4f2f-8f61-6a15319ebd36",
-        "name": "Ensoul Ring",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Ensoul Ring",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Enchantment"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Aura"
-              ],
-              "subtypeList": [
-                "Aura"
-              ]
-            },
-            "manaCost": "{1}{U}",
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "\u0022Is a Sol Ring\u0022 makes the permanent a copy of a card named by name and nothing else. BecomesCopyOf takes a Selector, which can only name an object already in the game, and no record sets an object\u0027s name or its printed mana cost, so the copiable values of a named card cannot be reached. Writing it as SetTypes plus LoseAllAbilities plus GrantAbility would leave the permanent with its old name and cost, which is a different card.",
-                  "text": "Enchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring."
-              }
-            ],
-            "oracleText": "Enchant nonland permanent.\nEnchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Enchant",
-                "of": {
-                  "notTypes": [
-                    "Land"
-                  ]
-                },
-                "repeatable": false,
-                "text": "Enchant nonland permanent."
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "\u0022Is a Sol Ring\u0022 makes the permanent a copy of a card named by name and nothing else. BecomesCopyOf takes a Selector, which can only name an object already in the game, and no record sets an object\u0027s name or its printed mana cost, so the copiable values of a named card cannot be reached. Writing it as SetTypes plus LoseAllAbilities plus GrantAbility would leave the permanent with its old name and cost, which is a different card.",
-                  "text": "Enchanted permanent is a Sol Ring. (It\u0027s no longer anything else.)"
-                },
-                "to": {
-                  "kind": "Attached"
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Enchanted permanent is a Sol Ring."
-              }
-            ]
-          }
-        ]
-      }
-    }
   ],
   "keywordList": [
     "Enchant"

@@ -42,14 +42,35 @@
             "text": "Flash"
           },
           {
-            "kind": "StaticAbility",
-            "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No Trigger watches a player searching a library: the trigger list has no searches event, and CantSearchLibraries is the only record that knows about searching at all, so \u0022whenever an opponent searches their library\u0022 cannot be said and the gain-life-and-draw half has no event to hang on.",
-              "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Searches",
+              "who": {
+                "opponent": true
+              }
             },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
             "where": "Battlefield",
-            "characteristicDefining": false,
+            "oncePerTurn": false,
             "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
           }
         ],
@@ -62,264 +83,500 @@
             "text": "Flash"
           },
           {
-            "kind": "StaticAbility",
-            "effect": {
-              "kind": "UnsupportedContinuous",
-              "reason": "No Trigger watches a player searching a library: the trigger list has no searches event, and CantSearchLibraries is the only record that knows about searching at all, so \u0022whenever an opponent searches their library\u0022 cannot be said and the gain-life-and-draw half has no event to hang on.",
-              "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+            "kind": "TriggeredAbility",
+            "when": {
+              "kind": "Searches",
+              "who": {
+                "opponent": true
+              }
             },
+            "do": {
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "GainLife",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                },
+                {
+                  "kind": "Draw",
+                  "n": {
+                    "kind": "Fixed",
+                    "n": 1
+                  }
+                }
+              ]
+            },
+            "optional": false,
             "where": "Battlefield",
-            "characteristicDefining": false,
+            "oncePerTurn": false,
             "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
           }
         ]
       }
     ]
   },
-  "status": "Disputed",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
-      "claude-opus-5"
+      "claude-opus-5",
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
-    "agreed": false
+    "agreed": true
   },
   "scryfallKeywords": [
     "Flash"
   ],
-  "candidates": [
+  "scenarios": [
     {
-      "model": "claude-opus-5",
-      "definition": {
-        "oracleId": "08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
-        "name": "Archivist of Oghma",
-        "layout": "Normal",
-        "faces": [
+      "id": "smoke-08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
+      "title": "casting Archivist of Oghma does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
           {
-            "name": "Archivist of Oghma",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Halfling",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Halfling",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{1}{W}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "2",
-              "number": 2
-            },
-            "abilities": [
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
+                "name": "Archivist of Oghma",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No Trigger watches a player searching a library: the trigger list has no searches event, and CantSearchLibraries is the only record that knows about searching at all, so \u0022whenever an opponent searches their library\u0022 cannot be said and the gain-life-and-draw half has no event to hang on.",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ],
-            "oracleText": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
-            "abilityList": [
+            "library": [
               {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               },
               {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No Trigger watches a player searching a library: the trigger list has no searches event, and CantSearchLibraries is the only record that knows about searching at all, so \u0022whenever an opponent searches their library\u0022 cannot be said and the gain-life-and-draw half has no event to hang on.",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "model": "claude-sonnet-5",
-      "definition": {
-        "oracleId": "08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
-        "name": "Archivist of Oghma",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Archivist of Oghma",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Halfling",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Halfling",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{1}{W}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "2",
-              "number": 2
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "no Trigger kind matches a player searching their library, and TriggeredAbility\u0027s \u0027when\u0027 has no Unsupported placeholder, so the ability that gains 1 life and draws a card off that event cannot be constructed",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-              }
-            ],
-            "oracleText": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "no Trigger kind matches a player searching their library, and TriggeredAbility\u0027s \u0027when\u0027 has no Unsupported placeholder, so the ability that gains 1 life and draws a card off that event cannot be constructed",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "model": "claude-opus-5-b",
-      "definition": {
-        "oracleId": "08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
-        "name": "Archivist of Oghma",
-        "layout": "Normal",
-        "faces": [
-          {
-            "name": "Archivist of Oghma",
-            "role": "Main",
-            "types": {
-              "types": [
-                "Creature"
-              ],
-              "supertypes": [],
-              "subtypes": [
-                "Halfling",
-                "Cleric"
-              ],
-              "subtypeList": [
-                "Halfling",
-                "Cleric"
-              ]
-            },
-            "manaCost": "{1}{W}",
-            "power": {
-              "text": "2",
-              "number": 2
-            },
-            "toughness": {
-              "text": "2",
-              "number": 2
-            },
-            "abilities": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No Trigger record watches a player searching a library (CR 701.19): the list has Scries, Surveils, Mills and the rest but nothing for a search, and there is no unsupported Trigger, so the whole triggered ability is marked here and the StaticAbility is only the slot that can carry the marker. It needs a SearchesLibrary(who) trigger; the effect half, GainLife 1 then Draw 1, is already sayable.",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-              }
-            ],
-            "oracleText": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
-            "abilityList": [
-              {
-                "kind": "KeywordAbility",
-                "keyword": "Flash",
-                "repeatable": false,
-                "text": "Flash"
-              },
-              {
-                "kind": "StaticAbility",
-                "effect": {
-                  "kind": "UnsupportedContinuous",
-                  "reason": "No Trigger record watches a player searching a library (CR 701.19): the list has Scries, Surveils, Mills and the rest but nothing for a search, and there is no unsupported Trigger, so the whole triggered ability is marked here and the StaticAbility is only the slot that can carry the marker. It needs a SearchesLibrary(who) trigger; the effect half, GainLife 1 then Draw 1, is already sayable.",
-                  "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-                },
-                "where": "Battlefield",
-                "characteristicDefining": false,
-                "text": "Whenever an opponent searches their library, you gain 1 life and draw a card."
-              }
-            ]
-          }
-        ]
-      }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Archivist of Oghma"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Archivist of Oghma",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
     }
   ],
+  "verification": {
+    "engineHash": "engine:e67173362273e740",
+    "runId": "verify-20260908T021526-c64b9c",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T02:15:26.5395371+00:00"
+  },
   "keywordList": [
     "Flash"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-08b13e1f-27ca-40a8-b5ed-88ac933d24bf",
+      "title": "casting Archivist of Oghma does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Archivist of Oghma",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Archivist of Oghma"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Archivist of Oghma",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

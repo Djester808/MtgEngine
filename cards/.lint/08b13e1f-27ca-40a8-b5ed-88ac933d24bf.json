@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: No Trigger watches a player searching a library: the trigger list has no searches event, and CantSearchLibraries is the only record that knows about searching at all, so \u0022whenever an opponent searches their library\u0022 cannot be said and the gain-life-and-draw half has no event to hang on.",
-      "path": "faces[0].abilities[1]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

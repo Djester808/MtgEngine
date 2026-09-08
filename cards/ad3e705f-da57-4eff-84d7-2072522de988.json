@@ -412,71 +412,89 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
+                  "kind": "ChooseMode",
+                  "modes": [
                     {
-                      "kind": "Unsupported",
-                      "reason": "Spree\u0027s per-mode additional cost has no spelling. Mode.Cost is a budget price that is never paid and needs a Budget beside it, so it cannot hold a cost the caster really pays; Face.AdditionalCosts is a list paid together, so putting {2} and {B}{B} there charges both whichever mode is chosen; and no record ties a payment to the mode it buys. The modes below are therefore chosen for free.",
-                      "text": "Spree (Choose one or more additional costs.)\n\u002B {2} \u2014\n\u002B {B}{B} \u2014"
+                      "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.",
+                      "do": {
+                        "kind": "Search",
+                        "for": {},
+                        "to": "Library",
+                        "from": "Library",
+                        "where": "Top",
+                        "reveal": false,
+                        "tapped": false,
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
+                      }
                     },
                     {
-                      "kind": "ChooseMode",
-                      "modes": [
-                        {
-                          "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.",
-                          "do": {
-                            "kind": "Search",
-                            "for": {},
-                            "to": "Library",
-                            "from": "Library",
-                            "where": "Top",
-                            "reveal": false,
-                            "tapped": false,
-                            "shuffleAfter": true,
-                            "shuffleOnlyIfFound": false,
-                            "othersTapped": false
+                      "text": "\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 3
+                            },
+                            "who": {
+                              "kind": "TargetPlayer",
+                              "filter": {},
+                              "upTo": false,
+                              "key": "k1"
+                            }
+                          },
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 3
+                            },
+                            "who": {
+                              "kind": "RememberedPlayer",
+                              "key": "k1"
+                            }
                           }
-                        },
-                        {
-                          "text": "\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life.",
-                          "do": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 3
-                                },
-                                "who": {
-                                  "kind": "TargetPlayer",
-                                  "filter": {},
-                                  "upTo": false,
-                                  "key": "k1"
-                                }
-                              },
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 3
-                                },
-                                "who": {
-                                  "kind": "RememberedPlayer",
-                                  "key": "k1"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      ],
-                      "min": 1,
-                      "max": 2,
-                      "sameModeTwice": false
+                        ]
+                      }
                     }
-                  ]
+                  ],
+                  "min": 1,
+                  "max": 2,
+                  "sameModeTwice": false
                 },
                 "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.\n\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life."
+              }
+            ],
+            "additionalCosts": [
+              {
+                "kind": "ChooseCost",
+                "options": [
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{2}"
+                  },
+                  {
+                    "kind": "ManaCost",
+                    "mana": "{B}{B}"
+                  },
+                  {
+                    "kind": "Costs",
+                    "all": [
+                      {
+                        "kind": "ManaCost",
+                        "mana": "{2}"
+                      },
+                      {
+                        "kind": "ManaCost",
+                        "mana": "{B}{B}"
+                      }
+                    ]
+                  }
+                ]
               }
             ],
             "oracleText": "Spree (Choose one or more additional costs.)\n\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.\n\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life.",
@@ -490,69 +508,59 @@
               {
                 "kind": "SpellAbility",
                 "do": {
-                  "kind": "Sequence",
-                  "steps": [
+                  "kind": "ChooseMode",
+                  "modes": [
                     {
-                      "kind": "Unsupported",
-                      "reason": "Spree\u0027s per-mode additional cost has no spelling. Mode.Cost is a budget price that is never paid and needs a Budget beside it, so it cannot hold a cost the caster really pays; Face.AdditionalCosts is a list paid together, so putting {2} and {B}{B} there charges both whichever mode is chosen; and no record ties a payment to the mode it buys. The modes below are therefore chosen for free.",
-                      "text": "Spree (Choose one or more additional costs.)\n\u002B {2} \u2014\n\u002B {B}{B} \u2014"
+                      "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.",
+                      "do": {
+                        "kind": "Search",
+                        "for": {},
+                        "to": "Library",
+                        "from": "Library",
+                        "where": "Top",
+                        "reveal": false,
+                        "tapped": false,
+                        "shuffleAfter": true,
+                        "shuffleOnlyIfFound": false,
+                        "othersTapped": false
+                      }
                     },
                     {
-                      "kind": "ChooseMode",
-                      "modes": [
-                        {
-                          "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.",
-                          "do": {
-                            "kind": "Search",
-                            "for": {},
-                            "to": "Library",
-                            "from": "Library",
-                            "where": "Top",
-                            "reveal": false,
-                            "tapped": false,
-                            "shuffleAfter": true,
-                            "shuffleOnlyIfFound": false,
-                            "othersTapped": false
+                      "text": "\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life.",
+                      "do": {
+                        "kind": "Sequence",
+                        "steps": [
+                          {
+                            "kind": "Draw",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 3
+                            },
+                            "who": {
+                              "kind": "TargetPlayer",
+                              "filter": {},
+                              "upTo": false,
+                              "key": "k1"
+                            }
+                          },
+                          {
+                            "kind": "LoseLife",
+                            "n": {
+                              "kind": "Fixed",
+                              "n": 3
+                            },
+                            "who": {
+                              "kind": "RememberedPlayer",
+                              "key": "k1"
+                            }
                           }
-                        },
-                        {
-                          "text": "\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life.",
-                          "do": {
-                            "kind": "Sequence",
-                            "steps": [
-                              {
-                                "kind": "Draw",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 3
-                                },
-                                "who": {
-                                  "kind": "TargetPlayer",
-                                  "filter": {},
-                                  "upTo": false,
-                                  "key": "k1"
-                                }
-                              },
-                              {
-                                "kind": "LoseLife",
-                                "n": {
-                                  "kind": "Fixed",
-                                  "n": 3
-                                },
-                                "who": {
-                                  "kind": "RememberedPlayer",
-                                  "key": "k1"
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      ],
-                      "min": 1,
-                      "max": 2,
-                      "sameModeTwice": false
+                        ]
+                      }
                     }
-                  ]
+                  ],
+                  "min": 1,
+                  "max": 2,
+                  "sameModeTwice": false
                 },
                 "text": "\u002B {2} \u2014 Search your library for a card, then shuffle and put that card on top.\n\u002B {B}{B} \u2014 Target player draws three cards and loses 3 life."
               }

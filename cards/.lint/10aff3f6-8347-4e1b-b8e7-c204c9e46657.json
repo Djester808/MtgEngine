@@ -3,7 +3,7 @@
     {
       "severity": "Error",
       "code": "L001",
-      "message": "Unsupported: No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
+      "message": "Unsupported: No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
       "path": "faces[0].abilities[0]"
     }
   ],

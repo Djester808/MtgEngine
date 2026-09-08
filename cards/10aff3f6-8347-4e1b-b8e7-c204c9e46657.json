@@ -23,9 +23,38 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
-              "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ChooseNumberSecretly",
+                  "key": "k1",
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "min": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "HighestChosen",
+                    "key": "k1"
+                  },
+                  "toPlayer": {
+                    "kind": "PlayerWhoChose",
+                    "key": "k1",
+                    "lowest": false
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
+                  "text": "Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+                }
+              ]
             },
             "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
           }
@@ -35,9 +64,38 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "No record for a secret simultaneous number choice by every player, for the highest or lowest number chosen as an Amount, or for naming the players who did or did not choose it; ChosenNumber reads one key made by one Choose and no PlayerRef selects players by the value they chose.",
-              "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+              "kind": "Sequence",
+              "steps": [
+                {
+                  "kind": "ChooseNumberSecretly",
+                  "key": "k1",
+                  "who": {
+                    "kind": "EachPlayer"
+                  },
+                  "min": {
+                    "kind": "Fixed",
+                    "n": 0
+                  }
+                },
+                {
+                  "kind": "DealDamage",
+                  "n": {
+                    "kind": "HighestChosen",
+                    "key": "k1"
+                  },
+                  "toPlayer": {
+                    "kind": "PlayerWhoChose",
+                    "key": "k1",
+                    "lowest": false
+                  },
+                  "cantBePrevented": false
+                },
+                {
+                  "kind": "Unsupported",
+                  "reason": "No player reference names the players who did NOT choose the lowest number in a secret simultaneous choice. PlayerWhoChose names only those who chose the highest or, with lowest set, the lowest, and there is no negation of it; no amount reads back one named player\u0027s own secret choice, so the set cannot be described with a Compare inside a ForEachPlayer either.",
+                  "text": "Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
+                }
+              ]
             },
             "text": "Each player secretly chooses a number 0 or greater, then all players reveal those numbers simultaneously and determine the highest and lowest numbers revealed this way. Wheel of Misfortune deals damage equal to the highest number to each player who chose that number. Each player who didn\u0027t choose the lowest number discards their hand, then draws seven cards."
           }

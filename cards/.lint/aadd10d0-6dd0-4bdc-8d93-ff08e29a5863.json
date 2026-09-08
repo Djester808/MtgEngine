@@ -1,11 +1,4 @@
 {
-  "findings": [
-    {
-      "severity": "Error",
-      "code": "L001",
-      "message": "Unsupported: CantCastSpells cannot be restricted to the zone a spell is cast from: no ObjectFilter field and no Predicate expresses \u0022from anywhere other than their hands\u0022, and a CantCastSpells with no restriction would stop every spell an opponent casts.",
-      "path": "faces[0].abilities[0]"
-    }
-  ],
-  "hasErrors": true
+  "findings": [],
+  "hasErrors": false
 }

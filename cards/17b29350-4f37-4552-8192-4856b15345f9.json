@@ -33,14 +33,74 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Unsupported",
-                  "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
-                  "text": "draw a card for each opponent who drew two or more cards this turn"
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Compare",
+                      "left": {
+                        "kind": "CardsDrawnThisTurn",
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "op": "Ge",
+                      "right": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "then": {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
-                  "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Compare",
+                      "left": {
+                        "kind": "LandsEnteredThisTurn",
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "op": "Ge",
+                      "right": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "then": {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "isPredefined": true
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    }
+                  }
                 }
               ]
             },
@@ -65,14 +125,74 @@
               "kind": "Sequence",
               "steps": [
                 {
-                  "kind": "Unsupported",
-                  "reason": "No Amount counts the opponents who drew two or more cards this turn: there is no cards-drawn-this-turn amount and no Condition a PlayerFilter could carry to say it, so the number of cards to draw cannot be said.",
-                  "text": "draw a card for each opponent who drew two or more cards this turn"
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Compare",
+                      "left": {
+                        "kind": "CardsDrawnThisTurn",
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "op": "Ge",
+                      "right": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "then": {
+                      "kind": "Draw",
+                      "n": {
+                        "kind": "Fixed",
+                        "n": 1
+                      }
+                    }
+                  }
                 },
                 {
-                  "kind": "Unsupported",
-                  "reason": "No Amount counts the opponents who had two or more lands enter the battlefield under their control this turn: EnteredThisTurn is a predicate on a permanent now on the battlefield, not a per-player count over the turn, so the number of Treasure tokens cannot be said.",
-                  "text": "create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn"
+                  "kind": "ForEachPlayer",
+                  "over": {
+                    "kind": "EachOpponent"
+                  },
+                  "do": {
+                    "kind": "If",
+                    "test": {
+                      "kind": "Compare",
+                      "left": {
+                        "kind": "LandsEnteredThisTurn",
+                        "who": {
+                          "kind": "TriggeringPlayer"
+                        }
+                      },
+                      "op": "Ge",
+                      "right": {
+                        "kind": "Fixed",
+                        "n": 2
+                      }
+                    },
+                    "then": {
+                      "kind": "CreateToken",
+                      "token": {
+                        "name": "Treasure",
+                        "colors": [],
+                        "types": [
+                          "Artifact"
+                        ],
+                        "subtypes": [
+                          "Treasure"
+                        ],
+                        "supertypes": [],
+                        "isPredefined": true
+                      },
+                      "tapped": false,
+                      "attacking": false
+                    }
+                  }
                 }
               ]
             },
@@ -85,12 +205,12 @@
       }
     ]
   },
-  "status": "Translated",
+  "status": "Verified",
   "source": {
     "kind": "TranslatedProvenance",
     "models": [
       "claude-opus-5",
-      "claude-opus-5-b"
+      "claude-sonnet-5"
     ],
     "promptVersion": "pilot-052d1541ff2e",
     "agreed": true
@@ -98,8 +218,452 @@
   "scryfallKeywords": [
     "Treasure"
   ],
+  "scenarios": [
+    {
+      "id": "smoke-17b29350-4f37-4552-8192-4856b15345f9",
+      "title": "casting Smuggler\u0027s Share does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Smuggler\u0027s Share",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Smuggler\u0027s Share"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Smuggler\u0027s Share",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "engineHash": "engine:e67173362273e740",
+    "runId": "verify-20260908T021526-c64b9c",
+    "passed": 1,
+    "total": 1,
+    "at": "2026-09-08T02:15:26.5395371+00:00"
+  },
   "keywordList": [
     "Treasure"
   ],
-  "scenarioList": []
+  "scenarioList": [
+    {
+      "id": "smoke-17b29350-4f37-4552-8192-4856b15345f9",
+      "title": "casting Smuggler\u0027s Share does what its definition says",
+      "source": {
+        "kind": "GeneratedSource",
+        "generator": "smoke"
+      },
+      "setup": {
+        "players": [
+          {
+            "name": "A",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Smuggler\u0027s Share",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "manaPool": "WWWWWWWWWWUUUUUUUUUUBBBBBBBBBBRRRRRRRRRRGGGGGGGGGG999999"
+          },
+          {
+            "name": "B",
+            "life": 20,
+            "battlefield": [],
+            "hand": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ],
+            "library": [
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              },
+              {
+                "name": "Scenario Filler Land",
+                "tapped": false,
+                "damage": 0,
+                "summoningSick": false,
+                "faceDown": false
+              }
+            ]
+          }
+        ],
+        "activePlayer": "A",
+        "startAt": "PrecombatMain",
+        "seed": 1,
+        "turn": 1,
+        "autoAnswer": true
+      },
+      "steps": [
+        {
+          "kind": "CastStep",
+          "player": "A",
+          "card": "Smuggler\u0027s Share"
+        },
+        {
+          "kind": "ResolveAllStep"
+        }
+      ],
+      "expect": [
+        {
+          "kind": "InZone",
+          "card": "Smuggler\u0027s Share",
+          "zone": "Battlefield"
+        },
+        {
+          "kind": "StackEmpty"
+        }
+      ]
+    }
+  ]
 }

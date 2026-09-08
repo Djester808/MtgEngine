@@ -23,9 +23,25 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "No predicate describes a spell by what it targets. TargetedBy runs the other way \u2014 it admits an object that is targeted by the given object \u2014 so the restriction \u0022that targets a permanent you control\u0022 cannot be put on the target filter, and countering an unrestricted target spell would be a different card.",
-              "text": "Counter target spell that targets a permanent you control."
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Stack",
+                  "spell": true,
+                  "also": {
+                    "kind": "Targets",
+                    "of": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
             },
             "text": "Counter target spell that targets a permanent you control."
           }
@@ -35,9 +51,25 @@
           {
             "kind": "SpellAbility",
             "do": {
-              "kind": "Unsupported",
-              "reason": "No predicate describes a spell by what it targets. TargetedBy runs the other way \u2014 it admits an object that is targeted by the given object \u2014 so the restriction \u0022that targets a permanent you control\u0022 cannot be put on the target filter, and countering an unrestricted target spell would be a different card.",
-              "text": "Counter target spell that targets a permanent you control."
+              "kind": "Counter",
+              "what": {
+                "kind": "Target",
+                "filter": {
+                  "in": "Stack",
+                  "spell": true,
+                  "also": {
+                    "kind": "Targets",
+                    "of": {
+                      "controlledBy": {
+                        "kind": "You"
+                      },
+                      "permanent": true
+                    }
+                  }
+                },
+                "upTo": false,
+                "distinct": true
+              }
             },
             "text": "Counter target spell that targets a permanent you control."
           }
