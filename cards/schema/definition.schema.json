@@ -427,6 +427,9 @@
           "$ref": "#/$defs/AttackedThisTurn"
         },
         {
+          "$ref": "#/$defs/CastAtInstantSpeed"
+        },
+        {
           "$ref": "#/$defs/CastFromZone"
         },
         {
@@ -1956,6 +1959,19 @@
       ],
       "description": "\u0022if you attacked with two or more creatures this turn\u0022: how many creatures a player declared as attackers this turn, compared against Min, CR 506.2 and 508.1. Counted over the whole turn and every combat phase in it, not just the current one, and a creature that was declared an attacker still counts after it has left combat or died. Raid is the same question with a minimum of one and is kept because the ability word is printed; use this record whenever the card names a number, and prefer it over Raid when the number is anything but one."
     },
+    "CastAtInstantSpeed": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "CastAtInstantSpeed"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022if you cast it any time a sorcery couldn\u0027t have been cast\u0022, CR 307.5a with 307.1: this spell\u0027s controller cast it without priority, in a phase other than their own main phase, or while another object was on the stack. The question is about the moment of the cast and is answered as the spell resolves, so it is remembered from announcement and never re-asked. It is not IsYourTurn or IsStep, which read the game as the effect resolves and both answer wrongly for a spell cast on the caster\u0027s own turn with something else on the stack, and it is not a flash permission."
+    },
     "CastFromZone": {
       "type": "object",
       "properties": {
@@ -3256,6 +3272,9 @@
           "$ref": "#/$defs/EntersAs"
         },
         {
+          "$ref": "#/$defs/EntersPrepared"
+        },
+        {
           "$ref": "#/$defs/EntersTapped"
         },
         {
@@ -3537,6 +3556,9 @@
           "$ref": "#/$defs/ChosenNumber"
         },
         {
+          "$ref": "#/$defs/CommanderCastsThisGame"
+        },
+        {
           "$ref": "#/$defs/CountOf"
         },
         {
@@ -3556,6 +3578,9 @@
         },
         {
           "$ref": "#/$defs/Difference"
+        },
+        {
+          "$ref": "#/$defs/DistinctNameCount"
         },
         {
           "$ref": "#/$defs/Domain"
@@ -3580,6 +3605,9 @@
         },
         {
           "$ref": "#/$defs/LandsEnteredThisTurn"
+        },
+        {
+          "$ref": "#/$defs/LifeLostThisTurn"
         },
         {
           "$ref": "#/$defs/LifeOf"
@@ -5880,6 +5908,37 @@
               "type": "null"
             }
           ]
+        },
+        "ofType": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Artifact",
+                  "Battle",
+                  "Conspiracy",
+                  "Creature",
+                  "Dungeon",
+                  "Enchantment",
+                  "Instant",
+                  "Kindred",
+                  "Land",
+                  "Phenomenon",
+                  "Plane",
+                  "Planeswalker",
+                  "Scheme",
+                  "Sorcery",
+                  "Vanguard"
+                ]
+              },
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -5888,7 +5947,7 @@
         "what",
         "key"
       ],
-      "description": "\u0022Choose a color\u0022, \u0022choose a creature type\u0022, \u0022choose a number\u0022: the choice is stored under a key."
+      "description": "\u0022Choose a color\u0022, \u0022choose a creature type\u0022, \u0022choose a number\u0022: the choice is stored under a key. OfType narrows a named card to one card type \u2014 \u0022choose a land card name\u0022 is CardName with OfType Land (CR 201.2 with 205.2a), and the name must be of a card of that type. It is read only beside CardName, because no other choice has a card type to narrow (L049); a plain \u0022choose a card name\u0022 leaves it out. It is not an Options list, which is a closed set of words the card prints, and not a ChooseWhat.CardType, which names the type itself rather than a card of it."
     },
     "Clash": {
       "type": "object",
@@ -6771,6 +6830,19 @@
         "kind"
       ],
       "description": "Inside a replacement: the entering object enters as a copy, transformed, face down, or under another\u0027s control."
+    },
+    "EntersPrepared": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "EntersPrepared"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "Inside a replacement: \u0022this creature enters prepared\u0022, CR 722.3a with 614.1c \u2014 the permanent gains the prepared designation as it enters, and its prepare spell is copied into exile for its controller to cast (CR 722.3c). It is a designation and not a counter, a status or an ability, so it is never an EntersWithCounters and never a granted ability. Only a permanent with a prepare spell can have it, so it belongs on a preparation card\u0027s own enters replacement and nowhere else (L049)."
     },
     "EntersTapped": {
       "type": "object",
@@ -9495,6 +9567,29 @@
       ],
       "description": "A number chosen earlier in the same effect with Choose."
     },
+    "CommanderCastsThisGame": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "CommanderCastsThisGame"
+        },
+        "which": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Selector"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "The number of times a commander has been cast from the command zone this game, CR 903.8 \u2014 the count the commander tax is built on. Which names the commander and defaults to this object. It counts casts from the command zone only: a commander cast from a hand it was put into does not add to it, and neither does one that changed zones. It is a per-game count and is never reset, so it is not a per-turn count and not a Stored key, which nothing on the card wrote."
+    },
     "CountOf": {
       "type": "object",
       "properties": {
@@ -9676,6 +9771,23 @@
         "right"
       ]
     },
+    "DistinctNameCount": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DistinctNameCount"
+        },
+        "filter": {
+          "$ref": "#/$defs/ObjectFilter"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "filter"
+      ],
+      "description": "\u0022lands you control with different names\u0022, CR 201.2b: the number of distinct names among the objects Filter admits, so two Forests count once and two differently named lands count twice. It is not CountOf over the same filter, which counts the objects; the two agree only when no two of them share a name, so a test on a board of distinct cards cannot tell them apart. An object with no name is counted by neither (CR 201.2a)."
+    },
     "Domain": {
       "type": "object",
       "properties": {
@@ -9828,6 +9940,23 @@
         "who"
       ],
       "description": "The lands that entered the battlefield under a player control this turn, CR 121.1: the other event a turn keeps per player. Every land that entered counts, whether it was played from a hand (CR 305.1), put onto the battlefield by a search or returned by an effect, and a land that has since left still counts \u2014 the count is of the entering and not of the board. It is not CountOf over a land filter with an EnteredThisTurn predicate, which counts the lands still on the battlefield and reads a smaller number the moment one is sacrificed, and it is not the land drop the turn structure limits (CR 305.2), which counts plays and not entries."
+    },
+    "LifeLostThisTurn": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "LifeLostThisTurn"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerFilter"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "The life lost this turn by the players Who admits, CR 119.3, totalled across them: \u0022if an opponent lost life this turn\u0022 is a Compare of this against 0 over the opponents, because the total is above zero exactly when at least one of them lost life. Life lost is not damage (a payment, an edict and a burn spell all lose life and only one is damage) and it is not life gained, so a life total that went down and came back up still counts the loss. It reads the whole turn, not one event: TriggeringLifeLost is the amount of the event a trigger fired on and answers nothing outside that trigger. A PlayerFilter and not a PlayerRef, because the printed line names a group and is asked about all of them at once."
     },
     "LifeOf": {
       "type": "object",
@@ -10694,6 +10823,26 @@
               "type": "null"
             }
           ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toPlayer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -10701,7 +10850,7 @@
         "kind",
         "source"
       ],
-      "description": "CR 614"
+      "description": "\u0022If a source you control would deal damage to an opponent or a permanent an opponent controls\u0022, CR 614.1: the event watched from the dealing side. To names the objects that would be dealt the damage and ToPlayer the players, and both together is the printed \u0022or\u0022 \u2014 one event, two kinds of recipient. Neither one admits every recipient, which is the reading for a card that names none. This is not two replacement abilities, whose durations and replacement counts would then be independent (CR 614.5), and it is not WouldBeDealtDamage beside PlayerWouldBeDealtDamage, which watch from the receiving side and cannot say \u0022a source you control\u0022. A To filter naming a zone other than the battlefield describes something damage cannot be dealt to (L049)."
     },
     "WouldDie": {
       "type": "object",
@@ -12146,6 +12295,19 @@
               "type": "null"
             }
           ]
+        },
+        "costs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Cost"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -12153,7 +12315,7 @@
         "kind",
         "keyword"
       ],
-      "description": "CR 613.1f"
+      "description": "\u0022Creatures you control gain flying\u0022, \u0022creatures you control have \u0027Ward\u2014Pay 2 life\u0027\u0022, CR 613.1f. Cost is the keyword\u0027s cost written as printed mana (\u0022Ward {2}\u0022, \u0022Equip {3}\u0022); Costs is that same rider when it is not mana \u2014 life, a sacrifice, a discard. The two say one thing, so writing both is a keyword with two costs and is refused (L049): a granted \u0022Ward\u2014Pay 2 life\u0022 is Costs with a PayLife and no Cost (CR 702.21a). Costs is a list because a printed keyword cost can be several things paid together, and it is refused on a keyword that takes no cost at all. It is not a GrantAbility wrapping a hand-written trigger: the keyword is the spelling, and a written-out ward would not be counted by anything that reads ward."
     },
     "LifeGainDoubled": {
       "type": "object",
@@ -13509,6 +13671,16 @@
         },
         "distinct": {
           "type": "boolean"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -13516,7 +13688,7 @@
         "kind",
         "filter"
       ],
-      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. Key lets later steps refer back. Distinct is CR 601.2c\u0027s default and is why it is true unless a card says otherwise: the same object can\u0027t be chosen for two of one spell\u0027s targets, so a Target with a Count above one names that many different objects. Set it false only for the printed line that lifts the rule \u2014 \u0022any number of targets, which may be the same\u0022 and the divided-damage wording that lets one creature take two shares \u2014 and never as a way of writing \u0022any number of target creature cards that each have a different mana value\u0022, which is a restriction on the cards and belongs in the filter, not here: distinctness of the objects chosen and difference of a characteristic they have are two different sentences, and this field says only the first."
+      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. Key lets later steps refer back. Distinct is CR 601.2c\u0027s default and is why it is true unless a card says otherwise: the same object can\u0027t be chosen for two of one spell\u0027s targets, so a Target with a Count above one names that many different objects. Set it false only for the printed line that lifts the rule \u2014 \u0022any number of targets, which may be the same\u0022 and the divided-damage wording that lets one creature take two shares \u2014 and never as a way of writing \u0022any number of target creature cards that each have a different mana value\u0022, which is a restriction on the cards and belongs in the filter, not here: distinctness of the objects chosen and difference of a characteristic they have are two different sentences, and this field says only the first. Min is the low end of a printed range \u2014 \u0022one or two target creatures\u0022 is Min one with Count two (CR 601.2c). The caster announces how many targets before choosing them and that number is then fixed, so a range is one Target and never two. It is not UpTo, whose low end is zero and which is refused beside it (L049), and Min above Count is a range with nothing in it."
     },
     "ThisSpellsTargets": {
       "type": "object",

@@ -131,7 +131,9 @@ public sealed partial class EffectInterpreter
     private EffectRun CopyOnStack(EffectRun run, CopySpell copy)
     {
         var created = new List<ObjectId>();
-        var times = Math.Max(1, Number(run, copy.N));
+        // CR 707.10 with 702.40a: no amount means one copy; an amount of 0 — a storm count with
+        // no earlier spell — makes none, so 0 is read as 0 and only an absent N as 1.
+        var times = copy.N is null ? 1 : Math.Max(0, Number(run, copy.N));
         foreach (var id in Objects(run, copy.What))
         {
             if (!run.State.Objects.TryGetValue(id, out var spell) || spell.Stack is not { } entry)

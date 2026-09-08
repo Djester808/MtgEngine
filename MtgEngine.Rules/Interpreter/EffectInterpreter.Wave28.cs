@@ -1,5 +1,4 @@
 using MtgEngine.Cards;
-using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Interpreter;
@@ -61,26 +60,16 @@ public sealed partial class EffectInterpreter
     }
 
     /// <summary>
-    /// One card manifested, CR 701.40a. CR 701.40f: if the face-down object cannot enter the
-    /// battlefield the card is not manifested at all and stays where it was, which is exactly what
-    /// a move the zone system did not perform leaves behind — so nothing is turned over when
-    /// nothing landed.
-    /// <para>
-    /// <b>Known gap, filed as a seam request (E9w, <c>Zones/**</c>).</b> CR 701.40a turns the card
-    /// face down <i>before</i> it is put onto the battlefield, so a "whenever a creature enters"
-    /// trigger and any entering replacement must see a face-down 2/2. <c>IZoneSystem.Move</c> has
-    /// no face-down flag and <c>Reborn</c> builds the arriving object face up, so the only road the
-    /// interpreter has is to move the card and then turn it over. The board that results is right;
-    /// what watches the entering itself sees the card's own face for that one event.
-    /// </para>
+    /// One card manifested, CR 701.40a: the zone system turns the card face down <i>before</i> it
+    /// is put onto the battlefield, so an entering replacement and a "whenever a creature enters"
+    /// trigger see the 2/2 with no name and never the card's own face. CR 701.40f: if the face-down
+    /// object cannot enter the battlefield the card is not manifested at all and stays where it
+    /// was, which is exactly what a move the zone system did not perform leaves behind.
     /// </summary>
     [RuleRef("701.40a")]
     private EffectRun ManifestOne(EffectRun run, ObjectId id)
     {
-        (run, var landed) = Relocate(run, id, Zone.Battlefield, Placement.Default, tapped: false, controller: null);
-        if (run.Halted || landed is not { } arrived || !run.State.Objects.ContainsKey(arrived))
-            return run;
-
-        return Emit(run, new ObjectChanged(arrived, FaceDown: true));
+        (run, _) = Relocate(run, id, Zone.Battlefield, Placement.Default, tapped: false, controller: null, faceDown: true);
+        return run;
     }
 }

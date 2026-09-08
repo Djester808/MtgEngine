@@ -311,11 +311,16 @@ public sealed partial class EffectInterpreter
         Zone to,
         Placement where,
         bool tapped,
-        PlayerId? controller)
+        PlayerId? controller,
+        bool faceDown = false)
     {
         if (!run.State.Objects.TryGetValue(id, out var obj))
             return (run, null);
-        var outcome = zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller);
+        // CR 701.40a: a manifested card is turned face down before it is put onto the battlefield,
+        // so the flag rides on the move itself; every other caller takes the plain road.
+        var outcome = faceDown
+            ? zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller, faceIndex: null, faceDown: true)
+            : zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller);
         var landed = outcome.Events.OfType<ObjectMoved>().LastOrDefault(e => e.From == id)?.To.Id;
         return (Merge(run, outcome), landed);
     }

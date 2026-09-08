@@ -101,8 +101,20 @@ public sealed class CardFileWriter(string directory)
     private static bool Lowers(CardFile existing, CardFile incoming) =>
         existing.Status == ImplementationStatus.Verified
         && !CarriesUnsupported(existing.Definition)
+        && !IsLaterVerification(existing, incoming)
         && incoming.Status is ImplementationStatus.Untranslated or ImplementationStatus.Translated or ImplementationStatus.Disputed
         && string.Equals(existing.OracleHash, incoming.OracleHash, StringComparison.Ordinal);
+
+    /// <summary>
+    /// A verification run is the one caller entitled to change a verification (CARD_ENGINE_PLAN.md
+    /// rule 3): a file carrying a verdict from a run other than the one on disk is that run's
+    /// result, not a re-translation, and it lands even when it demotes — otherwise a card the
+    /// engine now fails keeps reading Verified with the older run's scenarios and hash, and the
+    /// failure exists only in a log. A re-translation carries no verification at all.
+    /// </summary>
+    private static bool IsLaterVerification(CardFile existing, CardFile incoming) =>
+        incoming.Verification is { } verdict
+        && (existing.Verification is null || !string.Equals(verdict.RunId, existing.Verification.RunId, StringComparison.Ordinal));
 
     /// <summary>
     /// A definition carrying an <see cref="Unsupported"/> or <see cref="UnsupportedContinuous"/>

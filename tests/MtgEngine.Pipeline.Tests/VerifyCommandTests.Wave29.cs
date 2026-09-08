@@ -22,13 +22,15 @@ public sealed class VerifyCommandTestsWave29 : IDisposable
 
     /// <summary>
     /// The card on disk is Verified from an older engine. This run plays the scenarios the generator
-    /// makes today, they fail, and the demotion the stage decided never lands. The failure is real
-    /// and so is the file's claim, and the two disagree — so the run counts it and names it, rather
-    /// than reporting a failure whose only trace is the log of a run nobody kept.
+    /// makes today and they fail; the demotion the stage decided lands, because a verification run
+    /// is the one caller entitled to change a verification (the wave-29 join on
+    /// <c>CardFileWriter.Lowers</c>). The file on disk now agrees with the run: Translated, carrying
+    /// this run's id and hash, and nothing is stale. Before the join the write was refused and the
+    /// failure existed only in the log — the case the <c>Stale</c> count was built to name.
     /// </summary>
     [Fact]
     [RuleRef("602.2")]
-    public void A_failing_run_over_a_verified_file_is_reported_as_stale()
+    public void A_failing_run_over_a_verified_file_demotes_it_and_is_not_stale()
     {
         Write(Card(Kept, "Wave29 Ledger") with
         {
@@ -42,15 +44,14 @@ public sealed class VerifyCommandTestsWave29 : IDisposable
 
         Assert.NotNull(summary);
         Assert.Equal(1, summary!.Failed);
-        Assert.Equal(1, summary.Stale);
-        Assert.Contains("STALE FILE", log.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, summary.Stale);
+        Assert.DoesNotContain("STALE FILE", log.ToString(), StringComparison.Ordinal);
 
-        // The disagreement the count is about: the file is untouched, still Verified, still carrying
-        // the older run's engine hash and its 1/1.
+        // The verdict is on disk: demoted, and carrying this run rather than the older one.
         var onDisk = new CardFileWriter(_cards).Load(Kept);
         Assert.NotNull(onDisk);
-        Assert.Equal(ImplementationStatus.Verified, onDisk!.Status);
-        Assert.Equal("verify-earlier", onDisk.Verification?.RunId);
+        Assert.Equal(ImplementationStatus.Translated, onDisk!.Status);
+        Assert.NotEqual("verify-earlier", onDisk.Verification?.RunId);
     }
 
     /// <summary>

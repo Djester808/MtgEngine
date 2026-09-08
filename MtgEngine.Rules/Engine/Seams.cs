@@ -48,6 +48,20 @@ public interface IZoneSystem : ISubsystem
         throw new NotImplementedException("Moving with a chosen face is not built in this zone system.");
 
     /// <summary>
+    /// The same move putting the object down face down, CR 701.40a and CR 702.37c. A manifested
+    /// card is turned face down <i>before</i> it is put onto the battlefield, and a spell cast face
+    /// down enters the battlefield with the characteristics the spell had; CR 400.7 gives the new
+    /// object no memory of the old one, so face-down status survives a zone change only when the
+    /// move itself says it. Only then does an entering replacement (CR 614.12) or a "whenever a
+    /// creature enters" trigger see the 2/2 with no name rather than the card's own face.
+    /// </summary>
+    [RuleRef("701.40a")]
+    Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
+        faceDown
+            ? throw new NotImplementedException("Moving an object onto the battlefield face down is not built in this zone system.")
+            : Move(state, what, to, where, tapped, controller, faceIndex);
+
+    /// <summary>
     /// Several objects change zones at once, CR 400.7 and 704.5m: one board for all of them, so
     /// leaves-the-battlefield triggers see the board as it was before any left. The default is
     /// the loop, which is right for everything until the trigger system needs the simultaneity.
@@ -283,6 +297,18 @@ public interface IReplacementSystem : ISubsystem
     Outcome Replace(GameState state, GameEvent proposed, PlayerId affected);
 
     /// <summary>
+    /// The same offer with the effects that already applied to this event before the walk halted,
+    /// CR 616.1 with 614.5: a paid "instead" whose payment question halted the interpreter must
+    /// not be offered its own replacement again when the walk resumes and the event is proposed
+    /// once more. <paramref name="used"/> carries their keys; none means a fresh offer.
+    /// </summary>
+    [RuleRef("616.1")]
+    Outcome Replace(GameState state, GameEvent proposed, PlayerId affected, IEnumerable<string>? used) =>
+        used is null || !used.Any()
+            ? Replace(state, proposed, affected)
+            : throw new NotImplementedException("Offering an event with effects already applied is not built in this replacement system.");
+
+    /// <summary>
     /// CR 616.1: the affected player chose which of several applicable replacements applies
     /// first. The question carried the event in <see cref="ChoiceContext.Event"/>; this applies
     /// the chosen effect to it and offers the result to the rest. Wave 3 (E8b) implements it;
@@ -322,7 +348,8 @@ public sealed record EffectContext(
     ImmutableDictionary<string, int> Stored,
     ImmutableList<ObjectId> Triggering,
     PlayerId? TriggeringPlayer,
-    ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null);
+    ImmutableDictionary<string, ImmutableList<PlayerId>>? RememberedPlayers = null,
+    ImmutableHashSet<string>? UsedReplacements = null);
 
 /// <summary>
 /// The read-only query layer every subsystem shares: does this object match a filter, is this

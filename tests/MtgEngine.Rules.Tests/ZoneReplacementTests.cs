@@ -10,7 +10,7 @@ namespace MtgEngine.Rules.Tests;
 
 /// <summary>
 /// The zone system proposes its events to the replacement system, CR 614.1c and 616.1. Until
-/// this existed <see cref="IReplacementSystem.Replace"/> was called for damage and nothing else,
+/// this existed <see cref="IReplacementSystem.Replace(GameState, GameEvent, PlayerId)"/> was called for damage and nothing else,
 /// so every "enters tapped", "enters with counters" and "exile it instead" compiled, linted and
 /// did nothing at a table. Each test here asserts what happened to the board and to the log,
 /// because the log is the game.

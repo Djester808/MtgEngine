@@ -43,6 +43,19 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
     }
 
     /// <summary>
+    /// CR 616.1 with 614.5: the loop seeded with the effects that already applied to this event
+    /// before an interpreter halt, so none of them is offered it again on the resumed walk.
+    /// </summary>
+    [RuleRef("616.1")]
+    public Outcome Replace(GameState state, GameEvent proposed, PlayerId affected, IEnumerable<string>? used)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(proposed);
+
+        return Continue(state, proposed, affected, new HashSet<string>(used ?? [], StringComparer.Ordinal), []);
+    }
+
+    /// <summary>
     /// The loop of CR 616.1, from wherever it currently stands, so that an answered
     /// replacement-order question resumes it rather than starting it again.
     /// <paramref name="used"/> is every effect that has already applied to this event and may

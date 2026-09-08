@@ -8,7 +8,7 @@ namespace MtgEngine.Cards.Pipeline.Tests;
 /// never played whole and its Verified is not a verified play. Every definition here is made up
 /// and nothing touches the network or the corpus.
 /// </summary>
-public sealed class CardFileWriterTests
+public sealed partial class CardFileWriterTests
 {
     private const string OracleId = "00000000-0000-0000-0000-0000000000f1";
     private const string OracleHash = "sha256:ffff";
