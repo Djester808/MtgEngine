@@ -62,6 +62,10 @@ public sealed partial class CastingSystem
         RequireLegalAuraTarget(state, chars, command);
         RequireLegalPlayerTargets(state, command, plan);
 
+        // CR 601.2c: how many targets were announced, for a spell that prints a range. Asked on
+        // both roads — an instruction to cast (CR 608.2g) still announces targets.
+        RequireTargetRange(state, command, plan);
+
         // CR 601.2b with 700.2: the modes are announced before the costs are paid (601.2h), held
         // to the ceiling the chosen face prints — a ceiling that depends on the game is read now,
         // once, and travels on the entry so nothing reads it again.

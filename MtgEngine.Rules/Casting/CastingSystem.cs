@@ -118,6 +118,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     /// goes to its owner's graveyard or ceases to exist, CR 608.2m and 113.7a.
     /// </summary>
     [RuleRef("608.2")]
+    [RuleRef("702.37c")]
     public Outcome ResolveTop(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -149,7 +150,16 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
                 attachPlayer = toPlayer;
             }
 
-            var moved = zones.Move(state, top, ZoneKey.Of(CardZone.Battlefield, controller), controller: controller);
+            // CR 702.37c with 400.7: a face-down spell "enters the battlefield with the same
+            // characteristics the spell had", and the new object CR 400.7 makes has no memory of
+            // the old one, so the move itself has to carry the flag. It is read off the resolving
+            // stack object rather than from any knowledge of morph, and the plain form is still
+            // taken for a face-up spell, so nothing about an ordinary resolution changed. A null
+            // face index keeps the face the object already shows.
+            var battlefield = ZoneKey.Of(CardZone.Battlefield, controller);
+            var moved = obj.FaceDown
+                ? zones.Move(state, top, battlefield, Placement.Default, false, controller, null, faceDown: true)
+                : zones.Move(state, top, battlefield, controller: controller);
 
             // CR 303.4f: an Aura enters attached to the object or the player it was cast at (the
             // two exclude each other), so the attachment is part of the permanent's arrival.
