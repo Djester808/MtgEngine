@@ -1,6 +1,7 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
+using MtgEngine.Rules.Triggers;
 
 namespace MtgEngine.Rules.Query;
 
@@ -162,7 +163,7 @@ public sealed partial class Query
     /// events, three keys, and no reader falls back to another (CR 118.3 with 119.3).
     /// </summary>
     [RuleRef("603.10")]
-    public const string TriggeringLifeGainedAmount = "triggering-life-gained";
+    public const string TriggeringLifeGainedAmount = TriggerSystem.TriggeringLifeGainedAmount;
 
     /// <summary>
     /// The key the life <em>lost</em> by the firing event is carried under, CR 603.10, the mirror
@@ -170,7 +171,7 @@ public sealed partial class Query
     /// lose life and only one of them is damage (CR 118.3), so this never reads the damage key.
     /// </summary>
     [RuleRef("603.10")]
-    public const string TriggeringLifeLostAmount = "triggering-life-lost";
+    public const string TriggeringLifeLostAmount = TriggerSystem.TriggeringLifeLostAmount;
 
     /// <summary>
     /// A number the firing carried into the resolution's context, CR 603.10: written by the trigger
