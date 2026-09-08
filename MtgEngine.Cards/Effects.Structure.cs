@@ -19,6 +19,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(ForEachPlayer), nameof(ForEachPlayer))]
 [JsonDerivedType(typeof(Repeat), nameof(Repeat))]
 [JsonDerivedType(typeof(ChooseValue), nameof(ChooseValue))]
+[JsonDerivedType(typeof(ChooseNumberSecretly), nameof(ChooseNumberSecretly))]
 [JsonDerivedType(typeof(DelayedTrigger), nameof(DelayedTrigger))]
 [JsonDerivedType(typeof(Unsupported), nameof(Unsupported))]
 // verbs
@@ -232,6 +233,28 @@ public sealed record Repeat(Amount Times, Effect Do) : Effect;
 
 /// <summary>"Choose a color", "choose a creature type", "choose a number": the choice is stored under a key.</summary>
 public sealed record ChooseValue(ChooseWhat What, string Key, PlayerRef? Who = null, IReadOnlyList<string>? Options = null) : Effect;
+
+/// <summary>
+/// "Each player secretly chooses a number, then those numbers are revealed", CR 700.2 with 101.4:
+/// one step in which every player <paramref name="Who"/> admits chooses a number without seeing what
+/// the others chose, and the choices are revealed as the step finishes. The reveal is part of this
+/// step and never a second one — there is nothing for a later step to reveal, and a choice that was
+/// never secret is a different card.
+/// <para>
+/// The numbers are stored under <paramref name="Key"/>, and the ability reads them back with
+/// <see cref="HighestChosen"/>, <see cref="LowestChosen"/> and the <see cref="PlayerWhoChose"/>
+/// player reference. <paramref name="Min"/> and <paramref name="Max"/> are the printed bounds where
+/// a card prints them; leave them out for an unbounded choice.
+/// </para>
+/// <para>
+/// It is not ChooseValue with ChooseWhat.Number, which is one player choosing in the open and read
+/// back as a ChosenNumber, and it is not a ForEachPlayer around one: choices made in APNAP order are
+/// made in turn and each player would see the ones before theirs (CR 101.4), which is the whole of
+/// what this record says. A secret choice nothing reads back is a lost sentence (L035).
+/// </para>
+/// </summary>
+[RuleRef("700.2")]
+public sealed record ChooseNumberSecretly(string Key, PlayerRef? Who = null, Amount? Min = null, Amount? Max = null) : Effect;
 
 /// <summary>
 /// "At the beginning of the next end step, return it." A trigger created by this effect, CR 603.7.

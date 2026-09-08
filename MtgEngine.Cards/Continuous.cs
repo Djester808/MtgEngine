@@ -69,6 +69,7 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(SetColors), nameof(SetColors))]
 [JsonDerivedType(typeof(ControlBy), nameof(ControlBy))]
 [JsonDerivedType(typeof(BecomesCopyOf), nameof(BecomesCopyOf))]
+[JsonDerivedType(typeof(BecomesCopyOfNamed), nameof(BecomesCopyOfNamed))]
 [JsonDerivedType(typeof(ChangeText), nameof(ChangeText))]
 [JsonDerivedType(typeof(CantAttack), nameof(CantAttack))]
 [JsonDerivedType(typeof(CantBlock), nameof(CantBlock))]
@@ -205,6 +206,23 @@ public sealed record ControlBy(PlayerRef Who) : ContinuousEffect;
 public sealed record BecomesCopyOf(Selector Of, IReadOnlyList<ContinuousEffect>? Except = null, bool IsLegendary = false, bool ExceptThisAbility = false) : ContinuousEffect;
 
 [RuleRef("613.1c")]
+/// <summary>
+/// "Enchanted permanent is [a printed card]", CR 707.9 with 613.1a: the object this applies to has
+/// the copiable values of the card <paramref name="Name"/> names, as that card is printed and with no
+/// other effect on it. <paramref name="Name"/> is the one place in this vocabulary where a card name
+/// is data rather than a rule — the copied card is not in the game, so no selector can point at it —
+/// and the pipeline checks the name against the corpus, so a name no card carries never reaches a
+/// file. An empty name copies nothing and is refused (L036).
+/// <para>
+/// It is not <see cref="BecomesCopyOf"/>, whose Of names an object in the game: an Aura that makes
+/// the enchanted permanent a printed card has no such object to name, and a Named filter would find
+/// the wrong object or none at all. It is not ChangeText, which swaps words in a text box.
+/// <paramref name="Except"/> carries the printed exceptions the way BecomesCopyOf does.
+/// </para>
+/// </summary>
+[RuleRef("707.9")]
+public sealed record BecomesCopyOfNamed(string Name, IReadOnlyList<ContinuousEffect>? Except = null) : ContinuousEffect;
+
 public sealed record ChangeText(string From, string To) : ContinuousEffect;
 
 public sealed record CantAttack(PlayerRef? Player = null, ObjectFilter? Unless = null) : ContinuousEffect;

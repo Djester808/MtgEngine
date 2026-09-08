@@ -31,6 +31,10 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(DamageDealtThisTurn), nameof(DamageDealtThisTurn))]
 [JsonDerivedType(typeof(TriggeringDamage), nameof(TriggeringDamage))]
 [JsonDerivedType(typeof(AttackersAgainst), nameof(AttackersAgainst))]
+[JsonDerivedType(typeof(CardsDrawnThisTurn), nameof(CardsDrawnThisTurn))]
+[JsonDerivedType(typeof(LandsEnteredThisTurn), nameof(LandsEnteredThisTurn))]
+[JsonDerivedType(typeof(HighestChosen), nameof(HighestChosen))]
+[JsonDerivedType(typeof(LowestChosen), nameof(LowestChosen))]
 [JsonDerivedType(typeof(TurnNumber), nameof(TurnNumber))]
 [JsonDerivedType(typeof(Sum), nameof(Sum))]
 [JsonDerivedType(typeof(Difference), nameof(Difference))]
@@ -161,6 +165,51 @@ public sealed record TriggeringDamage : Amount;
 /// </summary>
 [RuleRef("508.1")]
 public sealed record AttackersAgainst(PlayerRef Who, bool IncludingPermanentsTheyControl = true) : Amount;
+
+/// <summary>
+/// "the number of cards you have drawn this turn", CR 121.1: a draw is one event per card, so this
+/// counts events and not the cards still in hand — a card drawn and then discarded, played or exiled
+/// is still a card that player drew this turn. It is per player and per turn.
+/// <para>
+/// It is not <see cref="CardsInHandOf"/>, which counts a hand however those cards got there, and it
+/// is not the <see cref="DrawnThisTurn"/> predicate, which describes one card in a hand rather than
+/// counting a turn of draws; a card drawn and then discarded is counted here and matched by neither.
+/// </para>
+/// </summary>
+[RuleRef("121.1")]
+public sealed record CardsDrawnThisTurn(PlayerRef Who) : Amount;
+
+/// <summary>
+/// The lands that entered the battlefield under a player control this turn, CR 121.1: the other
+/// event a turn keeps per player. Every land that entered counts, whether it was played from a hand
+/// (CR 305.1), put onto the battlefield by a search or returned by an effect, and a land that has
+/// since left still counts — the count is of the entering and not of the board.
+/// <para>
+/// It is not <c>CountOf</c> over a land filter with an EnteredThisTurn predicate, which counts the
+/// lands still on the battlefield and reads a smaller number the moment one is sacrificed, and it is
+/// not the land drop the turn structure limits (CR 305.2), which counts plays and not entries.
+/// </para>
+/// </summary>
+[RuleRef("121.1")]
+public sealed record LandsEnteredThisTurn(PlayerRef Who) : Amount;
+
+/// <summary>
+/// The highest number chosen in a secret simultaneous choice, CR 700.2 with 101.4: the greatest of
+/// the numbers the players chose under <paramref name="Key"/>, read once they are revealed.
+/// <paramref name="Key"/> names the <see cref="ChooseNumberSecretly"/> step of the same ability that
+/// asked for them, which is the only thing that produces it (L035).
+/// <para>
+/// It is not <see cref="ChosenNumber"/>, which is one player choice and cannot say whose is
+/// greatest, and it is not <see cref="GreatestAmong"/>, which reads a characteristic off objects on
+/// the board. The players who chose it are <see cref="PlayerWhoChose"/>, and a tie names them all.
+/// </para>
+/// </summary>
+[RuleRef("700.2")]
+public sealed record HighestChosen(string Key) : Amount;
+
+/// <summary>The lowest number chosen in that same secret choice, CR 700.2: the mirror of <see cref="HighestChosen"/>.</summary>
+[RuleRef("700.2")]
+public sealed record LowestChosen(string Key) : Amount;
 
 public sealed record TurnNumber : Amount;
 

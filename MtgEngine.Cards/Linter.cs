@@ -339,6 +339,7 @@ public static partial class Linter
         CheckConditionals(nodes, path, findings);
         CheckWave19(ability, nodes, path, findings);
         CheckWave22(nodes, path, findings);
+        CheckWave23(nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
@@ -436,7 +437,8 @@ public static partial class Linter
 
     /// <summary>Records whose Key reads a value an earlier step produced, rather than producing one.</summary>
     private static bool IsConsumer(object node) => node is Remembered or RememberedPlayer or Stored or ChosenNumber
-        or ChosenPlayer or ChoiceIs or StoredIs or IsChosenName or IsChosenType or IsChosenColor or IsRemembered;
+        or ChosenPlayer or ChoiceIs or StoredIs or IsChosenName or IsChosenType or IsChosenColor or IsRemembered
+        or HighestChosen or LowestChosen or PlayerWhoChose;
 
     private static string? CounterKindOf(object node) => node switch
     {
