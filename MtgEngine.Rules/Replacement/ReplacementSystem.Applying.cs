@@ -59,10 +59,13 @@ public sealed partial class ReplacementSystem
             case EntersTapped:
                 return new Applied(Entering(current, obj => obj with { Tapped = true }), state, []);
 
-            // CR 702.180 with 614.1c: "enters prepared" puts the designation on the object as it
-            // enters; the selector is the entering object itself on this road.
+            // CR 722.3a with 614.1c: "enters prepared" puts the designation on the object as it
+            // enters; the selector is the entering object itself on this road. EntersPrepared is
+            // the vocabulary's one spelling of the line (seam-requests/V18.md row 7); a Prepare
+            // wrapped in a replacement is the older one and reads the same rule.
             case Cards.Prepare:
-                return new Applied(Entering(current, obj => obj with { Designations = obj.Designations.Add(Query.Designations.Prepared) }), state, []);
+            case EntersPrepared:
+                return new Applied(Entering(current, Prepared), state, []);
 
             case EntersWithCounters counters:
                 {

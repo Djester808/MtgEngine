@@ -64,7 +64,8 @@ public sealed partial class ReplacementSystem
 
         WouldDealDamage w => proposed is DamageDealt dealt
             && Combat(w.Combat, dealt)
-            && _query.Matches(state, w.Source, dealt.Source, context),
+            && _query.Matches(state, w.Source, dealt.Source, context)
+            && Recipient(state, w, dealt, context),
 
         // CR 121.1: "except the first one they draw in each of their draw steps" is a narrowing of
         // which draws this replaces, not of what it does to them.
