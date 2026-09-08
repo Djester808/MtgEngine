@@ -14,7 +14,7 @@ namespace MtgEngine.Rules.Triggers;
 /// trigger does: it makes the stack object and the interpreter resolves it.
 /// </summary>
 [RuleRef("603")]
-public sealed class TriggerSystem(IQuery query, ICharacteristics characteristics) : ITriggerSystem
+public sealed partial class TriggerSystem(IQuery query, ICharacteristics characteristics) : ITriggerSystem
 {
     private readonly IQuery _query = query;
     private readonly ICharacteristics _layers = characteristics;

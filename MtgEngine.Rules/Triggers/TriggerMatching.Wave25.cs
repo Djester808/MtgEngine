@@ -20,7 +20,7 @@ internal sealed partial class TriggerMatching
         {
             Searches searches => Searched(state, searches, happened, ctx),
             BecomesMonarch monarch => BecameMonarch(state, monarch, happened, ctx),
-            _ => [],
+            _ => Wave27(state, trigger, happened, ctx),
         };
 
     /// <summary>
