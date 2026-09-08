@@ -162,6 +162,11 @@ public sealed partial class EffectInterpreter
                     return run;
                 }
 
+            // CR 701.40a: manifest — the card is turned face down and put onto the battlefield as
+            // a 2/2 face-down creature. The arm is in Wave28.cs with the rule it reads.
+            case Cards.Manifest manifest:
+                return Manifesting(run, manifest);
+
             // CR 701.17a: milling puts the top cards into the graveyard, in order.
             case Cards.Mill mill:
                 {
