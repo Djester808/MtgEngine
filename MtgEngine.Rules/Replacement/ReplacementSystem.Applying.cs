@@ -30,8 +30,15 @@ public sealed partial class ReplacementSystem
         if (current is not DamageDealt damage)
             return new Applied(current, state, []);
 
+        // CR 615.12: the shield is applied to unpreventable damage and prevents none of it, and
+        // "existing damage prevention shields won't be reduced by damage that can't be prevented" —
+        // so no amount is written back and the shield is still there for the next damage. Applying
+        // it once and no more is CR 615.12a, which the caller's used set already holds.
+        if (Unpreventable(state, damage))
+            return new Applied(current, state, []);
+
         if (shield.Amount is null)
-            return new Applied(Prevent(state, current, null, candidate), state, []);
+            return Prevent(state, current, null, candidate);
 
         var available = Math.Max(0, _query.Evaluate(state, shield.Amount, Context(candidate.Source, candidate.Controller, current)));
         var prevented = Math.Min(available, Math.Max(0, damage.Amount));
@@ -39,7 +46,8 @@ public sealed partial class ReplacementSystem
         var remaining = available - prevented;
 
         var change = new ActiveEffectChanged(active.Id, remaining == 0 ? null : shield with { Amount = new Fixed(remaining) });
-        return new Applied(left == 0 ? null : damage with { Amount = left }, change.Apply(state), [change]);
+        var applied = new Applied(left == 0 ? null : damage with { Amount = left }, change.Apply(state), [change]);
+        return Recorded(applied, damage, prevented, candidate);
     }
 
     private Applied Perform(GameState state, GameEvent current, Effect effect, Candidate candidate)
@@ -64,7 +72,7 @@ public sealed partial class ReplacementSystem
                 return new Applied(Entering(current, obj => EnteringAs(state, obj, how, candidate, current)), state, []);
 
             case PreventThatDamage prevention:
-                return new Applied(Prevent(state, current, prevention.N, candidate), state, []);
+                return Prevent(state, current, prevention.N, candidate);
 
             case ModifyAmount modify:
                 return new Applied(Modify(current, modify), state, []);
@@ -193,20 +201,28 @@ public sealed partial class ReplacementSystem
 
     /// <summary>
     /// CR 615.1: prevention removes damage from the event. A null amount is all of it, and an
-    /// event with nothing left does not happen at all.
+    /// event with nothing left does not happen at all. CR 615.12: damage that can't be prevented
+    /// loses none — the effect is still applied to it, and whatever else it does still happens,
+    /// because only this arm of the effect is neutered and a sequence's other steps run on.
+    /// CR 615.13: what was actually taken off is recorded, so a card can trigger on it.
     /// </summary>
     [RuleRef("615.1")]
-    private GameEvent? Prevent(GameState state, GameEvent current, Amount? amount, Candidate candidate)
+    private Applied Prevent(GameState state, GameEvent current, Amount? amount, Candidate candidate)
     {
         if (current is not DamageDealt damage)
-            return current;
+            return new Applied(current, state, []);
 
-        var prevented = amount is null
+        if (Unpreventable(state, damage))
+            return new Applied(current, state, []);
+
+        var asked = amount is null
             ? damage.Amount
             : _query.Evaluate(state, amount, Context(candidate.Source, candidate.Controller, current));
 
-        var left = Math.Max(0, damage.Amount - Math.Max(0, prevented));
-        return left == 0 ? null : damage with { Amount = left };
+        // CR 615.13: what this prevented is what came off the event, not what the effect offered.
+        var prevented = Math.Min(Math.Max(0, asked), Math.Max(0, damage.Amount));
+        var left = damage.Amount - prevented;
+        return Recorded(new Applied(left <= 0 ? null : damage with { Amount = left }, state, []), damage, prevented, candidate);
     }
 
     /// <summary>CR 614.1: an effect that scales what happens rather than replacing it outright.</summary>
