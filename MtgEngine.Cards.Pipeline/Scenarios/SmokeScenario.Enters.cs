@@ -26,6 +26,7 @@ public static partial class SmokeScenario
             {
                 Returns(board, effect);
                 Edicts(board, effect);
+                Sacrifices(board, effect);
             }
         }
     }
@@ -93,5 +94,32 @@ public static partial class SmokeScenario
         board.Expect(new InZone(board.Bystander(mine: true, body), Zone.Graveyard, Caster));
         board.Bystander(mine: false, body);
         board.Caster(graveyard: 1);
+    }
+
+    /// <summary>
+    /// CR 701.16 with CR 603.3: "when this enters, sacrifice two lands". The sacrifice is the
+    /// controller's own choice on resolution and a generated scenario answers with the first legal
+    /// options, which are in object order, so the board stands as many bodies of the kind the
+    /// filter admits as the record asks for — placed by the setup, so they are older than the card
+    /// under test (CR 400.7) and the choice takes them. Without them the only land its controller
+    /// has is the one that just arrived, CR 701.16b makes it sacrifice as many as it can, and the
+    /// card eats itself: the play then reports the board the scenario built rather than the card.
+    /// The bodies are the caster's alone, because "sacrifice" with no player named is the
+    /// controller's (CR 701.16a) — the each-player shape is <see cref="Edicts"/>.
+    /// </summary>
+    [RuleRef("701.16")]
+    private static void Sacrifices(SmokeBoard board, Effect effect)
+    {
+        if (effect is not Sacrifice { What: null, Choice: { } offered, Who: null or You, N: Fixed { N: > 0 and var n } })
+            return;
+
+        // A filter that names someone else's permanents describes a sacrifice its controller cannot
+        // make, and one the board has no card for is not staged at all.
+        if (offered.ControlledBy is not (null or You) || SmokeFillers.Bodies(offered) is not [var body, ..])
+            return;
+
+        for (var i = 0; i < n; i++)
+            board.Expect(new InZone(board.Bystander(mine: true, body), Zone.Graveyard, Caster));
+        board.Caster(graveyard: n);
     }
 }

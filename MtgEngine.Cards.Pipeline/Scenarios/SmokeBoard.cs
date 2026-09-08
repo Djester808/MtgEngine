@@ -103,6 +103,29 @@ internal sealed partial class SmokeBoard(string card)
             _opponentLifeHolds = true;
     }
 
+    /// <summary>
+    /// CR 701.9b: this play discards at random, so no card the setup stocked can be named
+    /// afterwards — the discard may take the very card a search had just put in the hand, and an
+    /// expectation that names it is a coin toss rather than a check. The counts still hold: one
+    /// card left the hand and one reached the graveyard whichever card it was.
+    /// </summary>
+    [RuleRef("701.9b")]
+    internal bool DiscardsAtRandom { get; set; }
+
+    private bool _casterHandHolds;
+
+    /// <summary>
+    /// CR 701.9b with CR 121.1: the caster's hand is counted even when the deltas cancel. A card
+    /// searched into the hand and a card discarded out of it net to nothing, and the size the hand
+    /// is left at is the one thing about it that holds however the random discard fell — the same
+    /// reason <see cref="LifeHolds"/> exists for a life total the card did not move.
+    /// </summary>
+    [RuleRef("701.9b")]
+    internal void HandHolds() => _casterHandHolds = true;
+
+    /// <summary>Whether the caster's hand is counted whatever its delta came to.</summary>
+    internal bool CasterHandHolds => _casterHandHolds;
+
     /// <summary>CR 608.2h: an object a step remembered under a key, so a later step can read it back.</summary>
     [RuleRef("608.2h")]
     internal void Remember(string key, string alias, string card)
