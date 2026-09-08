@@ -78,12 +78,14 @@ public sealed class ScenarioStageTestsWave22
     [RuleRef("701.15a")]
     public void A_choice_among_revealed_cards_the_board_cannot_stock_gets_no_scenario()
     {
+        // R3 (wave 26) gave the board a filler per colour, so a one-colour body is stockable now; a
+        // two-colour body still is not (seam-requests/R3.md § 2), and that is what this test guards.
         var file = Spell(
             "wave22 coloured wave",
             new SpellAbility(new Sequence(
             [
                 new Reveal(new Top(new You(), new X()), RememberAs: "k1"),
-                new Move(new Choose(new ObjectFilter(Colors: Color.Blue), new You(), UpTo: true, Key: "k2", Among: new Remembered("k1")), Zone.Battlefield),
+                new Move(new Choose(new ObjectFilter(Colors: Color.Blue | Color.Green), new You(), UpTo: true, Key: "k2", Among: new Remembered("k1")), Zone.Battlefield),
             ])),
             CardType.Sorcery,
             "{X}{U}");

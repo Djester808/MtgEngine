@@ -5408,6 +5408,9 @@
           "$ref": "#/$defs/ManaSpentOnThis"
         },
         {
+          "$ref": "#/$defs/ManaSpentOnTriggering"
+        },
+        {
           "$ref": "#/$defs/ManaValueOf"
         },
         {
@@ -5451,6 +5454,9 @@
         },
         {
           "$ref": "#/$defs/TriggeringLifeLost"
+        },
+        {
+          "$ref": "#/$defs/TriggeringPreventedDamage"
         },
         {
           "$ref": "#/$defs/TurnNumber"
@@ -6461,6 +6467,9 @@
           "$ref": "#/$defs/CountersDoubled"
         },
         {
+          "$ref": "#/$defs/DamageCantBePrevented"
+        },
+        {
           "$ref": "#/$defs/DamageDoesNotReduceLifeBelow"
         },
         {
@@ -6528,6 +6537,9 @@
         },
         {
           "$ref": "#/$defs/PlayWithHandRevealed"
+        },
+        {
+          "$ref": "#/$defs/PlayWithTopCardRevealed"
         },
         {
           "$ref": "#/$defs/PlayerCant"
@@ -6738,6 +6750,9 @@
         },
         {
           "$ref": "#/$defs/Cycles"
+        },
+        {
+          "$ref": "#/$defs/DamagePrevented"
         },
         {
           "$ref": "#/$defs/DealsDamage"
@@ -7692,6 +7707,17 @@
               "type": "null"
             }
           ]
+        },
+        "where": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Top",
+            "Bottom",
+            "AnyOrder",
+            "RandomOrder",
+            "BottomRandomOrder"
+          ]
         }
       },
       "additionalProperties": false,
@@ -7699,7 +7725,7 @@
         "kind",
         "what"
       ],
-      "description": "CR 701.6"
+      "description": "\u0022Counter target spell\u0022, CR 701.6a: the spell is removed from the stack, does not resolve, and none of its effects happen. A countered spell goes to its owner\u0027s graveyard unless the effect says otherwise, so PutInto is left null for the ordinary case and names the zone for \u0022counter target spell. Its controller puts it on top of their library instead\u0022. Where is that instead-zone\u0027s ordering, and it is only ever read beside PutInto: a library and a graveyard are ordered zones, so \u0022on top of its owner\u0027s library\u0022 is PutInto: Library with Where: Top \u2014 one record and not a Counter followed by a Move, which would be a second event the card does not describe and would let a replacement see the spell reach the graveyard first. Where without PutInto orders a zone nothing is being put into and is refused (L043)."
     },
     "CreateEmblem": {
       "type": "object",
@@ -9381,7 +9407,8 @@
             "Top",
             "Bottom",
             "AnyOrder",
-            "RandomOrder"
+            "RandomOrder",
+            "BottomRandomOrder"
           ]
         },
         "underControlOf": {
@@ -9485,6 +9512,9 @@
         },
         "all": {
           "type": "boolean"
+        },
+        "anyNumber": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -9492,7 +9522,8 @@
         "kind",
         "from",
         "to"
-      ]
+      ],
+      "description": "\u0022Move a \u002B1/\u002B1 counter from target creature onto another target creature\u0022, CR 122.5: one action that removes the counter and puts it on the second object, and if either half is impossible nothing moves at all \u2014 which is why it is this record and never a RemoveCounters beside a PutCounters, a pair that would strip the first object and then fail. N is a printed number (\u0022move two\u0022), All is \u0022move all of them\u0022, and AnyNumber is \u0022move any number of \u002B1/\u002B1 counters\u0022 \u2014 a choice the controller makes as the effect resolves, from none up to however many are there. The three are three different printed lines: a fixed count that cannot be met moves nothing, \u0022all\u0022 is not a choice at all, and a reading that writes \u0022any number\u0022 as All takes counters the player did not choose to move. At most one of them is set (L043); all three absent is one counter."
     },
     "OpenAttraction": {
       "type": "object",
@@ -9864,7 +9895,8 @@
             "Top",
             "Bottom",
             "AnyOrder",
-            "RandomOrder"
+            "RandomOrder",
+            "BottomRandomOrder"
           ]
         },
         "by": {
@@ -10239,7 +10271,8 @@
             "Top",
             "Bottom",
             "AnyOrder",
-            "RandomOrder"
+            "RandomOrder",
+            "BottomRandomOrder"
           ]
         },
         "reveal": {
@@ -11375,6 +11408,40 @@
       ],
       "description": "Mana spent to cast this spell, CR 601.2h."
     },
+    "ManaSpentOnTriggering": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "ManaSpentOnTriggering"
+        },
+        "ofColor": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "White",
+                  "Blue",
+                  "Black",
+                  "Red",
+                  "Green"
+                ]
+              },
+              "uniqueItems": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022If no mana was spent to cast it\u0022: the mana paid for the spell that triggered this ability, CR 400.7d \u2014 what was paid to cast a spell is information a later ability may read, and CR 601.2h is where that payment happened. It is the triggering spell\u0027s payment and never this object\u0027s own, which is ManaSpentOnThis: \u0022whenever a player casts a spell, if no mana was spent to cast it\u0022 asks about somebody else\u0027s spell, and ManaSpentOnThis there answers about this one. \u0022No mana was spent\u0022 is this amount inside a Compare against zero and not a condition of its own: the number is what the card reads, and every other question about it (\u0022one or more\u0022, \u0022for each colour\u0022) is the same number compared differently. The ability must trigger on a spell being cast \u2014 SpellCast, its own or its delayed trigger\u0027s \u2014 or there is no spell whose payment this could be (L043)."
+    },
     "ManaValueOf": {
       "type": "object",
       "properties": {
@@ -11635,6 +11702,19 @@
         "kind"
       ],
       "description": "\u0022that much life\u0022 on a life-loss trigger, CR 603.10: the life the triggering event lost, the mirror of TriggeringLifeGained and read the same way. Life lost is not damage \u2014 a payment, an edict and a Lava Spike all lose life and only one is damage \u2014 so this is not TriggeringDamage, and the ability must trigger on LosesLife (L039)."
+    },
+    "TriggeringPreventedDamage": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "TriggeringPreventedDamage"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022When damage is prevented this way, this creature deals that much damage to any other target\u0022: the damage a prevention effect actually prevented, CR 615.13 with CR 603.10 \u2014 the amount half of a DamagePrevented trigger, fixed as the ability triggered and not recomputed when it resolves. It is not TriggeringDamage. Damage dealt and damage prevented are two different numbers on one event: a shield that prevents 2 of 5 leaves 3 dealt, and an effect that read the dealt amount for \u0022that much\u0022 would deal the wrong number \u2014 or, for damage prevented in full, deal nothing at all. The ability must trigger on damage being prevented, its own or its delayed trigger\u0027s (L043)."
     },
     "TurnNumber": {
       "type": "object",
@@ -12181,6 +12261,9 @@
               "type": "null"
             }
           ]
+        },
+        "exceptFirstInDrawStep": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -12188,7 +12271,7 @@
         "kind",
         "who"
       ],
-      "description": "CR 121.4"
+      "description": "\u0022If a player would draw a card, instead \u2026\u0022, CR 121.4 with CR 614 \u2014 the draw as an event that can be replaced. FirstEachTurn is \u0022the first card they draw each turn\u0022; ExceptFirstInDrawStep is the printed exception \u0022except the first one they draw in each of their draw steps\u0022, which admits every draw but that one (CR 121.1, where the draw step\u0027s draw is a turn-based action). The field mirrors Draws.ExceptFirstInDrawStep exactly, because the two are the same printed clause on the two sides of one card (\u0022whenever you draw a card, except the first\u2026\u0022 and \u0022if you would draw a card, except the first\u2026\u0022), and a replacement written without it replaces the draw step\u0027s own draw \u2014 which the card does not say. It is not FirstEachTurn false: that one admits the first draw alone or refuses only it in the turn, and this one is scoped to the draw step. Setting both is refused (L043)."
     },
     "WouldEnterBattlefield": {
       "type": "object",
@@ -13141,6 +13224,39 @@
       ],
       "description": "CR 613"
     },
+    "DamageCantBePrevented": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DamageCantBePrevented"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "combat": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022Combat damage can\u0027t be prevented\u0022, CR 615.12: damage the shields still see and still apply themselves to, and still fail to reduce. It is not PreventDamage with anything turned around \u2014 that record makes prevention happen; this one makes it not happen \u2014 and it is not DealDamage.CantBePrevented, which is the rider on one instruction of one card\u0027s own damage. This is the board-wide continuous effect, so damage from every source it admits is unpreventable however it is dealt. Combat is the printed \u0022combat damage\u0022: true for combat damage alone, false for noncombat damage alone, null for all damage. From narrows the sources \u2014 \u0022damage from red sources can\u0027t be prevented\u0022 \u2014 and null admits any source. CR 615.12 keeps the rest: an applicable prevention effect is still applied once, prevents nothing, and any other thing it does still happens, and an existing shield is not spent."
+    },
     "DamageDoesNotReduceLifeBelow": {
       "type": "object",
       "properties": {
@@ -14088,6 +14204,23 @@
       ],
       "description": "CR 613"
     },
+    "PlayWithTopCardRevealed": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "PlayWithTopCardRevealed"
+        },
+        "who": {
+          "$ref": "#/$defs/PlayerRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "who"
+      ],
+      "description": "\u0022Play with the top card of your library revealed\u0022, CR 401.5 with CR 701.18c (\u0022play\u0022 here means to play the game, not to play a card). The top card is revealed to every player for as long as the effect applies, and CR 401.6 makes it a new object each time it stops being revealed and is revealed again. It is not MayLookAtTopCard, which is the private half of the same rule \u2014 \u0022you may look at the top card of your library\u0022 shows it to one player and to nobody else. The two are printed side by side on many cards and read as the same sentence by a reader that only notices the top card is known; an opponent\u0027s information is the whole difference, so a card that says \u0022revealed\u0022 is this record and never that one. It grants no permission to play the card either: \u0022you may play the top card of your library\u0022 is MayPlayFromZone, a second sentence and a second record."
+    },
     "PlayerCant": {
       "type": "object",
       "properties": {
@@ -14577,13 +14710,16 @@
               "type": "null"
             }
           ]
+        },
+        "other": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
         "kind"
       ],
-      "description": "\u0022Any target\u0022, CR 115.4: exactly one target chosen from among every creature, player, planeswalker and battle. This is the whole phrase in one selector, and it is the only spelling of it. Do not write it as a Target whose filter names Creature, Planeswalker and Battle beside a toPlayer, and do not write it as an open filter beside a toPlayer: the first cannot say the player half and the second lets the damage hit a land. On DealDamage it goes in To, and ToPlayer is then left out \u2014 To of AnyTarget already means \u0022whichever of the four was chosen\u0022. The chosen target is announced as the spell or ability is put on the stack (CR 601.2c): an object target rides in the command\u0027s Targets and a player target in its TargetPlayers, so the two halves are one choice at cast time and the resolving effect deals its damage to whichever half the stack entry holds. Count, UpTo and Key are here for the same reason Target carries them: \u0022any number of target creatures\u0022 has its counterpart in \u0022up to one target\u0022, divided damage names several targets (CR 601.2d), and a later step refers back by Key. Count absent means one."
+      "description": "\u0022Any target\u0022, CR 115.4: exactly one target chosen from among every creature, player, planeswalker and battle. This is the whole phrase in one selector, and it is the only spelling of it. Do not write it as a Target whose filter names Creature, Planeswalker and Battle beside a toPlayer, and do not write it as an open filter beside a toPlayer: the first cannot say the player half and the second lets the damage hit a land. On DealDamage it goes in To, and ToPlayer is then left out \u2014 To of AnyTarget already means \u0022whichever of the four was chosen\u0022. The chosen target is announced as the spell or ability is put on the stack (CR 601.2c): an object target rides in the command\u0027s Targets and a player target in its TargetPlayers, so the two halves are one choice at cast time and the resolving effect deals its damage to whichever half the stack entry holds. Count, UpTo and Key are here for the same reason Target carries them: \u0022any number of target creatures\u0022 has its counterpart in \u0022up to one target\u0022, divided damage names several targets (CR 601.2d), and a later step refers back by Key. Count absent means one. Other is the printed word in \u0022any other target\u0022: the object with this ability can\u0027t be chosen, and every other creature, player, planeswalker and battle can. It is a restriction on the choice made at CR 601.2c and not a filter \u2014 \u0022any target\u0022 admits players and battles, which no ObjectFilter reaches, so a reading that writes the exclusion as a filter over objects quietly drops the other three halves of the phrase. Leave it false for a plain \u0022any target\u0022."
     },
     "Attached": {
       "type": "object",
@@ -14820,7 +14956,7 @@
         "kind",
         "filter"
       ],
-      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. Key lets later steps refer back."
+      "description": "\u0022target creature\u0022, \u0022up to two target players\u0027 creatures\u0022. Key lets later steps refer back. Distinct is CR 601.2c\u0027s default and is why it is true unless a card says otherwise: the same object can\u0027t be chosen for two of one spell\u0027s targets, so a Target with a Count above one names that many different objects. Set it false only for the printed line that lifts the rule \u2014 \u0022any number of targets, which may be the same\u0022 and the divided-damage wording that lets one creature take two shares \u2014 and never as a way of writing \u0022any number of target creature cards that each have a different mana value\u0022, which is a restriction on the cards and belongs in the filter, not here: distinctness of the objects chosen and difference of a characteristic they have are two different sentences, and this field says only the first."
     },
     "ThisSpellsTargets": {
       "type": "object",
@@ -15683,6 +15819,42 @@
       ],
       "description": "CR 702.29"
     },
+    "DamagePrevented": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "DamagePrevented"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thisWay": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "description": "\u0022When damage is prevented this way\u0022: a triggered ability that watches a prevention effect being applied, CR 615.13 \u2014 it triggers each time a prevention effect prevents some or all of one or more simultaneous damage events. ThisWay is the printed \u0022this way\u0022: the prevention watched is the one this same object\u0027s own replacement or prevention effect applied, and not any prevention anywhere on the board. Leave it false for \u0022whenever damage is prevented\u0022. To and By narrow the damage event whose prevention this watches \u2014 who it would have been dealt to, and what would have dealt it \u2014 and both null admits any. The amount prevented is TriggeringPreventedDamage and never TriggeringDamage: the damage this trigger names was not dealt."
+    },
     "DealsDamage": {
       "type": "object",
       "properties": {
@@ -16378,6 +16550,16 @@
         },
         "by": {
           "$ref": "#/$defs/PlayerRef"
+        },
+        "nth": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
