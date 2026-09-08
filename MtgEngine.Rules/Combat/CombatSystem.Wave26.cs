@@ -50,11 +50,26 @@ public sealed partial class CombatSystem
         // declaration would produce and not against the board before it.
         var lockedIn = new AttackersDeclared(player, declared).Apply(state);
         var symbols = ImmutableList<ManaSymbol>.Empty;
+        var elsewhere = ImmutableList<Cost>.Empty;
         foreach (var cost in CostPayment.Flatten(taxes))
-            symbols = symbols.AddRange(TaxSymbols(lockedIn, player, cost));
+        {
+            if (TaxSymbols(lockedIn, player, cost) is { } mana)
+                symbols = symbols.AddRange(mana);
+            else
+                elsewhere = elsewhere.Add(cost);
+        }
 
-        // CR 508.1j — one payment for the whole total, in full or not at all.
-        return CostPayment.PaySymbols(state, player, symbols, null, AttackCost).Outcome;
+        // CR 508.1j — one payment for the whole total, in full or not at all. The mana half is
+        // spent out of the pool here; every other cost was found payable at CR 508.1h and is paid
+        // through the casting system, the only system that can build the cost context it needs.
+        var paid = CostPayment.PaySymbols(state, player, symbols, null, AttackCost).Outcome;
+        foreach (var cost in elsewhere)
+        {
+            var casting = Casting ?? throw new RefusedException(NoCasting, "508.1h");
+            paid = paid.Then(s => casting.PayForRule(s, player, cost));
+        }
+
+        return paid;
     }
 
     /// <summary>
@@ -110,14 +125,22 @@ public sealed partial class CombatSystem
     }
 
     /// <summary>
-    /// One attack cost as mana symbols, CR 508.1h. Only mana is payable here: CR 508.1i gives the
-    /// player a chance to activate mana abilities and CR 508.1j spends what is in the pool, and the
-    /// costs that move objects need the zone system this subsystem is deliberately not given. Any
-    /// other cost is refused naming CR 508.1h rather than waved through, so the backlog gets the
-    /// missing primitive instead of an attack that never paid.
+    /// One attack cost as mana symbols, CR 508.1h — or <c>null</c> when it is not mana and pays
+    /// through the casting system instead.
+    /// <para>
+    /// Mana is spent straight out of the pool: CR 508.1i gives the player a chance to activate
+    /// mana abilities and CR 508.1j spends what is there. Every other cost needs the cost context
+    /// only <see cref="Casting"/> can build, so this asks it whether the payment would go through
+    /// (CR 118.6, <see cref="ICastingSystem.CanPayForRule"/>, which changes nothing) at the moment
+    /// the total is determined and locked in. An answer that says it would not refuses the whole
+    /// declaration <b>before anything at all has been paid</b>: CR 508.1j allows no partial
+    /// payment, CR 508.1's preamble makes a declaration a player cannot comply with illegal, and
+    /// CR 733 returns the game to the moment before it. With no casting system in the game the
+    /// older refusal stands, so a non-mana tax is still never waved through.
+    /// </para>
     /// </summary>
     [RuleRef("508.1h")]
-    private ImmutableList<ManaSymbol> TaxSymbols(GameState lockedIn, PlayerId player, Cost cost)
+    private ImmutableList<ManaSymbol>? TaxSymbols(GameState lockedIn, PlayerId player, Cost cost)
     {
         switch (cost)
         {
@@ -132,10 +155,19 @@ public sealed partial class CombatSystem
                     throw new RefusedException("An attack cost cannot be less than nothing.", "508.1h");
                 return [.. ManaSymbols.Parse(counted.Colored), new ManaSymbol { Generic = generic }];
 
+            // CR 508.1h with 118.6 — the total is determined here, so an unpayable cost is found
+            // here too, while nothing has been spent.
             default:
-                throw new RefusedException("That cost to attack cannot be paid yet.", "508.1h");
+                if (Casting is not { } casting)
+                    throw new RefusedException(NoCasting, "508.1h");
+                if (casting.CanPayForRule(lockedIn, player, cost) is { } refusal)
+                    throw new RefusedException(refusal.Reason, "508.1h");
+                return null;
         }
     }
+
+    /// <summary>What a non-mana attack cost is refused with when the game has no casting system to pay it, CR 508.1h.</summary>
+    private const string NoCasting = "That cost to attack cannot be paid yet.";
 
     /// <summary>
     /// CR 725.2 — "whenever a creature deals combat damage to the monarch, its controller becomes
