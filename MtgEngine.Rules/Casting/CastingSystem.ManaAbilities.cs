@@ -25,27 +25,21 @@ public sealed partial class CastingSystem
     private const string TriggeringKey = "triggering";
 
     /// <summary>
-    /// CR 605.1a: an activated ability is a mana ability when it could add mana as it resolves,
-    /// needs no target, and is not a loyalty ability — whatever else it does. "Could add mana" is
-    /// read from the effect tree: an <see cref="AddMana"/> at the top, or anywhere in a
-    /// <see cref="Sequence"/>'s steps, recursively. What a delayed trigger it creates would add
-    /// later is not this ability adding mana, so nested bodies are not searched.
+    /// CR 605.1a, read in one place: <see cref="MtgEngine.Rules.Query.ManaAbilities.Is"/> is the
+    /// engine's single reading of the rule's four criteria — no target (CR 115.6), could add mana
+    /// as it resolves, not a loyalty ability (CR 606.1), and neither cost nor effect moves a card
+    /// to or from a library. This system's own copy checked three of them and is deleted (E5k § 4).
+    /// <para>
+    /// The announcement is still consulted beside it: an activation that names targets is not this
+    /// ability resolving without the stack whatever its text says, so a command carrying any is
+    /// held to CR 605.1a's target criterion the same way.
+    /// </para>
     /// </summary>
     [RuleRef("605.1a")]
     private static bool IsManaAbility(ActivatedAbility ability, ActivateAbility command) =>
-        CouldAddMana(ability.Do)
+        Query.ManaAbilities.Is(ability)
         && command.Targets is null or { Count: 0 }
-        && command.TargetPlayers is null or { Count: 0 }
-        && !ability.Costs.Any(c => c is LoyaltyCost);
-
-    /// <summary>CR 605.1a's "could add mana as it resolves", over the steps of a sequence.</summary>
-    [RuleRef("605.1a")]
-    private static bool CouldAddMana(Effect effect) => effect switch
-    {
-        AddMana => true,
-        Sequence sequence => sequence.Steps.Any(CouldAddMana),
-        _ => false,
-    };
+        && command.TargetPlayers is null or { Count: 0 };
 
     /// <summary>
     /// CR 605.3a: a mana ability resolves as soon as it is activated, never using the stack, so
