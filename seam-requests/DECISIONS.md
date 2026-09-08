@@ -316,3 +316,28 @@ No pipeline command reached the API; every reading came from an agent on the sub
 | E3k (wave 16) | the interpreter has no `MayPlay` arm; ask E9-series for a lasting `MayPlayFromZone` with the free half | **Now** (coordinator): `MayPlayCards` creates the permission until the card's duration or end of turn (CR 601.3a, 305.1, 611.2a); Mosswort Bridge verifies 2/2. E3k also made `TopOfLibraryOnly` reach the top card; Bolas's Citadel verifies. |
 | coordinator | Swords to Plowshares crashed reading an exiled creature's power | **Now**: amounts read a departed object as last known (CR 608.2h, 400.7) through `ICharacteristics.PrintedOf`; 0 for an object the game never held. |
 | coordinator | verify, agreement and gate on the wave-16 tip | **172 verified, 0 failed, 7 without a scenario, 2 unsupported (stale Verified-with-marker files P18's writer rule replaces), 0 crashed** over the 192 pilot files (`5525c1c`); agreement **97 of 109** (three readings, two-of-three; 12 disputed); gate green: 853 engine, 193 vocabulary, 238 pipeline and 633 API tests. |
+
+# Seam decisions after waves 17 to 20
+
+Four waves in one evening on the user's "more agents": wave 17 (E9n P19 V10; the first corpus slice
+of 40 deck faces beyond the pilot, two readings plus a third on the disputed), wave 18 (E0h E9o E3l),
+wave 19 (P20 V11 E9p E0i) and wave 20 (E1d E3m R1). From wave 19 every builder ran on opus (the user:
+"we are at 80% fable"), translators on opus and sonnet. No pipeline command reached the API.
+
+| From | Request | Decision |
+|---|---|---|
+| E9n (17) | none | **Merged**: an unkeyed target reads its own announced slot (CR 601.2c, 608.2b); a keyed `Choose` in a `ForEach` is asked per iteration; a reverse-order walk in `ContextFor` fixed on the way. |
+| P19 (17) | a `permanent: true` filter over a library card matches nothing; `Shuffle { IntoLibrary: Self }` leaves the spell in the graveyard; a green creature filler; the fight guard | **E9p** (wave 19) took the first two (CR 110.4a, 608.2m); the coordinator added the green filler and colour-aware fillers (CR 202.2) and dropped the fight guard once E9n merged. |
+| V10 (17) | the interpreter reads `Search.Instead`; the casting system reads `ChooseMode.MaxIf`; `SearchDestination` in the reference root; refresh the prompts and redo two cards | **E9o** and **E3l** (wave 18); coordinator: the root entry, six prompts refreshed, redos on three models. The brief named Fog's id for Archdruid's Charm (27e9db49 is Fog; the charm is 3c1ef404) — one wasted redo, corrected with a second. |
+| E0h (18) | `ActiveEffect.Remembered` so a resolved effect carries the objects its selectors announced | **Now** (coordinator): the seam, `Create` passes the context's memory, the layers read a `Target` from the binding (CR 611.2c, 601.2c); the three crashes of slice 001 verify. |
+| E9o (18) | none; `Search.OthersTo` has no reader | **Recorded** for an E9 box. |
+| E3l (18) | the interpreter's mode question takes the announced ceiling; `TriggerSystem.Create` announces modes at CR 603.3c | **E9p** took the first; the second is **E6f (wave 21)**. |
+| P20 (19) | a `permanent` card off the battlefield (CR 110.4a); a planeswalker never gets its loyalty (CR 306.5b); Phyrexian mana unpaid (CR 107.4f); a tap-for-mana step for the runner | **E9p**, **E1d**, **E3m**, **R1** (waves 19–20) — all four merged; the coordinator removed the two withheld generator arms and their tests once the engine roads landed. |
+| V11 (19) | nine reader asks (zone-change matcher first), `AlternativeCost` in the reference root, prompts and redos | **Now** (coordinator): the matcher reads an optional `To`, the battlefield as excluded source, the arriving card's filter in its own zone, and refuses a source zone the event cannot name (CR 603.6, 603.10); the root entry; six prompts refreshed; the nine cards redone on opus and sonnet (slice 001 agrees 34 of 40). The other readers are **wave 21 and on**. |
+| E9p (19) | none; the brief cited CR 110.4c where the shipped text says 110.4a | **Recorded**; code and tests cite 110.4a. |
+| E0i (19) | `Query.Matches` ignores `ManaCostIs` and `NotInCommanderIdentityColors`; `StaticAbility.While` still unread | **E5-series / E0-series, later waves.** |
+| E1d (20) | delete the generator's planeswalker guard | **Now** (coordinator). |
+| E3m (20) | delete the generator's Phyrexian guard | **Now** (coordinator). |
+| R1 (20) | regenerate the schema snapshots; nothing grants a basic land type its intrinsic mana ability (CR 305.6) | **Now**: snapshots regenerated. **E0j (wave 21)**: the intrinsic ability. |
+| translators (slice 001) | nine vocabulary gaps | **V11** closed all nine; the readers follow. |
+| coordinator | verify, agreement and gate on the wave-20 tip | **210 verified, 3 failed, 7 without a scenario, 0 unsupported, 0 crashed** over the 232 files (`b84f673`); the pilot agrees **103 of 109**, slice 001 **34 of 40**; gate green: 931 engine, 224 vocabulary, 257 pipeline and 633 API tests. The three failures are wave 21's: a zone-change source the event cannot name (E6f), the generator reading `Search.Instead` and the shuffled-self spell (P21). |
