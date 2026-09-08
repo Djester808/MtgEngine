@@ -230,7 +230,9 @@ public sealed partial class EffectInterpreter : IResumable
                 context = context with { Remembered = context.Remembered.SetItem(name, [.. Numbers(value).Select(n => new ObjectId(n))]) };
         }
 
-        return context;
+        // CR 614.5: the replacement effects that had already applied to the event this walk is in
+        // the middle of, so the resumed walk's re-proposal is not a fresh offer.
+        return Restored(context, resumption.Context);
     }
 
     /// <summary>

@@ -223,9 +223,42 @@ public sealed record TurnHistory(
     /// </summary>
     [RuleRef("111.1")]
     public ImmutableDictionary<PlayerId, ImmutableList<GameObject>> TokensCreated { get; init; } = ImmutableDictionary<PlayerId, ImmutableList<GameObject>>.Empty;
+
+    /// <summary>
+    /// The lands played this turn, with the zone each came from and the permission it was played
+    /// under, CR 305.1 with 116.2a. A land play is not a cast, so <see cref="SpellsCast"/> never
+    /// answers for one; a once-per-turn permission that admits lands reads this and the casts
+    /// together, each by its own <c>Permission</c>. Folded by the land play, cleared by
+    /// <c>TurnBegan</c> with the rest of this record.
+    /// </summary>
+    [RuleRef("116.2a")]
+    public ImmutableList<LandPlayRecord> LandsPlayed { get; init; } = [];
 }
 
-public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From);
+/// <summary>
+/// A spell cast this turn, CR 601. <paramref name="From"/> is the zone it was cast from, and
+/// <paramref name="Permission"/> is the <see cref="ActiveEffect.Id"/> of the effect that allowed
+/// the cast where the rules otherwise would not have — a <c>MayPlayFromZone</c>, CR 116.2a. None
+/// means the cast needed no permission, which is every ordinary cast from a hand.
+/// <para>
+/// A once-per-turn permission counts what it has allowed by this field and never by
+/// <paramref name="From"/> alone: two such permissions over one zone would otherwise share a
+/// single count, and a cast made from that zone by another road — flashback, an instruction under
+/// CR 608.2g — would spend it.
+/// </para>
+/// </summary>
+[RuleRef("116.2a")]
+public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From, int? Permission = null);
+
+/// <summary>
+/// A land played this turn, CR 305.1 with 116.2a. A land play is not a cast, so it is recorded
+/// separately and nothing in <see cref="TurnHistory.SpellsCast"/> answers for it; without this a
+/// land played under a once-per-turn permission is not counted at all and the permission grants a
+/// second land. <paramref name="Permission"/> is the <see cref="ActiveEffect.Id"/> of the effect
+/// that allowed the play, none for the ordinary one-per-turn land drop of CR 305.2.
+/// </summary>
+[RuleRef("116.2a")]
+public sealed record LandPlayRecord(ObjectId Land, PlayerId By, Zone From, int? Permission = null);
 
 /// <summary>A deterministic generator. The seed is in the log; the counter advances with every draw.</summary>
 public readonly record struct RngState(ulong Seed, int Counter);

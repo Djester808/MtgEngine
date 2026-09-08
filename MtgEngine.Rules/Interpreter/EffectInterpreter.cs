@@ -73,7 +73,7 @@ public sealed partial class EffectInterpreter(
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(context);
-        var run = Execute(new EffectRun(state, context, [], false, "0", abilityIndex, OffStack: true), effect);
+        var run = Execute(new EffectRun(state, Seeded(state, context, abilityIndex), [], false, "0", abilityIndex, OffStack: true), effect);
         return new Outcome(run.State, run.Events);
     }
 
@@ -287,8 +287,14 @@ public sealed partial class EffectInterpreter(
     private static EffectRun Merge(EffectRun run, Outcome outcome) =>
         run with { State = outcome.State, Events = run.Events.AddRange(outcome.Events) };
 
+    /// <summary>
+    /// Offer an event to the replacement layer, CR 616.1, saying which effects have already applied
+    /// to it. A walk that is itself a replacement's "instead" carries its own key (CR 614.5), so the
+    /// event it makes is never replaced by the effect that made it.
+    /// </summary>
+    [RuleRef("614.5")]
     private EffectRun Propose(EffectRun run, GameEvent proposed, PlayerId affected) =>
-        Merge(run, replacements.Replace(run.State, proposed, affected));
+        Merge(run, replacements.Replace(run.State, proposed, affected, run.Context.UsedReplacements));
 
     private EffectRun Ask(
         EffectRun run,
@@ -312,6 +318,15 @@ public sealed partial class EffectInterpreter(
         {
             if (!string.Equals(key, "triggering", StringComparison.Ordinal))
                 extra = extra.SetItem(RememberedPrefix + key, Joined(ids.Select(id => id.Value)));
+        }
+
+        // CR 614.5: the replacement effects that have already applied to the event this walk is in
+        // the middle of. They ride on the question the same way, because the resumed walk proposes
+        // that event again and none of them may apply to it a second time.
+        if (run.Context.UsedReplacements is { } used)
+        {
+            foreach (var key in used)
+                extra = extra.SetItem(UsedPrefix + key, "1");
         }
 
         // CR 101.4: a question raised outside a resolution has no stack object to rebuild the
