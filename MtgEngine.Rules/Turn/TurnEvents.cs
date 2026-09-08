@@ -12,18 +12,34 @@ namespace MtgEngine.Rules.Events;
 /// Each one is listed in <c>tests/MtgEngine.Rules.Tests/events.txt</c>: see
 /// <c>seam-requests/E2.md</c>, which asks for those lines.
 /// </remarks>
+/// <summary>
+/// The end of the turn caught up with what was dated to it, CR 514.2: the continuous effects in
+/// <paramref name="Effects"/> and the delayed triggered abilities in <paramref name="DelayedTriggers"/>
+/// (CR 603.7c) stop existing, together. The two lists are one event because CR 514.2 is one moment;
+/// <paramref name="DelayedTriggers"/> is defaulted so every stored log still reads and every existing
+/// construction still compiles.
+/// </summary>
 [RuleRef("514.2")]
-public sealed record EndOfTurnEffectsEnded(ImmutableList<int> Effects) : GameEvent
+public sealed record EndOfTurnEffectsEnded(ImmutableList<int> Effects, ImmutableList<int>? DelayedTriggers = null) : GameEvent
 {
     /// <summary>
     /// "Until end of turn" and "this turn" effects end in the cleanup step, CR 514.2, and are
-    /// effects with a duration of CR 611.2a. The ids are carried so a replay removes exactly
-    /// the effects the game removed rather than re-deciding which ones qualified.
+    /// effects with a duration of CR 611.2a. A delayed triggered ability whose duration has ended
+    /// goes with them, fired or not, CR 603.7c. The ids are carried so a replay removes exactly
+    /// what the game removed rather than re-deciding which ones qualified.
     /// </summary>
+    [RuleRef("603.7c")]
     public override GameState Apply(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return state with { ActiveEffects = [.. state.ActiveEffects.Where(e => !Effects.Contains(e.Id))] };
+        var dated = DelayedTriggers ?? [];
+        return state with
+        {
+            ActiveEffects = [.. state.ActiveEffects.Where(e => !Effects.Contains(e.Id))],
+            DelayedTriggers = dated.IsEmpty
+                ? state.DelayedTriggers
+                : [.. state.DelayedTriggers.Where(t => !dated.Contains(t.Id))],
+        };
     }
 }
 

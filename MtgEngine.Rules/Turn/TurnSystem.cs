@@ -154,6 +154,8 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
         log.Add(new StepBegan(next));
         if (next == Step.Draw)
             DrawStep(log);
+        if (next == Step.End)
+            EndStep(log);
         CombatDamageStep(log, next);
 
         if (next == Step.Cleanup)
@@ -329,7 +331,8 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
 
     /// <summary>
     /// CR 514.2: damage marked on permanents is removed and every "until end of turn" effect
-    /// ends, simultaneously. Then the step ends and mana pools empty, CR 500.5.
+    /// ends, simultaneously — and with them, CR 603.7c, every delayed triggered ability whose
+    /// duration was this turn, fired or not. Then the step ends and mana pools empty, CR 500.5.
     /// </summary>
     [RuleRef("514.2")]
     private static void FinishCleanup(Log log)
@@ -338,8 +341,9 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
             log.Add(new ObjectChanged(damaged.Id, Damage: 0));
 
         var ending = log.State.ActiveEffects.Where(e => e.Until is UntilEndOfTurn).Select(e => e.Id).ToImmutableList();
-        if (!ending.IsEmpty)
-            log.Add(new EndOfTurnEffectsEnded(ending));
+        var dated = DatedDelayedTriggers(log.State);
+        if (!ending.IsEmpty || !dated.IsEmpty)
+            log.Add(new EndOfTurnEffectsEnded(ending, dated));
 
         EmptyManaPools(log);
     }

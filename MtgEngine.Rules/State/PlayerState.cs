@@ -17,8 +17,40 @@ public sealed record PlayerState(PlayerId Id, string Name, int Life)
 
     public int ObjectsDrawnThisTurn { get; init; }
 
+    /// <summary>
+    /// How many cards this player has drawn since the current step began, CR 121.1. It answers the
+    /// one question <see cref="ObjectsDrawnThisTurn"/> cannot — "is this the first card they drew in
+    /// this step?", which CR 504.1's draw-step exception is written about — because a draw in the
+    /// upkeep raises the turn's counter and not this one. Folded by <c>ObjectDrawn</c> through
+    /// <see cref="Drew"/> and cleared by <c>StepBegan</c> through <see cref="StepBegins"/>; see
+    /// <c>seam-requests/E2c.md</c>, which asks for those two call sites.
+    /// </summary>
+    [Cards.RuleRef("121.1")]
+    public int ObjectsDrawnThisStep { get; init; }
+
     /// <summary>Set when a draw found no card, CR 121.4; the next state-based action check loses the game, CR 704.5b.</summary>
     public bool DrewFromEmptyLibrary { get; init; }
+
+    /// <summary>
+    /// This player drew a card, CR 121.1: both counters rise, the turn's and the step's. One event
+    /// per card drawn, so a card drawn and then discarded still counts. Said here rather than in the
+    /// fold so the two counters cannot drift apart at a call site that remembers only one of them.
+    /// </summary>
+    [Cards.RuleRef("121.1")]
+    public PlayerState Drew() => this with
+    {
+        ObjectsDrawnThisTurn = ObjectsDrawnThisTurn + 1,
+        ObjectsDrawnThisStep = ObjectsDrawnThisStep + 1,
+    };
+
+    /// <summary>
+    /// A step began, CR 500.1: what this player drew in the step that just ended is no longer what
+    /// they drew in this one. The turn's counter is untouched — it is cleared by <c>TurnBegan</c>,
+    /// CR 121.1 — and an unchanged player is returned unchanged so a step that saw no draw adds
+    /// nothing to the log's state churn.
+    /// </summary>
+    [Cards.RuleRef("500.1")]
+    public PlayerState StepBegins() => ObjectsDrawnThisStep == 0 ? this : this with { ObjectsDrawnThisStep = 0 };
 
     /// <summary>Damage dealt by each commander, CR 903.10a.</summary>
     public ImmutableDictionary<ObjectId, int> CommanderDamage { get; init; } = ImmutableDictionary<ObjectId, int>.Empty;

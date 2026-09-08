@@ -53,6 +53,62 @@ public sealed record GameState
     public PlayerState Player(PlayerId id) => Players[id.Value];
 
     public ImmutableList<ObjectId> In(ZoneKey zone) => Zones.TryGetValue(zone, out var list) ? list : [];
+
+    /// <summary>
+    /// How many cards a player drew this turn, CR 121.1: one per draw event, so a card drawn and
+    /// then discarded, played or exiled still counts. It is not a count of their hand, which is the
+    /// reading this exists to refuse. Kept by <c>ObjectDrawn</c> on the player and cleared by
+    /// <c>TurnBegan</c>.
+    /// </summary>
+    [RuleRef("121.1")]
+    public int CardsDrawnThisTurn(PlayerId who) => Player(who).ObjectsDrawnThisTurn;
+
+    /// <summary>
+    /// How many lands entered the battlefield under a player's control this turn, CR 121.1: however
+    /// they entered — played, put onto the battlefield by a spell, or created as a token — and a land
+    /// that has since left still counts, which is why this walks <see cref="TurnHistory"/> and not
+    /// the board. Each entry is counted once; the controller is the one it entered under (CR 110.2a),
+    /// so a later change of control does not move the count.
+    /// <para>
+    /// The land is read from the printed face the object entered as: with no layer system to ask from
+    /// here, that is the honest answer, and a query arm that needs the computed type passes its own
+    /// characteristics (<c>seam-requests/E2c.md</c>). An entry whose object neither still exists nor
+    /// was kept as a departed object is not counted — nothing in the state says what it was.
+    /// </para>
+    /// </summary>
+    [RuleRef("121.1")]
+    public int LandsEnteredThisTurn(PlayerId who)
+    {
+        var counted = new HashSet<ObjectId>();
+        var lands = 0;
+        foreach (var id in History.EnteredBattlefield)
+        {
+            if (!counted.Add(id))
+                continue;
+            var entered = Objects.TryGetValue(id, out var live) ? live : History.LeftBattlefield.FirstOrDefault(o => o.Id == id);
+            if (entered is not null && EnteredAsLand(entered, who))
+                lands++;
+        }
+
+        // CR 111.1: a token is created on the battlefield rather than moved onto it, so it is in the
+        // turn's token record and not in EnteredBattlefield (seam-requests/E2c.md asks for the line
+        // that would put it in both).
+        if (History.TokensCreated.TryGetValue(who, out var tokens))
+        {
+            foreach (var token in tokens)
+            {
+                if (token.Zone.Zone == Zone.Battlefield && counted.Add(token.Id) && EnteredAsLand(token, who))
+                    lands++;
+            }
+        }
+
+        return lands;
+    }
+
+    /// <summary>A land, CR 305.1, that entered under this player's control, CR 110.2a.</summary>
+    [RuleRef("305.1")]
+    private static bool EnteredAsLand(GameObject entered, PlayerId who) =>
+        entered.InitialController == who && entered.Face.Types.Types.HasFlag(CardType.Land);
 }
 
 [RuleRef("500")]
@@ -97,8 +153,20 @@ public sealed record ActiveEffect(
     bool FromStaticAbility,
     ImmutableDictionary<string, ImmutableList<ObjectId>>? Remembered = null);
 
+/// <summary>
+/// A delayed triggered ability waiting for its event, CR 603.7.
+/// <para>
+/// <paramref name="Until"/> is the duration the ability was created with, CR 603.7c: an ability set
+/// up "until end of turn" stops existing when that duration ends, whether or not it ever triggered,
+/// and the cleanup step drops it (CR 514.2, <c>TurnSystem</c>). It answers a different question from
+/// <paramref name="Once"/> — "until end of turn, whenever a creature dies …" is both once-only false
+/// and dated — so a trigger sets whichever of the two it printed. None means the ability waits for
+/// its event with no deadline, which is every delayed trigger written before this field existed, so
+/// no existing construction changes.
+/// </para>
+/// </summary>
 [RuleRef("603.7")]
-public sealed record DelayedTriggerState(int Id, Trigger When, Effect Do, ObjectId? Source, PlayerId Controller, bool Once, ImmutableDictionary<string, ImmutableList<ObjectId>> Remembered);
+public sealed record DelayedTriggerState(int Id, Trigger When, Effect Do, ObjectId? Source, PlayerId Controller, bool Once, ImmutableDictionary<string, ImmutableList<ObjectId>> Remembered, Duration? Until = null);
 
 /// <summary>The game stops and asks. Nothing else happens until this is answered by an event.</summary>
 public sealed record PendingChoice(
