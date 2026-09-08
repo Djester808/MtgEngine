@@ -49,22 +49,37 @@ internal sealed partial class ScenarioRun
     }
 
     /// <summary>
-    /// Which of a permanent's abilities a <see cref="TapForManaStep"/> activates: the first mana
-    /// ability it has right now, by its index in the object's current abilities — the same index an
+    /// Which of a permanent's abilities a <see cref="TapForManaStep"/> activates: the mana ability
+    /// the step names, by its index in the object's current abilities — the same index an
     /// <see cref="ActivateStep"/> would have had to count out, read off the layer system so an
-    /// ability granted to the permanent counts as much as one it printed (CR 613.1d). A scenario
-    /// that names a permanent with no mana ability has written a step the game cannot take, and
-    /// saying so with the rule is better than activating some other ability that happens to be first.
+    /// ability granted to the permanent counts as much as one it printed (CR 613.1d). The step
+    /// counts mana abilities alone (CR 605.1a), so a permanent with two of them is tapped for the
+    /// one the scenario means and an ability that is not a mana ability never moves the number;
+    /// a step that names none is the first, which is what the step meant before it could name one.
+    /// A scenario that names a permanent with no mana ability, or a mana ability it does not have,
+    /// has written a step the game cannot take, and saying so with the rule is better than
+    /// activating some other ability that happens to be there.
     /// </summary>
-    [RuleRef("605.1a")]
+    [RuleRef("605.3")]
     private int ManaAbilityIndex(TapForManaStep step)
     {
-        var abilities = Host.Engine.Characteristics.Of(_state, Object(step.Card)).Abilities;
-        for (var index = 0; index < abilities.Count; index++)
-            if (abilities[index] is ActivatedAbility ability && IsManaAbility(ability))
-                return index;
+        var wanted = step.AbilityIndex ?? 0;
+        if (wanted < 0)
+            throw new ScenarioFailure($"'{step.Card}' names mana ability {wanted}, and mana abilities are counted from zero. (605.3)");
 
-        throw new ScenarioFailure($"'{step.Card}' has no mana ability to tap for mana. (605.1a)");
+        var abilities = Host.Engine.Characteristics.Of(_state, Object(step.Card)).Abilities;
+        var found = 0;
+        for (var index = 0; index < abilities.Count; index++)
+        {
+            if (abilities[index] is not ActivatedAbility ability || !IsManaAbility(ability))
+                continue;
+            if (found++ == wanted)
+                return index;
+        }
+
+        throw found == 0
+            ? new ScenarioFailure($"'{step.Card}' has no mana ability to tap for mana. (605.1a)")
+            : new ScenarioFailure($"'{step.Card}' has {found} mana abilities and the scenario names number {wanted}. (605.3)");
     }
 
     /// <summary>
