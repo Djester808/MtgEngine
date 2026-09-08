@@ -123,6 +123,7 @@ public sealed record UntilSourceLeavesOrCondition(Condition Condition) : Duratio
 [JsonDerivedType(typeof(AbilitiesTriggerTwice), nameof(AbilitiesTriggerTwice))]
 [JsonDerivedType(typeof(RegenerationShield), nameof(RegenerationShield))]
 [JsonDerivedType(typeof(TreatAsHavingKeywordCounter), nameof(TreatAsHavingKeywordCounter))]
+[JsonDerivedType(typeof(PlayerHexproof), nameof(PlayerHexproof))]
 [JsonDerivedType(typeof(UnsupportedContinuous), nameof(UnsupportedContinuous))]
 public abstract record ContinuousEffect;
 
@@ -286,6 +287,16 @@ public enum PlayerRestriction
 
     /// <summary>"You can't be dealt damage", the prevention-shaped prohibition, CR 120.3.</summary>
     BeDealtDamage = 1 << 3,
+
+    /// <summary>
+    /// "Players can't lose life this turn", CR 119.3: an effect that would cause the player to lose
+    /// life does nothing. It is not <see cref="LifeTotalChanges"/>, which also forbids gaining, and
+    /// a card that prints only this one allows gain; and it is not <see cref="BeDealtDamage"/>, so
+    /// damage is still dealt and everything that reads damage still reads it — only the life loss it
+    /// would cause (CR 119.2) does not happen. Life paid as a cost is life lost (CR 119.4), so a
+    /// cost that asks for life cannot be paid while this applies.
+    /// </summary>
+    LoseLife = 1 << 4,
 }
 
 /// <summary>

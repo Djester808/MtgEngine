@@ -59,7 +59,44 @@ public sealed record CountersDoubled(PlayerRef Who, string? Counter = null) : Co
 
 public sealed record LifeGainDoubled(PlayerRef Who) : ContinuousEffect;
 
-public sealed record AbilitiesTriggerTwice(PlayerRef Who, ObjectFilter? OfSources = null) : ContinuousEffect;
+/// <summary>
+/// "Your triggered abilities trigger an additional time", CR 603.2d — and, with
+/// <paramref name="Cause"/>, "if a land entering causes a triggered ability of a permanent you
+/// control to trigger, that ability triggers an additional time".
+/// <para>
+/// <paramref name="Who"/> is the controller of the abilities and <paramref name="OfSources"/>
+/// narrows the permanents they are on. <paramref name="Cause"/> is the <b>event that caused the
+/// trigger</b>, not a second trigger of this card: the extra triggering happens only when the
+/// ability triggered because of an event this trigger admits, so "a land entering" is an
+/// EntersBattlefield whose filter is the land. Leave it null when every event counts. A reading
+/// that puts the cause in <paramref name="OfSources"/> says something else entirely — that filter
+/// describes the permanent whose ability triggers, not what made it trigger — and one that wraps
+/// the card in a TriggeredAbility of its own gives the card a trigger it does not print.
+/// </para>
+/// <para>
+/// CR 603.2d fixes two things a reading can get wrong: the count is determined once, so this effect
+/// does not invoke itself repeatedly, and "a triggered ability of an object" means an ability that
+/// object has and never a delayed or reflexive ability created by one (CR 603.7, 603.12).
+/// </para>
+/// </summary>
+[RuleRef("603.2d")]
+public sealed record AbilitiesTriggerTwice(PlayerRef Who, ObjectFilter? OfSources = null, Trigger? Cause = null) : ContinuousEffect;
+
+/// <summary>
+/// "Players gain hexproof until end of turn", CR 702.11c: the player half of the hexproof keyword,
+/// which reads "You can't be the target of spells or abilities your opponents control".
+/// <para>
+/// It is a named keyword and not <c>PlayerCant(PlayerRestriction.BeTargeted)</c>, even though the
+/// two forbid the same thing: hexproof is what other cards look for and take away (CR 702.11e), and
+/// an anonymous restriction is invisible to them. It is not the KeywordAbility Hexproof, which is on
+/// an object and cannot be given to a player; the same reason <see cref="PlayerProtectionFromEverything"/>
+/// exists beside the Protection keyword. Apply it with a StaticAbility whose Players is set, or with
+/// ApplyToPlayer for a duration. "Hexproof from [quality]" (CR 702.11d) is defined for permanents
+/// only, so this record carries no quality.
+/// </para>
+/// </summary>
+[RuleRef("702.11c")]
+public sealed record PlayerHexproof : ContinuousEffect;
 
 [RuleRef("701.19")]
 public sealed record RegenerationShield : ContinuousEffect;

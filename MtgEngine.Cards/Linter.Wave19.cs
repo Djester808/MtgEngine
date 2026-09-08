@@ -34,6 +34,13 @@ public static partial class Linter
         {
             var damage = ability is TriggeredAbility triggered && Walk(triggered.When).Any(IsDamageTrigger);
             damage = damage || nodes.OfType<DelayedTrigger>().Any(d => Walk(d.When).Any(IsDamageTrigger));
+
+            // CR 613.1f: an Equipment's "equipped creature has 'whenever this creature deals combat
+            // damage to a player, draw a card'" is a StaticAbility granting a TriggeredAbility, and
+            // the damage the amount reads is that granted ability's own trigger. The scan stopped at
+            // the static ability and refused every card shaped that way, so it descends through the
+            // grant: any granted triggered ability whose trigger is damage-shaped is the event.
+            damage = damage || nodes.OfType<GrantAbility>().Any(g => g.Ability is TriggeredAbility granted && Walk(granted.When).Any(IsDamageTrigger));
             if (!damage)
                 findings.Add(new(LintSeverity.Error, "L028", "TriggeringDamage reads the damage of the event that triggered this ability and nothing here triggers on damage (CR 603.10).", path));
         }
@@ -70,6 +77,12 @@ public static partial class Linter
             // CR 118.9: the alternative replaces the mana cost, so one that asks for nothing makes
             // the spell free — which is a printed line ("without paying its mana cost") no card
             // says this way, and far more often a cost the reading dropped.
+            // ... unless the face prints exactly that line: "you may cast this spell without paying
+            // its mana cost" is an alternative cost of nothing, and CR 118.9 names it in so many
+            // words. The flag is that spelling and the empty Costs is its companion (L050).
+            if (alternatives[i].WithoutPayingManaCost)
+                continue;
+
             if (alternatives[i].Cost is Costs { All.Count: 0 } or ChooseCost { Options.Count: 0 })
                 findings.Add(new(LintSeverity.Error, "L026", "An AlternativeCost asks for nothing, which would make the spell free; give it the cost the card prints (CR 118.9).", $"{path}.alternativeCosts[{i}]"));
         }

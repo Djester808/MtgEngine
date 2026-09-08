@@ -56,9 +56,18 @@ public sealed record Face(
 /// on <see cref="MayPlayFromZone"/>, which grant a cast from another zone; this is the printed line
 /// on the card itself, whatever zone it is cast from.
 /// </para>
+/// <para>
+/// <paramref name="WithoutPayingManaCost"/> is the printed "you may cast this spell without paying
+/// its mana cost", which CR 118.9 names as an alternative cost in so many words. It is the one
+/// spelling for that line: <paramref name="Cost"/> is then an empty <c>Costs</c> and nothing else,
+/// and a <c>ManaCost</c> of "{0}" is refused (L050) — CR 118.9c says an alternative cost does not
+/// change the spell's mana cost, so a reading that writes a cost of zero has invented a cost that
+/// is paid instead of saying that none is. "If you control a commander" goes in
+/// <paramref name="OnlyIf"/>, which CR 118.9b allows an alternative cost to carry.
+/// </para>
 /// </summary>
 [RuleRef("118.9")]
-public sealed record AlternativeCost(Cost Cost, Condition? OnlyIf = null);
+public sealed record AlternativeCost(Cost Cost, Condition? OnlyIf = null, bool WithoutPayingManaCost = false);
 
 /// <summary>The type line, CR 205: supertypes, types, subtypes.</summary>
 [RuleRef("205")]

@@ -49,6 +49,7 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(TargetsAre), nameof(TargetsAre))]
 [JsonDerivedType(typeof(FirstTimeThisTurn), nameof(FirstTimeThisTurn))]
 [JsonDerivedType(typeof(CreatedTokenThisTurn), nameof(CreatedTokenThisTurn))]
+[JsonDerivedType(typeof(MoreThanEachOtherPlayer), nameof(MoreThanEachOtherPlayer))]
 [JsonDerivedType(typeof(NotCondition), nameof(NotCondition))]
 [JsonDerivedType(typeof(And), nameof(And))]
 [JsonDerivedType(typeof(Or), nameof(Or))]
@@ -59,6 +60,29 @@ public sealed record Controls(PlayerRef Who, ObjectFilter What, Comparison Count
 
 /// <summary>Any two amounts compared: "if your life total is less than an opponent's".</summary>
 public sealed record Compare(Amount Left, ComparisonOp Op, Amount Right) : Condition;
+
+/// <summary>
+/// "If that player has more cards in hand than each other player", "if you control more lands than
+/// each other player": one player's count against the greatest of the same count among the others.
+/// <para>
+/// <paramref name="Of"/> is read once for <paramref name="Who"/> and once for every player
+/// <paramref name="Others"/> admits, with the player being read bound as <c>EachPlayer</c> — the
+/// same binding <see cref="PlayerWithMostOf"/> uses, and the reason the amount inside must name
+/// <c>EachPlayer</c> and never a fixed player (L050): an amount that names You would compare your
+/// own count with itself for every player and always answer no. <paramref name="Others"/> defaults
+/// to every player other than <paramref name="Who"/>; set it only where the card names a group.
+/// </para>
+/// <para>
+/// It is strictly greater and never a tie: <paramref name="OrEqual"/> is the printed "as many as"
+/// and stands only where the card says so. It is not a <see cref="Compare"/> against
+/// <c>PlayerWithMostOf</c>, which admits a tie by comparing the player with the greatest count
+/// against themselves, and it is not one <see cref="Compare"/> per opponent, which no filter can
+/// write for a table whose size is not known. The counts read here are per player and are known
+/// even when the zone is hidden — CR 400.2 hides the faces, not the number of cards.
+/// </para>
+/// </summary>
+[RuleRef("400.2")]
+public sealed record MoreThanEachOtherPlayer(PlayerRef Who, Amount Of, PlayerFilter? Others = null, bool OrEqual = false) : Condition;
 
 public sealed record IsYourTurn(bool Value = true) : Condition;
 
