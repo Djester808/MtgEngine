@@ -71,11 +71,39 @@ public sealed partial class Query
             Cards.Top top => TopOf(state, top, context),
             Union union => [.. union.Of.SelectMany(s => Resolve(state, s, context)).Distinct()],
 
-            Cards.Commander => throw Unanswerable(nameof(Cards.Commander), NoCommander),
+            Cards.Commander commander => CommandersOf(state, commander.Whose, context), // CR 903.3
             RandomFrom => throw Unanswerable(nameof(RandomFrom), "a random selection draws from the seeded generator and so belongs to a subsystem that may change state (CR 103.1)"),
             SourceOfDamage => throw Unanswerable(nameof(SourceOfDamage), "the source of damage reaches the query layer through the triggering objects, not through state (CR 608.2)"),
             _ => throw Unanswerable(selector.GetType().Name, "no arm in the query layer"),
         };
+    }
+
+    /// <summary>
+    /// "your commander", CR 903.3: the designation is an attribute of the card and not of the
+    /// object, so it travels with the card through every zone change and this reads it wherever the
+    /// card is — the command zone, the battlefield, a graveyard. That is why no zone narrows it:
+    /// "return your commander to your hand" and "your commander deals damage" name the same card in
+    /// two places, and a filter is the thing that narrows a selection.
+    /// <para>
+    /// A commander is designated out of its own deck, so the player it belongs to is its owner
+    /// (CR 108.3) and never whoever controls it now — an opponent's Mind Control does not make it
+    /// their commander. A player with no commander in the game selects nothing, which is an answer:
+    /// the designation is made as the game begins, so "no commander" is a fact about this game and
+    /// not a gap in the state. The colour identity reading of CR 903.4 in <c>Query.cs</c> refuses
+    /// instead, because a filter that admits everything is a wrong answer rather than an empty one.
+    /// </para>
+    /// </summary>
+    [RuleRef("903.3")]
+    private ImmutableList<ObjectId> CommandersOf(GameState state, PlayerRef whose, EffectContext context)
+    {
+        var owners = Players(state, whose, context);
+        return
+        [
+            .. state.Objects.Values
+                .Where(o => o.IsCommander && owners.Contains(o.Owner))
+                .OrderBy(o => o.Id.Value)
+                .Select(o => o.Id),
+        ];
     }
 
     private static ImmutableList<ObjectId> Trigger(EffectContext context, TriggerRole role) => role switch
@@ -127,6 +155,7 @@ public sealed partial class Query
 
             DefendingPlayer => Defending(state), // CR 506.2
             PlayerWithMostOf most => Extreme(state, most, context),
+            PlayerWhoChose chose => WhoChose(state, chose, context), // CR 700.2
 
             // CR 724.2: there is at most one monarch, and the state keeps who it is.
             Cards.Monarch => state.Monarch is { } monarch ? [monarch] : [],
@@ -187,6 +216,42 @@ public sealed partial class Query
             return false;
 
         return filter.Also is null || Holds(state, filter.Also, context with { Controller = candidate });
+    }
+
+    /// <summary>
+    /// "each player who chose the highest number", CR 700.2 with 101.4: <em>every</em> seat whose
+    /// revealed number is that extreme, because two players may choose the same number and the
+    /// printed line reads "each player who chose". They are named in turn order, CR 101.4 — the
+    /// order the questions were asked in and the order the effect will act on them.
+    /// <para>
+    /// A key nobody answered is refused rather than read as nobody: an empty list would drop the
+    /// rest of the effect silently, which is the same reading <see cref="RememberedPlayer"/> above
+    /// refuses for the same reason.
+    /// </para>
+    /// </summary>
+    [RuleRef("700.2")]
+    private ImmutableList<PlayerId> WhoChose(GameState state, PlayerWhoChose chose, EffectContext context)
+    {
+        var numbers = SecretNumbers(chose.Key, context);
+        if (numbers.Count == 0)
+            throw NoSecretNumbers(nameof(PlayerWhoChose), chose.Key);
+
+        var extreme = chose.Lowest ? numbers.Min(n => n.Number) : numbers.Max(n => n.Number);
+        return
+        [
+            .. numbers.Where(n => n.Number == extreme)
+                .Select(n => n.Player)
+                .Distinct()
+                .OrderBy(p => TurnOrderIndex(state, p)),
+        ];
+    }
+
+    /// <summary>Where a seat falls in turn order, CR 101.4: the active player first, then the rest as they take turns.</summary>
+    [RuleRef("101.4")]
+    private static int TurnOrderIndex(GameState state, PlayerId player)
+    {
+        var seats = state.Players.Count;
+        return seats == 0 ? player.Value : ((player.Value - state.Turn.ActivePlayer.Value) % seats + seats) % seats;
     }
 
     private const string NoSuchPlayerKey =
