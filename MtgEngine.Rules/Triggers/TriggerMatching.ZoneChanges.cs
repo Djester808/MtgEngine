@@ -10,28 +10,27 @@ internal sealed partial class TriggerMatching
 {
     /// <summary>
     /// Any other zone change, CR 603.6. The destination is on the event and a trigger that names none
-    /// fires on any arrival ("leaves your graveyard"); a named or excluded source zone is only knowable
-    /// for the battlefield today, so "from anywhere other than the battlefield" is answered and any
-    /// other exclusion is refused rather than guessed.
+    /// fires on any arrival ("leaves your graveyard"); the source zone is read from the event for
+    /// every zone (<see cref="Ev.ObjectMoved.LeftFrom"/>), and a move that never said which zone it
+    /// left is refused rather than guessed.
     /// </summary>
     [RuleRef("603.6")]
     private ImmutableList<TriggerSubject> Moved(GameState state, ZoneChange trigger, Ev.GameEvent happened, EffectContext ctx)
     {
         if (happened is not Ev.ObjectMoved moved || (trigger.To is { } to && moved.To.Zone.Zone != to))
             return [];
+
+        // CR 603.10: the battlefield is answered by the turn's record, which is what keeps the
+        // object that left readable at all; every other zone is on the event itself, CR 603.6.
         var left = state.History.LeftBattlefield.Any(o => o.Id == moved.From);
-        if (trigger.From is { } from)
+        var from = left ? Zone.Battlefield : moved.LeftFrom?.Zone;
+        if (trigger.From is not null || trigger.NotFrom is not null)
         {
-            if (from != Zone.Battlefield)
-                throw new Engine.RefusedException("A zone change's source zone is only knowable for the battlefield today.", "603.6");
-            if (!left)
+            if (from is not { } source)
+                throw new Engine.RefusedException("That move did not say which zone the object left.", "603.6");
+            if (trigger.From is { } wanted && source != wanted)
                 return [];
-        }
-        if (trigger.NotFrom is { } notFrom)
-        {
-            if (notFrom != Zone.Battlefield)
-                throw new Engine.RefusedException("A zone change's excluded source zone is only knowable for the battlefield today.", "603.6");
-            if (left)
+            if (trigger.NotFrom is { } excluded && source == excluded)
                 return [];
         }
 

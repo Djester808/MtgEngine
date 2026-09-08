@@ -121,12 +121,18 @@ internal sealed class TriggeredAbilityBoard
     /// <summary>Whose turn it is, which is what APNAP and "at the beginning of your upkeep" turn on.</summary>
     public TriggeredAbilityBoard ActivePlayer(int seat) => Fold(new TurnBegan(1, new PlayerId(seat), false));
 
-    /// <summary>Move an object to another of its owner's zones, CR 400.7: a new object arrives there and the old one ceases to exist.</summary>
-    public ObjectMoved MoveTo(ObjectId id, Zone zone)
+    /// <summary>
+    /// Move an object to another of its owner's zones, CR 400.7: a new object arrives there and the
+    /// old one ceases to exist. The move carries the object as it last existed, exactly as
+    /// <c>ZoneSystem.Proposal</c> does, so the zone it left is on the event (CR 603.6).
+    /// <paramref name="carryDeparted"/> false is a move that never said which zone it left, which
+    /// the matcher has to refuse rather than guess.
+    /// </summary>
+    public ObjectMoved MoveTo(ObjectId id, Zone zone, bool carryDeparted = true)
     {
         var obj = State.Objects[id];
-        var arrived = new GameObject(new ObjectId(State.NextObjectId), obj.Definition, obj.FaceIndex, obj.Owner, obj.Owner, ZoneKey.Of(zone, obj.Owner), State.NextTimestamp);
-        var moved = new ObjectMoved(id, arrived, -1);
+        var arrived = new GameObject(new ObjectId(State.NextObjectId), obj.Definition, obj.FaceIndex, obj.Owner, obj.Owner, Key(zone, obj.Owner), State.NextTimestamp);
+        var moved = new ObjectMoved(id, arrived, -1, carryDeparted ? obj : null);
         State = moved.Apply(State);
         return moved;
     }
