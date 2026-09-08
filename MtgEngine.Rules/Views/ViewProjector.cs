@@ -71,7 +71,36 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             // CR 702.16j: computed, not stored, so it is asked of the characteristics seam here
             // rather than read off the seat. It is public information (CR 400.2) — every viewer
             // gets it, not only the protected player.
-            _characteristics.PlayerRestrictions(state, player.Id).ProtectionFromEverything);
+            _characteristics.PlayerRestrictions(state, player.Id).ProtectionFromEverything)
+        {
+            // CR 401.5: the one card a library shows, and it shows it to everybody.
+            RevealedTopCard = RevealedTop(state, player.Id),
+        };
+    }
+
+    /// <summary>
+    /// CR 401.5: the top card of this player's library, if an effect has them playing with it
+    /// revealed, and null otherwise. The effect is <c>PlayWithTopCardRevealed</c>, created by the
+    /// interpreter against the player whose library it is; a library with nothing in it reveals
+    /// nothing. The card is projected through the ordinary <see cref="View"/>, so it carries its
+    /// computed characteristics like any other object a viewer may see (CR 613.5), and it is
+    /// built once per seat rather than per viewer because CR 401.5 reveals it to every player —
+    /// the viewer is not consulted, deliberately, and that is the difference from
+    /// <c>MayLookAtTopCard</c>, which shows one player their own card and has no arm here.
+    /// <para>
+    /// CR 401.6 needs no code: the card stops being revealed when the effect ends or the card
+    /// leaves, and becoming revealed again means a new object with a new id (CR 400.7), which is
+    /// the id this reads. Nothing is remembered between projections, so nothing can go stale.
+    /// </para>
+    /// </summary>
+    [RuleRef("401.5")]
+    private ObjectView? RevealedTop(GameState state, PlayerId owner)
+    {
+        if (!state.ActiveEffects.Any(active => active.Effect is PlayWithTopCardRevealed && active.AppliesToPlayers.Contains(owner)))
+            return null;
+
+        var library = InZone(state, CardZone.Library, owner);
+        return !library.IsEmpty && state.Objects.TryGetValue(library[0], out var top) ? View(state, top) : null;
     }
 
     /// <summary>

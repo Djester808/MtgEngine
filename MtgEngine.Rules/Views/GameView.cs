@@ -31,7 +31,25 @@ public sealed record GameView(
 /// of on every damage event, and a field the view does not need is a field it does not carry.
 /// </summary>
 [RuleRef("702.16j")]
-public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCount, int LibraryCount, int GraveyardCount, ImmutableDictionary<string, int> Counters, ManaPool Mana, ImmutableList<ObjectView> Graveyard, ImmutableList<ObjectView> Command, bool ProtectionFromEverything = false);
+public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCount, int LibraryCount, int GraveyardCount, ImmutableDictionary<string, int> Counters, ManaPool Mana, ImmutableList<ObjectView> Graveyard, ImmutableList<ObjectView> Command, bool ProtectionFromEverything = false)
+{
+    /// <summary>
+    /// CR 401.5: while an effect has this player playing with the top card of their library
+    /// revealed, that card is revealed — to <em>every</em> player, which is the whole difference
+    /// from "may look at the top card of your library", the private half of the same rule. It is
+    /// null for every other seat, and a library is otherwise <see cref="LibraryCount"/> and
+    /// nothing else, so no viewer learns a card this rule does not show them.
+    /// <para>
+    /// CR 401.6 rides on the id: the card is shown by the object it is, so a top card that stops
+    /// being revealed and is revealed again arrives here under whatever id the zone system gave
+    /// the new object, and a client that keyed on the old one sees it replaced rather than
+    /// updated. It is a body property rather than a positional one so that no existing
+    /// construction of a seat moves for a field most games never fill.
+    /// </para>
+    /// </summary>
+    [RuleRef("401.5")]
+    public ObjectView? RevealedTopCard { get; init; }
+}
 
 public sealed record ObjectView(
     ObjectId Id,
@@ -86,6 +104,33 @@ public sealed record LegalActions(
     ImmutableList<ObjectId> EligibleAttackers,
     ImmutableList<ObjectId> EligibleBlockers,
     bool MayPass,
-    bool MustAnswerChoice);
+    bool MustAnswerChoice)
+{
+    /// <summary>
+    /// CR 508.1d: a creature that can't attack unless its controller pays a cost <em>can</em>
+    /// attack — the player "is not required to pay that cost" — so the taxed creature is in
+    /// <see cref="EligibleAttackers"/> and what it would cost is here beside it. Without this the
+    /// only way to learn the price is to make the declaration and have CR 508.1j refuse it, which
+    /// is not a choice the player was offered. One entry per eligible attacker that owes a tax;
+    /// an attacker that owes nothing has no entry, so an empty list is the ordinary combat.
+    /// </summary>
+    [RuleRef("508.1d")]
+    public ImmutableList<AttackTaxOffer> AttackTaxes { get; init; } = [];
+}
 
 public sealed record ActivatableAbility(ObjectId Source, int AbilityIndex, string Text);
+
+/// <summary>
+/// What declaring one creature as an attacker would cost, CR 508.1h, and whether that cost can
+/// be paid, CR 508.1j.
+/// <para>
+/// <paramref name="Payable"/> is read against the mana pool as it stands. CR 508.1i gives the
+/// active player a window to activate mana abilities after the total is locked in and before it
+/// is paid, and this engine does not take that step (recorded in <c>seam-requests/E4i.md</c>), so
+/// a false here means "not out of the pool you are holding" and never "this attack is illegal".
+/// A tax the engine cannot express as mana at all — CR 508.1h's refusal — is unpayable for a
+/// second reason, and the cost text says so rather than the view dropping the attacker.
+/// </para>
+/// </summary>
+[RuleRef("508.1h")]
+public sealed record AttackTaxOffer(ObjectId Attacker, string Cost, bool Payable);
