@@ -99,11 +99,12 @@ public sealed record ObjectCreated(GameObject Object, int Position) : GameEvent
             // CR 111.1: the turn remembers the token as it was created, under the player who created it.
             var mine = history.TokensCreated.TryGetValue(Object.InitialController, out var made) ? made : [];
             history = history with { TokensCreated = history.TokensCreated.SetItem(Object.InitialController, mine.Add(Object)) };
-        }
 
-        // CR 111.1: a token created on the battlefield has entered it (E2c ask 3).
-        if (Object.Zone.Zone == Zone.Battlefield)
-            history = history with { EnteredBattlefield = history.EnteredBattlefield.Add(Object.Id) };
+            // CR 111.1: a token created on the battlefield has entered it (E2c ask 3). A card a test or
+            // a scenario places on the battlefield directly stands for one that was already there.
+            if (Object.Zone.Zone == Zone.Battlefield)
+                history = history with { EnteredBattlefield = history.EnteredBattlefield.Add(Object.Id) };
+        }
 
         return state with
         {
