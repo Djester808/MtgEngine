@@ -200,6 +200,14 @@ public static partial class SmokeScenario
                 board.Caster(hand: 1, graveyard: -1);
                 break;
 
+            // CR 400.7: "return target nonland permanent to its owner's hand" takes the body off the
+            // battlefield, and the hand it lands in is its owner's rather than the caster's.
+            case Move { What: Target bounced, To: Zone.Hand, Where: Placement.Default, UnderControlOf: null, Tapped: false, FaceDown: false, Attacking: false, Transformed: false, WithCounters: null, AttachedTo: null }
+                when bounced.Filter is { In: null or Zone.Battlefield, OwnedBy: null } && Aimable(bounced) is { Count: > 0 } standing:
+                board.Expect(new InZone(board.AimedAmong(Mine(bounced), standing), Zone.Hand, Owner(bounced)));
+                Moves(board, bounced.Filter.ControlledBy, hand: 1);
+                break;
+
             // CR 701.14a: each creature deals damage equal to its power to the other. The first is
             // the six-power filler and the second the two-power one, so exactly one of them has
             // lethal damage marked (CR 704.5g) and the scenario can say which — the loser is in its
@@ -271,8 +279,13 @@ public static partial class SmokeScenario
                 break;
 
             // CR 701.5: a countered spell is put into its owner's graveyard.
-            case Counter { What: Target countered, PutInto: null or Zone.Graveyard } when Spell(countered):
-                board.Expect(new InZone(board.SpellOnTheStack(), Zone.Graveyard, Opponent));
+            case Counter { What: Target countered, PutInto: null or Zone.Graveyard } when Spell(countered) is { } cast:
+                board.Expect(new InZone(board.SpellOnTheStack(card: cast), Zone.Graveyard, Opponent));
+                break;
+
+            // CR 115.7: changing a spell's target moves what it does from the player it was aimed
+            // at to the one the answer names, and the two life totals are what says it moved.
+            case ChangeTarget { To: null, AllTargets: false } change when Retargets(board, change):
                 break;
 
             // CR 118.6 with CR 701.5: "counter target spell unless its controller pays {1}" — the
@@ -280,8 +293,8 @@ public static partial class SmokeScenario
             // asked, so the payment cannot be made and the spell is countered. Only a mana payment:
             // a cost that eats an object is one the opponent might be able to meet, and which half
             // of the card the play then shows is not a generated scenario's to guess.
-            case Unless { Do: Counter { What: Target unpaid, PutInto: null or Zone.Graveyard }, Paid: ManaCost { Mana.Length: > 0 } } when Spell(unpaid):
-                board.Expect(new InZone(board.SpellOnTheStack(withNothingLeftToPay: true), Zone.Graveyard, Opponent));
+            case Unless { Do: Counter { What: Target unpaid, PutInto: null or Zone.Graveyard }, Paid: ManaCost { Mana.Length: > 0 } } when Spell(unpaid) is { } held:
+                board.Expect(new InZone(board.SpellOnTheStack(withNothingLeftToPay: true, card: held), Zone.Graveyard, Opponent));
                 break;
 
             // CR 701.13: milling moves cards from the top of a library into that graveyard.
@@ -440,10 +453,15 @@ public static partial class SmokeScenario
     private static bool Countable(ObjectFilter filter) =>
         Simple(filter) && filter.Types == CardType.Creature && filter.ControlledBy is You && filter.In is null or Zone.Battlefield;
 
-    /// <summary>A target the board can put on the stack: a spell described by nothing but being one.</summary>
-    private static bool Spell(Target target) =>
-        target is { Count: null or Fixed { N: 1 }, UpTo: false } && Simple(target.Filter)
-        && target.Filter.Types is null or CardType.Instant or (CardType.Instant | CardType.Sorcery);
+    /// <summary>
+    /// CR 601.2c: which filler spell the board can put on the stack for this target, or null when
+    /// the filter describes a spell it has no card for. The filter is read against the fillers'
+    /// printed type lines, so "target noncreature spell" and "target instant or sorcery spell" are
+    /// answered by the same reading that answers "target spell".
+    /// </summary>
+    [RuleRef("601.2c")]
+    private static string? Spell(Target target) =>
+        target is { Count: null or Fixed { N: 1 }, UpTo: false } ? SmokeFillers.Cast(target.Filter) : null;
 
     /// <summary>
     /// Every field the board cannot honour is null: a filter with a colour, a power or a predicate

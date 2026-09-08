@@ -329,15 +329,28 @@ internal sealed class SmokeBoard(string card)
     /// scenario can say what happens when it is not. Without it the opponent keeps the deep pool
     /// and would simply pay, which is a different half of the card.
     /// </param>
+    /// <param name="card">
+    /// Which filler spell it is (CR 601.2a): the one that does nothing, unless the card under test
+    /// needs the resolution to show something — a retarget reads the life totals, so it wants the
+    /// bolt.
+    /// </param>
+    /// <param name="aimedAt">
+    /// CR 601.2c: what the filler spell itself is announced at, named on its own cast step. Null for
+    /// a filler that targets nothing.
+    /// </param>
     [RuleRef("601")]
-    internal string SpellOnTheStack(bool withNothingLeftToPay = false)
+    internal string SpellOnTheStack(bool withNothingLeftToPay = false, string? card = null, IReadOnlyList<string>? aimedAt = null)
     {
         _opponentActs = true;
         _opponentPaysNothing = withNothingLeftToPay;
-        _before.Add(new CastStep(SmokeScenario.Opponent, ScenarioFiller.Spell));
-        _targets.Add(ScenarioFiller.Spell);
-        return ScenarioFiller.Spell;
+        _opponentCasts = card ?? ScenarioFiller.Spell;
+        _before.Add(new CastStep(SmokeScenario.Opponent, _opponentCasts, aimedAt));
+        _targets.Add(_opponentCasts);
+        return _opponentCasts;
     }
+
+    /// <summary>Which filler spell the opponent casts, so their hand holds it and their pool can be sized for it.</summary>
+    private string _opponentCasts = ScenarioFiller.Spell;
 
     /// <summary>Whether the opponent's pool holds only the filler spell's own cost (CR 118.6).</summary>
     private bool _opponentPaysNothing;
@@ -351,7 +364,7 @@ internal sealed class SmokeBoard(string card)
     {
         (false, _) => null,
         (true, false) => SmokeScenario.DeepPool,
-        (true, true) => Plain(ScenarioFiller.For(ScenarioFiller.Spell)?.Faces[0].ManaCost) ?? SmokeScenario.DeepPool,
+        (true, true) => Plain(ScenarioFiller.For(_opponentCasts)?.Faces[0].ManaCost) ?? SmokeScenario.DeepPool,
     };
 
     /// <summary>
@@ -443,7 +456,7 @@ internal sealed class SmokeBoard(string card)
                     new PlayerSetup(
                         SmokeScenario.Opponent,
                         Battlefield: _opponentBattlefield,
-                        Hand: _opponentActs ? [new CardRef(ScenarioFiller.Spell), .. Filler(HandSize)] : Filler(HandSize),
+                        Hand: _opponentActs ? [new CardRef(_opponentCasts), .. Filler(HandSize)] : Filler(HandSize),
                         Library: Filler(LibrarySize),
                         ManaPool: OpponentPool()),
                 ],

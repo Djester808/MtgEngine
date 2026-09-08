@@ -49,6 +49,51 @@ internal static class SmokeFillers
     }
 
     /// <summary>
+    /// The filler spells a counterspell or a retarget can put on the stack, in the order a scenario
+    /// would rather have them. <see cref="ScenarioFiller.Spell"/> first, so every card file whose
+    /// filter says nothing but "a spell" keeps the scenario it already had; the bolt last, because
+    /// it is the only one that does anything when it resolves and a counter that is asserting a
+    /// graveyard does not want it to.
+    /// </summary>
+    private static IReadOnlyList<string> Spells() =>
+    [
+        ScenarioFiller.Spell,
+        ScenarioFiller.Sorcery,
+        ScenarioFiller.Bolt,
+    ];
+
+    /// <summary>
+    /// CR 601.2c: the filler spell this target's filter describes, or null when it describes one the
+    /// runner has no card for. A spell on the stack is described by its printed type line and
+    /// nothing else — a predicate about what it targets, or a controller, names a spell the board
+    /// cannot cast on purpose, so the card gets no scenario rather than one aimed at nothing.
+    /// </summary>
+    [RuleRef("601.2c")]
+    internal static string? Cast(ObjectFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        // The filler is cast by the opponent, so "a spell an opponent controls" is the one controller
+        // the board can honour; "a spell you control" would have to be cast by the caster, who is
+        // busy casting the card under test.
+        if (!Plain(filter) || filter.In is not (null or Zone.Stack) || filter.ManaValue is not null
+            || filter.ControlledBy is not (null or EachOpponent) || filter.Permanent is true)
+            return null;
+        return Spells().FirstOrDefault(name => Matches(filter, name));
+    }
+
+    /// <summary>
+    /// CR 601.2c: whether this filter admits one particular filler spell. A road that needs the
+    /// resolution to do something asks for the bolt by name rather than taking whatever
+    /// <see cref="Cast"/> would have offered first.
+    /// </summary>
+    [RuleRef("601.2c")]
+    internal static bool Casts(ObjectFilter filter, string card)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        return Cast(filter) is not null && Matches(filter, card);
+    }
+
+    /// <summary>
     /// CR 109.2: the permanents this filter describes that the board can place, best first, or
     /// nothing when it describes one the runner has no card for. Every field the board cannot
     /// honour must be null — a colour, a power, a subtype or a predicate names a permanent that
@@ -200,6 +245,7 @@ internal static class SmokeFillers
             NotSubtypes: filter.NotSubtypes,
             Colors: filter.Colors,
             AnyColor: filter.AnyColor,
+            NotColors: filter.NotColors,
             ControlledBy: filter.ControlledBy,
             Permanent: filter.Permanent,
             Spell: filter.Spell,
@@ -233,6 +279,11 @@ internal static class SmokeFillers
         if (filter.Colors is { } every && (colour & every) != every)
             return false;
         if (filter.AnyColor is { } anyColour && (colour & anyColour) == 0)
+            return false;
+
+        // CR 202.2b: "nonblack creature" is read off the same printed colour, and a filler that
+        // prints none is colourless, which is not any of the colours a "non" clause names.
+        if (filter.NotColors is { } excluded && (colour & excluded) != 0)
             return false;
         return filter.Permanent is not { } permanent || permanent == IsPermanent(line.Types);
     }
