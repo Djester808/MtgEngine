@@ -20,7 +20,7 @@ internal sealed partial class TriggerMatching
         trigger switch
         {
             AttacksWithCreatures attack => AttackedWithCreatures(state, attack, happened, ctx),
-            _ => [],
+            _ => Wave25(state, trigger, happened, ctx),
         };
 
     /// <summary>
@@ -59,43 +59,33 @@ internal sealed partial class TriggerMatching
         && DrawsInThisStep(window, player) == 1;
 
     /// <summary>
-    /// How many cards this player has drawn since this step began, as of this event. Nothing in the
-    /// state counts a draw per step — <c>PlayerState.ObjectsDrawnThisTurn</c> (CR 121.1) is raised by
-    /// a draw in the upkeep as well — so the count comes from the batch, which is exact for the one
-    /// draw the rule is written about: the turn-based draw of CR 504.1 happens in the very batch that
-    /// begins the draw step, before any player receives priority (CR 503.1, 117.3a), so no draw in a
-    /// later batch of that step can be the first of it and 0 is the true answer there.
+    /// How many cards this player has drawn since this step began, as of this event. The state keeps
+    /// the count — <c>PlayerState.ObjectsDrawnThisStep</c>, raised by <c>ObjectDrawn</c> and cleared
+    /// by <c>StepBegan</c> (CR 121.1 with CR 500.1) — so nothing walks the batch for a step boundary
+    /// any more. <c>== 1</c> at the call above is the draw being matched: <see cref="TriggerWindow"/>
+    /// carries the state after the whole batch, so this draw is folded in, and the draws the batch
+    /// took after it come back off, which is the same subtraction
+    /// <see cref="TriggerWindow.DrawsSoFar"/> makes for the turn's count.
     /// <para>
-    /// The single reading this misses is a draw step whose own draw was skipped (CR 614.5's
-    /// replacement, or the starting player's first turn under CR 103.7a): a draw taken later in that
-    /// step is then the first of it and is spared, and this answers that it is not. Closing it needs
-    /// a per-step count on the state, which is asked for in <c>seam-requests/E6g.md</c>.
+    /// Reading the state rather than the batch closes the case the batch walk knowingly got wrong: a
+    /// draw step whose own draw was skipped (CR 614.5's replacement, or the starting player's first
+    /// turn under CR 103.7a) leaves the count at 0, so a draw taken later in that step — in a batch
+    /// of its own, carrying no <c>StepBegan</c> for a walk to find — is the first of that step and is
+    /// spared. It also keeps a draw taken in the upkeep out of the reading, which the turn's count
+    /// cannot do.
     /// </para>
     /// </summary>
     [RuleRef("504.1")]
     private static int DrawsInThisStep(TriggerWindow window, PlayerId player)
     {
-        var began = -1;
-        for (var i = window.Index; i >= 0; i--)
-        {
-            if (window.Since[i] is Ev.StepBegan)
-            {
-                began = i;
-                break;
-            }
-        }
-
-        if (began < 0)
-            return 0;
-
-        var drawn = 0;
-        for (var i = began; i <= window.Index; i++)
+        var later = 0;
+        for (var i = window.Index + 1; i < window.Since.Count; i++)
         {
             if (window.Since[i] is Ev.ObjectDrawn draw && draw.Player == player)
-                drawn++;
+                later++;
         }
 
-        return drawn;
+        return Math.Max(0, window.State.Player(player).ObjectsDrawnThisStep - later);
     }
 
     /// <summary>
