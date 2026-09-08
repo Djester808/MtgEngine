@@ -46,6 +46,10 @@ namespace MtgEngine.Cards;
 [JsonDerivedType(typeof(Half), nameof(Half))]
 [JsonDerivedType(typeof(Max), nameof(Max))]
 [JsonDerivedType(typeof(Min), nameof(Min))]
+[JsonDerivedType(typeof(GreatestDamageDealtThisTurn), nameof(GreatestDamageDealtThisTurn))]
+[JsonDerivedType(typeof(CreaturesDiedThisTurn), nameof(CreaturesDiedThisTurn))]
+[JsonDerivedType(typeof(PreventedDamage), nameof(PreventedDamage))]
+[JsonDerivedType(typeof(GreatestSameNameCount), nameof(GreatestSameNameCount))]
 public abstract record Amount;
 
 /// <summary>A literal number.</summary>
@@ -168,6 +172,77 @@ public sealed record TimesKicked : Amount;
 public sealed record SpellsCastThisTurn(PlayerRef By, ObjectFilter? Matching = null) : Amount;
 
 public sealed record DamageDealtThisTurn(Selector? By = null, PlayerRef? To = null) : Amount;
+
+/// <summary>
+/// "if an opponent was dealt 7 or more damage this turn": the greatest damage dealt this turn to any
+/// one player <paramref name="To"/> admits, CR 102.2 with CR 120.3. The printed sentence is
+/// existential — <b>some</b> opponent — and the max over the group answers it exactly, because the
+/// greatest is at least seven precisely when one of them was dealt at least seven.
+/// <para>
+/// It is not <see cref="DamageDealtThisTurn"/> with <see cref="AnOpponent"/> in its
+/// <c>To</c>: that names some opponent rather than one to read a number off, has no number of its
+/// own and is refused (L041). It is not a total either — a <see cref="Sum"/> over opponents is true
+/// of a table that spread seven damage over three players, which the card does not say, and in a
+/// duel the two agree, so the wrong reading survives a two-player test. Damage is tracked per
+/// player, so this folds with a max and never a sum; a filter that claims both
+/// <c>Opponent</c> and <c>IsYou</c> admits nobody (L045).
+/// </para>
+/// </summary>
+[RuleRef("102.2")]
+public sealed record GreatestDamageDealtThisTurn(PlayerFilter To, Selector? By = null) : Amount;
+
+/// <summary>
+/// "the number of creatures that died this turn", CR 700.4 — died means "is put into a graveyard
+/// from the battlefield", so this counts the objects that made that move this turn and not the
+/// cards sitting in a graveyard now. A creature that died and was returned, exiled or shuffled away
+/// since is still counted; a creature card milled or discarded into a graveyard never died and is
+/// not.
+/// <para>
+/// <paramref name="Matching"/> narrows within those deaths — "creatures you controlled", "Goblins" —
+/// and null counts every creature that died this turn under any control. It is not
+/// <see cref="CardsInZoneOf"/> over a graveyard, which reads the board now and gets both halves
+/// wrong in both directions, and it is not <see cref="CountOf"/> with an <c>In: Graveyard</c>
+/// filter for the same reason. A <paramref name="Matching"/> that names a zone is asking where a
+/// creature that already left the battlefield is, which is not what "died" counts (L045).
+/// </para>
+/// </summary>
+[RuleRef("700.4")]
+public sealed record CreaturesDiedThisTurn(ObjectFilter? Matching = null) : Amount;
+
+/// <summary>
+/// "for each 1 damage prevented this way", CR 615: the damage the prevention effect this ability is
+/// running actually prevented. A shield that prevents 2 of 5 leaves 3 dealt, and a shield that meets
+/// no damage prevents nothing at all, so this is a number read out of the prevention as it applies
+/// and never the damage the event would have dealt.
+/// <para>
+/// It is not <see cref="TriggeringPreventedDamage"/>, which is the amount half of a
+/// <c>DamagePrevented</c> trigger — that one reads an event some other object's prevention caused
+/// and fires afterwards; this one is inside the effect doing the preventing, in the same breath as
+/// the word "instead". It is not <see cref="TriggeringDamage"/>, which is the damage that was dealt,
+/// and it is not a <see cref="Stored"/> key: no step of this card put the number anywhere. The
+/// ability it appears in has to prevent damage — a <c>PreventDamage</c> in the same ability — or
+/// there is nothing prevented "this way" and the amount is a lost sentence (L045).
+/// </para>
+/// </summary>
+[RuleRef("615")]
+public sealed record PreventedDamage : Amount;
+
+/// <summary>
+/// "if you control three or more lands with the same name": the size of the largest group of objects
+/// <paramref name="Filter"/> admits that share a name, CR 201.2 with 201.2a (two objects have the
+/// same name if they have at least one name in common, and an object with no name shares its name
+/// with nothing — not even another nameless object).
+/// <para>
+/// The sentence is about a group and not about a count, so it is this amount compared against three
+/// and never a <see cref="CountOf"/>: a board of three differently named lands satisfies a plain
+/// count and does not satisfy the card. The name is not written down anywhere — the card says "the
+/// same name", not a name — so a <c>Named</c> on the filter is a different sentence and is refused
+/// (L045); <see cref="SharesNameWith"/> is the other shape, and it asks about one named object
+/// rather than about the biggest group.
+/// </para>
+/// </summary>
+[RuleRef("201.2")]
+public sealed record GreatestSameNameCount(ObjectFilter Filter) : Amount;
 
 /// <summary>
 /// "that much damage", "draw that many cards": how much damage the event that triggered this

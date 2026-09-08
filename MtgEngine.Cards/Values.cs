@@ -128,6 +128,17 @@ public enum Layout
     Case,
     Omen,
     Other,
+
+    /// <summary>
+    /// A preparation card, CR 722.1: a two-part frame with a smaller frame inset within the text
+    /// box. The inset frame is a "prepare spell" (CR 722.2a) — alternative characteristics the card
+    /// may have while it is a spell — and it is one card, not two (CR 722.2c). It is not
+    /// <see cref="Adventure"/> or <see cref="Omen"/>: those halves are cast from the hand, and a
+    /// preparation card's inset frame can never be cast (CR 722.3), only copied into exile when the
+    /// permanent becomes prepared and cast from there. Appended last, so no stored file's layout
+    /// shifts.
+    /// </summary>
+    Prepare,
 }
 
 /// <summary>What a face is to its card.</summary>
@@ -141,6 +152,16 @@ public enum FaceRole
     Omen,
     Flipped,
     MeldResult,
+
+    /// <summary>
+    /// The inset frame of a preparation card, CR 722.2a — the "prepare spell" half of a
+    /// <see cref="Layout.Prepare"/> card. It holds alternative characteristics the object may have
+    /// while it is a spell, and their existence is part of the card's copiable values (CR 722.2b),
+    /// so the half is a face of this card and not a card of its own. It is never cast from the card
+    /// itself (CR 722.3): the copy the controller may cast is made in exile as the permanent gains
+    /// the prepared designation (CR 722.3c). Appended last, so no stored file's role shifts.
+    /// </summary>
+    PrepareSpell,
 }
 
 /// <summary>

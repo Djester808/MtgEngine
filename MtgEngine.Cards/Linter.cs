@@ -129,6 +129,7 @@ public static partial class Linter
         CheckScryfallKeywords(file, findings);
         CheckStatus(file, findings);
         CheckScenarios(file, findings);
+        CheckWave27Faces(file, findings);
 
         var faceIndex = 0;
         foreach (var face in file.Definition.Faces)
@@ -357,11 +358,15 @@ public static partial class Linter
         CheckWave23(nodes, path, findings);
         CheckWave25(ability, nodes, path, findings);
         CheckWave26(ability, nodes, path, findings);
+        CheckWave27(ability, nodes, path, findings);
 
         foreach (var counter in nodes.Select(CounterKindOf).OfType<string>().Where(c => !Counters.Known.Contains(c)))
             findings.Add(new(LintSeverity.Warning, "L006", $"Counter kind '{counter}' is not in Counters.Known.", path));
 
-        foreach (var token in nodes.OfType<TokenSpec>().Where(t => string.IsNullOrWhiteSpace(t.Name)))
+        // CR 707.2: a copy takes the copiable values of what it copies, name included, so the spec
+        // beside a CopyOf has no name of its own to carry and never had one to write down. Every
+        // other token is named by the effect that creates it and a nameless one is a lost sentence.
+        foreach (var token in nodes.OfType<TokenSpec>().Where(t => string.IsNullOrWhiteSpace(t.Name) && !IsCopiedTokenSpec(nodes, t)))
             findings.Add(new(LintSeverity.Error, "L010", "A token needs a name.", path));
     }
 
