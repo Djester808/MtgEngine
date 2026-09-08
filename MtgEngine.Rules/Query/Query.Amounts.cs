@@ -65,6 +65,8 @@ public sealed partial class Query
             SpellsCastThisTurn cast => SpellsCast(state, cast, context), // CR 603.10
             DamageDealtThisTurn damage => DamageThisTurn(state, damage, context), // CR 120.3
             TriggeringDamage => TriggeringDamageOf(context), // CR 603.10
+            TriggeringLifeGained => CarriedNumber(context, TriggeringLifeGainedAmount), // CR 603.10
+            TriggeringLifeLost => CarriedNumber(context, TriggeringLifeLostAmount), // CR 603.10
             AttackersAgainst against => AttackersAgainstPlayers(state, against, context), // CR 508.1
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };
@@ -149,7 +151,37 @@ public sealed partial class Query
     /// </summary>
     [RuleRef("603.10")]
     private static int TriggeringDamageOf(EffectContext ctx) =>
-        ctx.Chosen.TryGetValue(Triggers.TriggerSystem.TriggeringDamageAmount, out var text)
+        CarriedNumber(ctx, Triggers.TriggerSystem.TriggeringDamageAmount);
+
+    /// <summary>
+    /// The key the life <em>gained</em> by the firing event is carried under, CR 603.10, spelled
+    /// the way <c>TriggerSystem.TriggeringDamageAmount</c> is. The trigger system has no constant
+    /// for it yet — the wave-26 trigger box owns that side — so the string is written here rather
+    /// than guessed at each call, and seam-requests/E5k.md § 3 asks for the constant and the write
+    /// so the two ends cannot drift silently. Life gained is not damage and is not life lost: three
+    /// events, three keys, and no reader falls back to another (CR 118.3 with 119.3).
+    /// </summary>
+    [RuleRef("603.10")]
+    public const string TriggeringLifeGainedAmount = "triggering-life-gained";
+
+    /// <summary>
+    /// The key the life <em>lost</em> by the firing event is carried under, CR 603.10, the mirror
+    /// of <see cref="TriggeringLifeGainedAmount"/>. A payment, an edict's cost and a burn spell all
+    /// lose life and only one of them is damage (CR 118.3), so this never reads the damage key.
+    /// </summary>
+    [RuleRef("603.10")]
+    public const string TriggeringLifeLostAmount = "triggering-life-lost";
+
+    /// <summary>
+    /// A number the firing carried into the resolution's context, CR 603.10: written by the trigger
+    /// system as decimal, culture-invariant text under its own key, because the board no longer
+    /// says it once the event is over. A copy of such an ability made outside a firing carries no
+    /// key and reads zero rather than refusing — no life was gained or lost and no damage was dealt
+    /// to the ability, which is exactly what the number then stands for.
+    /// </summary>
+    [RuleRef("603.10")]
+    private static int CarriedNumber(EffectContext ctx, string key) =>
+        ctx.Chosen.TryGetValue(key, out var text)
         && int.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : 0;

@@ -15,6 +15,9 @@ public sealed partial class Query
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(condition);
+        if (IsExistentialAboutAnOpponent(condition, context))
+            return SomeOpponent(state, condition, context);
+
         return condition switch
         {
             NotCondition not => !Holds(state, not.Of, context),
@@ -90,6 +93,45 @@ public sealed partial class Query
             _ => throw Unanswerable(condition.GetType().Name, "no arm in the query layer"),
         };
     }
+
+    /// <summary>
+    /// Whether this condition is the existential one CR 102.2's "an opponent" asks — "if an
+    /// opponent controls three or more creatures" is true when <em>some</em> opponent does.
+    /// <para>
+    /// The split is made at the innermost condition that names the reference, never at the
+    /// outermost: the boolean combinators recurse through this same method, so
+    /// <c>not (an opponent controls a creature)</c> is read as "no opponent controls one" and not
+    /// as "some opponent controls none", which is the opposite card. Once a binding stands the
+    /// condition is not split again — the tree still names the reference and would otherwise
+    /// re-enter this arm without end.
+    /// </para>
+    /// </summary>
+    [RuleRef("102.2")]
+    private static bool IsExistentialAboutAnOpponent(Condition condition, EffectContext context) =>
+        condition is not (NotCondition or And or Or)
+        && BoundOpponent(context) is null
+        && Linter.Walk(condition).OfType<AnOpponent>().Any();
+
+    /// <summary>
+    /// The condition asked once of each opponent, true as soon as one satisfies it, CR 102.2 with
+    /// 103.1. Each opponent is bound in turn under <see cref="AnOpponentBinding"/>, so every
+    /// reference the condition makes to "an opponent" — the controller of a filter, the owner of a
+    /// hand, the player an amount counts for — is <em>the same</em> opponent within one reading. A
+    /// game with no opponents left (CR 800.4a) satisfies nothing, which is the honest answer and
+    /// not a refusal.
+    /// </summary>
+    [RuleRef("102.2")]
+    private bool SomeOpponent(GameState state, Condition condition, EffectContext context) =>
+        Players(state, new EachOpponent(), context)
+            .Any(opponent => Holds(state, condition, BindOpponent(context, opponent)));
+
+    /// <summary>One opponent bound for the length of one reading of one condition, CR 608.2h.</summary>
+    private static EffectContext BindOpponent(EffectContext context, PlayerId opponent) =>
+        context with
+        {
+            RememberedPlayers = (context.RememberedPlayers
+                ?? ImmutableDictionary<string, ImmutableList<PlayerId>>.Empty).SetItem(AnOpponentBinding, [opponent]),
+        };
 
     /// <summary>
     /// How many creatures a player declared as attackers this turn, CR 506.2 and 508.1: only the
