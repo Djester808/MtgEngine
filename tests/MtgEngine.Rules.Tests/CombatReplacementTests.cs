@@ -87,7 +87,8 @@ public sealed partial class CombatReplacementTests
 
         var events = t.Strike(firstStrike: false);
 
-        Assert.Empty(events);
+        // CR 615.13: a full prevention records itself; what must not appear is damage or a life change.
+        Assert.DoesNotContain(events, e => e is DamageDealt or LifeChanged);
         Assert.Equal(20, t.Life(t.B));
         Assert.Equal(20, t.Life(t.A));
         Assert.Single(fake.Offered);
@@ -389,7 +390,8 @@ public sealed partial class CombatReplacementTests
 
         var events = t.Strike(firstStrike: false);
 
-        Assert.Empty(events);
+        // CR 615.13: a full prevention records itself; what must not appear is damage or a life change.
+        Assert.DoesNotContain(events, e => e is DamageDealt or LifeChanged);
         Assert.Equal(20, t.Life(t.B));
         Assert.Equal(20, t.Life(t.A));
     }

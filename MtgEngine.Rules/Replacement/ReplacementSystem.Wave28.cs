@@ -1,7 +1,7 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
-using MtgEngine.Rules.Triggers;
+using DamagePrevented = MtgEngine.Rules.Events.DamagePrevented;
 
 namespace MtgEngine.Rules.Replacement;
 
@@ -13,38 +13,6 @@ namespace MtgEngine.Rules.Replacement;
 /// </summary>
 public sealed partial class ReplacementSystem
 {
-    /// <summary>
-    /// CR 615.13: a prevention effect was applied to a damage event and prevented some or all of
-    /// it. The log never said so before — <see cref="Prevent"/> takes the damage out of the
-    /// <c>DamageDealt</c> event and, when it prevents all of it, the event does not happen at all,
-    /// so the only two facts a card of this shape triggers on were nowhere in the log.
-    /// <para>
-    /// It folds nothing: the <c>DamageDealt</c> that survives already folds what was dealt, and
-    /// this exists so the happening is recorded. <paramref name="Prevented"/> is the amount
-    /// removed from the event — <c>min(shield, amount)</c> — and never what was dealt, because
-    /// the matcher publishes it verbatim as "that much" (CR 615.13).
-    /// </para>
-    /// <para>
-    /// <b>This record is a stand-in.</b> The event belongs in <c>Events/**</c>, where E1f declares
-    /// it this wave; the replacement system may not declare an event in another agent's folder, so
-    /// it is declared here against <see cref="IDamagePrevented"/> — the interface the trigger
-    /// matcher actually reads (<c>Triggers/TriggerMatching.Wave27.cs</c>) — and swaps for E1f's
-    /// record by deleting this declaration. Nothing else changes: every emitter below names only
-    /// the five members of the interface. See <c>seam-requests/E8f.md</c>.
-    /// </para>
-    /// </summary>
-    [RuleRef("615.13")]
-    public sealed record DamagePrevented(
-        ObjectId Source,
-        ObjectId? ToObject,
-        PlayerId? ToPlayer,
-        int Prevented,
-        ObjectId? PreventedBy) : GameEvent, IDamagePrevented
-    {
-        /// <summary>CR 615.13: the prevention is a happening, not a change to the state; the surviving damage folds itself.</summary>
-        public override GameState Apply(GameState state) => state;
-    }
-
     /// <summary>
     /// CR 615.13: record what this application of a prevention effect actually took off the event.
     /// A prevention that prevented nothing — an effect applied to unpreventable damage, CR 615.12 —

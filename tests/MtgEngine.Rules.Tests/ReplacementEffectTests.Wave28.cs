@@ -1,8 +1,8 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
-using MtgEngine.Rules.Replacement;
 using MtgEngine.Rules.State;
+using DamagePrevented = MtgEngine.Rules.Events.DamagePrevented;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -115,7 +115,7 @@ public sealed partial class ReplacementEffectTests
         var outcome = System().Replace(Wave28Unpreventable(board.State), Damage(burner, creature, 5), new PlayerId(0));
 
         Assert.Equal(6, Assert.IsType<DamageDealt>(Assert.Single(outcome.Events)).Amount);
-        Assert.DoesNotContain(outcome.Events, e => e is ReplacementSystem.DamagePrevented);
+        Assert.DoesNotContain(outcome.Events, e => e is DamagePrevented);
     }
 
     /// <summary>
@@ -202,8 +202,8 @@ public sealed partial class ReplacementEffectTests
     }
 
     /// <summary>The one prevention the outcome recorded, CR 615.13.</summary>
-    private static ReplacementSystem.DamagePrevented Wave28Prevention(MtgEngine.Rules.Engine.Outcome outcome) =>
-        Assert.IsType<ReplacementSystem.DamagePrevented>(Assert.Single(outcome.Events, e => e is ReplacementSystem.DamagePrevented));
+    private static DamagePrevented Wave28Prevention(MtgEngine.Rules.Engine.Outcome outcome) =>
+        Assert.IsType<DamagePrevented>(Assert.Single(outcome.Events, e => e is DamagePrevented));
 
     /// <summary>Damage to any creature, the shape a prevention replacement watches for (CR 615.1).</summary>
     private static WouldBeDealtDamage Wave28DamageToCreature { get; } = new(ObjectFilter.Creature);
