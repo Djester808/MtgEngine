@@ -3,6 +3,7 @@ using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Triggers;
+using DamagePrevented = MtgEngine.Cards.DamagePrevented;
 
 namespace MtgEngine.Rules.Tests;
 
