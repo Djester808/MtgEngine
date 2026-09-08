@@ -10,7 +10,7 @@ namespace MtgEngine.Rules.Tests;
 /// type is named in events.txt so a stored game stays readable, and folding a log gives the
 /// state the events produced.
 /// </summary>
-public sealed class EventLogTests
+public sealed partial class EventLogTests
 {
     [Fact]
     public void Every_event_type_is_listed_in_events_txt()
