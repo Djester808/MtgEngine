@@ -40,6 +40,20 @@ public sealed class ScenarioRunnerTestsFillers
         Assert.All(ScenarioFiller.Names, name => Assert.NotNull(ScenarioFiller.For(name)));
     }
 
+    [Fact]
+    [RuleRef("115.4")]
+    public void The_bolt_filler_is_an_instant_that_aims_at_any_target()
+    {
+        // CR 115.4: a spell that says "any target" is the one filler with a target, so a scenario
+        // that changes a spell's target has a spell to retarget.
+        var face = ScenarioFiller.For(ScenarioFiller.Bolt)!.Faces[0];
+        Assert.Equal(CardType.Instant, face.Types.Types);
+        var ability = Assert.IsType<SpellAbility>(Assert.Single(face.Abilities!));
+        var damage = Assert.IsType<DealDamage>(ability.Do);
+        Assert.IsType<AnyTarget>(damage.To);
+        Assert.Contains(ScenarioFiller.Bolt, ScenarioFiller.Names);
+    }
+
     [Theory]
     [RuleRef("305.6")]
     [InlineData(ScenarioFiller.Plains, "Plains")]

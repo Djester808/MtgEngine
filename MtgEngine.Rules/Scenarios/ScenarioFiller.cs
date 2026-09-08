@@ -69,6 +69,13 @@ public static class ScenarioFiller
     /// <summary>An instant that does nothing: something to put on the stack so a counterspell has a target.</summary>
     public const string Spell = "Scenario Filler Spell";
 
+    /// <summary>
+    /// An instant for {R} that deals 1 damage to any target, CR 115.4: something on the stack that
+    /// has a target, so "change the target of target spell" has a spell to retarget.
+    /// </summary>
+    [RuleRef("115.4")]
+    public const string Bolt = "Scenario Filler Bolt";
+
     /// <summary>A sorcery that does nothing: what a search for a sorcery card finds.</summary>
     public const string Sorcery = "Scenario Filler Sorcery";
 
@@ -101,6 +108,7 @@ public static class ScenarioFiller
         Artifact => ArtifactDefinition,
         Enchantment => EnchantmentDefinition,
         Spell => SpellDefinition,
+        Bolt => BoltDefinition,
         Sorcery => SorceryDefinition,
         CheapCreature => CheapCreatureDefinition,
         CostlyCreature => CostlyCreatureDefinition,
@@ -109,7 +117,7 @@ public static class ScenarioFiller
 
     /// <summary>Every filler, so a generator can ask which of them a filter describes.</summary>
     public static IReadOnlyList<string> Names =>
-        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest, GreenCreature];
+        [Creature, Artifact, Enchantment, Land, BasicLand, Spell, Sorcery, CheapCreature, CostlyCreature, Plains, Island, Swamp, Mountain, Forest, GreenCreature, Bolt];
 
     /// <summary>The printed colour of one filler, CR 202.2b: the indicator it carries, none for a colourless filler, null for a real card.</summary>
     [RuleRef("202.2b")]
@@ -197,6 +205,12 @@ public static class ScenarioFiller
         Enchantment,
         Layout.Normal,
         [new Face(Enchantment, FaceRole.Main, new TypeLine(CardType.Enchantment), ManaCost: "{2}")]);
+
+    private static CardDefinition BoltDefinition { get; } = new(
+        "scenario-filler-bolt",
+        Bolt,
+        Layout.Normal,
+        [new Face(Bolt, FaceRole.Main, new TypeLine(CardType.Instant), ManaCost: "{R}", Abilities: [new SpellAbility(new DealDamage(new Fixed(1), new AnyTarget()))])]);
 
     private static CardDefinition SpellDefinition { get; } = new(
         "scenario-filler-spell",
