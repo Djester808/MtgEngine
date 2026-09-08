@@ -87,9 +87,12 @@ public sealed partial class EffectInterpreter
                     return run;
                 }
 
-            // CR 701.6a: a countered spell goes to its owner's graveyard unless told otherwise.
+            // CR 701.6a: a countered spell goes to its owner's graveyard unless told otherwise —
+            // "put it on top of their library instead" is one action, so the spell is put where the
+            // record says and never reaches a graveyard on the way, and the placement travels with
+            // the zone rather than being applied by a second move afterwards.
             case Cards.Counter counter:
-                return Leave(run, Objects(run, counter.What), "countered", counter.PutInto ?? Zone.Graveyard, skipIndestructible: false);
+                return Leave(run, Objects(run, counter.What), "countered", counter.PutInto ?? Zone.Graveyard, skipIndestructible: false, where: counter.Where);
 
             // CR 701.20a and 614.1: tapping and untapping are events, so "doesn't untap during
             // your untap step" and "can't become tapped" are replacements offered this one.
@@ -237,7 +240,7 @@ public sealed partial class EffectInterpreter
     /// The named-action shape: the rules say the object left by this action, then it changes
     /// zones. Both are events, so a trigger can watch either.
     /// </summary>
-    private EffectRun Leave(EffectRun run, IEnumerable<ObjectId> ids, string verb, Zone to, bool skipIndestructible)
+    private EffectRun Leave(EffectRun run, IEnumerable<ObjectId> ids, string verb, Zone to, bool skipIndestructible, Placement where = Placement.Default)
     {
         foreach (var id in ids)
         {
@@ -257,7 +260,7 @@ public sealed partial class EffectInterpreter
             if (!run.Events.Skip(left).OfType<ObjectLeftBy>().Any(e => e.Object == id))
                 continue;
 
-            (run, _) = Relocate(run, id, to, Placement.Default, tapped: false, controller: null);
+            (run, _) = Relocate(run, id, to, where, tapped: false, controller: null);
         }
 
         return run;

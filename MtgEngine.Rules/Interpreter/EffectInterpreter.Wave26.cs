@@ -72,6 +72,19 @@ public sealed partial class EffectInterpreter
     /// effect answers null and applies exactly where the <c>Apply</c> says it does.
     /// </summary>
     [RuleRef("702.8")]
-    private ImmutableList<PlayerId>? Permitted(EffectRun run, ContinuousEffect what) =>
-        what is MayCastAsThoughFlash flash ? Players(run, flash.Who) : null;
+    private ImmutableList<PlayerId>? Permitted(EffectRun run, ContinuousEffect what) => what switch
+    {
+        MayCastAsThoughFlash flash => Players(run, flash.Who),
+
+        // CR 401.5: "play with the top card of your library revealed" is about a library, so the
+        // effect is created against the player whose library it is; every player sees the card
+        // (CR 401.5 with 401.6), which is the view's half and not this one's.
+        PlayWithTopCardRevealed revealed => Players(run, revealed.Who),
+
+        // CR 615.12: damage that can't be prevented names no object and no player — it is about
+        // damage however and to whomever it is dealt — so it is created against every player in
+        // the game (CR 102.1) rather than vanishing for want of an object the Apply could reach.
+        DamageCantBePrevented => [.. run.State.Players.Select(seat => seat.Id)],
+        _ => null,
+    };
 }
