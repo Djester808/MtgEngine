@@ -150,6 +150,26 @@ internal sealed class SmokeBoard(string card)
 
     private string NextAim() => FormattableString.Invariant($"aim-{_targets.Count + 1}");
 
+    /// <summary>How many permanents have been stood on a battlefield for the card's own choice to take.</summary>
+    private int _bystanders;
+
+    /// <summary>
+    /// CR 603.3: a permanent stood on a battlefield for the card's own resolution to choose, under
+    /// an alias so the scenario can say where it ended up. It is not a target — nothing announces
+    /// it — and it is placed by the setup, so its object is older than the card under test once
+    /// that card has been played (CR 400.7 makes the played card a new object). A generated
+    /// scenario answers a choice with the first legal option and the options are in object order,
+    /// so the choice takes this one: a land whose enters-trigger returns "a land you control"
+    /// would otherwise be the only land its controller had and would return itself.
+    /// </summary>
+    [RuleRef("603.3")]
+    internal string Bystander(bool mine, string card)
+    {
+        var alias = FormattableString.Invariant($"stood-{++_bystanders}");
+        (mine ? _casterBattlefield : _opponentBattlefield).Add(new CardRef(card, Alias: alias));
+        return alias;
+    }
+
     /// <summary>
     /// CR 601.2c with CR 109.2: every body the target's filter admits is placed, and the first is
     /// the one named as the target. "Destroy target artifact or enchantment" puts one of each on

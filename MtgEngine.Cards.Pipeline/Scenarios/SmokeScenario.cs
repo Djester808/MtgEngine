@@ -53,6 +53,7 @@ public static partial class SmokeScenario
         if ((face.Types.Types & CardType.Land) != 0)
         {
             board.Expect(new InZone(file.Name, Zone.Battlefield));
+            Enters(board, face);
             return board.Build(id, $"playing {file.Name} puts it onto the battlefield", new PlayLandStep(Caster, file.Name), spellGoesToTheGraveyard: false, usedTheStack: false);
         }
 

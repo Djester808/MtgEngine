@@ -15,11 +15,12 @@ public sealed class ScenarioStageTestsRemembered
 {
     [Fact]
     [RuleRef("701.15a")]
-    public void A_reveal_then_choose_gets_no_scenario_until_the_engine_keeps_the_chosen_card()
+    public void A_reveal_then_choose_puts_the_chosen_card_onto_the_battlefield_and_the_rest_in_the_graveyard()
     {
         // Staged and played in wave 17: the engine put the chosen card into the graveyard with the
-        // rest, so the road is withheld rather than reporting that as the card's failure
-        // (seam-requests/P19.md). Drop this test with the seam.
+        // rest, so the road was withheld rather than reporting that as the card's failure
+        // (seam-requests/P19.md § 1). E9p made a permanent card off the battlefield answer
+        // "permanent", so the choice now has an option and the road is here.
         var file = File(
             "wave of cards",
             new SpellAbility(new Sequence(
@@ -35,7 +36,18 @@ public sealed class ScenarioStageTestsRemembered
             CardType.Sorcery,
             "{X}{G}");
 
-        Assert.Null(SmokeScenario.Of(file));
+        var scenario = SmokeScenario.Of(file);
+
+        // CR 601.2b: two, so the reveal shows one card the filter admits and one it refuses — a
+        // reveal of one has no "rest" for the last step to move, and would assert nothing.
+        Assert.NotNull(scenario);
+        Assert.Equal(2, Assert.IsType<CastStep>(scenario!.Steps[0]).X);
+        var stocked = scenario.Setup.Players[0].Library!;
+        Assert.Equal("find-1", stocked[0].Alias);
+        Assert.Equal("find-2", stocked[1].Alias);
+        Assert.Equal(Zone.Battlefield, Assert.Single(scenario.Expect.OfType<InZone>(), z => z.Card == "find-1").Zone);
+        Assert.Equal(Zone.Graveyard, Assert.Single(scenario.Expect.OfType<InZone>(), z => z.Card == "find-2").Zone);
+        Passes(scenario, file);
     }
 
     [Fact]
