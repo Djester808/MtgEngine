@@ -164,13 +164,18 @@ public sealed partial class EffectInterpreter
             // value is locked in as the spell resolves and never recalculated.
             case Cards.Apply apply:
                 {
+                    // CR 702.8: a permission granted to a player is created against that player
+                    // however the card spelled the Apply; there is no object for it to reach.
+                    if (Permitted(run, apply.What) is { } granted)
+                        return granted.Count == 0 ? run : Create(run, apply.What, [], granted, apply.Until);
+
                     var targets = Objects(run, apply.To);
                     return targets.Count == 0 ? run : Create(run, apply.What, targets, [], apply.Until);
                 }
 
             case ApplyToPlayer apply:
                 {
-                    var players = PlayersOrYou(run, apply.Who);
+                    var players = Permitted(run, apply.What) ?? PlayersOrYou(run, apply.Who);
                     return players.Count == 0 ? run : Create(run, apply.What, [], players, apply.Until);
                 }
 

@@ -186,6 +186,15 @@ internal sealed class InterpreterTable
     /// <summary>Turn a permanent over without going through the interpreter, so a test can set the board up.</summary>
     public void SetTapped(ObjectId id, bool tapped) => State = new ObjectChanged(id, Tapped: tapped).Apply(State);
 
+    /// <summary>
+    /// Combat already happening, CR 508.1: attackers declared against one defending player, so a
+    /// test can put a token onto the battlefield attacking (CR 508.4) into a combat that exists.
+    /// </summary>
+    public void Declaring(PlayerId attacker, PlayerId defender, params ObjectId[] attackers) =>
+        State = new AttackersDeclared(
+            attacker,
+            attackers.ToImmutableDictionary(id => id, _ => new CombatTarget(defender, null))).Apply(State);
+
     /// <summary>Mark damage on a permanent without dealing it, CR 120.6: what an earlier source already did.</summary>
     public void Mark(ObjectId id, int damage) => State = new ObjectChanged(id, Damage: damage).Apply(State);
 
