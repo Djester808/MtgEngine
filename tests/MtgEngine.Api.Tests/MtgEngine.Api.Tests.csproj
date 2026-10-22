@@ -23,4 +23,5 @@
     <ProjectReference Include="..\..\MtgEngine.Api\MtgEngine.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup><None Update="Fixtures/edhrec/**" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

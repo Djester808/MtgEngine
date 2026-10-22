@@ -1,0 +1,812 @@
+{
+ "creature": 24,
+ "instant": 10,
+ "sorcery": 8,
+ "artifact": 9,
+ "enchantment": 7,
+ "battle": 0,
+ "planeswalker": 5,
+ "land": 36,
+ "basic": 13,
+ "nonbasic": 23,
+ "similar": [
+  "Atraxa, Grand Unifier",
+  "Ixhel, Scion of Atraxa",
+  "Reyhan, Last of the Abzan",
+  "Ishai, Ojutai Dragonspeaker",
+  "Vorel of the Hull Clade",
+  "Falco Spara, Pactweaver"
+ ],
+ "bracket_counts": {
+  "1": 151,
+  "2": 3280,
+  "3": 3857,
+  "4": 2463,
+  "5": 160
+ },
+ "budget_counts": {
+  "budget": 4479,
+  "middle": 35841,
+  "expensive": 4479
+ },
+ "tag_counts": [
+  {
+   "count": 4021,
+   "slug": "infect",
+   "value": "Infect"
+  },
+  {
+   "count": 2256,
+   "slug": "plus-1-plus-1-counters",
+   "value": "+1/+1 Counters"
+  },
+  {
+   "count": 2142,
+   "slug": "planeswalkers",
+   "value": "Planeswalkers"
+  },
+  {
+   "count": 1433,
+   "slug": "proliferate",
+   "value": "Proliferate"
+  },
+  {
+   "count": 1033,
+   "slug": "phyrexians",
+   "value": "Phyrexians"
+  },
+  {
+   "count": 334,
+   "slug": "minus-1-minus-1-counters",
+   "value": "-1/-1 Counters"
+  }
+ ],
+ "savedate_counts": {
+  "2024-09-22": 37,
+  "2024-09-23": 25,
+  "2024-09-24": 58,
+  "2024-09-25": 29,
+  "2024-09-26": 24
+ },
+ "header": "Atraxa, Praetors' Voice (Commander)",
+ "panels": {
+  "piechart": {
+   "content": [
+    {
+     "label": "Land",
+     "value": 36,
+     "color": "#e98125"
+    },
+    {
+     "label": "Planeswalker",
+     "value": 5,
+     "color": "#7b6688"
+    },
+    {
+     "label": "Enchantment",
+     "value": 7,
+     "color": "#d8d138"
+    },
+    {
+     "label": "Artifact",
+     "value": 9,
+     "color": "#634c22"
+    },
+    {
+     "label": "Sorcery",
+     "value": 8,
+     "color": "#961818"
+    },
+    {
+     "label": "Instant",
+     "value": 10,
+     "color": "#2081c1"
+    },
+    {
+     "label": "Creature",
+     "value": 24,
+     "color": "#64a61f"
+    }
+   ],
+   "title": "Average Type Distribution"
+  },
+  "taglinks": [
+   {
+    "count": 4021,
+    "slug": "infect",
+    "value": "Infect"
+   },
+   {
+    "count": 2256,
+    "slug": "plus-1-plus-1-counters",
+    "value": "+1/+1 Counters"
+   },
+   {
+    "count": 2142,
+    "slug": "planeswalkers",
+    "value": "Planeswalkers"
+   },
+   {
+    "count": 1433,
+    "slug": "proliferate",
+    "value": "Proliferate"
+   },
+   {
+    "count": 1033,
+    "slug": "phyrexians",
+    "value": "Phyrexians"
+   },
+   {
+    "count": 334,
+    "slug": "minus-1-minus-1-counters",
+    "value": "-1/-1 Counters"
+   }
+  ],
+  "mana_curve": {
+   "0": 1,
+   "1": 8,
+   "2": 18,
+   "3": 16,
+   "4": 10,
+   "5": 6,
+   "6": 3,
+   "7": 1
+  },
+  "rank_over_time": {
+   "2024-09-01": {
+    "commander_count": 309,
+    "perc_of_decks_overall": 0.455,
+    "perc_of_decks_overall_ma": 0.472,
+    "rank": 15,
+    "rank_ma": 11
+   },
+   "2024-10-01": {
+    "commander_count": 1175,
+    "perc_of_decks_overall": 0.488,
+    "perc_of_decks_overall_ma": 0.482,
+    "rank": 7,
+    "rank_ma": 10
+   }
+  },
+  "combocounts": [
+   {
+    "value": "Vraska, Betrayal's Sting + Vorinclex, Monstrous Raider",
+    "alt": "Vraska, Betrayal's Sting + Vorinclex, Monstrous Raider",
+    "href": "/combos/golgari/1529-1887"
+   },
+   {
+    "value": "Vraska, Betrayal's Sting + Innkeeper's Talent",
+    "alt": "Vraska, Betrayal's Sting + Innkeeper's Talent",
+    "href": "/combos/golgari/1529-5902"
+   },
+   {
+    "value": "Teferi, Master of Time + Ichormoon Gauntlet + Oath of Teferi",
+    "alt": "Teferi, Master of Time + Ichormoon Gauntlet + Oath of Teferi",
+    "href": "/combos/azorius/1543-2247-2369"
+   }
+  ],
+  "articles": [
+   {
+    "alt": "Article",
+    "date": "Sep 7, 2026",
+    "href": "https://edhrec.com/articles/is-your-local-meta-making-you-a-worse-commander-player/",
+    "value": "Is Your Local Meta Making You a Worse Commander Player?",
+    "author": {
+     "avatar": "https://secure.gravatar.com/avatar/8e0c9655ef35e1ddcb82ef10543f4897b9e1f84c20fd6385a03f0235b9c1e914?s=96&d=mm&r=g",
+     "id": 168,
+     "link": "https://edhrec.com/articles/author/cashinds/",
+     "name": "Cas Hinds"
+    },
+    "excerpt": "Your Commander playgroup shapes how you build and play, and sometimes it's for the worse. Here's how your local meta and ecosystem affect you.",
+    "media": "https://cloudflare.edhrec.com/articles/wp-content/uploads/2026/08/mom-17-heliod-the-radiant-dawn.jpg"
+   }
+  ]
+ },
+ "description": "",
+ "container": {
+  "breadcrumb": [
+   {
+    "/commanders": "Commanders"
+   },
+   {
+    "/commanders/atraxa-praetors-voice": "Atraxa, Praetors' Voice"
+   }
+  ],
+  "description": "Popular decks and cards for Atraxa, Praetors&#x27; Voice",
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "New Cards",
+     "tag": "newcards",
+     "cardviews": [
+      {
+       "id": "2185c08f-bb4d-49d5-8b6c-c629a48bb61c",
+       "name": "Sanctum Lurker",
+       "sanitized": "sanctum-lurker",
+       "slug": "sanctum-lurker",
+       "url": "/cards/sanctum-lurker",
+       "synergy": 0.018803616376431912,
+       "num_decks": 43,
+       "potential_decks": 945,
+       "trend_zscore": 15.781935788148457
+      },
+      {
+       "id": "490dae91-94ce-42a9-a11f-6c5e77c4e486",
+       "name": "Loyal Tutor",
+       "sanitized": "loyal-tutor",
+       "slug": "loyal-tutor",
+       "url": "/cards/loyal-tutor",
+       "synergy": 0.016040444369169207,
+       "num_decks": 73,
+       "potential_decks": 1884,
+       "trend_zscore": 10.28716624577388
+      },
+      {
+       "id": "20bb8c55-4b0b-425f-8201-b54fa2fdde86",
+       "name": "The Theorist, Jace Beleren",
+       "sanitized": "the-theorist-jace-beleren",
+       "slug": "the-theorist-jace-beleren",
+       "url": "/cards/the-theorist-jace-beleren",
+       "synergy": 0.010778863329656004,
+       "num_decks": 203,
+       "potential_decks": 6958,
+       "trend_zscore": 2.4627012350693613
+      }
+     ]
+    },
+    {
+     "header": "High Synergy Cards",
+     "tag": "highsynergycards",
+     "cardviews": [
+      {
+       "id": "2d389264-e2d2-4589-9636-faa11fe46710",
+       "name": "Tekuthal, Inquiry Dominus",
+       "sanitized": "tekuthal-inquiry-dominus",
+       "slug": "tekuthal-inquiry-dominus",
+       "url": "/cards/tekuthal-inquiry-dominus",
+       "synergy": 0.27328275506496624,
+       "num_decks": 29870,
+       "potential_decks": 44799,
+       "trend_zscore": 0.21567581805063368
+      },
+      {
+       "id": "1d58d08d-cd62-416d-8d8e-7d9c56d5c4da",
+       "name": "Evolution Sage",
+       "sanitized": "evolution-sage",
+       "slug": "evolution-sage",
+       "url": "/cards/evolution-sage",
+       "synergy": 0.24075471691449257,
+       "num_decks": 26519,
+       "potential_decks": 44799,
+       "trend_zscore": 0.21292955613584186
+      },
+      {
+       "id": "22017ec2-3552-4865-af76-dba042b141f5",
+       "name": "Karn's Bastion",
+       "sanitized": "karns-bastion",
+       "slug": "karns-bastion",
+       "url": "/cards/karns-bastion",
+       "synergy": 0.23740499165975681,
+       "num_decks": 26757,
+       "potential_decks": 44799,
+       "trend_zscore": 0.14772752124104144
+      }
+     ]
+    },
+    {
+     "header": "Top Cards",
+     "tag": "topcards",
+     "cardviews": [
+      {
+       "id": "f7e12477-d59f-442b-a678-1be746d0b7be",
+       "name": "Swords to Plowshares",
+       "sanitized": "swords-to-plowshares",
+       "slug": "swords-to-plowshares",
+       "url": "/cards/swords-to-plowshares",
+       "synergy": -0.022867213505310402,
+       "num_decks": 24917,
+       "potential_decks": 44799,
+       "trend_zscore": 0.7259024773943443
+      },
+      {
+       "id": "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
+       "name": "Farseek",
+       "sanitized": "farseek",
+       "slug": "farseek",
+       "url": "/cards/farseek",
+       "synergy": 0.06474733761397172,
+       "num_decks": 20940,
+       "potential_decks": 44799,
+       "trend_zscore": 0.7869424307746911
+      },
+      {
+       "id": "ac625f30-ed91-4b21-ada8-aaa5b2ad79b8",
+       "name": "Prologue to Phyresis",
+       "sanitized": "prologue-to-phyresis",
+       "slug": "prologue-to-phyresis",
+       "url": "/cards/prologue-to-phyresis",
+       "synergy": 0.15896743743559655,
+       "num_decks": 18113,
+       "potential_decks": 44799,
+       "trend_zscore": 0.26365140925734665
+      }
+     ]
+    },
+    {
+     "header": "Game Changers",
+     "tag": "gamechangers",
+     "cardviews": [
+      {
+       "id": "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
+       "name": "Rhystic Study",
+       "sanitized": "rhystic-study",
+       "slug": "rhystic-study",
+       "url": "/cards/rhystic-study",
+       "synergy": -0.10534857900090833,
+       "num_decks": 12726,
+       "potential_decks": 44799,
+       "trend_zscore": -0.17862097637999325
+      },
+      {
+       "id": "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
+       "name": "Cyclonic Rift",
+       "sanitized": "cyclonic-rift",
+       "slug": "cyclonic-rift",
+       "url": "/cards/cyclonic-rift",
+       "synergy": -0.05261299138142095,
+       "num_decks": 11366,
+       "potential_decks": 44799,
+       "trend_zscore": -0.21985218603183926
+      },
+      {
+       "id": "a24b4cb6-cebb-428b-8654-74347a6a8d63",
+       "name": "Demonic Tutor",
+       "sanitized": "demonic-tutor",
+       "slug": "demonic-tutor",
+       "url": "/cards/demonic-tutor",
+       "synergy": -0.11634759765483513,
+       "num_decks": 10312,
+       "potential_decks": 44799,
+       "trend_zscore": -0.6606353945721447
+      }
+     ]
+    },
+    {
+     "header": "Creatures",
+     "tag": "creatures",
+     "cardviews": [
+      {
+       "id": "89b39293-6f57-4294-85fc-c718bdbb4d40",
+       "name": "Cankerbloom",
+       "sanitized": "cankerbloom",
+       "slug": "cankerbloom",
+       "url": "/cards/cankerbloom",
+       "synergy": 0.12388226170349623,
+       "num_decks": 14731,
+       "potential_decks": 44799,
+       "trend_zscore": 0.11690562932957294
+      },
+      {
+       "id": "2013aed6-7415-4bf0-a3bb-46d6beecbaff",
+       "name": "Ichor Rats",
+       "sanitized": "ichor-rats",
+       "slug": "ichor-rats",
+       "url": "/cards/ichor-rats",
+       "synergy": 0.1339919784921174,
+       "num_decks": 14396,
+       "potential_decks": 44799,
+       "trend_zscore": 0.22871327221089188
+      },
+      {
+       "id": "492c2f9a-51e7-4e0f-9899-23bf43ea988b",
+       "name": "Birds of Paradise",
+       "sanitized": "birds-of-paradise",
+       "slug": "birds-of-paradise",
+       "url": "/cards/birds-of-paradise",
+       "synergy": -0.13231056341270375,
+       "num_decks": 14220,
+       "potential_decks": 44799,
+       "trend_zscore": 0.9224002673037803
+      }
+     ]
+    },
+    {
+     "header": "Instants",
+     "tag": "instants",
+     "cardviews": [
+      {
+       "id": "8b817b17-27cf-4f6b-baf2-4c4dbb3e71d1",
+       "name": "Experimental Augury",
+       "sanitized": "experimental-augury",
+       "slug": "experimental-augury",
+       "url": "/cards/experimental-augury",
+       "synergy": 0.13285515740150253,
+       "num_decks": 15064,
+       "potential_decks": 44799,
+       "trend_zscore": 0.6394257095755557
+      },
+      {
+       "id": "83dfb2a5-cd5c-46c6-9bb8-7c5d00f3e003",
+       "name": "Infectious Bite",
+       "sanitized": "infectious-bite",
+       "slug": "infectious-bite",
+       "url": "/cards/infectious-bite",
+       "synergy": 0.11682032367898176,
+       "num_decks": 13251,
+       "potential_decks": 44799,
+       "trend_zscore": 0.09777172180960787
+      },
+      {
+       "id": "e32c67d1-187f-40df-b3b3-6036f5c92834",
+       "name": "Heroic Intervention",
+       "sanitized": "heroic-intervention",
+       "slug": "heroic-intervention",
+       "url": "/cards/heroic-intervention",
+       "synergy": 0.05058448914493885,
+       "num_decks": 10554,
+       "potential_decks": 44799,
+       "trend_zscore": 0.5710080185111044
+      }
+     ]
+    },
+    {
+     "header": "Sorceries",
+     "tag": "sorceries",
+     "cardviews": [
+      {
+       "id": "4d4e6a91-59cc-4f7f-af25-16acabdafb1a",
+       "name": "Unnatural Restoration",
+       "sanitized": "unnatural-restoration",
+       "slug": "unnatural-restoration",
+       "url": "/cards/unnatural-restoration",
+       "synergy": 0.12299143279552835,
+       "num_decks": 14312,
+       "potential_decks": 44799,
+       "trend_zscore": -0.15380257992280452
+      },
+      {
+       "id": "812498c8-974c-460c-b782-506f5f735346",
+       "name": "Phyresis Outbreak",
+       "sanitized": "phyresis-outbreak",
+       "slug": "phyresis-outbreak",
+       "url": "/cards/phyresis-outbreak",
+       "synergy": 0.12134940004857711,
+       "num_decks": 13441,
+       "potential_decks": 44799,
+       "trend_zscore": -0.09918142713628601
+      },
+      {
+       "id": "7afc4a15-5ff8-457a-aa62-803b2d78d912",
+       "name": "Nature's Lore",
+       "sanitized": "natures-lore",
+       "slug": "natures-lore",
+       "url": "/cards/natures-lore",
+       "synergy": 0.020682809573655203,
+       "num_decks": 13182,
+       "potential_decks": 44799,
+       "trend_zscore": 0.6192246112240771
+      }
+     ]
+    },
+    {
+     "header": "Utility Artifacts",
+     "tag": "utilityartifacts",
+     "cardviews": [
+      {
+       "id": "dce72636-08e4-484e-ad81-4d1597a31ffb",
+       "name": "Contagion Engine",
+       "sanitized": "contagion-engine",
+       "slug": "contagion-engine",
+       "url": "/cards/contagion-engine",
+       "synergy": 0.120041225211696,
+       "num_decks": 12673,
+       "potential_decks": 44799,
+       "trend_zscore": -0.5429402495488899
+      },
+      {
+       "id": "b61634ae-05be-4b56-8ebb-9d4ade902e42",
+       "name": "Lightning Greaves",
+       "sanitized": "lightning-greaves",
+       "slug": "lightning-greaves",
+       "url": "/cards/lightning-greaves",
+       "synergy": 0.06579825228606515,
+       "num_decks": 11092,
+       "potential_decks": 44799,
+       "trend_zscore": 0.12489709827795183
+      },
+      {
+       "id": "2c093ce0-2561-4847-ab58-f6f1650d743e",
+       "name": "Ichormoon Gauntlet",
+       "sanitized": "ichormoon-gauntlet",
+       "slug": "ichormoon-gauntlet",
+       "url": "/cards/ichormoon-gauntlet",
+       "synergy": 0.09012990780774854,
+       "num_decks": 9677,
+       "potential_decks": 44799,
+       "trend_zscore": -0.25529674035242544
+      }
+     ]
+    },
+    {
+     "header": "Enchantments",
+     "tag": "enchantments",
+     "cardviews": [
+      {
+       "id": "799de0f1-6bf2-4158-8a4f-bedc3d2f6578",
+       "name": "Brokers Ascendancy",
+       "sanitized": "brokers-ascendancy",
+       "slug": "brokers-ascendancy",
+       "url": "/cards/brokers-ascendancy",
+       "synergy": 0.1274772621433544,
+       "num_decks": 14541,
+       "potential_decks": 44799,
+       "trend_zscore": -0.45767989949993837
+      },
+      {
+       "id": "f2c4f80e-84a0-463b-82c3-5c6503809351",
+       "name": "Doubling Season",
+       "sanitized": "doubling-season",
+       "slug": "doubling-season",
+       "url": "/cards/doubling-season",
+       "synergy": 0.12799181041515598,
+       "num_decks": 14499,
+       "potential_decks": 44799,
+       "trend_zscore": -1.1104144005919039
+      },
+      {
+       "id": "76f28aa2-1c18-4d58-a3f9-6cd5b49280d8",
+       "name": "Norn's Decree",
+       "sanitized": "norns-decree",
+       "slug": "norns-decree",
+       "url": "/cards/norns-decree",
+       "synergy": 0.10111024875998867,
+       "num_decks": 11489,
+       "potential_decks": 44799,
+       "trend_zscore": -0.07555491534713407
+      }
+     ]
+    },
+    {
+     "header": "Planeswalkers",
+     "tag": "planeswalkers",
+     "cardviews": [
+      {
+       "id": "576ba8db-fad9-4c48-96be-a8a7e5f43039",
+       "name": "Tamiyo, Field Researcher",
+       "sanitized": "tamiyo-field-researcher",
+       "slug": "tamiyo-field-researcher",
+       "url": "/cards/tamiyo-field-researcher",
+       "synergy": 0.1144958492792563,
+       "num_decks": 12387,
+       "potential_decks": 44799,
+       "trend_zscore": -0.19296201238299965
+      },
+      {
+       "id": "7641f4d9-4614-41c8-87f5-4845bd78e9b3",
+       "name": "Ajani, Sleeper Agent",
+       "sanitized": "ajani-sleeper-agent",
+       "slug": "ajani-sleeper-agent",
+       "url": "/cards/ajani-sleeper-agent",
+       "synergy": 0.0920042184133015,
+       "num_decks": 10098,
+       "potential_decks": 44799,
+       "trend_zscore": 0.038022472562087135
+      },
+      {
+       "id": "9c0c61e3-9f3d-4e7f-9046-0ea336dd8a2d",
+       "name": "Teferi, Master of Time",
+       "sanitized": "teferi-master-of-time",
+       "slug": "teferi-master-of-time",
+       "url": "/cards/teferi-master-of-time",
+       "synergy": 0.07019312661393845,
+       "num_decks": 7549,
+       "potential_decks": 44799,
+       "trend_zscore": 0.02645100169331331
+      }
+     ]
+    },
+    {
+     "header": "Utility Lands",
+     "tag": "utilitylands",
+     "cardviews": [
+      {
+       "id": "e2a27742-08c1-4153-af7f-25a7a98f585e",
+       "name": "Reliquary Tower",
+       "sanitized": "reliquary-tower",
+       "slug": "reliquary-tower",
+       "url": "/cards/reliquary-tower",
+       "synergy": -0.014322814640430254,
+       "num_decks": 10970,
+       "potential_decks": 44799,
+       "trend_zscore": -0.576742001565761
+      },
+      {
+       "id": "4493b62b-f354-47ff-9dcf-cc6e29de77c6",
+       "name": "Rogue's Passage",
+       "sanitized": "rogues-passage",
+       "slug": "rogues-passage",
+       "url": "/cards/rogues-passage",
+       "synergy": 0.04645085814619926,
+       "num_decks": 7077,
+       "potential_decks": 44799,
+       "trend_zscore": -0.2845493270209925
+      },
+      {
+       "id": "4e4b6e22-93b2-4896-bba5-0ceaa5d8ea3c",
+       "name": "Yavimaya, Cradle of Growth",
+       "sanitized": "yavimaya-cradle-of-growth",
+       "slug": "yavimaya-cradle-of-growth",
+       "url": "/cards/yavimaya-cradle-of-growth",
+       "synergy": 0.012722321645226964,
+       "num_decks": 6710,
+       "potential_decks": 44799,
+       "trend_zscore": -0.40362978758442936
+      }
+     ]
+    },
+    {
+     "header": "Mana Artifacts",
+     "tag": "manaartifacts",
+     "cardviews": [
+      {
+       "id": "8ee443cc-e17a-493b-9c93-1f9e141a30e4",
+       "name": "Sol Ring",
+       "sanitized": "sol-ring",
+       "slug": "sol-ring",
+       "url": "/cards/sol-ring",
+       "synergy": -0.019543053431599455,
+       "num_decks": 38070,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      },
+      {
+       "id": "c6b6117c-faab-4bbb-b851-07bd8061ef03",
+       "name": "Arcane Signet",
+       "sanitized": "arcane-signet",
+       "slug": "arcane-signet",
+       "url": "/cards/arcane-signet",
+       "synergy": -0.0010507914468758095,
+       "num_decks": 35195,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      },
+      {
+       "id": "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
+       "name": "Chromatic Lantern",
+       "sanitized": "chromatic-lantern",
+       "slug": "chromatic-lantern",
+       "url": "/cards/chromatic-lantern",
+       "synergy": 0.09739379100720436,
+       "num_decks": 19773,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      }
+     ]
+    },
+    {
+     "header": "Lands",
+     "tag": "lands",
+     "cardviews": [
+      {
+       "id": "dce15387-4114-4b3e-91aa-5b42b45c44ac",
+       "name": "Forest",
+       "sanitized": "forest",
+       "slug": "forest",
+       "url": "/cards/forest",
+       "synergy": 0.13441469016672947,
+       "num_decks": 41151,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      },
+      {
+       "id": "1ac6cb62-45da-4e9a-84c6-09e6eacf0664",
+       "name": "Command Tower",
+       "sanitized": "command-tower",
+       "slug": "command-tower",
+       "url": "/cards/command-tower",
+       "synergy": -0.004857457603328674,
+       "num_decks": 41109,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      },
+      {
+       "id": "f3cc07cd-cc79-4745-b0b7-eade60175cc3",
+       "name": "Island",
+       "sanitized": "island",
+       "slug": "island",
+       "url": "/cards/island",
+       "synergy": 0.1336813254832242,
+       "num_decks": 40900,
+       "potential_decks": 44799,
+       "trend_zscore": 0
+      }
+     ]
+    }
+   ],
+   "card": {
+    "num_decks": 44799,
+    "rank": 4,
+    "salt": 1.722789115646258,
+    "cmc": 4,
+    "color_identity": [
+     "G",
+     "W",
+     "U",
+     "B"
+    ],
+    "id": "d0d33d52-3d28-4635-b985-51e126289259",
+    "image_uris": [
+     {
+      "normal": "https://card-images.edhrec.com/normal/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg?1783930136",
+      "art_crop": "https://card-images.edhrec.com/art_crop/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg?1783930136"
+     }
+    ],
+    "layout": "normal",
+    "name": "Atraxa, Praetors' Voice",
+    "names": [
+     "Atraxa, Praetors' Voice"
+    ],
+    "prices": {
+     "cardhoarder": {
+      "price": 0.02,
+      "slug": "62331"
+     },
+     "cardkingdom": {
+      "price": 27.99,
+      "slug": "mtg/multiverse-legends/atraxa-praetors-voice"
+     },
+     "cardmarket": {
+      "price": 15.96,
+      "set": "Multiverse Legends",
+      "slug": "Atraxa%2C+Praetors%27+Voice"
+     },
+     "cardsphere": {
+      "price": 23.2,
+      "set": "MUL",
+      "slug": "102335"
+     },
+     "cardtrader": {
+      "price": 20.27,
+      "slug": "237952"
+     },
+     "face2face": {
+      "price": 23.54,
+      "slug": "Atraxa, Praetors' Voice"
+     },
+     "manapool": {
+      "price": 21.88,
+      "slug": "pf26/10/atraxa-praetors-voice"
+     },
+     "mtgstocks": {
+      "price": 25.11,
+      "slug": "91295-atraxa-praetors-voice"
+     },
+     "scg": {
+      "price": 23.99,
+      "slug": "atraxa-praetors-voice-sgl-mtg-cm2-10-enf"
+     },
+     "tcgplayer": {
+      "price": 25.11,
+      "price_source": "marketPrice",
+      "slug": "484652/magic-march-of-the-machine-multiverse-legends-atraxa-praetors-voice",
+      "sub_type": "Normal",
+      "tier": 1
+     }
+    },
+    "primary_type": "Creature",
+    "rarity": "mythic",
+    "sanitized": "atraxa-praetors-voice",
+    "scryfall_uri": "https://scryfall.com/card/2xm/190/atraxa-praetors-voice?utm_source=api",
+    "slug": "atraxa-praetors-voice",
+    "type_line": "Legendary Creature — Phyrexian Angel Horror",
+    "type": "Legendary Creature — Phyrexian Angel Horror",
+    "is_commander": true,
+    "legal_commander": true,
+    "precon": "Breed Lethality",
+    "url": "/commanders/atraxa-praetors-voice"
+   }
+  },
+  "keywords": "Atraxa,Praetors&#x27;,Voice,Commander",
+  "title": "Atraxa, Praetors' Voice (Commander)"
+ }
+}

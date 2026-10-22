@@ -7,6 +7,12 @@ public sealed class User
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? EmailVerifiedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public int TokenVersion { get; set; }
+    public DateTime? UsernameChangedAt { get; set; }
+    public bool HideProfileDecks { get; set; }
+    public bool PublicCollection { get; set; }
     public string? PreferencesJson { get; set; }
 
     // ---- Public profile ------------------------------------------------

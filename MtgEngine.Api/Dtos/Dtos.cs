@@ -35,6 +35,10 @@ public sealed record CardDto
     public string OwnerId { get; init; } = string.Empty;
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
+    public int? EdhrecRank { get; init; }
+    public string? CollectorNumber { get; init; }
+    public string[]? ProducedMana { get; init; }
+    public ManaColorDto[]? Colors { get; init; }
     public string? SetCode { get; init; }
     public string? Rarity { get; init; }
     public Dictionary<string, string> Legalities { get; init; } = [];
@@ -67,17 +71,23 @@ public sealed record CardPricesDto
 
 public sealed record CollectionCardDto
 {
+    public string Language { get; init; } = "en";
+    public string? Condition { get; init; }
+    public string[] Tags { get; init; } = [];
     public Guid Id { get; init; }
     public string OracleId { get; init; } = string.Empty;
     public string? ScryfallId { get; init; }
     public int Quantity { get; init; }
     public int QuantityFoil { get; init; }
+    public int QuantityEtched { get; init; }
+    public Dictionary<string, CollectionFinishSummary> FinishData { get; init; } = [];
     public string? Notes { get; init; }
     public string Board { get; init; } = "main";
     public DateTime AddedAt { get; init; }
     // Market price when the row was created; null for rows predating price tracking.
     public decimal? PriceUsdAtAdd { get; init; }
     public decimal? PriceUsdFoilAtAdd { get; init; }
+    public decimal? PriceUsdEtchedAtAdd { get; init; }
     public CardDto? CardDetails { get; init; }
 }
 
@@ -111,7 +121,9 @@ public sealed record CardHistoryEntryDto(
     Guid? CounterpartCollectionId,
     string? CounterpartCollectionName,
     decimal? PriceUsd,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    int QuantityEtchedDelta = 0,
+    int QuantityEtchedAfter = 0);
 
 public sealed record CollectionDto
 {
@@ -126,6 +138,7 @@ public sealed record CollectionDto
 
 public sealed record CollectionDetailDto
 {
+    public CollectionPageData? PageData { get; init; }
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
@@ -155,13 +168,17 @@ public sealed record AddCardToCollectionRequest(
     [System.ComponentModel.DataAnnotations.Range(0, 9999)] int Quantity = 1,
     [System.ComponentModel.DataAnnotations.Range(0, 9999)] int QuantityFoil = 0,
     string? Notes = null,
-    string Board = "main"
+    string Board = "main",
+    [Required, StringLength(8, MinimumLength = 2)] string Language = "en",
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityEtched = null
 );
 public sealed record UpdateCollectionCardRequest(
     [System.ComponentModel.DataAnnotations.Range(0, 9999)] int Quantity,
     [System.ComponentModel.DataAnnotations.Range(0, 9999)] int QuantityFoil,
     string? ScryfallId = null,
-    string? Notes = null
+    string? Notes = null,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityEtched = null,
+    bool UpdateNotes = false
 );
 
 /// <summary>
@@ -172,7 +189,8 @@ public sealed record UpdateCollectionCardRequest(
 public sealed record MoveCardRequest(
     [Required] Guid TargetCollectionId,
     [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? Quantity = null,
-    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityFoil = null
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityFoil = null,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityEtched = null
 );
 
 /// <summary>Result of a move: the row as it now stands in each collection.</summary>
@@ -311,10 +329,11 @@ public sealed record RecentSetDto(string Code, string Name, DateOnly ReleasedAt,
 // ---- Auth -----------------------------------------------------
 
 public sealed record RegisterRequest(
-    [StringLength(64, MinimumLength = 1)] string Username,
-    [StringLength(256, MinimumLength = 3)] string Email,
-    [StringLength(200, MinimumLength = 8)] string Password);
-public sealed record LoginRequest(string Username, string Password);
+    [Required, StringLength(64, MinimumLength = 1)] string Username,
+    [Required, EmailAddress, StringLength(254)] string Email,
+    [Required, StringLength(128, MinimumLength = 8)] string Password, bool AcceptedTerms = false);
+public sealed record LoginRequest([Required, StringLength(254)] string Username, [Required, StringLength(200)] string Password, bool RememberMe = true);
+public sealed record RefreshSessionRequest(bool RememberMe = true);
 public sealed record AuthTokenResponse(string Token, string Username);
 
 public sealed record RulingDto(string Source, string PublishedAt, string Comment);

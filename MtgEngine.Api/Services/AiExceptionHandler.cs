@@ -19,6 +19,12 @@ public sealed class AiExceptionHandler(ILogger<AiExceptionHandler> logger) : IEx
     {
         var (status, title, detail) = exception switch
         {
+            Community.CommunityDataException =>
+                (StatusCodes.Status502BadGateway, "Community data unavailable", "EDHREC could not be read. Please retry."),
+
+            AccountAuthenticationException e =>
+                (StatusCodes.Status401Unauthorized, "Sign in required", e.Message),
+
             ResourceNotFoundException e =>
                 (StatusCodes.Status404NotFound, "Not found", e.Message),
 

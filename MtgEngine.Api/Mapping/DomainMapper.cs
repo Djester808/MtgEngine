@@ -49,6 +49,10 @@ public static class DomainMapper
         OwnerId = ownerId,
         FlavorText = def.FlavorText,
         Artist = def.Artist,
+        CollectorNumber = def.CollectorNumber,
+        EdhrecRank = def.EdhrecRank,
+        ProducedMana = def.ProducedMana?.ToArray(),
+        Colors = def.Colors.Select(ToDto).ToArray(),
         SetCode = def.SetCode,
         Rarity = def.Rarity,
         Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
@@ -90,16 +94,22 @@ public static class DomainMapper
     /// </remarks>
     public static CollectionCardDto ToDto(CollectionCard card, CardDefinition? def) => new()
     {
+        Language = card.Language,
+        Condition = card.Condition,
+        Tags = System.Text.Json.JsonSerializer.Deserialize<string[]>(card.TagsJson) ?? [],
         Id = card.Id,
         OracleId = card.OracleId,
         ScryfallId = card.ScryfallId,
         Quantity = card.Quantity,
         QuantityFoil = card.QuantityFoil,
+        QuantityEtched = card.QuantityEtched,
+        FinishData = MtgEngine.Api.Services.CollectionFinishData.Summaries(card),
         Notes = card.Notes,
         Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
         AddedAt = card.AddedAt,
         PriceUsdAtAdd = card.PriceUsdAtAdd,
         PriceUsdFoilAtAdd = card.PriceUsdFoilAtAdd,
+        PriceUsdEtchedAtAdd = card.PriceUsdEtchedAtAdd,
         CardDetails = def is null ? null : ToDto(def),
     };
 

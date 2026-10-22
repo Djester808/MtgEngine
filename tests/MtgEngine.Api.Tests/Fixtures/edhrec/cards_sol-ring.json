@@ -1,0 +1,752 @@
+{
+ "creature": 26,
+ "instant": 11,
+ "sorcery": 8,
+ "artifact": 11,
+ "enchantment": 7,
+ "battle": 0,
+ "planeswalker": 1,
+ "land": 35,
+ "basic": 18,
+ "nonbasic": 17,
+ "similar": [
+  "Mana Vault",
+  "Grim Monolith",
+  "Worn Powerstone",
+  "Thran Dynamo",
+  "Basalt Monolith",
+  "Mind Stone"
+ ],
+ "header": "Sol Ring (Card)",
+ "panels": {
+  "piechart": {
+   "content": [
+    {
+     "label": "Land",
+     "value": 35,
+     "color": "#e98125"
+    },
+    {
+     "label": "Planeswalker",
+     "value": 1,
+     "color": "#7b6688"
+    },
+    {
+     "label": "Enchantment",
+     "value": 7,
+     "color": "#d8d138"
+    },
+    {
+     "label": "Artifact",
+     "value": 11,
+     "color": "#634c22"
+    },
+    {
+     "label": "Sorcery",
+     "value": 8,
+     "color": "#961818"
+    },
+    {
+     "label": "Instant",
+     "value": 11,
+     "color": "#2081c1"
+    },
+    {
+     "label": "Creature",
+     "value": 26,
+     "color": "#64a61f"
+    }
+   ],
+   "title": "Average Type Distribution"
+  },
+  "combocounts": [
+   {
+    "value": "Hullbreaker Horror + Sol Ring",
+    "alt": "Hullbreaker Horror + Sol Ring",
+    "href": "/combos/mono-blue/513-5034--46"
+   },
+   {
+    "value": "Teferi, Time Raveler + Displacer Kitten + Sol Ring",
+    "alt": "Teferi, Time Raveler + Displacer Kitten + Sol Ring",
+    "href": "/combos/azorius/1170-4761-5034"
+   },
+   {
+    "value": "Tidespout Tyrant + Sol Ring",
+    "alt": "Tidespout Tyrant + Sol Ring",
+    "href": "/combos/mono-blue/542-5034"
+   }
+  ],
+  "articles": [
+   {
+    "alt": "Article",
+    "date": "Aug 17, 2026",
+    "href": "https://edhrec.com/articles/yshtolas-designers-on-the-formats-top-commander/",
+    "value": "Y'shtola's Designers on the Format's Top Commander",
+    "author": {
+     "avatar": "https://secure.gravatar.com/avatar/2fecbfd4ddd752bd6ed97d4d1cc63a34d62e52ebf5b857a6d1f98f92a949c950?s=96&d=mm&r=g",
+     "id": 164,
+     "link": "https://edhrec.com/articles/author/nick-wolf/",
+     "name": "Nick Wolf"
+    },
+    "excerpt": "Wizards designers Daniel Holt and Gavin Verhey discuss Y'shtola, how the card came together, and seeing it pass the 50,000 milestone.",
+    "media": "https://cloudflare.edhrec.com/articles/wp-content/uploads/2026/08/yshheader-1024x768.png"
+   }
+  ]
+ },
+ "description": "",
+ "container": {
+  "breadcrumb": [
+   {
+    "/cards": "Cards"
+   },
+   {
+    "/cards/sol-ring": "Sol Ring"
+   }
+  ],
+  "description": null,
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "New Commanders",
+     "tag": "newcommanders",
+     "cardviews": [
+      {
+       "id": "fe2fe8fa-3b99-44c1-bab9-922e5c864952",
+       "name": "Thranduil, the Elvenking",
+       "sanitized": "thranduil-the-elvenking",
+       "slug": "thranduil-the-elvenking",
+       "url": "/commanders/thranduil-the-elvenking",
+       "num_decks": 7673,
+       "potential_decks": 9332
+      },
+      {
+       "id": "773813a8-723f-4c26-9e0a-a01b2faada98",
+       "name": "Thorin, King of Durin's Folk",
+       "sanitized": "thorin-king-of-durins-folk",
+       "slug": "thorin-king-of-durins-folk",
+       "url": "/commanders/thorin-king-of-durins-folk",
+       "num_decks": 5950,
+       "potential_decks": 6732
+      },
+      {
+       "id": "55872bce-08ce-4d4f-8951-9fa230f3e160",
+       "name": "Smaug the Impenetrable",
+       "sanitized": "smaug-the-impenetrable",
+       "slug": "smaug-the-impenetrable",
+       "url": "/commanders/smaug-the-impenetrable",
+       "num_decks": 5639,
+       "potential_decks": 5967
+      }
+     ]
+    },
+    {
+     "header": "Top Commanders",
+     "tag": "topcommanders",
+     "cardviews": [
+      {
+       "id": "c7f2c2d5-e052-49e8-b5de-712858c2ea78",
+       "name": "Y'shtola, Night's Blessed",
+       "sanitized": "yshtola-nights-blessed",
+       "slug": "yshtola-nights-blessed",
+       "url": "/commanders/yshtola-nights-blessed",
+       "num_decks": 51251,
+       "potential_decks": 54591
+      },
+      {
+       "id": "a577ba08-0aa8-45be-aa83-d5078770127c",
+       "name": "Edgar Markov",
+       "sanitized": "edgar-markov",
+       "slug": "edgar-markov",
+       "url": "/commanders/edgar-markov",
+       "num_decks": 46799,
+       "potential_decks": 50990
+      },
+      {
+       "id": "10d42b35-844f-4a64-9981-c6118d45e826",
+       "name": "The Ur-Dragon",
+       "sanitized": "the-ur-dragon",
+       "slug": "the-ur-dragon",
+       "url": "/commanders/the-ur-dragon",
+       "num_decks": 45456,
+       "potential_decks": 50954
+      }
+     ]
+    },
+    {
+     "header": "New Cards",
+     "tag": "newcards",
+     "cardviews": [
+      {
+       "id": "3b087bd4-bbb7-4963-bdb6-0a700ff19a04",
+       "name": "Gleaming Splendor",
+       "sanitized": "gleaming-splendor",
+       "slug": "gleaming-splendor",
+       "url": "/cards/gleaming-splendor",
+       "lift": 1.0773554473525546,
+       "num_decks": 54336,
+       "potential_decks": 607627
+      },
+      {
+       "id": "e969d1f3-9595-498b-81cb-6cf4df2cad5d",
+       "name": "Nissa, Leyline Tamer",
+       "sanitized": "nissa-leyline-tamer",
+       "slug": "nissa-leyline-tamer",
+       "url": "/cards/nissa-leyline-tamer",
+       "lift": 1.1299319304266533,
+       "num_decks": 829,
+       "potential_decks": 14781
+      },
+      {
+       "id": "19cc91f0-e724-41ac-b6d8-9a293bd63b42",
+       "name": "Smaug, Wicked Worm",
+       "sanitized": "smaug-wicked-worm",
+       "slug": "smaug-wicked-worm",
+       "url": "/cards/smaug-wicked-worm",
+       "lift": 1.0436964250747736,
+       "num_decks": 15948,
+       "potential_decks": 301643
+      }
+     ]
+    },
+    {
+     "header": "Top Cards",
+     "tag": "topcards",
+     "cardviews": [
+      {
+       "id": "f7e12477-d59f-442b-a678-1be746d0b7be",
+       "name": "Swords to Plowshares",
+       "sanitized": "swords-to-plowshares",
+       "slug": "swords-to-plowshares",
+       "url": "/cards/swords-to-plowshares",
+       "lift": 1.0703406527609947,
+       "num_decks": 2547726,
+       "potential_decks": 3912898
+      },
+      {
+       "id": "22e08a78-55b7-46b0-bd1a-a51548fc1861",
+       "name": "Path to Exile",
+       "sanitized": "path-to-exile",
+       "slug": "path-to-exile",
+       "url": "/cards/path-to-exile",
+       "lift": 1.0688859644401527,
+       "num_decks": 1992062,
+       "potential_decks": 3912898
+      },
+      {
+       "id": "e60deb92-f7dd-4f4e-9036-e47dd586f985",
+       "name": "Cultivate",
+       "sanitized": "cultivate",
+       "slug": "cultivate",
+       "url": "/cards/cultivate",
+       "lift": 1.072884953125574,
+       "num_decks": 1646103,
+       "potential_decks": 3683372
+      }
+     ]
+    },
+    {
+     "header": "Game Changers",
+     "tag": "gamechangers",
+     "cardviews": [
+      {
+       "id": "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
+       "name": "Rhystic Study",
+       "sanitized": "rhystic-study",
+       "slug": "rhystic-study",
+       "url": "/cards/rhystic-study",
+       "lift": 1.1167581111006524,
+       "num_decks": 1043045,
+       "potential_decks": 4191317
+      },
+      {
+       "id": "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
+       "name": "Cyclonic Rift",
+       "sanitized": "cyclonic-rift",
+       "slug": "cyclonic-rift",
+       "url": "/cards/cyclonic-rift",
+       "lift": 1.0996971000552351,
+       "num_decks": 936885,
+       "potential_decks": 4191317
+      },
+      {
+       "id": "861b5889-0183-4bee-afeb-a4b2aa700a8e",
+       "name": "Smothering Tithe",
+       "sanitized": "smothering-tithe",
+       "slug": "smothering-tithe",
+       "url": "/cards/smothering-tithe",
+       "lift": 1.1175528418539702,
+       "num_decks": 870768,
+       "potential_decks": 3912898
+      }
+     ]
+    },
+    {
+     "header": "Creatures",
+     "tag": "creatures",
+     "cardviews": [
+      {
+       "id": "492c2f9a-51e7-4e0f-9899-23bf43ea988b",
+       "name": "Birds of Paradise",
+       "sanitized": "birds-of-paradise",
+       "slug": "birds-of-paradise",
+       "url": "/cards/birds-of-paradise",
+       "lift": 1.0893218326824412,
+       "num_decks": 1130934,
+       "potential_decks": 3683372
+      },
+      {
+       "id": "e802cfe1-45e0-47cd-8745-363ccc0f2af8",
+       "name": "Ignoble Hierarch",
+       "sanitized": "ignoble-hierarch",
+       "slug": "ignoble-hierarch",
+       "url": "/cards/ignoble-hierarch",
+       "lift": 1.0810037604143299,
+       "num_decks": 215442,
+       "potential_decks": 797504
+      },
+      {
+       "id": "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
+       "name": "Llanowar Elves",
+       "sanitized": "llanowar-elves",
+       "slug": "llanowar-elves",
+       "url": "/cards/llanowar-elves",
+       "lift": 1.0143585658443721,
+       "num_decks": 800936,
+       "potential_decks": 3683372
+      }
+     ]
+    },
+    {
+     "header": "Instants",
+     "tag": "instants",
+     "cardviews": [
+      {
+       "id": "fb8d8106-b9bd-405c-886e-72fc301c65e1",
+       "name": "Chaos Warp",
+       "sanitized": "chaos-warp",
+       "slug": "chaos-warp",
+       "url": "/cards/chaos-warp",
+       "lift": 1.060743926069237,
+       "num_decks": 1294797,
+       "potential_decks": 4213806
+      },
+      {
+       "id": "11e12a84-e7be-4afc-a230-c2e644743fa8",
+       "name": "Dark Ritual",
+       "sanitized": "dark-ritual",
+       "slug": "dark-ritual",
+       "url": "/cards/dark-ritual",
+       "lift": 1.1046610100288774,
+       "num_decks": 1226033,
+       "potential_decks": 4301023
+      },
+      {
+       "id": "a829747f-cf9b-4d81-ba66-9f0630ed4565",
+       "name": "An Offer You Can't Refuse",
+       "sanitized": "an-offer-you-cant-refuse",
+       "slug": "an-offer-you-cant-refuse",
+       "url": "/cards/an-offer-you-cant-refuse",
+       "lift": 1.0716318543711543,
+       "num_decks": 1186807,
+       "potential_decks": 4191317
+      }
+     ]
+    },
+    {
+     "header": "Sorceries",
+     "tag": "sorceries",
+     "cardviews": [
+      {
+       "id": "b7c47024-5e08-4b17-b41a-7647f8b814b9",
+       "name": "Rampant Growth",
+       "sanitized": "rampant-growth",
+       "slug": "rampant-growth",
+       "url": "/cards/rampant-growth",
+       "lift": 1.0485893491436045,
+       "num_decks": 1229311,
+       "potential_decks": 3683372
+      },
+      {
+       "id": "90c423cc-1264-4067-9c50-e7c88c68ef2d",
+       "name": "Kodama's Reach",
+       "sanitized": "kodamas-reach",
+       "slug": "kodamas-reach",
+       "url": "/cards/kodamas-reach",
+       "lift": 1.0624316083082905,
+       "num_decks": 986395,
+       "potential_decks": 3683372
+      },
+      {
+       "id": "99bf792f-963e-4509-8d3c-7db129c6a77f",
+       "name": "Three Visits",
+       "sanitized": "three-visits",
+       "slug": "three-visits",
+       "url": "/cards/three-visits",
+       "lift": 1.0667862327667261,
+       "num_decks": 968938,
+       "potential_decks": 3683372
+      }
+     ]
+    },
+    {
+     "header": "Utility Artifacts",
+     "tag": "utilityartifacts",
+     "cardviews": [
+      {
+       "id": "03f7e9fc-8e59-45c1-90fc-1d04d929b292",
+       "name": "Swiftfoot Boots",
+       "sanitized": "swiftfoot-boots",
+       "slug": "swiftfoot-boots",
+       "url": "/cards/swiftfoot-boots",
+       "lift": 1.0769580497933366,
+       "num_decks": 2423186,
+       "potential_decks": 8394290
+      },
+      {
+       "id": "b61634ae-05be-4b56-8ebb-9d4ade902e42",
+       "name": "Lightning Greaves",
+       "sanitized": "lightning-greaves",
+       "slug": "lightning-greaves",
+       "url": "/cards/lightning-greaves",
+       "lift": 1.0941739599712228,
+       "num_decks": 2264667,
+       "potential_decks": 8394290
+      },
+      {
+       "id": "1d8b007b-3169-4ee3-80c7-781fc096fc7a",
+       "name": "Skullclamp",
+       "sanitized": "skullclamp",
+       "slug": "skullclamp",
+       "url": "/cards/skullclamp",
+       "lift": 1.0628218101150488,
+       "num_decks": 1011766,
+       "potential_decks": 8394290
+      }
+     ]
+    },
+    {
+     "header": "Enchantments",
+     "tag": "enchantments",
+     "cardviews": [
+      {
+       "id": "c2a6453e-a373-44ec-807a-15c0c8b1af57",
+       "name": "Rhythm of the Wild",
+       "sanitized": "rhythm-of-the-wild",
+       "slug": "rhythm-of-the-wild",
+       "url": "/cards/rhythm-of-the-wild",
+       "lift": 1.078920432999531,
+       "num_decks": 392079,
+       "potential_decks": 1743740
+      },
+      {
+       "id": "b58c4033-f764-42f6-966f-b7202a2babbf",
+       "name": "Garruk's Uprising",
+       "sanitized": "garruks-uprising",
+       "slug": "garruks-uprising",
+       "url": "/cards/garruks-uprising",
+       "lift": 1.051728017594816,
+       "num_decks": 672401,
+       "potential_decks": 3683372
+      },
+      {
+       "id": "40140991-cffa-4b52-9a25-37e9a8aa9ddd",
+       "name": "Mystic Remora",
+       "sanitized": "mystic-remora",
+       "slug": "mystic-remora",
+       "url": "/cards/mystic-remora",
+       "lift": 1.1165387170159506,
+       "num_decks": 729389,
+       "potential_decks": 4191317
+      }
+     ]
+    },
+    {
+     "header": "Battles",
+     "tag": "battles",
+     "cardviews": [
+      {
+       "id": "5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce",
+       "name": "Invasion of Ikoria",
+       "sanitized": "invasion-of-ikoria",
+       "slug": "invasion-of-ikoria",
+       "url": "/cards/invasion-of-ikoria",
+       "cards": [
+        {
+         "name": "Invasion of Ikoria",
+         "url": "invasion-of-ikoria"
+        },
+        {
+         "name": "Zilortha, Apex of Ikoria",
+         "url": "invasion-of-ikoria"
+        }
+       ],
+       "lift": 1.1116996777050907,
+       "num_decks": 101173,
+       "potential_decks": 3683372
+      },
+      {
+       "id": "318c363b-61cc-4e2f-8f86-a4287539ea07",
+       "name": "Invasion of Alara",
+       "sanitized": "invasion-of-alara",
+       "slug": "invasion-of-alara",
+       "url": "/cards/invasion-of-alara",
+       "cards": [
+        {
+         "name": "Invasion of Alara",
+         "url": "invasion-of-alara"
+        },
+        {
+         "name": "Awaken the Maelstrom",
+         "url": "invasion-of-alara"
+        }
+       ],
+       "lift": 0.7698086362552333,
+       "num_decks": 5951,
+       "potential_decks": 537925
+      },
+      {
+       "id": "433e9f1c-9d6c-4c7e-89d0-79595b4331f2",
+       "name": "Invasion of Theros",
+       "sanitized": "invasion-of-theros",
+       "slug": "invasion-of-theros",
+       "url": "/cards/invasion-of-theros",
+       "cards": [
+        {
+         "name": "Invasion of Theros",
+         "url": "invasion-of-theros"
+        },
+        {
+         "name": "Ephara, Ever-Sheltering",
+         "url": "invasion-of-theros"
+        }
+       ],
+       "lift": 0.89435583682695,
+       "num_decks": 14940,
+       "potential_decks": 1937796
+      }
+     ]
+    },
+    {
+     "header": "Planeswalkers",
+     "tag": "planeswalkers",
+     "cardviews": [
+      {
+       "id": "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
+       "name": "Teferi, Time Raveler",
+       "sanitized": "teferi-time-raveler",
+       "slug": "teferi-time-raveler",
+       "url": "/cards/teferi-time-raveler",
+       "lift": 1.1024953388570178,
+       "num_decks": 126084,
+       "potential_decks": 1937796
+      },
+      {
+       "id": "576ba8db-fad9-4c48-96be-a8a7e5f43039",
+       "name": "Tamiyo, Field Researcher",
+       "sanitized": "tamiyo-field-researcher",
+       "slug": "tamiyo-field-researcher",
+       "url": "/cards/tamiyo-field-researcher",
+       "lift": 1.0917995503812559,
+       "num_decks": 48022,
+       "potential_decks": 923599
+      },
+      {
+       "id": "73a065e3-b530-4e62-ab3c-4f6f908184ec",
+       "name": "Elspeth, Storm Slayer",
+       "sanitized": "elspeth-storm-slayer",
+       "slug": "elspeth-storm-slayer",
+       "url": "/cards/elspeth-storm-slayer",
+       "lift": 1.0383257215166415,
+       "num_decks": 169265,
+       "potential_decks": 3339388
+      }
+     ]
+    },
+    {
+     "header": "Utility Lands",
+     "tag": "utilitylands",
+     "cardviews": [
+      {
+       "id": "e2a27742-08c1-4153-af7f-25a7a98f585e",
+       "name": "Reliquary Tower",
+       "sanitized": "reliquary-tower",
+       "slug": "reliquary-tower",
+       "url": "/cards/reliquary-tower",
+       "lift": 1.0692818549217502,
+       "num_decks": 2639875,
+       "potential_decks": 8394290
+      },
+      {
+       "id": "55b5b094-9d2d-4d96-b90c-78fecdae725a",
+       "name": "Bojuka Bog",
+       "sanitized": "bojuka-bog",
+       "slug": "bojuka-bog",
+       "url": "/cards/bojuka-bog",
+       "lift": 1.0407032803323895,
+       "num_decks": 1345259,
+       "potential_decks": 4301023
+      },
+      {
+       "id": "4493b62b-f354-47ff-9dcf-cc6e29de77c6",
+       "name": "Rogue's Passage",
+       "sanitized": "rogues-passage",
+       "slug": "rogues-passage",
+       "url": "/cards/rogues-passage",
+       "lift": 1.0485686528797573,
+       "num_decks": 1766756,
+       "potential_decks": 8394290
+      }
+     ]
+    },
+    {
+     "header": "Mana Artifacts",
+     "tag": "manaartifacts",
+     "cardviews": [
+      {
+       "id": "c6b6117c-faab-4bbb-b851-07bd8061ef03",
+       "name": "Arcane Signet",
+       "sanitized": "arcane-signet",
+       "slug": "arcane-signet",
+       "url": "/cards/arcane-signet",
+       "lift": 1.1167989338873379,
+       "num_decks": 6726908,
+       "potential_decks": 8394290
+      },
+      {
+       "id": "78d5366f-eb6d-4ec1-880b-111872863766",
+       "name": "Talisman of Dominance",
+       "sanitized": "talisman-of-dominance",
+       "slug": "talisman-of-dominance",
+       "url": "/cards/talisman-of-dominance",
+       "lift": 1.0983409525696342,
+       "num_decks": 746786,
+       "potential_decks": 2116425
+      },
+      {
+       "id": "d4ba86c8-8052-4c9e-a0d0-ac6ad0b2679c",
+       "name": "Talisman of Creativity",
+       "sanitized": "talisman-of-creativity",
+       "slug": "talisman-of-creativity",
+       "url": "/cards/talisman-of-creativity",
+       "lift": 1.1003193451737106,
+       "num_decks": 615736,
+       "potential_decks": 2006816
+      }
+     ]
+    },
+    {
+     "header": "Lands",
+     "tag": "lands",
+     "cardviews": [
+      {
+       "id": "1ac6cb62-45da-4e9a-84c6-09e6eacf0664",
+       "name": "Command Tower",
+       "sanitized": "command-tower",
+       "slug": "command-tower",
+       "url": "/cards/command-tower",
+       "lift": 1.0378744844724905,
+       "num_decks": 6432677,
+       "potential_decks": 8394290
+      },
+      {
+       "id": "63e4dc07-c742-41bd-8301-861637908fd1",
+       "name": "Breeding Pool",
+       "sanitized": "breeding-pool",
+       "slug": "breeding-pool",
+       "url": "/cards/breeding-pool",
+       "lift": 1.0376495151747358,
+       "num_decks": 805381,
+       "potential_decks": 1803371
+      },
+      {
+       "id": "5525d6a6-e532-4047-9da4-bfae7927fecc",
+       "name": "Watery Grave",
+       "sanitized": "watery-grave",
+       "slug": "watery-grave",
+       "url": "/cards/watery-grave",
+       "lift": 1.0425444274745244,
+       "num_decks": 936496,
+       "potential_decks": 2116425
+      }
+     ]
+    }
+   ],
+   "card": {
+    "num_decks": 8394290,
+    "potential_decks": 10077368,
+    "salt": 1.46268656716418,
+    "cmc": 1,
+    "color_identity": [],
+    "id": "8ee443cc-e17a-493b-9c93-1f9e141a30e4",
+    "image_uris": [
+     {
+      "normal": "https://card-images.edhrec.com/normal/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.jpg?1789644446",
+      "art_crop": "https://card-images.edhrec.com/art_crop/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.jpg?1789644446"
+     }
+    ],
+    "layout": "normal",
+    "name": "Sol Ring",
+    "names": [
+     "Sol Ring"
+    ],
+    "prices": {
+     "cardhoarder": {
+      "price": 0.04,
+      "slug": "117216"
+     },
+     "cardkingdom": {
+      "price": 2.79,
+      "slug": "mtg/wilds-of-eldraine-commander-decks/sol-ring"
+     },
+     "cardmarket": {
+      "price": 0.83,
+      "set": "Commander 2018",
+      "slug": "Sol+Ring"
+     },
+     "cardsphere": {
+      "price": 1.21,
+      "set": "MSC",
+      "slug": "150039"
+     },
+     "cardtrader": {
+      "price": 1.27,
+      "slug": "289542"
+     },
+     "face2face": {
+      "price": 2.85,
+      "slug": "Sol Ring"
+     },
+     "manapool": {
+      "price": 1.3,
+      "slug": "drc/57/sol-ring"
+     },
+     "mtgstocks": {
+      "price": 1.39,
+      "slug": "127715-sol-ring-0358"
+     },
+     "scg": {
+      "price": 1.99,
+      "slug": "sol-ring-sgl-mtg-fdc-002-enf"
+     },
+     "tcgplayer": {
+      "price": 1.22,
+      "price_source": "marketPrice",
+      "slug": "698058/magic-commander-marvel-super-heroes-sol-ring-0213",
+      "sub_type": "Normal",
+      "tier": 1
+     }
+    },
+    "primary_type": "Artifact",
+    "rarity": "uncommon",
+    "sanitized": "sol-ring",
+    "scryfall_uri": "https://scryfall.com/card/frc/21/sol-ring?utm_source=api",
+    "slug": "sol-ring",
+    "type_line": "Artifact",
+    "type": "Artifact",
+    "url": null
+   }
+  },
+  "keywords": "Sol,Ring,Card",
+  "title": "Sol Ring (Card)"
+ }
+}

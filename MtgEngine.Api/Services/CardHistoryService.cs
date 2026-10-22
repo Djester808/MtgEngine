@@ -34,6 +34,11 @@ public interface ICardHistoryService
         string? setCode = null,
         decimal? priceUsd = null);
 
+    void RecordFinishes(Collection collection, CollectionCard card, CollectionCardEventType eventType,
+        int quantityDelta, int quantityFoilDelta, int quantityAfter, int quantityFoilAfter,
+        Collection? counterpart = null, string? setCode = null, decimal? priceUsd = null, int quantityEtchedDelta = 0, int quantityEtchedAfter = 0) =>
+        Record(collection, card, eventType, quantityDelta, quantityFoilDelta, quantityAfter, quantityFoilAfter, counterpart, setCode, priceUsd);
+
     /// <summary>Everything that has happened to one card for one user, newest first.</summary>
     Task<CardHistoryEntryDto[]> GetForCardAsync(
         string userId, string oracleId, int limit, CancellationToken ct);
@@ -58,17 +63,15 @@ public sealed class CardHistoryService : ICardHistoryService
 
     public CardHistoryService(MtgEngineDbContext db) => _db = db;
 
-    public void Record(
-        Collection collection,
-        CollectionCard card,
-        CollectionCardEventType eventType,
-        int quantityDelta,
-        int quantityFoilDelta,
-        int quantityAfter,
-        int quantityFoilAfter,
-        Collection? counterpart = null,
-        string? setCode = null,
-        decimal? priceUsd = null)
+    public void Record(Collection collection, CollectionCard card, CollectionCardEventType eventType,
+        int quantityDelta, int quantityFoilDelta, int quantityAfter, int quantityFoilAfter,
+        Collection? counterpart = null, string? setCode = null, decimal? priceUsd = null) => Stage(collection, card, eventType, quantityDelta, quantityFoilDelta, quantityAfter, quantityFoilAfter, counterpart, setCode, priceUsd, 0, 0);
+    public void RecordFinishes(Collection collection, CollectionCard card, CollectionCardEventType eventType,
+        int quantityDelta, int quantityFoilDelta, int quantityAfter, int quantityFoilAfter,
+        Collection? counterpart = null, string? setCode = null, decimal? priceUsd = null, int quantityEtchedDelta = 0, int quantityEtchedAfter = 0) => Stage(collection, card, eventType, quantityDelta, quantityFoilDelta, quantityAfter, quantityFoilAfter, counterpart, setCode, priceUsd, quantityEtchedDelta, quantityEtchedAfter);
+    private void Stage(Collection collection, CollectionCard card, CollectionCardEventType eventType,
+        int quantityDelta, int quantityFoilDelta, int quantityAfter, int quantityFoilAfter,
+        Collection? counterpart, string? setCode, decimal? priceUsd, int quantityEtchedDelta, int quantityEtchedAfter)
     {
         _db.CollectionCardEvents.Add(new CollectionCardEvent
         {
@@ -85,8 +88,10 @@ public sealed class CardHistoryService : ICardHistoryService
             EventType = eventType,
             QuantityDelta = quantityDelta,
             QuantityFoilDelta = quantityFoilDelta,
+            QuantityEtchedDelta = quantityEtchedDelta,
             QuantityAfter = quantityAfter,
             QuantityFoilAfter = quantityFoilAfter,
+            QuantityEtchedAfter = quantityEtchedAfter,
             CounterpartCollectionId = counterpart?.Id,
             CounterpartCollectionName = counterpart?.Name,
             PriceUsd = priceUsd,
@@ -125,7 +130,9 @@ public sealed class CardHistoryService : ICardHistoryService
                 e.CounterpartCollectionId,
                 e.CounterpartCollectionName,
                 e.PriceUsd,
-                e.CreatedAt))
+                e.CreatedAt,
+                e.QuantityEtchedDelta,
+                e.QuantityEtchedAfter))
             .ToArrayAsync(ct);
     }
 }

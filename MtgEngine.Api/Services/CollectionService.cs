@@ -92,7 +92,7 @@ public sealed class CollectionService : ICollectionService
                 Name = c.Name,
                 Description = c.Description,
                 CoverUri = c.CoverUri,
-                CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
+                CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil + cc.QuantityEtched),
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt
             })
@@ -108,7 +108,7 @@ public sealed class CollectionService : ICollectionService
         return await _context.CollectionCards
             .Where(cc => cc.Collection.UserId == userId
                 && !cc.Collection.IsDeck
-                && cc.Quantity + cc.QuantityFoil > 0)
+                && cc.Quantity + cc.QuantityFoil + cc.QuantityEtched > 0)
             .Select(cc => cc.OracleId)
             .Distinct()
             .ToArrayAsync(ct);
@@ -215,9 +215,9 @@ public sealed class CollectionService : ICollectionService
             .ToListAsync();
 
         foreach (var card in cards)
-            _history.Record(
+            _history.RecordFinishes(
                 collection, card, CollectionCardEventType.Removed,
-                -card.Quantity, -card.QuantityFoil, 0, 0);
+                -card.Quantity, -card.QuantityFoil, 0, 0, quantityEtchedDelta: -card.QuantityEtched, quantityEtchedAfter: 0);
     }
 
     // ---- Collection Cards ----
@@ -246,6 +246,7 @@ public sealed class CollectionService : ICollectionService
             ?? throw new KeyNotFoundException("Collection not found");
 
         var board = NormalizeBoard(request.Board);
+        var language = CollectionMetadataService.NormalizeLanguage(request.Language);
 
         // Increment in SQL, not read-modify-write: two simultaneous adds of the same
         // printing both computed quantity+1 from the same read and one increment was
@@ -256,10 +257,11 @@ public sealed class CollectionService : ICollectionService
                 .Where(cc => cc.CollectionId == collectionId
                           && cc.OracleId == request.OracleId
                           && cc.ScryfallId == request.ScryfallId
-                          && cc.Board == board)
+                          && cc.Board == board && cc.Language == language)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(c => c.Quantity, c => c.Quantity + request.Quantity)
-                    .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil));
+                    .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil)
+                    .SetProperty(c => c.QuantityEtched, c => c.QuantityEtched + (request.QuantityEtched ?? 0)));
             return n > 0;
         }
 
@@ -275,7 +277,7 @@ public sealed class CollectionService : ICollectionService
                 .Where(cc => cc.CollectionId == collectionId
                           && cc.OracleId == request.OracleId
                           && cc.ScryfallId == null
-                          && cc.Board == board)
+                          && cc.Board == board && cc.Language == language)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(c => c.ScryfallId, request.ScryfallId)
                     .SetProperty(c => c.Quantity, c => c.Quantity + request.Quantity)
@@ -293,7 +295,8 @@ public sealed class CollectionService : ICollectionService
                 request.Quantity,
                 request.QuantityFoil,
                 request.Notes,
-                board);
+                board)
+            { Language = language, QuantityEtched = request.QuantityEtched ?? 0 };
             // Baseline for the price-change display: snapshot today's market price once,
             // on the row's creation. Increments to an existing row keep the original.
             var defAtAdd = request.ScryfallId is not null
@@ -301,6 +304,7 @@ public sealed class CollectionService : ICollectionService
                 : await _scryfallService.GetByOracleIdAsync(request.OracleId);
             fresh.PriceUsdAtAdd = defAtAdd?.Prices.Usd;
             fresh.PriceUsdFoilAtAdd = defAtAdd?.Prices.UsdFoil;
+            fresh.PriceUsdEtchedAtAdd = defAtAdd?.Prices.UsdEtched;
             _context.CollectionCards.Add(fresh);
             collection.UpdatedAt = DateTime.UtcNow;
             try
@@ -335,17 +339,19 @@ public sealed class CollectionService : ICollectionService
             .FirstAsync(cc => cc.CollectionId == collectionId
                            && cc.OracleId == request.OracleId
                            && cc.ScryfallId == request.ScryfallId
-                           && cc.Board == board);
+                           && cc.Board == board && cc.Language == language);
 
         // Pinned printing first — resolving by oracle id here made the added card render
         // with the default printing's art until the next full reload.
         var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord);
+        CollectionFinishData.Initialize(cardRecord, request.Quantity, request.QuantityFoil, request.QuantityEtched ?? 0, cardDef, DateTime.UtcNow);
+        await _context.CollectionCards.Where(c => c.Id == cardRecord.Id).ExecuteUpdateAsync(setters => setters.SetProperty(c => c.FinishMetadataJson, cardRecord.FinishMetadataJson));
 
         // Recorded here rather than beside each branch above: the increment paths run as
         // ExecuteUpdate, which bypasses the change tracker, so the post-write row read is
         // the first point where the resulting copy counts are known for every path. Costs
         // one extra save on add; the alternative is a log that guesses at its own numbers.
-        _history.Record(
+        _history.RecordFinishes(
             collection,
             cardRecord,
             created ? CollectionCardEventType.Added : CollectionCardEventType.QuantityChanged,
@@ -354,7 +360,7 @@ public sealed class CollectionService : ICollectionService
             cardRecord.Quantity,
             cardRecord.QuantityFoil,
             setCode: cardDef?.SetCode,
-            priceUsd: cardDef?.Prices.Usd);
+            priceUsd: cardDef?.Prices.Usd, quantityEtchedDelta: request.QuantityEtched ?? 0, quantityEtchedAfter: cardRecord.QuantityEtched);
         await _context.SaveChangesAsync();
 
         return (DomainMapper.ToDto(cardRecord, cardDef), created);
@@ -377,13 +383,25 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Collection not found");
 
+        var etched = request.QuantityEtched ?? card.QuantityEtched;
+        if (request.Quantity < 0 || request.QuantityFoil < 0 || etched < 0 || request.Quantity + request.QuantityFoil + etched < 1)
+            throw new InvalidRequestException("Total quantity must be at least one and no finish may be negative.");
+        var etchedDelta = etched - card.QuantityEtched;
         var qtyDelta = request.Quantity - card.Quantity;
         var foilDelta = request.QuantityFoil - card.QuantityFoil;
         var rePinned = request.ScryfallId is not null && request.ScryfallId != card.ScryfallId;
 
         card.Quantity = request.Quantity;
         card.QuantityFoil = request.QuantityFoil;
-        card.Notes = request.Notes;
+        card.QuantityEtched = etched;
+        var updatedDefinition = await _scryfallService.ResolveForEntryAsync(card);
+        CollectionFinishData.Initialize(card, qtyDelta, foilDelta, etchedDelta, updatedDefinition, DateTime.UtcNow);
+        CollectionFinishData.ClearEmpty(card);
+        if (request.Notes is not null || request.UpdateNotes)
+        {
+            card.Notes = request.Notes;
+            CollectionFinishData.UpdateSharedNotes(card, request.Notes);
+        }
         if (request.ScryfallId is not null)
             card.ScryfallId = request.ScryfallId;
         collection.UpdatedAt = DateTime.UtcNow;
@@ -392,17 +410,17 @@ public sealed class CollectionService : ICollectionService
         // third copy" vs "when did this become the foil printing"), so they are two events.
         // A notes-only edit records neither — nothing about the card itself moved.
         if (rePinned)
-            _history.Record(
+            _history.RecordFinishes(
                 collection, card, CollectionCardEventType.PrintingChanged,
-                0, 0, card.Quantity, card.QuantityFoil);
-        if (qtyDelta != 0 || foilDelta != 0)
-            _history.Record(
+                0, 0, card.Quantity, card.QuantityFoil, quantityEtchedDelta: 0, quantityEtchedAfter: card.QuantityEtched);
+        if (qtyDelta != 0 || foilDelta != 0 || etchedDelta != 0)
+            _history.RecordFinishes(
                 collection, card, CollectionCardEventType.QuantityChanged,
-                qtyDelta, foilDelta, card.Quantity, card.QuantityFoil);
+                qtyDelta, foilDelta, card.Quantity, card.QuantityFoil, quantityEtchedDelta: etchedDelta, quantityEtchedAfter: card.QuantityEtched);
 
         await _context.SaveChangesAsync();
 
-        var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+        var cardDef = updatedDefinition;
         return DomainMapper.ToDto(card, cardDef);
     }
 
@@ -422,9 +440,9 @@ public sealed class CollectionService : ICollectionService
         if (card == null)
             return false;
 
-        _history.Record(
+        _history.RecordFinishes(
             collection, card, CollectionCardEventType.Removed,
-            -card.Quantity, -card.QuantityFoil, 0, 0);
+            -card.Quantity, -card.QuantityFoil, 0, 0, quantityEtchedDelta: -card.QuantityEtched, quantityEtchedAfter: 0);
 
         _context.CollectionCards.Remove(card);
         collection.UpdatedAt = DateTime.UtcNow;
@@ -463,9 +481,9 @@ public sealed class CollectionService : ICollectionService
             return false;
 
         foreach (var row in doomed)
-            _history.Record(
+            _history.RecordFinishes(
                 collection, row, CollectionCardEventType.Removed,
-                -row.Quantity, -row.QuantityFoil, 0, 0);
+                -row.Quantity, -row.QuantityFoil, 0, 0, quantityEtchedDelta: -row.QuantityEtched, quantityEtchedAfter: 0);
 
         collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -495,25 +513,33 @@ public sealed class CollectionService : ICollectionService
     /// </summary>
     /// <returns>The destination row, and whether it had to be created.</returns>
     private async Task<(CollectionCard Row, bool Created)> FoldIntoAsync(
-        Guid targetCollectionId, CollectionCard source, int quantity, int quantityFoil, CancellationToken ct)
+        Guid targetCollectionId, CollectionCard source, int quantity, int quantityFoil, CancellationToken ct, int quantityEtched = 0)
     {
         var existing = await _context.CollectionCards
             .Where(cc => cc.CollectionId == targetCollectionId
                       && cc.ScryfallId == source.ScryfallId
+                      && cc.Language == source.Language
                       && cc.OracleId == source.OracleId
                       && cc.Board == source.Board)
             .FirstOrDefaultAsync(ct);
 
         if (existing is not null)
         {
+            CollectionFinishData.CopyInto(source, existing, quantity, quantityFoil, quantityEtched);
             existing.Quantity += quantity;
             existing.QuantityFoil += quantityFoil;
+            existing.QuantityEtched += quantityEtched;
             if (source.AddedAt < existing.AddedAt)
             {
+                existing.PurchasePrice = source.PurchasePrice;
+                existing.PurchaseCurrency = source.PurchaseCurrency;
                 existing.AddedAt = source.AddedAt;
                 existing.PriceUsdAtAdd = source.PriceUsdAtAdd;
                 existing.PriceUsdFoilAtAdd = source.PriceUsdFoilAtAdd;
+                existing.PriceUsdEtchedAtAdd = source.PriceUsdEtchedAtAdd;
             }
+            existing.Condition ??= source.Condition;
+            existing.TagsJson = System.Text.Json.JsonSerializer.Serialize(CollectionMetadataService.Tags(existing.TagsJson).Concat(CollectionMetadataService.Tags(source.TagsJson)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
             return (existing, false);
         }
 
@@ -521,9 +547,17 @@ public sealed class CollectionService : ICollectionService
             targetCollectionId, source.OracleId, source.ScryfallId,
             quantity, quantityFoil, source.Notes, source.Board)
         {
+            QuantityEtched = quantityEtched,
+            FinishMetadataJson = CollectionFinishData.Subset(source, quantity, quantityFoil, quantityEtched),
+            Language = source.Language,
+            Condition = source.Condition,
+            PurchasePrice = source.PurchasePrice,
+            PurchaseCurrency = source.PurchaseCurrency,
+            TagsJson = source.TagsJson,
             AddedAt = source.AddedAt,
             PriceUsdAtAdd = source.PriceUsdAtAdd,
             PriceUsdFoilAtAdd = source.PriceUsdFoilAtAdd,
+            PriceUsdEtchedAtAdd = source.PriceUsdEtchedAtAdd,
         };
         _context.CollectionCards.Add(moved);
         return (moved, true);
@@ -546,28 +580,33 @@ public sealed class CollectionService : ICollectionService
         // Omitted quantities mean "move the whole row".
         var moveQty = request.Quantity ?? card.Quantity;
         var moveFoil = request.QuantityFoil ?? card.QuantityFoil;
+        var moveEtched = request.QuantityEtched ?? card.QuantityEtched;
+        if (moveQty < 0 || moveFoil < 0 || moveEtched < 0)
+            throw new InvalidRequestException("Copy quantities cannot be negative.");
 
-        if (moveQty > card.Quantity || moveFoil > card.QuantityFoil)
+        if (moveQty > card.Quantity || moveFoil > card.QuantityFoil || moveEtched > card.QuantityEtched)
             throw new InvalidResourceStateException("Cannot move more copies than the collection holds.");
-        if (moveQty <= 0 && moveFoil <= 0)
+        if (moveQty <= 0 && moveFoil <= 0 && moveEtched <= 0)
             throw new InvalidResourceStateException("Nothing to move — specify at least one copy.");
 
-        var (targetRow, _) = await FoldIntoAsync(request.TargetCollectionId, card, moveQty, moveFoil, ct);
+        var (targetRow, _) = await FoldIntoAsync(request.TargetCollectionId, card, moveQty, moveFoil, ct, moveEtched);
 
         card.Quantity -= moveQty;
         card.QuantityFoil -= moveFoil;
-        var emptied = card.Quantity <= 0 && card.QuantityFoil <= 0;
+        card.QuantityEtched -= moveEtched;
+        CollectionFinishData.ClearEmpty(card);
+        var emptied = card.Quantity <= 0 && card.QuantityFoil <= 0 && card.QuantityEtched <= 0;
         if (emptied)
             _context.CollectionCards.Remove(card);
 
         // Both halves, each naming the other end — the source's history should read "moved
         // to X" and the target's "moved from Y", and neither can be inferred from the other.
-        _history.Record(
+        _history.RecordFinishes(
             source, card, CollectionCardEventType.MovedOut,
-            -moveQty, -moveFoil, card.Quantity, card.QuantityFoil, counterpart: target);
-        _history.Record(
+            -moveQty, -moveFoil, card.Quantity, card.QuantityFoil, counterpart: target, quantityEtchedDelta: -moveEtched, quantityEtchedAfter: card.QuantityEtched);
+        _history.RecordFinishes(
             target, targetRow, CollectionCardEventType.MovedIn,
-            moveQty, moveFoil, targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
+            moveQty, moveFoil, targetRow.Quantity, targetRow.QuantityFoil, counterpart: source, quantityEtchedDelta: moveEtched, quantityEtchedAfter: targetRow.QuantityEtched);
 
         var now = DateTime.UtcNow;
         source.UpdatedAt = now;
@@ -609,20 +648,20 @@ public sealed class CollectionService : ICollectionService
         {
             ct.ThrowIfCancellationRequested();
             var (targetRow, created) = await FoldIntoAsync(
-                request.TargetCollectionId, card, card.Quantity, card.QuantityFoil, ct);
+                request.TargetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched);
             if (created)
                 moved++;
             else
                 folded++;
-            copies += card.Quantity + card.QuantityFoil;
+            copies += card.Quantity + card.QuantityFoil + card.QuantityEtched;
 
-            _history.Record(
+            _history.RecordFinishes(
                 source, card, CollectionCardEventType.MovedOut,
-                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target);
-            _history.Record(
+                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target, quantityEtchedDelta: -card.QuantityEtched, quantityEtchedAfter: 0);
+            _history.RecordFinishes(
                 target, targetRow, CollectionCardEventType.MovedIn,
                 card.Quantity, card.QuantityFoil,
-                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
+                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source, quantityEtchedDelta: card.QuantityEtched, quantityEtchedAfter: targetRow.QuantityEtched);
         }
 
         _context.CollectionCards.RemoveRange(cards);
@@ -660,20 +699,20 @@ public sealed class CollectionService : ICollectionService
         foreach (var card in sourceCards)
         {
             ct.ThrowIfCancellationRequested();
-            var (targetRow, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct);
+            var (targetRow, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched);
             if (created)
                 moved++;
             else
                 folded++;
-            copies += card.Quantity + card.QuantityFoil;
+            copies += card.Quantity + card.QuantityFoil + card.QuantityEtched;
 
-            _history.Record(
+            _history.RecordFinishes(
                 source, card, CollectionCardEventType.MovedOut,
-                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target);
-            _history.Record(
+                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target, quantityEtchedDelta: -card.QuantityEtched, quantityEtchedAfter: 0);
+            _history.RecordFinishes(
                 target, targetRow, CollectionCardEventType.MovedIn,
                 card.Quantity, card.QuantityFoil,
-                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
+                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source, quantityEtchedDelta: card.QuantityEtched, quantityEtchedAfter: targetRow.QuantityEtched);
         }
 
         // The source rows are gone either way — the copies now live in the target.
@@ -712,7 +751,7 @@ public sealed class CollectionService : ICollectionService
                 CoverUri = c.CoverUri,
                 Format = c.Format,
                 CommanderOracleId = c.CommanderOracleId,
-                CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
+                CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil + cc.QuantityEtched),
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,
             })

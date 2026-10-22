@@ -557,3 +557,40 @@ The Card Collection feature provides a solid foundation for building a complete 
 - ✅ Proper service abstractions
 
 You can now extend this with deck management, advanced filtering, statistics, and other features!
+
+## Compleat collection metadata and bulk Undo port (2026-10-20)
+
+The current model stores regular Quantity and QuantityFoil separately; the older IsFoil examples above are historical. CollectionCard now also stores Language (default en), Condition (NM/LP/MP/HP/DMG or unset), private PurchasePrice/PurchaseCurrency and TagsJson. The printing uniqueness keys include language for both pinned and unpinned cards. Existing rows migrate to en and an empty tag list. Moves retain language and metadata; folded rows union tags and keep the earlier acquisition purchase-price baseline.
+
+Owner-only GET/PUT /api/collections/{id}/cards/{rowId}/metadata serves purchase details. Purchase fields are deliberately absent from the shared card DTO used by public deck/forum readers. POST /api/collections/{id}/cards/bulk accepts 1–500 row ids and tag/untag/condition/remove. It validates ownership and every selected row before committing the whole edit. The result includes a persisted owner-scoped UndoToken and a five-second expiry; POST /api/collections/undo/{token} restores only the selected rows after comparing the exact post-edit fingerprint. Newer edits cause 409 instead of being overwritten, unrelated rows remain unchanged, and undo is single-use. Removed/restored copies append history entries. A background worker deletes expired undo records.
+
+The collection card sheet exposes owned details alongside personal notes. Select mode exposes Edit selected, with all four bulk actions and Undo.
+
+## Collection export and local value visibility
+
+GET /api/collections/{collectionId}/export?format=csv|text is authenticated and owner-only; deck ids and foreign ids return 404. It exports the full collection, independent of client filters. CSV splits regular and foil quantities into separate rows, preserving printing/oracle IDs, name, set, language, condition, purchase price/currency, original market prices, tags, multiline notes and added time. Prices use invariant decimal units, not cents. Fields are quoted; formula-leading text is neutralized for spreadsheets. Plain text carries quantities and names with *F* for foils. Empty collections export a CSV header or empty text file. Responses use no-store. A read transaction keeps row metadata consistent with quantities.
+
+The collection header has Export CSV, Export text, and an eye control for its USD market-value summary. Unknown prices are excluded and the priced-copy count is shown. Hide value removes the amount from the rendered content; the preference persists on this device and does not change public collection sharing or the contents of an explicitly requested export.
+
+
+## Compleat parity extension (2026-10-21)
+
+Ownership now distinguishes nonfoil, foil and etched quantities on the printing/language row. QuantityEtched defaults to zero; omitting it in an update preserves the existing etched count. A quantity-only update preserves notes; use UpdateNotes=true to explicitly clear shared notes. A row is empty only when all three quantities are zero.
+
+Each owned finish has independent condition, tags, private purchase price/currency, private notes, acquisition timestamp and price-at-add snapshot. FinishMetadataJson stores these details without splitting existing rows. Legacy rows fall back to their original metadata. Public collection DTO FinishData contains only condition, tags, acquisition date and market snapshot; purchase details and finish notes are returned only by the owner-only metadata endpoint. Passing finish=nonfoil|foil|etched selects that finish. A language change with a selected finish moves only that finish; an existing owned finish in the destination language is a conflict.
+
+Migration AddIndependentCollectionFinishes adds fields with zero/empty defaults and nullable price snapshots; it does not replace existing collection rows. History records etched delta and remaining count. Collection totals, deck totals and legality include all finishes, while each finish is valued at its own actual market price.
+
+Collection mutations return X-Compleat-Undo, X-Compleat-Undo-Expires, X-Compleat-Undo-Collections and X-Compleat-Undo-Kind. Undo atomically restores both transfer ends, verifies owner, expiry and single use, and rejects a newer-state hash mismatch. Edit/move offers last five seconds; last-add offers last one hour. Deck additions use the same mechanism for Explore visit Undo. No operation silently overwrites newer card changes.
+
+CSV and text export include every owned finish and owner metadata. An unspecified printing exports empty set/collector fields. CSV formula-leading values are escaped. Global printing ownership excludes decks and other owners. The collection UI pages 100 matching rows and releases offscreen tile/text content; global filtering and Insights still use the complete collection in memory.
+
+## Server collection reads and complete regex (2026-10-21 follow-up)
+
+The collection screen now uses owner-only POST /api/collections/{id}/query, returning a CollectionDetailDto whose Cards contain only the requested page. PageData contains the actual page, page size, matching total, full row count, full valuation, ten compact Insights summaries, set options and a query notice. Default pages contain 100 rows; supported page sizes are 20–200. Filters and sorting run across the collection before pagination, including finish-specific condition/tag matching and language. Page indices clamp after removals. Section ordering is global. Same-card mode pages whole oracle groups so a printing group cannot be split; its page may consequently contain multiple stored printing/language rows per tile. Filtering/group changes reset to page one; mutations and Undo retain the current query and refresh authoritative totals. The browser no longer downloads the full collection to compute filters or Insights.
+
+POST /api/collections/{id}/rows accepts at most 100 oracle IDs and resolves only those owner rows for card sheets and the currently browsed Add Cards results, including printings/languages outside the active page. Both read endpoints reject foreign collections and deck IDs. Metadata/merge HTTP responses avoid full card arrays; their views refetch the current page. The legacy full-detail service remains available internally to exports and other existing consumers. Broad metadata queries still scan and resolve collection rows on the server; this change bounds browser loading rather than claiming an indexed database plan for every metadata expression.
+
+Collection regex now executes in .NET with the original Compleat semantics: full lookarounds, backreferences and repeated groups, no 200-character restriction, culture-invariant matching and a 50 ms per-match timeout. Regex overrides the whole-word flag. Whole-word plain searches match punctuation-delimited name tokens. Invalid regex matches nothing; a timed-out row is a non-match. A readable query notice replaces browser exceptions, and subsequent valid searches recover normally. The browser does not execute the collection regex.
+
+Verification: CollectionReadTests covers bounded pages, global summaries/filtering/order, whole oracle groups, full regex constructs and length, invalid expressions, timeouts, cancellation, row lookup and owner/deck guards. verify:collection-scale checks a real 201-row collection on phone/tablet/desktop and records fetch payloads, three pages, cross-page filtering, complete regex, invalid recovery and no document overflow. verify:parity-port rechecks finish metadata, language quantities, transfer/export and Undo on the same three device sizes.

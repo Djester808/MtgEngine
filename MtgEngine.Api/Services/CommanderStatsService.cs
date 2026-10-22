@@ -328,7 +328,7 @@ public sealed class CommanderStatsService : ICommanderStatsService
         var cardCounts = await _context.CollectionCards
             .Where(cc => deckIds.Contains(cc.CollectionId))
             .GroupBy(cc => cc.CollectionId)
-            .Select(g => new { DeckId = g.Key, Count = g.Sum(cc => cc.Quantity + cc.QuantityFoil) })
+            .Select(g => new { DeckId = g.Key, Count = g.Sum(cc => cc.Quantity + cc.QuantityFoil + cc.QuantityEtched) })
             .ToListAsync();
         var countMap = cardCounts.ToDictionary(x => x.DeckId, x => x.Count);
 

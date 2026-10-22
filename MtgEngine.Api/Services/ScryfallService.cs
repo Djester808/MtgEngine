@@ -20,6 +20,7 @@ namespace MtgEngine.Api.Services;
 /// </remarks>
 public interface ICardLookup
 {
+    Task<CardDefinition?> GetLocalByNameAsync(string name) => Task.FromResult<CardDefinition?>(null);
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);

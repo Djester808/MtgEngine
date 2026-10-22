@@ -83,7 +83,7 @@ public sealed class ForumService : IForumService
         var deckCardCounts = await _context.Collections
             .AsNoTracking()
             .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
-            .Select(c => new { c.Id, CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil) })
+            .Select(c => new { c.Id, CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil + cc.QuantityEtched) })
             .ToDictionaryAsync(x => x.Id, x => x.CardCount, ct);
 
         var postIds = posts.Select(p => p.Id).ToList();
@@ -249,7 +249,7 @@ public sealed class ForumService : IForumService
 
         await _context.SaveChangesAsync();
 
-        var cardCount = deck.Cards.Sum(c => c.Quantity + c.QuantityFoil);
+        var cardCount = deck.Cards.Sum(c => c.Quantity + c.QuantityFoil + c.QuantityEtched);
 
         return new ForumPostSummaryDto
         {

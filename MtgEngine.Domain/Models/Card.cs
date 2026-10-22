@@ -60,6 +60,9 @@ public sealed class CardDefinition
 
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
+    public int? EdhrecRank { get; init; }
+    public string? CollectorNumber { get; init; }
+    public IReadOnlyList<string>? ProducedMana { get; init; }
     public string? SetCode { get; init; }
     public string? Rarity { get; init; }
     public IReadOnlyDictionary<string, string> Legalities { get; init; } = new Dictionary<string, string>();

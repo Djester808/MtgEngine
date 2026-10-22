@@ -1,0 +1,787 @@
+{
+ "creature": 26,
+ "instant": 10,
+ "sorcery": 7,
+ "artifact": 11,
+ "enchantment": 6,
+ "battle": 0,
+ "planeswalker": 3,
+ "land": 36,
+ "basic": 17,
+ "nonbasic": 19,
+ "similar": [
+  "Guildpact Informant",
+  "Grateful Apparition",
+  "Flux Channeler",
+  "Viral Drake",
+  "Tekuthal, Inquiry Dominus",
+  "Merfolk Skydiver"
+ ],
+ "header": "Thrummingbird (Card)",
+ "panels": {
+  "piechart": {
+   "content": [
+    {
+     "label": "Land",
+     "value": 36,
+     "color": "#e98125"
+    },
+    {
+     "label": "Planeswalker",
+     "value": 3,
+     "color": "#7b6688"
+    },
+    {
+     "label": "Enchantment",
+     "value": 6,
+     "color": "#d8d138"
+    },
+    {
+     "label": "Artifact",
+     "value": 11,
+     "color": "#634c22"
+    },
+    {
+     "label": "Sorcery",
+     "value": 7,
+     "color": "#961818"
+    },
+    {
+     "label": "Instant",
+     "value": 10,
+     "color": "#2081c1"
+    },
+    {
+     "label": "Creature",
+     "value": 26,
+     "color": "#64a61f"
+    }
+   ],
+   "title": "Average Type Distribution"
+  },
+  "articles": [
+   {
+    "alt": "Article",
+    "date": "Jul 24, 2026",
+    "href": "https://edhrec.com/articles/xavier-sal-infested-captain-fire-and-ice/",
+    "value": "Xavier Sal, Infested Captain | Fire and Ice",
+    "author": {
+     "avatar": "https://secure.gravatar.com/avatar/2c06bc604e7b3b53359dc217565245445a739f7314dc747aed5c691fbc237939?s=96&d=mm&r=g",
+     "id": 224,
+     "link": "https://edhrec.com/articles/author/juliam/",
+     "name": "Julia Maddalena"
+    },
+    "excerpt": "Xavier Sal, Infested Captain melds counters, tokens, and sacrifice in Sultai. See which cards are rising and falling in his decks.",
+    "media": "https://cloudflare.edhrec.com/articles/wp-content/uploads/2025/07/lcc-14-xavier-sal-infested-captain.jpg"
+   },
+   {
+    "alt": "Article",
+    "date": "Dec 17, 2025",
+    "href": "https://edhrec.com/articles/the-top-10-most-played-4-color-cards-in-commander/",
+    "value": "The Top 10 Most Played 4-Color Cards in Commander",
+    "author": {
+     "avatar": "https://secure.gravatar.com/avatar/63fcc0f6ede62867e81439d13924acdd31be2a370fc4ffa6eace6e3961193586?s=96&d=mm&r=g",
+     "id": 149,
+     "link": "https://edhrec.com/articles/author/nick-price/",
+     "name": "Nick Price"
+    },
+    "excerpt": "Which 4-color cards are the most played in Commander? Unsurprisingly, the list is full of powerful, and popular, legendary creatures.",
+    "media": "https://cloudflare.edhrec.com/articles/wp-content/uploads/2025/12/znr-232-omnath-locus-of-creation.jpg"
+   }
+  ]
+ },
+ "description": "",
+ "container": {
+  "breadcrumb": [
+   {
+    "/cards": "Cards"
+   },
+   {
+    "/cards/thrummingbird": "Thrummingbird"
+   }
+  ],
+  "description": null,
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "New Commanders",
+     "tag": "newcommanders",
+     "cardviews": [
+      {
+       "id": "986f9e98-9d8d-428b-9187-860745cf3269",
+       "name": "Denzilore Fatehold",
+       "sanitized": "denzilore-fatehold",
+       "slug": "denzilore-fatehold",
+       "url": "/commanders/denzilore-fatehold",
+       "num_decks": 400,
+       "potential_decks": 1124
+      },
+      {
+       "id": "a0b51fb8-6e5a-479d-aa3a-17cf603dd05c",
+       "name": "Valko Indorian",
+       "sanitized": "valko-indorian",
+       "slug": "valko-indorian",
+       "url": "/commanders/valko-indorian",
+       "num_decks": 294,
+       "potential_decks": 610
+      },
+      {
+       "id": "85f81500-1b1b-47e7-93a1-db5f6de95e87",
+       "name": "Arzakon",
+       "sanitized": "arzakon",
+       "slug": "arzakon",
+       "url": "/commanders/arzakon",
+       "num_decks": 220,
+       "potential_decks": 924
+      }
+     ]
+    },
+    {
+     "header": "Top Commanders",
+     "tag": "topcommanders",
+     "cardviews": [
+      {
+       "id": "d0d33d52-3d28-4635-b985-51e126289259",
+       "name": "Atraxa, Praetors' Voice",
+       "sanitized": "atraxa-praetors-voice",
+       "slug": "atraxa-praetors-voice",
+       "url": "/commanders/atraxa-praetors-voice",
+       "num_decks": 22796,
+       "potential_decks": 44799
+      },
+      {
+       "id": "cfb80c75-4b1b-4f25-923a-933855e7345c",
+       "name": "The Wise Mothman",
+       "sanitized": "the-wise-mothman",
+       "slug": "the-wise-mothman",
+       "url": "/commanders/the-wise-mothman",
+       "num_decks": 12717,
+       "potential_decks": 33672
+      },
+      {
+       "id": "307a859e-eb80-4af6-b731-92e4767b5100",
+       "name": "Kilo, Apogee Mind",
+       "sanitized": "kilo-apogee-mind",
+       "slug": "kilo-apogee-mind",
+       "url": "/commanders/kilo-apogee-mind",
+       "num_decks": 10124,
+       "potential_decks": 19083
+      }
+     ]
+    },
+    {
+     "header": "New Cards",
+     "tag": "newcards",
+     "cardviews": [
+      {
+       "id": "55cd03d9-2535-4cf3-a8b2-1418e1190f4a",
+       "name": "Jace, Multiverse Architect",
+       "sanitized": "jace-multiverse-architect",
+       "slug": "jace-multiverse-architect",
+       "url": "/cards/jace-multiverse-architect",
+       "lift": 6.6718012684989425,
+       "num_decks": 89,
+       "potential_decks": 430
+      },
+      {
+       "id": "2185c08f-bb4d-49d5-8b6c-c629a48bb61c",
+       "name": "Sanctum Lurker",
+       "sanitized": "sanctum-lurker",
+       "slug": "sanctum-lurker",
+       "url": "/cards/sanctum-lurker",
+       "lift": 6.722658058449074,
+       "num_decks": 268,
+       "potential_decks": 1536
+      },
+      {
+       "id": "39c805e3-82cd-42a9-80fe-8d81712a94ea",
+       "name": "Konstrari Annex",
+       "sanitized": "konstrari-annex",
+       "slug": "konstrari-annex",
+       "url": "/cards/konstrari-annex",
+       "lift": 15.060161806077339,
+       "num_decks": 37,
+       "potential_decks": 379
+      }
+     ]
+    },
+    {
+     "header": "High Lift Cards",
+     "tag": "highliftcards",
+     "cardviews": [
+      {
+       "id": "dd8f103c-a688-4f22-ae59-2bce1db9d44a",
+       "name": "Dark Intimations",
+       "sanitized": "dark-intimations",
+       "slug": "dark-intimations",
+       "url": "/cards/dark-intimations",
+       "lift": 37.92372200968185,
+       "num_decks": 1788,
+       "potential_decks": 10078
+      },
+      {
+       "id": "74239d78-1608-4b27-b2fd-8c7453f6b86b",
+       "name": "Nicol Bolas, the Deceiver",
+       "sanitized": "nicol-bolas-the-deceiver",
+       "slug": "nicol-bolas-the-deceiver",
+       "url": "/cards/nicol-bolas-the-deceiver",
+       "lift": 35.14188045357568,
+       "num_decks": 2251,
+       "potential_decks": 10078
+      },
+      {
+       "id": "aca45c6b-8cce-44db-9f5b-fa66075db6f6",
+       "name": "Jaya's Phoenix",
+       "sanitized": "jayas-phoenix",
+       "slug": "jayas-phoenix",
+       "url": "/cards/jayas-phoenix",
+       "lift": 32.011693817375104,
+       "num_decks": 7086,
+       "potential_decks": 48631
+      }
+     ]
+    },
+    {
+     "header": "Top Cards",
+     "tag": "topcards",
+     "cardviews": [
+      {
+       "id": "f7e12477-d59f-442b-a678-1be746d0b7be",
+       "name": "Swords to Plowshares",
+       "sanitized": "swords-to-plowshares",
+       "slug": "swords-to-plowshares",
+       "url": "/cards/swords-to-plowshares",
+       "lift": 1.1503873559589484,
+       "num_decks": 65553,
+       "potential_decks": 99317
+      },
+      {
+       "id": "1d58d08d-cd62-416d-8d8e-7d9c56d5c4da",
+       "name": "Evolution Sage",
+       "sanitized": "evolution-sage",
+       "slug": "evolution-sage",
+       "url": "/cards/evolution-sage",
+       "lift": 10.456939550844384,
+       "num_decks": 54991,
+       "potential_decks": 91110
+      },
+      {
+       "id": "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
+       "name": "Farseek",
+       "sanitized": "farseek",
+       "slug": "farseek",
+       "url": "/cards/farseek",
+       "lift": 1.2026329159040898,
+       "num_decks": 45668,
+       "potential_decks": 91110
+      }
+     ]
+    },
+    {
+     "header": "Game Changers",
+     "tag": "gamechangers",
+     "cardviews": [
+      {
+       "id": "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
+       "name": "Rhystic Study",
+       "sanitized": "rhystic-study",
+       "slug": "rhystic-study",
+       "url": "/cards/rhystic-study",
+       "lift": 0.7244035655058613,
+       "num_decks": 27518,
+       "potential_decks": 170468
+      },
+      {
+       "id": "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
+       "name": "Cyclonic Rift",
+       "sanitized": "cyclonic-rift",
+       "slug": "cyclonic-rift",
+       "url": "/cards/cyclonic-rift",
+       "lift": 0.7838053295500773,
+       "num_decks": 27159,
+       "potential_decks": 170468
+      },
+      {
+       "id": "a24b4cb6-cebb-428b-8654-74347a6a8d63",
+       "name": "Demonic Tutor",
+       "sanitized": "demonic-tutor",
+       "slug": "demonic-tutor",
+       "url": "/cards/demonic-tutor",
+       "lift": 0.7917294275669555,
+       "num_decks": 10694,
+       "potential_decks": 69544
+      }
+     ]
+    },
+    {
+     "header": "Creatures",
+     "tag": "creatures",
+     "cardviews": [
+      {
+       "id": "5e1cf888-dd41-4cc2-a16e-3414ef7a78ed",
+       "name": "Grateful Apparition",
+       "sanitized": "grateful-apparition",
+       "slug": "grateful-apparition",
+       "url": "/cards/grateful-apparition",
+       "lift": 15.611237440986052,
+       "num_decks": 37549,
+       "potential_decks": 99317
+      },
+      {
+       "id": "3c520263-6bad-4521-ba9e-192ca8223b07",
+       "name": "Flux Channeler",
+       "sanitized": "flux-channeler",
+       "slug": "flux-channeler",
+       "url": "/cards/flux-channeler",
+       "lift": 15.454013800043132,
+       "num_decks": 64212,
+       "potential_decks": 170468
+      },
+      {
+       "id": "1e06d6be-c2a3-4c73-a916-89674c0ddfed",
+       "name": "Patrolling Peacemaker",
+       "sanitized": "patrolling-peacemaker",
+       "slug": "patrolling-peacemaker",
+       "url": "/cards/patrolling-peacemaker",
+       "lift": 11.357771911020867,
+       "num_decks": 28585,
+       "potential_decks": 77193
+      }
+     ]
+    },
+    {
+     "header": "Instants",
+     "tag": "instants",
+     "cardviews": [
+      {
+       "id": "8b817b17-27cf-4f6b-baf2-4c4dbb3e71d1",
+       "name": "Experimental Augury",
+       "sanitized": "experimental-augury",
+       "slug": "experimental-augury",
+       "url": "/cards/experimental-augury",
+       "lift": 16.778304163503496,
+       "num_decks": 68197,
+       "potential_decks": 170468
+      },
+      {
+       "id": "fb8d8106-b9bd-405c-886e-72fc301c65e1",
+       "name": "Chaos Warp",
+       "sanitized": "chaos-warp",
+       "slug": "chaos-warp",
+       "url": "/cards/chaos-warp",
+       "lift": 1.6037122379255038,
+       "num_decks": 18448,
+       "potential_decks": 48631
+      },
+      {
+       "id": "592cbafc-ab4e-461f-b64f-0bf9d83aaff3",
+       "name": "Atomize",
+       "sanitized": "atomize",
+       "slug": "atomize",
+       "url": "/cards/atomize",
+       "lift": 9.434135681946202,
+       "num_decks": 18637,
+       "potential_decks": 51461
+      }
+     ]
+    },
+    {
+     "header": "Sorceries",
+     "tag": "sorceries",
+     "cardviews": [
+      {
+       "id": "b7c47024-5e08-4b17-b41a-7647f8b814b9",
+       "name": "Rampant Growth",
+       "sanitized": "rampant-growth",
+       "slug": "rampant-growth",
+       "url": "/cards/rampant-growth",
+       "lift": 1.2234547340097073,
+       "num_decks": 31533,
+       "potential_decks": 91110
+      },
+      {
+       "id": "7d4b1d44-126e-4987-9a9f-f0f9627a09cb",
+       "name": "Blasphemous Act",
+       "sanitized": "blasphemous-act",
+       "slug": "blasphemous-act",
+       "url": "/cards/blasphemous-act",
+       "lift": 1.1862233464050949,
+       "num_decks": 16528,
+       "potential_decks": 48631
+      },
+      {
+       "id": "1a58dad4-0189-4e28-a9e1-0b15aa5d84eb",
+       "name": "Wake the Past",
+       "sanitized": "wake-the-past",
+       "slug": "wake-the-past",
+       "url": "/cards/wake-the-past",
+       "lift": 7.355376403619146,
+       "num_decks": 13244,
+       "potential_decks": 40697
+      }
+     ]
+    },
+    {
+     "header": "Utility Artifacts",
+     "tag": "utilityartifacts",
+     "cardviews": [
+      {
+       "id": "7bc56147-9920-401d-8e4e-93d497e8b67a",
+       "name": "Long-Range Sensor",
+       "sanitized": "long-range-sensor",
+       "slug": "long-range-sensor",
+       "url": "/cards/long-range-sensor",
+       "lift": 23.209411253409833,
+       "num_decks": 12188,
+       "potential_decks": 41082
+      },
+      {
+       "id": "46900ec7-eb18-45c4-8e90-a48b665cfdee",
+       "name": "Inspirit, Flagship Vessel",
+       "sanitized": "inspirit-flagship-vessel",
+       "slug": "inspirit-flagship-vessel",
+       "url": "/cards/inspirit-flagship-vessel",
+       "lift": 7.92620387678723,
+       "num_decks": 10179,
+       "potential_decks": 35676
+      },
+      {
+       "id": "03f7e9fc-8e59-45c1-90fc-1d04d929b292",
+       "name": "Swiftfoot Boots",
+       "sanitized": "swiftfoot-boots",
+       "slug": "swiftfoot-boots",
+       "url": "/cards/swiftfoot-boots",
+       "lift": 1.1245211467234353,
+       "num_decks": 44976,
+       "potential_decks": 170468
+      }
+     ]
+    },
+    {
+     "header": "Enchantments",
+     "tag": "enchantments",
+     "cardviews": [
+      {
+       "id": "99cfd1a8-49fd-4cc0-96f2-f9f159ce5d55",
+       "name": "Hardened Scales",
+       "sanitized": "hardened-scales",
+       "slug": "hardened-scales",
+       "url": "/cards/hardened-scales",
+       "lift": 3.7032431615094117,
+       "num_decks": 35609,
+       "potential_decks": 91110
+      },
+      {
+       "id": "799de0f1-6bf2-4158-8a4f-bedc3d2f6578",
+       "name": "Brokers Ascendancy",
+       "sanitized": "brokers-ascendancy",
+       "slug": "brokers-ascendancy",
+       "url": "/cards/brokers-ascendancy",
+       "lift": 6.664214185663961,
+       "num_decks": 16327,
+       "potential_decks": 50622
+      },
+      {
+       "id": "78743ab3-0289-4799-b139-a37964532b92",
+       "name": "Resourceful Defense",
+       "sanitized": "resourceful-defense",
+       "slug": "resourceful-defense",
+       "url": "/cards/resourceful-defense",
+       "lift": 9.625754840581513,
+       "num_decks": 26859,
+       "potential_decks": 99317
+      }
+     ]
+    },
+    {
+     "header": "Battles",
+     "tag": "battles",
+     "cardviews": [
+      {
+       "id": "433e9f1c-9d6c-4c7e-89d0-79595b4331f2",
+       "name": "Invasion of Theros",
+       "sanitized": "invasion-of-theros",
+       "slug": "invasion-of-theros",
+       "url": "/cards/invasion-of-theros",
+       "cards": [
+        {
+         "name": "Invasion of Theros",
+         "url": "invasion-of-theros"
+        },
+        {
+         "name": "Ephara, Ever-Sheltering",
+         "url": "invasion-of-theros"
+        }
+       ],
+       "lift": 1.7788696027623774,
+       "num_decks": 1523,
+       "potential_decks": 99317
+      },
+      {
+       "id": "f5926c8e-8049-418e-9a84-f8558e5ba9d1",
+       "name": "Invasion of New Capenna",
+       "sanitized": "invasion-of-new-capenna",
+       "slug": "invasion-of-new-capenna",
+       "url": "/cards/invasion-of-new-capenna",
+       "cards": [
+        {
+         "name": "Invasion of New Capenna",
+         "url": "invasion-of-new-capenna"
+        },
+        {
+         "name": "Holy Frazzle-Cannon",
+         "url": "invasion-of-new-capenna"
+        }
+       ],
+       "lift": 1.652274655705781,
+       "num_decks": 215,
+       "potential_decks": 33058
+      },
+      {
+       "id": "981f091a-17f8-412e-9752-69070ebed4ea",
+       "name": "Invasion of Amonkhet",
+       "sanitized": "invasion-of-amonkhet",
+       "slug": "invasion-of-amonkhet",
+       "url": "/cards/invasion-of-amonkhet",
+       "cards": [
+        {
+         "name": "Invasion of Amonkhet",
+         "url": "invasion-of-amonkhet"
+        },
+        {
+         "name": "Lazotep Convert",
+         "url": "invasion-of-amonkhet"
+        }
+       ],
+       "lift": 0.9749070764133089,
+       "num_decks": 438,
+       "potential_decks": 69544
+      }
+     ]
+    },
+    {
+     "header": "Planeswalkers",
+     "tag": "planeswalkers",
+     "cardviews": [
+      {
+       "id": "9f1fa1c5-ff87-4bbc-89aa-dbebc91eada0",
+       "name": "Vraska, Betrayal's Sting",
+       "sanitized": "vraska-betrayals-sting",
+       "slug": "vraska-betrayals-sting",
+       "url": "/cards/vraska-betrayals-sting",
+       "lift": 17.256253580058193,
+       "num_decks": 27163,
+       "potential_decks": 69544
+      },
+      {
+       "id": "597ca22d-2f08-47b3-9d93-c4d685cefb5f",
+       "name": "Nicol Bolas, God-Pharaoh",
+       "sanitized": "nicol-bolas-god-pharaoh",
+       "slug": "nicol-bolas-god-pharaoh",
+       "url": "/cards/nicol-bolas-god-pharaoh",
+       "lift": 16.361545504048117,
+       "num_decks": 3672,
+       "potential_decks": 10078
+      },
+      {
+       "id": "9e80f2fc-06d4-4ce9-b23b-3e4af1208fa5",
+       "name": "Nicol Bolas, Planeswalker",
+       "sanitized": "nicol-bolas-planeswalker",
+       "slug": "nicol-bolas-planeswalker",
+       "url": "/cards/nicol-bolas-planeswalker",
+       "lift": 19.87966722945509,
+       "num_decks": 3109,
+       "potential_decks": 10078
+      }
+     ]
+    },
+    {
+     "header": "Utility Lands",
+     "tag": "utilitylands",
+     "cardviews": [
+      {
+       "id": "22017ec2-3552-4865-af76-dba042b141f5",
+       "name": "Karn's Bastion",
+       "sanitized": "karns-bastion",
+       "slug": "karns-bastion",
+       "url": "/cards/karns-bastion",
+       "lift": 11.541908469899742,
+       "num_decks": 95438,
+       "potential_decks": 170468
+      },
+      {
+       "id": "e2a27742-08c1-4153-af7f-25a7a98f585e",
+       "name": "Reliquary Tower",
+       "sanitized": "reliquary-tower",
+       "slug": "reliquary-tower",
+       "url": "/cards/reliquary-tower",
+       "lift": 0.9911481746438368,
+       "num_decks": 62268,
+       "potential_decks": 170468
+      },
+      {
+       "id": "74c5bb44-d72c-4c1a-a38f-86b4a8f49ae1",
+       "name": "Great Furnace",
+       "sanitized": "great-furnace",
+       "slug": "great-furnace",
+       "url": "/cards/great-furnace",
+       "lift": 5.230574795812215,
+       "num_decks": 16632,
+       "potential_decks": 48631
+      }
+     ]
+    },
+    {
+     "header": "Mana Artifacts",
+     "tag": "manaartifacts",
+     "cardviews": [
+      {
+       "id": "8ee443cc-e17a-493b-9c93-1f9e141a30e4",
+       "name": "Sol Ring",
+       "sanitized": "sol-ring",
+       "slug": "sol-ring",
+       "url": "/cards/sol-ring",
+       "lift": 1.0203438161253098,
+       "num_decks": 147011,
+       "potential_decks": 170468
+      },
+      {
+       "id": "c6b6117c-faab-4bbb-b851-07bd8061ef03",
+       "name": "Arcane Signet",
+       "sanitized": "arcane-signet",
+       "slug": "arcane-signet",
+       "url": "/cards/arcane-signet",
+       "lift": 1.0175836661168423,
+       "num_decks": 135159,
+       "potential_decks": 170468
+      },
+      {
+       "id": "e4ed0052-d6dd-4f69-8313-10863baefac9",
+       "name": "Everflowing Chalice",
+       "sanitized": "everflowing-chalice",
+       "slug": "everflowing-chalice",
+       "url": "/cards/everflowing-chalice",
+       "lift": 6.444292183833434,
+       "num_decks": 56420,
+       "potential_decks": 170468
+      }
+     ]
+    },
+    {
+     "header": "Lands",
+     "tag": "lands",
+     "cardviews": [
+      {
+       "id": "1ac6cb62-45da-4e9a-84c6-09e6eacf0664",
+       "name": "Command Tower",
+       "sanitized": "command-tower",
+       "slug": "command-tower",
+       "url": "/cards/command-tower",
+       "lift": 0.9977449355765953,
+       "num_decks": 143375,
+       "potential_decks": 170468
+      },
+      {
+       "id": "bc23343a-3a01-4975-8430-17bf15fa639d",
+       "name": "Mystic Monastery",
+       "sanitized": "mystic-monastery",
+       "slug": "mystic-monastery",
+       "url": "/cards/mystic-monastery",
+       "lift": 2.3547550629773535,
+       "num_decks": 26215,
+       "potential_decks": 40697
+      },
+      {
+       "id": "2b20fa73-c6de-49c1-b3d0-6ebd543a00d0",
+       "name": "Sulfur Falls",
+       "sanitized": "sulfur-falls",
+       "slug": "sulfur-falls",
+       "url": "/cards/sulfur-falls",
+       "lift": 1.5051479421954306,
+       "num_decks": 26865,
+       "potential_decks": 48631
+      }
+     ]
+    }
+   ],
+   "card": {
+    "num_decks": 170762,
+    "potential_decks": 4958954,
+    "salt": 0.22485207100591725,
+    "cmc": 2.0,
+    "color_identity": [
+     "U"
+    ],
+    "id": "f10db847-6598-49a5-8f10-67afd5187d32",
+    "image_uris": [
+     {
+      "normal": "https://card-images.edhrec.com/normal/front/f/1/f10db847-6598-49a5-8f10-67afd5187d32.jpg?1783906041",
+      "art_crop": "https://card-images.edhrec.com/art_crop/front/f/1/f10db847-6598-49a5-8f10-67afd5187d32.jpg?1783906041"
+     }
+    ],
+    "layout": "normal",
+    "name": "Thrummingbird",
+    "names": [
+     "Thrummingbird"
+    ],
+    "prices": {
+     "cardhoarder": {
+      "price": 0.01,
+      "slug": "57249"
+     },
+     "cardkingdom": {
+      "price": 0.35,
+      "slug": "mtg/mystery-booster-the-list/thrummingbird-commander-anthology-vol-ii"
+     },
+     "cardmarket": {
+      "price": 0.08,
+      "set": "Commander: Streets of New Capenna",
+      "slug": "Thrummingbird"
+     },
+     "cardsphere": {
+      "price": 0.24,
+      "set": "C16",
+      "slug": "10928"
+     },
+     "cardtrader": {
+      "price": 0.14,
+      "slug": "9982"
+     },
+     "face2face": {
+      "price": 0.35,
+      "slug": "Thrummingbird"
+     },
+     "manapool": {
+      "price": 0.15,
+      "slug": "plst/cm2-52/thrummingbird"
+     },
+     "mtgstocks": {
+      "price": 0.27,
+      "slug": "88838-thrummingbird-showcase"
+     },
+     "scg": {
+      "price": 0.35,
+      "slug": "thrummingbird-sgl-mtg-one-072-enn"
+     },
+     "tcgplayer": {
+      "price": 0.24,
+      "price_source": "marketPrice",
+      "slug": "124662/magic-commander-2016-thrummingbird",
+      "sub_type": "Normal",
+      "tier": 1
+     }
+    },
+    "primary_type": "Creature",
+    "rarity": "uncommon",
+    "sanitized": "thrummingbird",
+    "scryfall_uri": "https://scryfall.com/card/eoc/80/thrummingbird?utm_source=api",
+    "slug": "thrummingbird",
+    "type_line": "Creature — Phyrexian Bird Horror",
+    "type": "Creature — Phyrexian Bird Horror",
+    "url": null
+   }
+  },
+  "keywords": "Thrummingbird,Card",
+  "title": "Thrummingbird (Card)"
+ }
+}

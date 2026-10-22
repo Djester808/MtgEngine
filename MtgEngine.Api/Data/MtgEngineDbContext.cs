@@ -6,8 +6,11 @@ namespace MtgEngine.Api.Data;
 
 public sealed class MtgEngineDbContext : DbContext
 {
+    public DbSet<AccountSession> AccountSessions => Set<AccountSession>();
+    public DbSet<AccountCode> AccountCodes => Set<AccountCode>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserAvatar> UserAvatars => Set<UserAvatar>();
+    public DbSet<CollectionUndo> CollectionUndos => Set<CollectionUndo>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
     public DbSet<CardSynergyScore> CardSynergyScores => Set<CardSynergyScore>();
@@ -73,6 +76,23 @@ public sealed class MtgEngineDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<AccountSession>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.RefreshHash).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.FamilyId });
+            e.Property(x => x.RefreshHash).HasMaxLength(64);
+            e.Property(x => x.DeviceLabel).HasMaxLength(160);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<AccountCode>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.Purpose });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);
+        modelBuilder.Entity<CollectionUndo>().HasIndex(u => new { u.UserId, u.ExpiresAt });
         // User
         modelBuilder.Entity<User>(entity =>
         {
@@ -153,7 +173,11 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.ScryfallId).HasMaxLength(256);
             entity.Property(e => e.Quantity).IsRequired();
             entity.Property(e => e.QuantityFoil).IsRequired();
+            entity.Property(e => e.QuantityEtched).HasDefaultValue(0);
+            entity.Property(e => e.FinishMetadataJson).HasDefaultValue("{}");
             entity.Property(e => e.Notes).HasMaxLength(1000);
+            entity.Property(e => e.TagsJson).HasDefaultValue("[]");
+            entity.Property(e => e.Language).HasDefaultValue("en").HasMaxLength(8);
             entity.Property(e => e.Board).IsRequired().HasDefaultValue("main");
             entity.Property(e => e.AddedAt).IsRequired();
 
@@ -170,10 +194,10 @@ public sealed class MtgEngineDbContext : DbContext
             // so this index silently permitted any number of duplicate *unpinned* rows
             // for one card — and unpinned rows are the majority (decks rarely pin a
             // printing). The filtered companion below covers them.
-            entity.HasIndex(e => new { e.CollectionId, e.ScryfallId, e.Board }).IsUnique();
+            entity.HasIndex(e => new { e.CollectionId, e.ScryfallId, e.Board, e.Language }).IsUnique();
             // One unpinned row per (collection, card, board). Filtered so it applies only
             // where ScryfallId IS NULL, leaving the index above to police pinned rows.
-            entity.HasIndex(e => new { e.CollectionId, e.OracleId, e.Board })
+            entity.HasIndex(e => new { e.CollectionId, e.OracleId, e.Board, e.Language })
                   .IsUnique()
                   .HasFilter("\"ScryfallId\" IS NULL")
                   .HasDatabaseName("IX_CollectionCards_Unpinned_Unique");
