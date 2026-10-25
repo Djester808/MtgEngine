@@ -1,0 +1,27 @@
+[
+  {
+    "Path": "research/mtgo/artifacts/WotC.MtGO.Client.Model.Play.dll",
+    "Bytes": 13539840,
+    "Sha256": "7b16823fbaa9a965de3b9ee69ba727992a9b7b50d1187defadd9ac5a6c688081"
+  },
+  {
+    "Path": "research/mtgo/decompiled/PlayerViewModel.cs",
+    "Bytes": 52008,
+    "Sha256": "9802ce19477f6d0af1a23b6f75a52f98f0b86108426a1e74dc508fa3470c31e7"
+  },
+  {
+    "Path": "research/arena/decompiled/GreInterface.cs",
+    "Bytes": 93782,
+    "Sha256": "9caad39b83478dbcc34a9a8825b0ee09ecc049b743610ccfb10082e9104879ba"
+  },
+  {
+    "Path": "research/arena/decompiled/MtgZone.cs",
+    "Bytes": 730,
+    "Sha256": "267718da49b4a6c56ab5084b7787d36496a5339e429bbe9bbc3772d4cb55a072"
+  },
+  {
+    "Path": "C:/Program Files/Wizards of the Coast/MTGA/MTGA_Data/Managed/SharedClientCore.dll",
+    "Bytes": 1570304,
+    "Sha256": "aceb0cd5004b322ceb59b28b0ad44ec799b3d47a46666b17a50150da5449e392"
+  }
+]

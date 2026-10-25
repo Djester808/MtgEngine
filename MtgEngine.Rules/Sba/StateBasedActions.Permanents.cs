@@ -127,10 +127,8 @@ public sealed partial class StateBasedActions
     /// a resolved copy of a permanent spell arrives as the token CR 707.10a makes it and 704.5d
     /// is the arm that then reads it.</item>
     /// </list>
-    /// A copy of a card is marked the only way the state marks any copy, <c>StackEntry.IsCopy</c>
-    /// — what CR 707.12's copy-in-place sets on the copy it makes in the original's zone. If a
-    /// zone system marks it some other way, this is the reader that has to learn about it
-    /// (seam-requests/E5f.md).
+    /// CopyInPlace marks a card copy with ZoneSystem.CopyOfCard; that marker survives movement
+    /// until this check removes the copy. StackEntry.IsCopy separately marks copied stack objects.
     /// </summary>
     [RuleRef("704.5e")]
     private static bool Ceases(GameObject obj, Zone zone) =>

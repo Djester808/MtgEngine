@@ -41,6 +41,7 @@ public sealed partial class ZoneSystem : IZoneSystem
     {
         ArgumentNullException.ThrowIfNull(setup);
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentOutOfRangeException.ThrowIfNegative(setup.OpeningHandSize);
 
         var tape = new Tape(GameStarted.Empty);
         tape.Add(new GameStarted(setup.Players, setup.Seed, setup.StartingLife, setup.Format, setup.StartingPlayer));
@@ -172,6 +173,11 @@ public sealed partial class ZoneSystem : IZoneSystem
         // CR 400.3: an object headed for a library, graveyard or hand that is not its owner's goes
         // to its owner's instead; and the shared zones take no player in their key, CR 400.1.
         var destination = KeyFor(to.Zone, moving.Owner);
+
+        // The battlefield is shared (CR 400.1). Putting a current member there
+        // again is not entry, a control change, or a way to reset its status.
+        if (destination.Zone == Cards.Zone.Battlefield && moving.Zone == destination)
+            return null;
 
         // A graveyard is an ordered pile, not a freely reorderable library. A request
         // to put a member back in that same pile is not a zone change (CR 400.7, 404.2).
@@ -328,7 +334,7 @@ public sealed partial class ZoneSystem : IZoneSystem
     [RuleRef("400.7")]
     internal static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
         new(new ObjectId(state.NextObjectId), moving.Definition,
-            destination.Zone is Cards.Zone.Exile or Cards.Zone.Hand ? FaceRules.FrontFace(moving.Definition)
+            destination.Zone is Cards.Zone.Exile or Cards.Zone.Hand or Cards.Zone.Command ? FaceRules.FrontFace(moving.Definition)
                 : destination.Zone == Cards.Zone.Graveyard ? 0 : FaceFor(moving, faceIndex),
             moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
@@ -336,6 +342,9 @@ public sealed partial class ZoneSystem : IZoneSystem
             IsCommander = moving.IsCommander,
             DeckSelection = moving.DeckSelection,
             CardInstanceId = moving.CardInstanceId,
+            // A copy remains ephemeral after a zone change; ordinary designations expire.
+            // Keep the existing marker so CR 704.5e can remove it at the next check.
+            Designations = moving.Designations.Contains(CopyOfCard) ? [CopyOfCard] : [],
             Tapped = tapped,
             // CR 404.2: graveyards are face up. CR 712.8a: a double-faced card there
             // uses its front face; an entry instruction cannot preserve its back face.

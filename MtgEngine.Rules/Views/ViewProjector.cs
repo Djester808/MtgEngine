@@ -33,6 +33,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     public GameView Project(GameState state, PlayerId viewer)
     {
         ArgumentNullException.ThrowIfNull(state);
+        var reveals = new RevealArea(state, viewer);
         var view = new GameView(
             viewer,
             state.Turn.Number,
@@ -40,8 +41,8 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             state.Turn.ActivePlayer,
             state.Priority.Holder,
             [.. state.Players.Select(p => Seat(state, p, viewer))],
-            ViewsOf(state, InZone(state, CardZone.Battlefield)),
-            ViewsOf(state, InZone(state, CardZone.Stack)),
+            ViewsOf(state, new Zones.Battlefield(state).Members),
+            ViewsOf(state, Stack.StackZone.Capture(state).Order),
             ViewsOf(state, new Zones.Hand(state, viewer).Members),
             ViewsOf(state, new Zones.ExileZone(state).Members),
             Redact(state.Pending, viewer),
@@ -49,12 +50,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
         {
             ChoiceCards = ChoiceCards(state, viewer),
             ManualLibraryLookActive = Library.ManualLibraryInspection.IsActive(state, viewer),
-            InspectedLibraryCards = ViewsOf(state, state.LibraryInspections.Values
-                .Where(inspection => inspection.Viewer == viewer)
-                .SelectMany(inspection => inspection.Cards.Where(id => state.Objects.TryGetValue(id, out var card)
-                    && card.Zone == ZoneKey.Of(CardZone.Library, inspection.Owner))).Distinct().ToImmutableList()),
-            LastReveal = state.LastReveal,
-            LastLook = state.LastLooks.GetValueOrDefault(viewer),
+            InspectedLibraryCards = ViewsOf(state, reveals.ActiveCards),
+            LastReveal = reveals.PublicReveal,
+            LastLook = reveals.PrivateLook,
             Combat = state.Combat is { } combat
                 ? new CombatView(
                     [.. combat.Attackers.Select(a => new CombatAttackView(a.Key, a.Value.Player, a.Value.Permanent))],
@@ -91,7 +89,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             player.Counters,
             player.Mana,
             ViewsOf(state, graveyard.Order),
-            ViewsOf(state, InZone(state, CardZone.Command, player.Id)),
+            ViewsOf(state, new Zones.CommandZone(state).Find(obj => obj.Owner == player.Id)),
 
             // CR 702.16j: computed, not stored, so it is asked of the characteristics seam here
             // rather than read off the seat. It is public information (CR 400.2) — every viewer
@@ -114,10 +112,9 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     }
 
     /// <summary>
-    /// The objects in a zone, in the order the state keeps them: a library is top-first and the
-    /// stack bottom-first. A zone the rules give each player their own (CR 400.1) is read by
-    /// owner rather than by key, so a shared key holding several players' cards — the command
-    /// zone as the zone system keys it — reads the same way as a per-player one.
+    /// The objects in a zone, in the order the state keeps them. Optional owner filtering
+    /// selects a player's objects without making a shared zone into a player-owned zone.
+    /// Command-zone presentation uses CommandZone's shared membership directly.
     /// </summary>
     [RuleRef("400.1")]
     private static ImmutableList<ObjectId> InZone(GameState state, CardZone zone, PlayerId? owner = null)

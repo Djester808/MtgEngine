@@ -14,17 +14,19 @@ public static class StackZone
 {
     public static ZoneKey Key { get; } = ZoneKey.Shared(CardZone.Stack);
 
+    public static StackZoneSnapshot Capture(GameState state) => new(state);
+
     public static bool IsEmpty(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return state.In(Key).Count == 0;
+        return Capture(state).Count == 0;
     }
 
     /// <summary>The object that would resolve next, CR 405.2: the last of the bottom-first list.</summary>
     public static ObjectId? Top(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var stack = state.In(Key);
+        var stack = Capture(state).Order;
         return stack.Count > 0 ? stack[^1] : null;
     }
 

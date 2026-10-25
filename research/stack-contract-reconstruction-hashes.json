@@ -1,0 +1,32 @@
+[
+  {
+    "file": "research/mtgo/decompiled/GameCardZone.cs",
+    "sha256": "f8d9812b43d6be809d8e2278bf39abac04404fc5cb9f5faba7925eefbb5562c2",
+    "bytes": 2615
+  },
+  {
+    "file": "research/mtgo/decompiled/GameCard.cs",
+    "sha256": "a38135cbc0fb0dcfe1e3388a411479d7ad3776560324793b2ee68632b2fd9641",
+    "bytes": 129241
+  },
+  {
+    "file": "research/arena/decompiled/MtgZone.cs",
+    "sha256": "267718da49b4a6c56ab5084b7787d36496a5339e429bbe9bbc3772d4cb55a072",
+    "bytes": 730
+  },
+  {
+    "file": "research/arena/decompiled/GreInterface.cs",
+    "sha256": "9caad39b83478dbcc34a9a8825b0ee09ecc049b743610ccfb10082e9104879ba",
+    "bytes": 93782
+  },
+  {
+    "file": "research/mtgo/artifacts/WotC.MtGO.Client.Model.Play.dll",
+    "sha256": "7b16823fbaa9a965de3b9ee69ba727992a9b7b50d1187defadd9ac5a6c688081",
+    "bytes": 13539840
+  },
+  {
+    "file": "C:/Program Files/Wizards of the Coast/MTGA/MTGA_Data/Managed/SharedClientCore.dll",
+    "sha256": "aceb0cd5004b322ceb59b28b0ad44ec799b3d47a46666b17a50150da5449e392",
+    "bytes": 1570304
+  }
+]

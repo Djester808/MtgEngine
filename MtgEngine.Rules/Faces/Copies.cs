@@ -43,6 +43,8 @@ public static class CopyRules
     /// <summary>
     /// An object becomes a copy of something, CR 707.2: it takes the copiable values and keeps
     /// its own status, counters and damage, because those were never part of what was copied.
+    /// Its object identity, physical card identity, deck selection, ownership and token status
+    /// also stay with the target. This does not create an ephemeral copy of a card.
     /// </summary>
     [RuleRef("707.2")]
     public static GameObject Become(GameObject target, CopiableValues values)
@@ -62,6 +64,9 @@ public static class CopyRules
     /// (CR 707.2 and 111.4) or a copy of a spell put on the stack (CR 707.10). It has the
     /// copiable values and nothing else: no counters, no damage, untapped, phased in, no
     /// designations, and it is summoning sick like anything else that just arrived (CR 302.6).
+    /// No physical CardInstanceId or DeckSelection is allocated or inherited. The caller adds
+    /// StackEntry.IsCopy for a copied spell/ability or the copy-of-card designation as appropriate;
+    /// copying characteristics onto a real card instead uses Become.
     /// </summary>
     [RuleRef("707.2")]
     public static GameObject NewCopy(

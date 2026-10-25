@@ -1,5 +1,30 @@
 # Test scope
 
+## Combined foundation checkpoint (2026-10-25)
+
+`./tools/verify-test-scope.ps1 -Scope Foundations` passes 197 Rules and 80 API
+acceptance tests. It combines Deck (including card/library), Graveyard, Hand,
+Exile, Player, CommandZone, Reveal, Stack, Battlefield, Permanent, TokenCopy,
+GameTable, TurnPriority and FoundationIntegration. Each named scope can also run
+individually. `EngineRegression` excludes all these acceptance scopes; `All`
+runs the complete Rules and API suites. The default remains Deck.
+
+The authoritative Release solution run passes 1,776 Rules, 835 API, 326 Cards
+and 322 Pipeline tests. Release build has zero warnings/errors, and formatting
+verification passes. Client verification separately passes 1,896 tests and its
+production build, with the existing card-modal stylesheet budget warning.
+
+See [foundation integration](../research/FOUNDATION_INTEGRATION.md) for the
+contract map, cross-zone checks and limitations. These are basic object and zone
+contracts, not certification of complete Magic rules. The checkpoints below
+are historical; the counts above supersede them.
+
+Stack acceptance is separate: `dotnet test tests/MtgEngine.Rules.Tests --filter "Scope=Stack"`.
+The nine `StackZoneContractTests` cases cover shared ordered membership, snapshots,
+top/lookup, physical card versus stack-only identity, source lifetime, departure,
+replay and four-seat face-down privacy. They do not certify casting, priority or
+ability resolution. See `research/STACK_CONTRACT_EVIDENCE.md` for boundaries.
+
 Exile acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Exile`.
 The `Scope=Exile` tests cover shared membership, individual ownership, lookup,
 public inspection, default face-down secrecy, private disclosure, front-face

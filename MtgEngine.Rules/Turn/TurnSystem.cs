@@ -85,8 +85,13 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        if (state.Outcome is not null)
+            throw new RefusedException("The game is over.", "104.1");
+        if (state.Pending is not null)
+            throw new RefusedException("A pending choice must be answered first.", "101.4");
+
         // CR 117.3: priority is held by one player at a time, and only they may pass it.
-        if (state.Priority.Holder != player)
+        if (!new PrioritySnapshot(state).CanPass(player))
             throw new RefusedException($"{player} does not have priority.", "117.3");
 
         var log = new Log(state);

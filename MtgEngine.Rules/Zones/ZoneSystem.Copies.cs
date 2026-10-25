@@ -20,7 +20,7 @@ public sealed partial class ZoneSystem
     /// The designation that marks a copy of a card, so CR 704.5e can find one that is neither on
     /// the stack nor on the battlefield and make it cease to exist. A copy of a card is not a token
     /// (CR 111.1, and CR 704.5d would remove it from every zone but the battlefield), and
-    /// <c>StackEntry.IsCopy</c> says only that a copy of a <em>spell</em> is on the stack, so the
+    /// <c>StackEntry.IsCopy</c> marks a copied spell or ability on the stack, so the
     /// mark a copy of a card carries is this designation and nothing else.
     /// </summary>
     [RuleRef("704.5e")]

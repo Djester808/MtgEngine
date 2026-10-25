@@ -1,0 +1,22 @@
+[
+  {
+    "Path": "C:\\Users\\John\\Documents\\Projects\\MtgEngine\\research\\mtgo\\decompiled\\GameCard.cs",
+    "Hash": "A38135CBC0FB0DCFE1E3388A411479D7AD3776560324793B2EE68632B2FD9641"
+  },
+  {
+    "Path": "C:\\Users\\John\\Documents\\Projects\\MtgEngine\\research\\arena\\decompiled\\GreInterface.cs",
+    "Hash": "9CAAD39B83478DBCC34A9A8825B0EE09ECC049B743610CCFB10082E9104879BA"
+  },
+  {
+    "Path": "C:\\Users\\John\\Documents\\Projects\\MtgEngine\\research\\arena\\decompiled\\MtgCardInstance.cs",
+    "Hash": "FAC735818CDDD576A87E56A1A836E7AC7ACE26F901E04DB0E717750F0C1CBE77"
+  },
+  {
+    "Path": "C:\\Users\\John\\Documents\\Projects\\MtgEngine\\research\\mtgo\\artifacts\\WotC.MtGO.Client.Model.Play.dll",
+    "Hash": "7B16823FBAA9A965DE3B9EE69BA727992A9B7B50D1187DEFADD9AC5A6C688081"
+  },
+  {
+    "Path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\SharedClientCore.dll",
+    "Hash": "ACEB0CD5004B322CEB59B28B0AD44EC799B3D47A46666B17A50150DA5449E392"
+  }
+]

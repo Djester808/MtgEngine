@@ -20,9 +20,20 @@ public static class GameReducer
 {
     public static GameState Replay(IEnumerable<GameEvent> log)
     {
+        ArgumentNullException.ThrowIfNull(log);
         var state = GameStarted.Empty;
+        var started = false;
         foreach (var e in log)
+        {
+            if (!started && e is not GameStarted)
+                throw new InvalidOperationException("A game log must begin with GameStarted.");
+            if (started && e is GameStarted)
+                throw new InvalidOperationException("A game log cannot contain another GameStarted.");
             state = e.Apply(state);
+            started = true;
+        }
+        if (!started)
+            throw new InvalidOperationException("A game log must begin with GameStarted.");
         return state;
     }
 
@@ -53,6 +64,7 @@ public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed,
     public override GameState Apply(GameState state)
     {
         ArgumentNullException.ThrowIfNull(Players);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Format);
         ArgumentOutOfRangeException.ThrowIfNegative(StartingPlayer);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(StartingPlayer, Players.Count);
         return Empty with
