@@ -168,6 +168,7 @@ public sealed class ForumService : IForumService
             DeckCoverUri = deck?.CoverUri,
             DeckFormat = deck?.Format,
             CommanderOracleId = deck?.CommanderOracleId,
+            SecondaryCommanderOracleId = deck?.SecondaryCommanderOracleId,
             CommanderImageUri = commanderImageUri,
             CommanderName = commanderName,
             Description = post.Description,

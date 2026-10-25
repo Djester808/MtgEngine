@@ -101,8 +101,8 @@ function fixtures() {
         mainShortfall: 98,
         skippedByReason: {},
       };
-    else if (this.__url.match(/\/api\/decks\/audit-fixture(?:\?|$)/))
-      result = deck;
+    else if (this.__url.match(/\/api\/decks\/audit-fixture(?:-2)?(?:\?|$)/))
+      result = { ...deck, id: this.__url.includes("audit-fixture-2") ? "audit-fixture-2" : deck.id };
     else if (this.__url.includes("/api/cards/audit-forest")) result = card;
     else if (this.__url.endsWith("/api/decks")) result = [deck];
     const value =
@@ -142,7 +142,7 @@ function fixtures() {
         mainShortfall: 98,
         skippedByReason: {},
       };
-    else if (url.match(/\/api\/decks\/audit-fixture(?:\?|$)/)) result = deck;
+    else if (url.match(/\/api\/decks\/audit-fixture(?:-2)?(?:\?|$)/)) result = { ...deck, id: url.includes("audit-fixture-2") ? "audit-fixture-2" : deck.id };
     else if (url.includes("/api/cards/audit-forest")) result = card;
     else if (url.endsWith("/api/decks")) result = [deck];
     return new Response(JSON.stringify(result), {
@@ -246,7 +246,11 @@ async function click(d, selector) {
       const geometry = await d.executeScript(
         "return {width:innerWidth,documentWidth:document.documentElement.scrollWidth}",
       );
-      results.push({ device: id, build, refine, geometry });
+      await d.executeScript("const c=ng.getComponent(document.querySelector('app-deck-detail'));window.__previousDetail=c;c.zone.run(()=>c.router.navigate(['/deck','audit-fixture-2']));");
+      await d.wait(async()=>await d.executeScript("const e=document.querySelector('app-deck-detail');const c=e&&ng.getComponent(e);return !!c&&c!==window.__previousDetail&&c.deckId==='audit-fixture-2'&&c.currentDeck?.id==='audit-fixture-2';"),15000);
+      const routeReset = await d.executeScript("const c=ng.getComponent(document.querySelector('app-deck-detail'));return !c.showRefinePanel && !c.selectedCard;");
+      assert.equal(routeReset,true);
+      results.push({ device: id, build, refine, geometry, routeReset });
     } catch (e) {
       console.error(
         JSON.stringify(

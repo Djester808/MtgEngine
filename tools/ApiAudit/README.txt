@@ -17,3 +17,14 @@ the repository root. Those local evidence directories are ignored by Git.
 
 Game browser verification uses tools/TableQa; see its README.md. Collection
 browser verification lives in the sibling e2e/tests/collection-*.test.js suites.
+
+node tools/ApiAudit/verify-client-forum.cjs
+  Creates and cleans a disposable account with 52 posts and 51 comments. Verifies
+  paging, reused routes, and copying partner commanders/etched printings through
+  the real browser and API. Captures audit-live-client-forum/ (Git ignored).
+  The AI verifier also checks deck detail route replacement and state reset.
+
+node tools/TableQa/verify-client-lifecycle.js
+  With the isolated TableQa host at localhost:4340, checks socket retirement on
+  board departure, one fresh socket on return, and life-counter undo/persistence
+  at desktop and mobile widths. Does not use the application database.

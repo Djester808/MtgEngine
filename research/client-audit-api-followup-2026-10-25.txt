@@ -1,0 +1,11 @@
+Client-audit API follow-up — 2026-10-25
+The sibling client audit found forum copying lost secondary commanders because
+ForumPostDetailDto did not expose SecondaryCommanderOracleId. Added the field,
+projected the stored value and extended ForumAuditTests. No schema change or
+migration required. All 883 API tests and scoped formatting verification passed.
+
+Retained real-browser forum pagination/copy and game/life lifecycle verifiers;
+extended the AI fixture verifier to assert detail route state reset. See
+../mtg-client/research/client-code-audit-2026-10-25.txt for the complete audit.
+Disposable forum accounts were deleted after each run. The game verifier uses
+an isolated TableQa host and never the application database.

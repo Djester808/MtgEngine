@@ -10,7 +10,11 @@ namespace MtgEngine.Api.Tests;
 
 public sealed class ForumAuditTests
 {
-    private sealed class Lookup : StubScryfallService;
+    private sealed class Lookup : StubScryfallService
+    {
+        public override Task<CardDefinition?> GetByOracleIdAsync(string oracleId) =>
+            Task.FromResult<CardDefinition?>(new CardDefinition { OracleId = oracleId, Name = oracleId });
+    }
 
     [Fact]
     public async Task Forum_pages_are_bounded_and_republish_preserves_comment_count()
@@ -21,6 +25,8 @@ public sealed class ForumAuditTests
         await db.Database.EnsureCreatedAsync();
         var owner = Guid.NewGuid().ToString();
         var decks = Enumerable.Range(0, 4).Select(i => new Collection(owner, $"Deck {i}", isDeck: true)).ToArray();
+        decks[0].CommanderOracleId = "primary";
+        decks[0].SecondaryCommanderOracleId = "partner";
         db.Collections.AddRange(decks);
         var service = new ForumService(db, new Lookup());
         await db.SaveChangesAsync();
@@ -38,6 +44,8 @@ public sealed class ForumAuditTests
         Assert.Empty(page1.Select(p => p.Id).Intersect(page2.Select(p => p.Id)));
         var detail = await service.GetPostAsync(posts[0], 1, 2);
         Assert.NotNull(detail);
+        Assert.Equal("primary", detail.CommanderOracleId);
+        Assert.Equal("partner", detail.SecondaryCommanderOracleId);
         Assert.Equal(["Comment 1", "Comment 2"], detail.Comments.Select(c => c.Content));
     }
 

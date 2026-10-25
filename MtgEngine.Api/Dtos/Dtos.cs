@@ -649,6 +649,7 @@ public sealed record ForumPostDetailDto
     public string? DeckCoverUri { get; init; }
     public string? DeckFormat { get; init; }
     public string? CommanderOracleId { get; init; }
+    public string? SecondaryCommanderOracleId { get; init; }
     public string? CommanderImageUri { get; init; }
     public string? CommanderName { get; init; }
     public string? Description { get; init; }
