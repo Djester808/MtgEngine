@@ -163,11 +163,14 @@ public sealed class FoundationModelTests
     }
 
     [Fact]
-    public void Foundation_assembly_has_no_execution_subsystems()
+    public void Foundation_allows_only_the_authorized_turn_coordinator_execution_scope()
     {
         var forbidden = new[] { "Engine", "Casting", "Combat", "Interpreter", "Keywords", "Replacement", "Sba", "Triggers", "Events", "Legal" };
         Assert.DoesNotContain(typeof(GameState).Assembly.GetTypes(), t =>
-            forbidden.Any(name => t.Namespace == "MtgEngine.Rules." + name));
+            forbidden.Any(name => (t.Namespace == "MtgEngine.Rules." + name
+                || (t.Namespace?.StartsWith("MtgEngine.Rules." + name + ".", StringComparison.Ordinal) ?? false))
+                && !(name == "Engine" && (t == typeof(Engine.TurnExecution)
+                    || t == typeof(Engine.ExecutionBoundary) || t.DeclaringType == typeof(Engine.TurnExecution)))));
         Assert.DoesNotContain(typeof(CardDefinition).Assembly.GetTypes(), t => t.Name is "Effect" or "KeywordSemantics" or "Ability");
     }
 }

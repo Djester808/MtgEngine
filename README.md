@@ -11,7 +11,7 @@ changing anything here.
 ## Game foundation status
 
 The legacy rules executor was removed on 2026-10-25. `MtgEngine.Rules` now contains
-game models, read-only snapshots, and bounded state/zone operations. `MtgEngine.Cards` contains printed
+game models, read-only snapshots, bounded state/zone operations, and an isolated turn/priority/stack coordinator. `MtgEngine.Cards` contains printed
 card data and catalog mapping, without executable abilities or keywords. The old
 card pipeline, compiled corpus and game session/hub endpoints are removed.
 
@@ -42,7 +42,7 @@ MtgEngine.sln
 │   └── Migrations/
 │
 ├── MtgEngine.Cards/           # Printed card/face data and catalog mapping only
-├── MtgEngine.Rules/           # State/zone primitives, identity, turn models and viewer snapshots
+├── MtgEngine.Rules/           # State/zones, turn/priority/stack coordination and viewer snapshots
 └── tests/                    # API, printed-card and foundation-model tests
 ```
 

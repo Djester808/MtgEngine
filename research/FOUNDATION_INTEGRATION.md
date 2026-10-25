@@ -108,3 +108,76 @@ deck legality or effect interpreter are implemented. No user decision blocks thi
 Milestone verification: Release solution build passed with zero warnings/errors;
 52 foundation/state-zone tests (26 added), 5 printed-card mapping tests and 736 API
 tests passed, 793 total with no skips. Full solution format verification passed.
+
+## Turn, priority and stack milestone — 2026-10-25
+
+`MtgEngine.Rules.Engine.TurnExecution` is a new immutable coordinator over the
+state/zone primitives. It is not connected to API gameplay. Retain the continuation
+alongside its `State`: persisting GameState alone loses the execution boundary.
+There is no public resume/deserialization API yet. Operations assume a serialized,
+authoritative server branch; retaining an old continuation does not authorize replay.
+
+Public integration surface:
+
+- `Start(state, startingPlayer)` begins ordinary individual turns after setup/opening
+  hands, for two to four seats. `State`, `Phase`, `Boundary`, `PriorityRecipient`
+  and `Resolving` describe the current position without granting a choice actor priority.
+- `RequirePriority(actor)` checks timing ownership only. `Act(actor, provider)` accepts
+  an already validated synchronous action, resets consecutive passes and checkpoints
+  the same actor (CR 117.3c). The next action milestone owns legality, costs and targets.
+  Providers receive no priority and must reject invalid/no-op actions themselves.
+- `Pass(actor)` visits seats in order. Every prospective recipient passes through
+  `Checkpoint`; a complete pass round resolves only the top stack object or ends the
+  step (CR 117.3d–117.5). Stack insertion during a checkpoint resets the pass sequence.
+- `Resolve(provider)` exposes exactly the selected top ID with no priority. The
+  provider must execute its effects and disposition, leaving all other stack IDs in
+  order. The active player then gets a fresh checkpoint, even if the stack is empty.
+  No generic spell/effect resolver is supplied; stack-changing resolution such as
+  countering another entry is deliberately rejected by this initial contract.
+- `CompleteTurnAction(provider)` supplies mandatory turn-based work before priority.
+  Untap goes straight to upkeep without a priority checkpoint (CR 502.4). Draw and
+  declare attackers stop before priority. An empty attack declaration must be certified
+  in `CombatState`; only then are blockers/damage skipped (CR 508.8), with priority
+  still offered in declare attackers and end of combat. Nonempty combat is unsupported.
+- `CompleteBasicTurnAction()` explicitly opts into ordinary untap, a one-card draw,
+  or cleanup without discarding. It uses stored control to untap/clear summoning
+  sickness, moves the library top through ZoneTransitions, and clears damage and
+  deathtouch markers on all permanents including phased-out ones. Empty draws mark
+  `DrewFromEmptyLibrary` for the checkpoint provider; no loss is adjudicated here.
+  This helper assumes no replacement/continuous effects, untap restrictions, phasing
+  or day/night semantics. It does not inspect Oracle text. Phased-out untap states,
+  required cleanup discards and combat declarations explicitly require another provider.
+- `CompleteCheckpoint(provider, cleanupActivity)` requires the caller to perform the
+  CR 117.5 SBA/trigger fixed point. There is no built-in implementation or implicit
+  no-op default. An identity function is appropriate only for a deliberately restricted
+  fixture/rules subset. Providers must report cleanup SBA/trigger activity even when
+  it leaves an empty stack. Quiet cleanup starts the next turn; activity grants active
+  player priority, and all passes on an empty stack repeat cleanup (CR 514.3a).
+
+Ordinary phase/step order follows CR 500.1. Only the starting player's first draw
+step is skipped in two-player games; three/four-player games retain it (CR 103.8).
+Unspent mana and per-step draw counters clear at step boundaries (CR 500.5).
+Per-turn land/draw counters reset at the next turn. Empty combat state clears at the
+end of combat. Cleanup providers must discard first, then simultaneously remove
+damage and expire turn-duration effects; the basic helper only supports the stored
+damage portion in a subset with no such effects or required discards.
+
+Providers are trusted code, not player requests. Their results are structurally
+validated and cannot change seats, turn scheduling or priority bookkeeping. Exceptions
+leave the old immutable continuation usable. Active player and next priority recipient
+are separate; a pending chooser is never treated as either. Pending choices and
+asynchronous action/resolution suspension are explicitly unsupported in this milestone.
+Extra turns/steps/phases, arbitrary skips, shared-team turns, player departure,
+nonempty combat, mana-ability timing, layers, replacements, triggers, SBAs and keyword
+execution require later scoped work. Outcome snapshots stop execution, but this
+coordinator does not determine winners. Printed text cannot establish legality.
+
+The architecture guard allows only `TurnExecution`, `ExecutionBoundary` and the
+coordinator's compiler-generated nested types in the formerly forbidden Engine
+namespace. Other retired execution namespaces (including nested namespaces), executable
+card definitions and API-to-Rules coupling remain protected.
+
+Milestone verification: Release solution build passed with zero warnings/errors.
+Full solution tests passed: 78 Rules tests (26 new), 5 Cards tests and 736 API tests,
+819 total with no skips. Full solution format verification and `git diff --check`
+passed. No client or gameplay endpoint changes, commits or pushes were made.
