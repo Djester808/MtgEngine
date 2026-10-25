@@ -6,7 +6,7 @@ namespace MtgEngine.Api.Services;
 
 public interface IManaFineTuneService
 {
-    Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest request);
+    Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest request, CancellationToken ct = default);
 }
 
 public sealed class ManaFineTuneService : IManaFineTuneService
@@ -36,8 +36,27 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         _logger = logger;
     }
 
-    public Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
+    public async Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
+        var formats = new[] { "", "commander", "standard", "modern", "legacy", "vintage", "pauper", "pioneer", "historic", "timeless", "brawl", "casual" };
+        var format = req.Format.Trim().ToLowerInvariant();
+        if (!formats.Contains(format) || req.ActiveColors.Any(c => c is not ("W" or "U" or "B" or "R" or "G" or "C")))
+            throw new InvalidRequestException("Choose a valid format and colors.");
+        if (req.DeckCardNames.Length > 500 || req.DeckCardNames.Any(name => string.IsNullOrWhiteSpace(name) || name.Length > 200))
+            throw new InvalidRequestException("Provide up to 500 card names, each between 1 and 200 characters.");
+        var canonical = new List<string>();
+        var oracleIds = new List<string>();
+        foreach (var name in req.DeckCardNames)
+        {
+            ct.ThrowIfCancellationRequested();
+            var card = await _cards.GetByNameAsync(name, ct);
+            if (card is null)
+                continue;
+            canonical.Add(card.Name);
+            oracleIds.Add(card.OracleId);
+        }
+        req = req with { Format = format, DeckCardNames = [.. canonical] };
         // AvgCmc is rounded to the same 1dp the prompt renders, so trivially different
         // floats do not produce different cache keys for an identical prompt.
         var keyParts = new[]
@@ -48,13 +67,13 @@ public sealed class ManaFineTuneService : IManaFineTuneService
                 req.RecommendedLands.ToString(),
                 req.AvgCmc.ToString("F1"),
             }
-            .Concat(req.DeckCardNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+            .Concat(oracleIds.OrderBy(n => n, StringComparer.Ordinal));
 
-        return _cache.GetOrCreateAsync(
-            "mana-tune", CacheVersion, keyParts, () => BuildFineTuneAsync(req));
+        return await _cache.GetOrCreateAsync(
+            "mana-tune", CacheVersion, keyParts, () => BuildFineTuneAsync(req, ct));
     }
 
-    private async Task<ManaFineTuneDto> BuildFineTuneAsync(ManaFineTuneRequest req)
+    private async Task<ManaFineTuneDto> BuildFineTuneAsync(ManaFineTuneRequest req, CancellationToken ct)
     {
         var colorNames = req.ActiveColors.Length > 0
             ? string.Join(", ", req.ActiveColors.Select(c => c switch
@@ -124,7 +143,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
                 },
             ],
             Operation = "mana-tune",
-        });
+        }, ct);
 
         var raw = AnthropicResponse.DeserializeJson<RawFineTune>(respJson) ?? new RawFineTune();
 
@@ -133,7 +152,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         return new ManaFineTuneDto
         {
             Advice = raw.Advice ?? [],
-            LandSuggestions = await GroundSuggestionsAsync(raw.LandSuggestions ?? [], req),
+            LandSuggestions = await GroundSuggestionsAsync(raw.LandSuggestions ?? [], req, ct),
         };
     }
 
@@ -144,7 +163,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
     /// </summary>
     /// <remarks>Internal for tests: the model call above it is faked away there.</remarks>
     internal async Task<ManaLandSuggestion[]> GroundSuggestionsAsync(
-        RawLandSuggestion[] proposed, ManaFineTuneRequest req)
+        RawLandSuggestion[] proposed, ManaFineTuneRequest req, CancellationToken ct = default)
     {
         var inDeck = new HashSet<string>(
             req.DeckCardNames.Select(n => n.Trim()), StringComparer.OrdinalIgnoreCase);
@@ -157,7 +176,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
             if (name.Length == 0 || inDeck.Contains(name))
                 continue;
 
-            var def = await _cards.GetByNameAsync(name);
+            var def = await _cards.GetByNameAsync(name, ct);
             if (def is null)
             {
                 _logger.LogInformation("Mana-tune suggestion dropped, unknown card: {Name}", name);
@@ -177,7 +196,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
             if (!seenOracleIds.Add(def.OracleId))
                 continue;
 
-            var printings = await _cards.GetPrintingsAsync(def.OracleId);
+            var printings = await _cards.GetPrintingsAsync(def.OracleId, ct);
             grounded.Add(new ManaLandSuggestion
             {
                 Name = def.Name,

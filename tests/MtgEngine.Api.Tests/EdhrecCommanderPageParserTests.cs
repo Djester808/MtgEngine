@@ -147,7 +147,7 @@ public sealed class EdhrecCommanderPageParserTests
         var page = EdhrecCommanderPageParser.Parse(document, "atraxa-praetors-voice");
         var stored = string.Join('\n',
             page.Slug, page.DeckCount, page.Rank,
-            EdhrecPages.Write(page.Lists), EdhrecPages.Write(page.Similar), EdhrecPages.Write(page.Tags),
+            JsonSerializer.Serialize(page.Lists, StoredJson), JsonSerializer.Serialize(page.Similar, StoredJson), JsonSerializer.Serialize(page.Tags, StoredJson),
             page.Counts, page.Panels);
         var digest = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(stored)));
 
@@ -155,6 +155,11 @@ public sealed class EdhrecCommanderPageParserTests
         Assert.True(digest == Golden,
             $"The stored commander shape changed. Bump the parser version, then paste this digest: {digest}");
     }
+
+    private static readonly JsonSerializerOptions StoredJson = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private static string Huge(int sections, int perSection)
     {

@@ -739,6 +739,23 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("PersistedGames");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGameEvent", b =>
+                {
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("GameId", "Sequence");
+
+                    b.ToTable("PersistedGameEvents", (string)null);
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGameLobby", b =>
                 {
                     b.Property<Guid>("Id")
@@ -789,7 +806,8 @@ namespace MtgEngine.Api.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
 
                     b.Property<DateTime?>("EmailVerifiedAt")
                         .HasColumnType("TEXT");
@@ -828,7 +846,8 @@ namespace MtgEngine.Api.Migrations
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
 
                     b.Property<DateTime?>("UsernameChangedAt")
                         .HasColumnType("TEXT");
@@ -935,6 +954,15 @@ namespace MtgEngine.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Match");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGameEvent", b =>
+                {
+                    b.HasOne("MtgEngine.Domain.Models.PersistedGame", null)
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.UserAvatar", b =>

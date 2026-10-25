@@ -38,6 +38,31 @@ public sealed class ScryfallCacheTtlTests : IDisposable
             new(handler, disposeHandler: false) { BaseAddress = new Uri("https://api.scryfall.test/") };
     }
 
+    private sealed class WaitingHandler : HttpMessageHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Started.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return new(HttpStatusCode.OK);
+        }
+    }
+
+    [Fact]
+    public async Task LookupCancellationReachesHttpAndIsNotCachedAsMissing()
+    {
+        using var handler = new WaitingHandler();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["ScryfallCache:Directory"] = _dir }).Build();
+        using var service = new ScryfallService(new StubFactory(handler), NullLogger<ScryfallService>.Instance, config);
+        using var cancel = new CancellationTokenSource();
+        var pending = service.GetByNameAsync("Pending", cancel.Token);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.Empty(Directory.GetFiles(Path.Combine(_dir, "by-name")));
+    }
+
     private ScryfallService Service(StubHandler handler)
     {
         var config = new ConfigurationBuilder()
@@ -57,6 +82,37 @@ public sealed class ScryfallCacheTtlTests : IDisposable
     };
 
     private string CachePath => Path.Combine(_dir, "by-oracle", "oracle-1.json");
+
+    [Fact]
+    public async Task StaleRulingsDuringOutageAreRetriedInSameProcess()
+    {
+        var folder = Path.Combine(_dir, "rulings");
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "printing.json");
+        await File.WriteAllTextAsync(path, """{"data":[{"comment":"old"}]}""");
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-2));
+        var handler = new StubHandler { Respond = () => new(HttpStatusCode.ServiceUnavailable) };
+        using var service = Service(handler);
+        Assert.Equal("old", Assert.Single(await service.GetRulingsByScryfallIdAsync("printing")).Comment);
+        handler.Respond = () => new(HttpStatusCode.OK) { Content = new StringContent("""{"data":[{"comment":"new"}]}""") };
+        Assert.Equal("new", Assert.Single(await service.GetRulingsByScryfallIdAsync("printing")).Comment);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task UpstreamTimeoutStillServesStaleRulingsAndRetries()
+    {
+        var folder = Path.Combine(_dir, "rulings");
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "printing.json");
+        await File.WriteAllTextAsync(path, """{"data":[{"comment":"old"}]}""");
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-2));
+        var handler = new StubHandler { Respond = () => throw new TaskCanceledException("HTTP timeout") };
+        using var service = Service(handler);
+        Assert.Equal("old", Assert.Single(await service.GetRulingsByScryfallIdAsync("printing")).Comment);
+        Assert.Equal("old", Assert.Single(await service.GetRulingsByScryfallIdAsync("printing")).Comment);
+        Assert.Equal(2, handler.Calls);
+    }
 
     private async Task SeedDiskAsync(string usd)
     {

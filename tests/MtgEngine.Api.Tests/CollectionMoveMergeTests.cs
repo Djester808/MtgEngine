@@ -12,7 +12,7 @@ namespace MtgEngine.Api.Tests;
 /// pin the folding key, the quantity arithmetic, and the rule that acquisition data
 /// (added-at and price-at-add) travels with the physical copies rather than being reset.
 /// </summary>
-public sealed class CollectionMoveMergeTests : IDisposable
+public sealed partial class CollectionMoveMergeTests : IDisposable
 {
     private readonly SqliteConnection _conn;
     private readonly MtgEngineDbContext _db;

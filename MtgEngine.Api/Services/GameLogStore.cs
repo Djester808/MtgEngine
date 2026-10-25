@@ -15,12 +15,10 @@ public interface IGameLogStore
 {
     Task<PersistedGame?> LoadAsync(Guid id, CancellationToken ct = default);
 
-    Task CreateAsync(PersistedGame game, CancellationToken ct = default);
-
     Task<bool> TryCreateAsync(PersistedGame game, CancellationToken ct = default);
 
-    /// <summary>Replaces the stored log with the whole log as it stands, per applied command.</summary>
-    Task SaveLogAsync(Guid id, string logJson, int eventCount, bool finished, CancellationToken ct = default);
+    /// <summary>Appends one batch under an event-count concurrency check.</summary>
+    Task AppendAsync(Guid id, string eventsJson, int expectedCount, int addedCount, bool finished, CancellationToken ct = default);
 }
 
 /// <summary>The database. One row per game, the log appended to per command.</summary>
@@ -41,30 +39,39 @@ public sealed class GameLogStore(IServiceScopeFactory scopes) : IGameLogStore
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
-        return await db.PersistedGames.AsNoTracking().FirstOrDefaultAsync(g => g.Id == id, ct).ConfigureAwait(false);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var game = await db.PersistedGames.AsNoTracking().FirstOrDefaultAsync(g => g.Id == id, ct).ConfigureAwait(false);
+        if (game is null)
+            return null;
+        var batches = await db.Set<PersistedGameEvent>().AsNoTracking().Where(batch => batch.GameId == id)
+            .OrderBy(batch => batch.Sequence).Select(batch => batch.Json).ToListAsync(ct).ConfigureAwait(false);
+        if (batches.Count > 0)
+        {
+            var initial = game.LogJson.Trim();
+            var parts = new[] { initial[1..^1] }.Concat(batches.Select(batch => batch.Trim()[1..^1]))
+                .Where(part => !string.IsNullOrWhiteSpace(part));
+            game.LogJson = "[" + string.Join(",", parts) + "]";
+        }
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
+        return game;
     }
 
-    public async Task CreateAsync(PersistedGame game, CancellationToken ct = default)
+    public async Task AppendAsync(Guid id, string eventsJson, int expectedCount, int addedCount, bool finished, CancellationToken ct = default)
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
-        db.PersistedGames.Add(game);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
-    }
-
-    public async Task SaveLogAsync(Guid id, string logJson, int eventCount, bool finished, CancellationToken ct = default)
-    {
-        using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
-        await db.PersistedGames
-            .Where(g => g.Id == id)
-            .ExecuteUpdateAsync(
-                s => s
-                    .SetProperty(g => g.LogJson, logJson)
-                    .SetProperty(g => g.EventCount, eventCount)
-                    .SetProperty(g => g.Finished, finished)
-                    .SetProperty(g => g.UpdatedAt, DateTime.UtcNow),
-                ct)
+        await using var transaction = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var changed = await db.PersistedGames.Where(game => game.Id == id && game.EventCount == expectedCount)
+            .ExecuteUpdateAsync(update => update.SetProperty(game => game.EventCount, expectedCount + addedCount)
+                .SetProperty(game => game.Finished, finished).SetProperty(game => game.UpdatedAt, DateTime.UtcNow), ct)
             .ConfigureAwait(false);
+        if (changed != 1)
+            throw new InvalidResourceStateException("The saved game changed. Reconnect before trying again.");
+        if (addedCount > 0)
+        {
+            db.Set<PersistedGameEvent>().Add(new PersistedGameEvent { GameId = id, Sequence = expectedCount, Json = eventsJson });
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     }
 }

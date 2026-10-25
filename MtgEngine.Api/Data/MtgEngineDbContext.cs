@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MtgEngine.Domain.Models;
 
@@ -113,8 +114,8 @@ public sealed class MtgEngineDbContext : DbContext
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Username).IsRequired().HasMaxLength(64);
-            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(64).UseCollation("NOCASE");
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256).UseCollation("NOCASE");
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.PreferencesJson).HasColumnType("TEXT");
@@ -165,7 +166,11 @@ public sealed class MtgEngineDbContext : DbContext
                     v => string.IsNullOrEmpty(v)
                         ? new List<string>()
                         : System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
-                );
+                )
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (left, right) => left == right || (left != null && right != null && left.SequenceEqual(right)),
+                    values => values.Aggregate(0, (hash, value) => HashCode.Combine(hash, value)),
+                    values => values.ToList()));
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
 
@@ -373,6 +378,14 @@ public sealed class MtgEngineDbContext : DbContext
 
             // The read this table exists for: one player's record.
             entity.HasIndex(e => e.UserId);
+        });
+
+        modelBuilder.Entity<PersistedGameEvent>(entity =>
+        {
+            entity.ToTable("PersistedGameEvents");
+            entity.HasKey(e => new { e.GameId, e.Sequence });
+            entity.Property(e => e.Json).IsRequired();
+            entity.HasOne<PersistedGame>().WithMany().HasForeignKey(e => e.GameId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // PersistedGame — the event log, and nothing folded from it.

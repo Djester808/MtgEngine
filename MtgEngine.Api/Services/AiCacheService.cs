@@ -68,6 +68,7 @@ public sealed class AiCacheService : IAiCacheService
 
         var fresh = await factory();
 
+        AiResponseCache? pending = hit;
         try
         {
             var payload = JsonSerializer.Serialize(fresh, AnthropicResponse.JsonOptions);
@@ -78,18 +79,21 @@ public sealed class AiCacheService : IAiCacheService
             }
             else
             {
-                _db.AiResponseCache.Add(new AiResponseCache
+                pending = new AiResponseCache
                 {
                     Kind = kind,
                     CacheKey = key,
                     PayloadJson = payload,
                     ModelVersion = modelVersion,
-                });
+                };
+                _db.AiResponseCache.Add(pending);
             }
             await _db.SaveChangesAsync();
         }
         catch (Exception ex)
         {
+            if (pending is not null)
+                _db.Entry(pending).State = EntityState.Detached;
             // Caching is an optimisation; never fail the caller because we could not store.
             _logger.LogWarning(ex, "Failed to cache AI response for {Kind}", kind);
         }

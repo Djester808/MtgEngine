@@ -68,5 +68,7 @@ public class CommanderDeckSeederTests
         // pool and turned into a silent skip — one commander short on every run that
         // happened to include a DFC.
         Assert.Equal(expected, CommanderDeckSeeder.ToEdhrecSlug(name));
+        Assert.Equal(expected, EdhrecPoolService.ToSlug(name));
+        Assert.Equal(expected, MtgEngine.Api.Services.Community.EdhrecSlug.From(name));
     }
 }

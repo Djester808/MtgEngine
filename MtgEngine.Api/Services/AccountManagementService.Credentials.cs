@@ -66,7 +66,7 @@ public sealed partial class AccountManagementService
     public async Task ForgotAsync(string address, CancellationToken ct)
     {
         var normalized = NormalizeEmail(address);
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, ct).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == normalized, ct).ConfigureAwait(false);
         if (user is not null)
             await IssueCodeAsync(user, "reset", ct).ConfigureAwait(false);
     }
@@ -74,7 +74,7 @@ public sealed partial class AccountManagementService
     public async Task ResetAsync(ResetAccountPasswordRequest request, CancellationToken ct)
     {
         var normalized = NormalizeEmail(request.Email);
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, ct).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == normalized, ct).ConfigureAwait(false);
         if (user is null)
             throw new InvalidRequestException("That code is incorrect or expired. Request a new code.");
         await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -106,7 +106,7 @@ public sealed partial class AccountManagementService
         if (!PasswordHasher.Verify(request.CurrentPassword, user.PasswordHash))
             throw new InvalidRequestException("Current password is incorrect.");
         var address = NormalizeEmail(request.Email);
-        if (await db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == address, ct).ConfigureAwait(false))
+        if (await db.Users.AnyAsync(u => u.Id != id && u.Email == address, ct).ConfigureAwait(false))
             throw new InvalidResourceStateException("That email address is already in use.");
         await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
         user.Email = address;

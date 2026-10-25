@@ -10,7 +10,7 @@ namespace MtgEngine.Api.Services;
 
 public interface IAiBuildService
 {
-    Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request);
+    Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Computes the deck this build would produce, without writing anything.
@@ -19,7 +19,7 @@ public interface IAiBuildService
     /// Every card in the returned plan has already passed the same validation the write
     /// path applies, so applying it is an insert rather than a second judgement call.
     /// </remarks>
-    Task<AiBuildPlanDto> PlanDeckAsync(Guid deckId, string userId, AiBuildRequest request);
+    Task<AiBuildPlanDto> PlanDeckAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// The same plan, reported as it happens.
@@ -35,13 +35,13 @@ public interface IAiBuildService
         Func<string, object, Task> emit, CancellationToken ct = default);
 
     /// <summary>Inserts a plan the caller has accepted, re-validating every card first.</summary>
-    Task<AiBuildResultDto> ApplyPlanAsync(Guid deckId, string userId, AiApplyPlanRequest request);
+    Task<AiBuildResultDto> ApplyPlanAsync(Guid deckId, string userId, AiApplyPlanRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Reviews a built deck and swaps its weakest cards for better picks from the same
     /// legal pool, leaving the deck the same size.
     /// </summary>
-    Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request);
+    Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Applies swaps a player accepted from a preview, without asking the model again.
@@ -52,7 +52,7 @@ public interface IAiBuildService
     /// because we proposed it a moment ago; the request arrives from the caller like any
     /// other.
     /// </remarks>
-    Task<AiRefineResultDto> ApplySwapsAsync(Guid deckId, string userId, AiApplySwapsRequest request);
+    Task<AiRefineResultDto> ApplySwapsAsync(Guid deckId, string userId, AiApplySwapsRequest request, CancellationToken ct = default);
 }
 
 public sealed class AiBuildService : IAiBuildService
@@ -188,7 +188,8 @@ public sealed class AiBuildService : IAiBuildService
     {
         "budget" => 3m,
         "mid" => 30m,
-        _ => null,
+        "any" => null,
+        _ => throw new InvalidRequestException("Choose a valid price range."),
     };
 
     /// <summary>
@@ -200,7 +201,7 @@ public sealed class AiBuildService : IAiBuildService
     /// has it as a creature type. That makes the corpus the authority and keeps a sentence
     /// from inventing a tribe, while still letting "wolf tribal" mean Wolves.
     /// </remarks>
-    private async Task<string[]> BriefTribes(string? brief, string[] legal)
+    private async Task<string[]> BriefTribes(string? brief, string[] legal, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(brief))
             return [];
@@ -216,7 +217,8 @@ public sealed class AiBuildService : IAiBuildService
         var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in legal)
         {
-            var def = await _scryfall.GetByNameAsync(name);
+            ct.ThrowIfCancellationRequested();
+            var def = await _scryfall.GetByNameAsync(name, ct);
             if (def is null)
                 continue;
 
@@ -240,16 +242,6 @@ public sealed class AiBuildService : IAiBuildService
     /// <summary>Ceiling on the tribe hint, so a broad creature type cannot flood the prompt.</summary>
     private const int MaxTribeCards = 220;
 
-    /// <summary>
-    /// How long a single tribe-mention match may run before it is abandoned.
-    /// </summary>
-    /// <remarks>
-    /// The tribe names come from the analysis pass, which is model output, and the patterns
-    /// are built from them. House rule for anything of that shape: never run an untimed
-    /// regex over text you did not author.
-    /// </remarks>
-    private static readonly TimeSpan TribeMatchTimeout = TimeSpan.FromMilliseconds(50);
-
     private static readonly HashSet<string> BasicLands = new(StringComparer.OrdinalIgnoreCase)
         { "Plains", "Island", "Swamp", "Mountain", "Forest",
           "Wastes", "Snow-Covered Plains", "Snow-Covered Island",
@@ -263,10 +255,10 @@ public sealed class AiBuildService : IAiBuildService
     /// </summary>
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _deckLocks = new();
 
-    private static async Task<T> WithDeckLockAsync<T>(Guid deckId, Func<Task<T>> action)
+    private static async Task<T> WithDeckLockAsync<T>(Guid deckId, Func<Task<T>> action, CancellationToken ct)
     {
         var gate = _deckLocks.GetOrAdd(deckId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync();
+        await gate.WaitAsync(ct);
         try
         { return await action(); }
         finally { gate.Release(); }
@@ -290,8 +282,8 @@ public sealed class AiBuildService : IAiBuildService
         _logger = logger;
     }
 
-    public Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request) =>
-        WithDeckLockAsync(deckId, () => BuildDeckCoreAsync(deckId, userId, request));
+    public Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default) =>
+        WithDeckLockAsync(deckId, () => BuildDeckCoreAsync(deckId, userId, request, ct), ct);
 
     /// <summary>
     /// Computes a deck without writing it.
@@ -302,11 +294,11 @@ public sealed class AiBuildService : IAiBuildService
     /// plan that goes stale meanwhile is caught by <see cref="ApplyPlanAsync"/>, which does
     /// take the lock and re-validates every card against the deck as it is by then.
     /// </remarks>
-    public Task<AiBuildPlanDto> PlanDeckAsync(Guid deckId, string userId, AiBuildRequest request) =>
-        PlanDeckCoreAsync(deckId, userId, request);
+    public Task<AiBuildPlanDto> PlanDeckAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default) =>
+        PlanDeckCoreAsync(deckId, userId, request, ct);
 
-    public Task<AiBuildResultDto> ApplyPlanAsync(Guid deckId, string userId, AiApplyPlanRequest request) =>
-        WithDeckLockAsync(deckId, () => ApplyPlanCoreAsync(deckId, userId, request));
+    public Task<AiBuildResultDto> ApplyPlanAsync(Guid deckId, string userId, AiApplyPlanRequest request, CancellationToken ct = default) =>
+        WithDeckLockAsync(deckId, () => ApplyPlanCoreAsync(deckId, userId, request, ct), ct);
 
     public async Task<AiBuildPlanDto> PlanDeckStreamAsync(
         Guid deckId, string userId, AiBuildRequest request,
@@ -348,18 +340,18 @@ public sealed class AiBuildService : IAiBuildService
                     total = 4,
                     thinking = chars,
                 });
-            });
+            }, ct);
 
         ct.ThrowIfCancellationRequested();
 
         // The deck exists now. Send it before the assessment so the list can be read while
         // the judgement is still running, rather than after it.
-        var facts = MeasureFacts(plan.Cards);
+        var facts = MeasureFacts(plan.AssessmentCards);
         var provisional = ToPlanDto(plan, new DeckAssessmentDto { Facts = facts });
         await emit("plan", provisional);
 
         await emit("stage", new { label = "Checking the deck balance", step = 3, total = 4 });
-        var assessment = await AssessDeckAsync(plan.Commander, plan.Cards, facts);
+        var assessment = await AssessDeckAsync(plan.Commander, plan.AssessmentCards, facts, ct);
 
         await emit("stage", new { label = "Done", step = 4, total = 4 });
         return provisional with { Assessment = assessment };
@@ -367,38 +359,42 @@ public sealed class AiBuildService : IAiBuildService
 
     private async Task<ComputedPlan> ComputePlanAsync(
         Guid deckId, string userId, AiBuildRequest request,
-        Func<int, Task>? onCardsNamed = null, Func<int, Task>? onThinking = null)
+        Func<int, Task>? onCardsNamed = null, Func<int, Task>? onThinking = null, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var commanderOracleId = request.CommanderOracleId;
 
-        var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {commanderOracleId}");
 
-        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
-        var colorNames = FormatColors(cmdColors);
+
 
         // Fetch the current deck to know how many main-board slots remain. A missing
         // deck fails here — the old fall-through built the whole prompt, paid for the
         // LLM call, then failed every insert and reported a 200 with zero cards added.
-        var existingDeck = await _collection.GetDeckAsync(deckId, userId)
+        var existingDeck = await _collection.GetDeckAsync(deckId, userId, ct)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
+        var cmdColors = await CommanderColorsAsync(cmdDef, existingDeck, ct);
+        var colorNames = FormatColors(cmdColors);
         var existingCards = existingDeck.Cards;
 
         var addedOracleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { commanderOracleId };
 
+        if (!string.IsNullOrEmpty(existingDeck.SecondaryCommanderOracleId))
+            addedOracleIds.Add(existingDeck.SecondaryCommanderOracleId);
         int existingMainCount = 0;
         foreach (var c in existingCards)
         {
             if ((c.Board ?? "main") != "main")
                 continue;
-            if (string.Equals(c.OracleId, commanderOracleId, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(c.OracleId, commanderOracleId, StringComparison.OrdinalIgnoreCase) || IsCommander(c.OracleId, existingDeck))
                 continue;
-            existingMainCount += c.Quantity;
+            existingMainCount += Copies(c);
             addedOracleIds.Add(c.OracleId);
         }
 
-        int mainSlotsLeft = Math.Max(0, 99 - existingMainCount);
+        int mainSlotsLeft = Math.Max(0, (string.IsNullOrEmpty(existingDeck.SecondaryCommanderOracleId) ? 99 : 98) - existingMainCount);
 
         // Fetch cards from recent sets to feed the LLM as candidates
         var recentSetCodes = await _scryfall.GetRecentSetCodesAsync(maxSets: RecentSetCount);
@@ -407,7 +403,7 @@ public sealed class AiBuildService : IAiBuildService
         // Commander-specific candidate pool, hard-filtered before the model ever sees it.
         // Constraining selection to legal cards beats instructing the model to respect
         // the constraint -- a prompt-only attempt at that measured strictly worse.
-        var pool = await BuildCandidatePoolAsync(cmdDef, cmdColors, request.Bracket, PriceCeiling(request.PriceRange), request.Brief);
+        var pool = await BuildCandidatePoolAsync(cmdDef, cmdColors, request.Bracket, PriceCeiling(request.PriceRange), request.Brief, ct);
 
         var llmResult = await CallAnthropicAsync(
             cmdDef.Name,
@@ -422,7 +418,7 @@ public sealed class AiBuildService : IAiBuildService
             pool,
             request.Brief,
             onCardsNamed,
-            onThinking);
+            onThinking, string.Join(", ", existingCards.Where(c => c.Board == "main").Select(c => $"{Copies(c)} {c.CardDetails?.Name ?? c.OracleId}")), ct);
 
         // Substitutes trail the main picks so a rejected card is backfilled rather than
         // leaving a hole. Without this the deck comes up short by however many cards
@@ -430,14 +426,14 @@ public sealed class AiBuildService : IAiBuildService
         var mainCandidates = llmResult.Main.Concat(llmResult.Substitutes).ToArray();
 
         var main = await SelectCards(
-            mainCandidates, "main", cmdColors, addedOracleIds, mainSlotsLeft, request.Bracket);
+            mainCandidates, "main", cmdColors, addedOracleIds, mainSlotsLeft, request.Bracket, PriceCeiling(request.PriceRange), ct);
 
         var side = request.IncludeSideboard
-            ? await SelectCards(llmResult.Side, "side", cmdColors, addedOracleIds, 10, request.Bracket)
+            ? await SelectCards(llmResult.Side, "side", cmdColors, addedOracleIds, 10, request.Bracket, PriceCeiling(request.PriceRange), ct)
             : Selection.Empty;
 
         var maybe = request.IncludeMaybeboard
-            ? await SelectCards(llmResult.Maybe, "maybe", cmdColors, addedOracleIds, 10, request.Bracket)
+            ? await SelectCards(llmResult.Maybe, "maybe", cmdColors, addedOracleIds, 10, request.Bracket, PriceCeiling(request.PriceRange), ct)
             : Selection.Empty;
 
         var byReason = new Dictionary<string, int>();
@@ -455,31 +451,39 @@ public sealed class AiBuildService : IAiBuildService
                 string.Join(", ", byReason.Select(kv => $"{kv.Key}={kv.Value}")));
         }
 
+        var assessmentCards = new List<PlannedCard>(main.Cards);
+        foreach (var row in existingCards.Where(c => c.Board == "main" && !IsCommander(c.OracleId, existingDeck)))
+        {
+            ct.ThrowIfCancellationRequested();
+            var definition = await _scryfall.GetByOracleIdAsync(row.OracleId, ct);
+            if (definition is not null)
+                assessmentCards.AddRange(Enumerable.Repeat(new PlannedCard(definition, row.ScryfallId, "main"), Copies(row)));
+        }
         return new ComputedPlan(
             cmdDef,
             [.. main.Cards, .. side.Cards, .. maybe.Cards],
             mainSlotsLeft,
             shortfall,
             main.Skipped + side.Skipped + maybe.Skipped,
-            byReason);
+            byReason, assessmentCards, request.PriceRange);
     }
 
     /// <summary>Computes a deck and writes it — the one-shot build, unchanged from the caller's view.</summary>
-    private async Task<AiBuildResultDto> BuildDeckCoreAsync(Guid deckId, string userId, AiBuildRequest request)
+    private async Task<AiBuildResultDto> BuildDeckCoreAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default)
     {
-        var plan = await ComputePlanAsync(deckId, userId, request);
-        await EnsureCommanderCardAsync(plan.Commander, deckId, userId);
-        return await WritePlanAsync(plan.Cards, deckId, userId, plan.MainTarget, plan.Skipped, plan.Reasons);
+        var plan = await ComputePlanAsync(deckId, userId, request, ct: ct);
+        await EnsureCommanderCardsAsync(plan.Commander, deckId, userId, ct);
+        return await WritePlanAsync(plan.Cards, deckId, userId, plan.MainTarget, plan.Skipped, plan.Reasons, ct);
     }
 
     // ---- Plan, then apply ---------------------------------------------------
 
-    private async Task<AiBuildPlanDto> PlanDeckCoreAsync(Guid deckId, string userId, AiBuildRequest request)
+    private async Task<AiBuildPlanDto> PlanDeckCoreAsync(Guid deckId, string userId, AiBuildRequest request, CancellationToken ct = default)
     {
-        var plan = await ComputePlanAsync(deckId, userId, request);
-        var facts = MeasureFacts(plan.Cards);
+        var plan = await ComputePlanAsync(deckId, userId, request, ct: ct);
+        var facts = MeasureFacts(plan.AssessmentCards);
 
-        return ToPlanDto(plan, await AssessDeckAsync(plan.Commander, plan.Cards, facts));
+        return ToPlanDto(plan, await AssessDeckAsync(plan.Commander, plan.AssessmentCards, facts, ct));
     }
 
     /// <summary>Shapes a computed plan for the wire. Shared by the plain and streamed paths.</summary>
@@ -489,6 +493,7 @@ public sealed class AiBuildService : IAiBuildService
         {
             CommanderOracleId = plan.Commander.OracleId,
             CommanderName = plan.Commander.Name,
+            PriceRange = plan.PriceRange,
             Cards = [.. plan.Cards.Select(c => new PlannedCardDto
             {
                 OracleId = c.Def.OracleId,
@@ -518,30 +523,33 @@ public sealed class AiBuildService : IAiBuildService
     /// catch here rather than letting a stale plan overfill the deck.
     /// </remarks>
     private async Task<AiBuildResultDto> ApplyPlanCoreAsync(
-        Guid deckId, string userId, AiApplyPlanRequest request)
+        Guid deckId, string userId, AiApplyPlanRequest request, CancellationToken ct = default)
     {
-        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId)
+        ct.ThrowIfCancellationRequested();
+        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {request.CommanderOracleId}");
 
-        var deck = await _collection.GetDeckAsync(deckId, userId)
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
-        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
+        var cmdColors = await CommanderColorsAsync(cmdDef, deck, ct);
         var addedOracleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { request.CommanderOracleId };
 
+        if (!string.IsNullOrEmpty(deck.SecondaryCommanderOracleId))
+            addedOracleIds.Add(deck.SecondaryCommanderOracleId);
         int existingMainCount = 0;
         foreach (var c in deck.Cards)
         {
             if ((c.Board ?? "main") != "main")
                 continue;
-            if (string.Equals(c.OracleId, request.CommanderOracleId, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(c.OracleId, request.CommanderOracleId, StringComparison.OrdinalIgnoreCase) || IsCommander(c.OracleId, deck))
                 continue;
-            existingMainCount += c.Quantity;
+            existingMainCount += Copies(c);
             addedOracleIds.Add(c.OracleId);
         }
 
-        int mainSlotsLeft = Math.Max(0, 99 - existingMainCount);
+        int mainSlotsLeft = Math.Max(0, (string.IsNullOrEmpty(deck.SecondaryCommanderOracleId) ? 99 : 98) - existingMainCount);
 
         var accepted = new List<PlannedCard>();
         int skipped = 0;
@@ -557,7 +565,7 @@ public sealed class AiBuildService : IAiBuildService
                 continue;
 
             var selection = await SelectCards(
-                names, board, cmdColors, addedOracleIds, ceiling, request.Bracket);
+                names, board, cmdColors, addedOracleIds, ceiling, request.Bracket, PriceCeiling(request.PriceRange), ct);
 
             accepted.AddRange(selection.Cards);
             skipped += selection.Skipped;
@@ -565,8 +573,8 @@ public sealed class AiBuildService : IAiBuildService
                 reasons[reason] = reasons.GetValueOrDefault(reason) + count;
         }
 
-        await EnsureCommanderCardAsync(cmdDef, deckId, userId);
-        return await WritePlanAsync(accepted, deckId, userId, mainSlotsLeft, skipped, reasons);
+        await EnsureCommanderCardsAsync(cmdDef, deckId, userId, ct);
+        return await WritePlanAsync(accepted, deckId, userId, mainSlotsLeft, skipped, reasons, ct);
     }
 
     /// <summary>
@@ -580,10 +588,22 @@ public sealed class AiBuildService : IAiBuildService
     /// deck arrived with the field set, no matching row, and an empty command zone reading
     /// "click or drop to assign".
     /// </remarks>
-    private async Task EnsureCommanderCardAsync(
-        CardDefinition commander, Guid deckId, string userId)
+    private async Task EnsureCommanderCardsAsync(CardDefinition primary, Guid deckId, string userId, CancellationToken ct)
     {
-        var deck = await _collection.GetDeckAsync(deckId, userId);
+        await EnsureCommanderCardAsync(primary, deckId, userId, ct);
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct);
+        if (!string.IsNullOrEmpty(deck?.SecondaryCommanderOracleId))
+        {
+            var secondary = await _scryfall.GetByOracleIdAsync(deck.SecondaryCommanderOracleId, ct)
+                ?? throw new ResourceNotFoundException("Secondary commander not found.");
+            await EnsureCommanderCardAsync(secondary, deckId, userId, ct);
+        }
+    }
+
+    private async Task EnsureCommanderCardAsync(
+        CardDefinition commander, Guid deckId, string userId, CancellationToken ct)
+    {
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct);
         if (deck is null)
             return;
 
@@ -594,16 +614,16 @@ public sealed class AiBuildService : IAiBuildService
 
         try
         {
-            var printings = await _scryfall.GetPrintingsAsync(commander.OracleId);
+            var printings = await _scryfall.GetPrintingsAsync(commander.OracleId, ct);
 
             await _collection.AddCardToCollectionAsync(deckId, userId, new AddCardToCollectionRequest(
                 OracleId: commander.OracleId,
                 ScryfallId: printings.FirstOrDefault()?.ScryfallId,
                 Quantity: 1,
                 QuantityFoil: 0,
-                Board: "main"));
+                Board: "main"), ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A deck without its commander card is wrong but still usable; losing the
             // ninety-nine over it would not be.
@@ -615,7 +635,7 @@ public sealed class AiBuildService : IAiBuildService
     /// <summary>Inserts selected cards and reports what landed, shared by build and apply.</summary>
     private async Task<AiBuildResultDto> WritePlanAsync(
         IReadOnlyList<PlannedCard> cards, Guid deckId, string userId,
-        int mainTarget, int skippedBefore, Dictionary<string, int> reasons)
+        int mainTarget, int skippedBefore, Dictionary<string, int> reasons, CancellationToken ct)
     {
         var added = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         int failed = 0;
@@ -623,6 +643,7 @@ public sealed class AiBuildService : IAiBuildService
 
         foreach (var card in cards)
         {
+            ct.ThrowIfCancellationRequested();
             try
             {
                 await _collection.AddCardToCollectionAsync(deckId, userId, new AddCardToCollectionRequest(
@@ -630,11 +651,11 @@ public sealed class AiBuildService : IAiBuildService
                     ScryfallId: card.ScryfallId,
                     Quantity: 1,
                     QuantityFoil: 0,
-                    Board: card.Board));
+                    Board: card.Board), ct);
 
                 added[card.Board] = added.GetValueOrDefault(card.Board) + 1;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(
                     ex, "AI build: failed to add card '{Name}' to {Board}", card.Def.Name, card.Board);
@@ -800,7 +821,7 @@ public sealed class AiBuildService : IAiBuildService
     /// </para>
     /// </remarks>
     private async Task<DeckAssessmentDto> AssessDeckAsync(
-        CardDefinition commander, IReadOnlyList<PlannedCard> cards, DeckFactsDto facts)
+        CardDefinition commander, IReadOnlyList<PlannedCard> cards, DeckFactsDto facts, CancellationToken ct)
     {
         try
         {
@@ -879,7 +900,7 @@ public sealed class AiBuildService : IAiBuildService
                 Temperature = null,
                 Effort = AssessEffort,
                 Operation = "AI build assessment",
-            });
+            }, ct);
 
             var parsed = AnthropicResponse.DeserializeJson<AssessmentJson>(respJson);
             if (parsed is null)
@@ -901,7 +922,7 @@ public sealed class AiBuildService : IAiBuildService
                 Facts = facts,
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The deck is the expensive part and is still usable unassessed.
             _logger.LogWarning(ex, "AI build: deck assessment failed for {Commander}", commander.Name);
@@ -948,7 +969,7 @@ public sealed class AiBuildService : IAiBuildService
         int MainTarget,
         int MainShortfall,
         int Skipped,
-        Dictionary<string, int> Reasons);
+        Dictionary<string, int> Reasons, List<PlannedCard> AssessmentCards, string PriceRange);
 
     /// <summary>Rebuilds a printable type line from the structured type fields.</summary>
     private static string TypeLineOf(CardDefinition def)
@@ -965,23 +986,23 @@ public sealed class AiBuildService : IAiBuildService
 
     // ---- Refine -------------------------------------------------------------
 
-    public Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request) =>
-        WithDeckLockAsync(deckId, () => RefineDeckCoreAsync(deckId, userId, request));
+    public Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request, CancellationToken ct = default) =>
+        WithDeckLockAsync(deckId, () => RefineDeckCoreAsync(deckId, userId, request, ct), ct);
 
     public Task<AiRefineResultDto> ApplySwapsAsync(
-        Guid deckId, string userId, AiApplySwapsRequest request) =>
-        WithDeckLockAsync(deckId, () => ApplySwapsCoreAsync(deckId, userId, request));
+        Guid deckId, string userId, AiApplySwapsRequest request, CancellationToken ct = default) =>
+        WithDeckLockAsync(deckId, () => ApplySwapsCoreAsync(deckId, userId, request, ct), ct);
 
     private async Task<AiRefineResultDto> ApplySwapsCoreAsync(
-        Guid deckId, string userId, AiApplySwapsRequest request)
+        Guid deckId, string userId, AiApplySwapsRequest request, CancellationToken ct = default)
     {
-        var deck = await _collection.GetDeckAsync(deckId, userId)
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
         if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
             throw new InvalidResourceStateException("Deck has no commander to refine against.");
 
-        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
 
         var proposals = request.Swaps
@@ -989,7 +1010,7 @@ public sealed class AiBuildService : IAiBuildService
             .ToArray();
 
         var outcome = await ApplyProposedSwapsAsync(
-            deckId, userId, deck, cmdDef, proposals, request.Bracket, preview: false);
+            deckId, userId, deck, cmdDef, proposals, request.Bracket, preview: false, PriceCeiling(request.PriceRange), ct);
 
         _logger.LogInformation(
             "Accepted swaps for {Commander}: {Applied}/{Proposed} applied{Rejected}",
@@ -1001,18 +1022,18 @@ public sealed class AiBuildService : IAiBuildService
         return outcome;
     }
 
-    private async Task<AiRefineResultDto> RefineDeckCoreAsync(Guid deckId, string userId, AiRefineRequest request)
+    private async Task<AiRefineResultDto> RefineDeckCoreAsync(Guid deckId, string userId, AiRefineRequest request, CancellationToken ct = default)
     {
-        var deck = await _collection.GetDeckAsync(deckId, userId)
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
         if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
             throw new InvalidResourceStateException("Deck has no commander to refine against.");
 
-        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
 
-        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
+        var cmdColors = await CommanderColorsAsync(cmdDef, deck, ct);
 
         // What the deck currently measures.
         //
@@ -1025,10 +1046,10 @@ public sealed class AiBuildService : IAiBuildService
         var mainDefs = new List<CardDefinition>();
         foreach (var row in deck.Cards.Where(c => (c.Board ?? "main") == "main"))
         {
-            var def = await _scryfall.GetByOracleIdAsync(row.OracleId);
+            var def = await _scryfall.GetByOracleIdAsync(row.OracleId, ct);
             if (def is null)
                 continue;
-            for (int i = 0; i < Math.Max(1, row.Quantity + row.QuantityFoil + row.QuantityEtched); i++)
+            for (int i = 0; i < Copies(row); i++)
                 mainDefs.Add(def);
         }
         var deckFacts = MeasureFacts([.. mainDefs]);
@@ -1037,28 +1058,28 @@ public sealed class AiBuildService : IAiBuildService
         // away silently changes the land count the build deliberately set.
         var swappable = deck.Cards
             .Where(c => (c.Board ?? "main") == "main"
-                        && !string.Equals(c.OracleId, deck.CommanderOracleId, StringComparison.OrdinalIgnoreCase)
+                        && !IsCommander(c.OracleId, deck)
                         && c.CardDetails is not null
                         && !c.CardDetails.Supertypes.Contains("Basic"))
             .GroupBy(c => c.OracleId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToArray();
 
-        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity);
+        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(Copies);
 
         if (swappable.Length == 0)
             return new AiRefineResultDto { DeckSizeBefore = sizeBefore, DeckSizeAfter = sizeBefore };
 
-        var pool = await BuildCandidatePoolAsync(cmdDef, cmdColors, request.Bracket, PriceCeiling(request.PriceRange));
+        var pool = await BuildCandidatePoolAsync(cmdDef, cmdColors, request.Bracket, PriceCeiling(request.PriceRange), ct: ct);
 
         var proposed = await CallRefineAsync(
             cmdDef.Name, cmdDef.OracleText ?? string.Empty, FormatColors(cmdColors),
             swappable.Select(c => c.CardDetails!.Name).ToArray(),
-            request, pool, deckFacts);
+            request, pool, deckFacts, ct);
 
         var outcome = await ApplyProposedSwapsAsync(
             deckId, userId, deck, cmdDef, [.. proposed.Take(Math.Max(0, request.MaxSwaps))],
-            request.Bracket, request.Preview);
+            request.Bracket, request.Preview, PriceCeiling(request.PriceRange), ct);
 
         var applied = outcome.Swaps;
         var rejected = outcome.RejectedByReason;
@@ -1087,20 +1108,20 @@ public sealed class AiBuildService : IAiBuildService
     /// </remarks>
     private async Task<AiRefineResultDto> ApplyProposedSwapsAsync(
         Guid deckId, string userId, DeckDetailDto deck, CardDefinition cmdDef,
-        ProposedSwap[] proposed, int bracket, bool preview)
+        ProposedSwap[] proposed, int bracket, bool preview, decimal? maxUsd, CancellationToken ct)
     {
-        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
+        var cmdColors = await CommanderColorsAsync(cmdDef, deck, ct);
 
         var swappable = deck.Cards
             .Where(c => (c.Board ?? "main") == "main"
-                        && !string.Equals(c.OracleId, deck.CommanderOracleId, StringComparison.OrdinalIgnoreCase)
+                        && !IsCommander(c.OracleId, deck)
                         && c.CardDetails is not null
                         && !c.CardDetails.Supertypes.Contains("Basic"))
             .GroupBy(c => c.OracleId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToArray();
 
-        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity);
+        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(Copies);
 
         var inDeck = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in swappable)
@@ -1116,6 +1137,7 @@ public sealed class AiBuildService : IAiBuildService
 
         foreach (var swap in proposed)
         {
+            ct.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(swap.Out) || string.IsNullOrWhiteSpace(swap.In))
             { Reject("incomplete-swap"); continue; }
 
@@ -1125,13 +1147,20 @@ public sealed class AiBuildService : IAiBuildService
             if (addedNames.Contains(swap.In))
             { Reject("in-card-already-in-deck"); continue; }
 
-            var inDef = await _scryfall.GetByNameAsync(swap.In);
+            var inDef = await _scryfall.GetByNameAsync(swap.In, ct);
             if (inDef is null)
             { Reject(Rejection.UnknownCard); continue; }
 
             // Shared ladder with AddCards — color identity, commander legality, bracket.
             if (CardGrounding.ValidateForCommanderDeck(inDef, cmdColors, bracket) is string rejection)
             { Reject(rejection); continue; }
+
+            var printings = await _scryfall.GetPrintingsAsync(inDef.OracleId, ct);
+            var printing = maxUsd is null ? printings.FirstOrDefault() : printings
+                .Where(p => p.Prices?.Usd is > 0 && p.Prices.Usd <= maxUsd)
+                .OrderBy(p => p.Prices!.Usd).FirstOrDefault();
+            if (maxUsd is not null && printing is null)
+            { Reject("above-price-ceiling"); continue; }
 
             // Everything above this point is validation and runs the same either way, so a
             // preview reports exactly what would land rather than what was proposed.
@@ -1145,25 +1174,15 @@ public sealed class AiBuildService : IAiBuildService
 
             try
             {
-                // Add first, then remove: if the add fails the deck is unchanged rather
-                // than left a card short.
-                var printings = await _scryfall.GetPrintingsAsync(inDef.OracleId);
-                await _collection.AddCardToCollectionAsync(deckId, userId, new AddCardToCollectionRequest(
-                    OracleId: inDef.OracleId,
-                    ScryfallId: printings.FirstOrDefault()?.ScryfallId,
-                    Quantity: 1,
-                    QuantityFoil: 0,
-                    Board: "main"));
-
-                // Main board only — the swap-out was selected from main, and an
-                // unscoped remove could delete the same card's sideboard row instead.
-                await _collection.RemoveCardByOracleAsync(deckId, outOracleId, userId, board: "main");
+                if (!await _collection.ReplaceCardCopiesAsync(deckId, userId, outOracleId,
+                    new AddCardToCollectionRequest(inDef.OracleId, printing?.ScryfallId, Quantity: 1, QuantityFoil: 0, Board: "main"), ct))
+                { Reject("out-card-not-in-deck"); continue; }
 
                 addedNames.Add(inDef.Name);
                 inDeck.Remove(swap.Out);
                 applied.Add(new CardSwapDto { Out = swap.Out, In = inDef.Name, Why = swap.Why });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Refine: failed to swap '{Out}' for '{In}'", swap.Out, swap.In);
                 Reject(Rejection.AddFailed);
@@ -1180,8 +1199,8 @@ public sealed class AiBuildService : IAiBuildService
         }
         else
         {
-            var after = await _collection.GetDeckAsync(deckId, userId);
-            sizeAfter = after?.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity) ?? sizeBefore;
+            var after = await _collection.GetDeckAsync(deckId, userId, ct);
+            sizeAfter = after?.Cards.Where(c => (c.Board ?? "main") == "main").Sum(Copies) ?? sizeBefore;
         }
 
         if (sizeAfter != sizeBefore)
@@ -1206,7 +1225,7 @@ public sealed class AiBuildService : IAiBuildService
     private async Task<ProposedSwap[]> CallRefineAsync(
         string commanderName, string commanderText, string colors,
         string[] deckCards, AiRefineRequest request, CandidatePool pool,
-        DeckFactsDto deckFacts)
+        DeckFactsDto deckFacts, CancellationToken ct)
     {
         var bracketDesc = DescribeBracket(request.Bracket);
         var priceDesc = DescribePrice(request.PriceRange);
@@ -1264,7 +1283,7 @@ public sealed class AiBuildService : IAiBuildService
             Temperature = null,
             Effort = RefineEffort,
             Operation = "AI refine",
-        });
+        }, ct);
 
         var parsed = AnthropicResponse.DeserializeJson<RefineJson>(respJson);
 
@@ -1322,7 +1341,7 @@ public sealed class AiBuildService : IAiBuildService
 
     private async Task<CandidatePool> BuildCandidatePoolAsync(
         CardDefinition commander, HashSet<ManaColor> cmdColors, int bracket, decimal? maxUsd,
-        string? brief = null)
+        string? brief = null, CancellationToken ct = default)
     {
         // Timed because it is the one stage of a build invisible from outside: the stream's
         // stage frames bracket the model call and the card resolution, but everything
@@ -1339,11 +1358,11 @@ public sealed class AiBuildService : IAiBuildService
         var commonlyPlayed = Array.Empty<string>();
         try
         {
-            var raw = await _edhrec.GetCommanderPoolAsync(commanderName);
+            var raw = await _edhrec.GetCommanderPoolAsync(commanderName, ct);
             var legalSet = new HashSet<string>(legal, StringComparer.OrdinalIgnoreCase);
             commonlyPlayed = [.. raw.Select(r => r.Name).Where(legalSet.Contains).Distinct(StringComparer.OrdinalIgnoreCase)];
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "EDHREC hint unavailable for {Commander}", commanderName);
         }
@@ -1359,7 +1378,7 @@ public sealed class AiBuildService : IAiBuildService
         string[] tribeCards = [];
         try
         {
-            var requirements = await _analysis.AnalyseAsync(commander);
+            var requirements = await _analysis.AnalyseAsync(commander, ct);
             var named = new List<string>(requirements.Tribes);
 
             // What the player asked for counts too.
@@ -1370,7 +1389,7 @@ public sealed class AiBuildService : IAiBuildService
             // read as data, never as instruction: a word only counts if it is the creature
             // type of a card already in the legal pool, so the corpus decides what is a
             // tribe, not the sentence.
-            foreach (var subtype in await BriefTribes(brief, legal))
+            foreach (var subtype in await BriefTribes(brief, legal, ct))
                 if (!named.Contains(subtype, StringComparer.OrdinalIgnoreCase))
                     named.Add(subtype);
 
@@ -1385,7 +1404,8 @@ public sealed class AiBuildService : IAiBuildService
 
                 foreach (var name in legal)
                 {
-                    var def = await _scryfall.GetByNameAsync(name);
+                    ct.ThrowIfCancellationRequested();
+                    var def = await _scryfall.GetByNameAsync(name, ct);
                     if (def is null)
                         continue;
 
@@ -1424,7 +1444,7 @@ public sealed class AiBuildService : IAiBuildService
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A themeless pool still builds a legal deck; failing the build over the hint
             // would trade a good outcome for no outcome.
@@ -1457,7 +1477,7 @@ public sealed class AiBuildService : IAiBuildService
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)];
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // The bracket still permits them; the model simply loses the hint.
                 _logger.LogWarning(ex, "Game Changer hint unavailable for {Commander}", commanderName);
@@ -1486,7 +1506,7 @@ public sealed class AiBuildService : IAiBuildService
     /// </remarks>
     private async Task<Selection> SelectCards(
         string[] names, string board,
-        HashSet<ManaColor> cmdColors, HashSet<string> addedOracleIds, int maxCards, int bracket)
+        HashSet<ManaColor> cmdColors, HashSet<string> addedOracleIds, int maxCards, int bracket, decimal? maxUsd, CancellationToken ct)
     {
         var picked = new List<PlannedCard>();
         int skipped = 0;
@@ -1499,13 +1519,14 @@ public sealed class AiBuildService : IAiBuildService
 
         foreach (var name in names)
         {
+            ct.ThrowIfCancellationRequested();
             if (picked.Count >= maxCards)
                 break;
             if (string.IsNullOrWhiteSpace(name))
                 continue;
             try
             {
-                var def = await _scryfall.GetByNameAsync(name);
+                var def = await _scryfall.GetByNameAsync(name, ct);
                 if (def is null)
                 { Reject(Rejection.UnknownCard); continue; }
 
@@ -1528,13 +1549,18 @@ public sealed class AiBuildService : IAiBuildService
                 if (!isBasic && addedOracleIds.Contains(def.OracleId))
                 { Reject(Rejection.Duplicate); continue; }
 
-                var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
-                var scryfallId = printings.FirstOrDefault()?.ScryfallId;
+                var printings = await _scryfall.GetPrintingsAsync(def.OracleId, ct);
+                var printing = maxUsd is null ? printings.FirstOrDefault() : printings
+                    .Where(p => p.Prices?.Usd is > 0 && p.Prices.Usd <= maxUsd)
+                    .OrderBy(p => p.Prices!.Usd).FirstOrDefault();
+                if (maxUsd is not null && printing is null && !isBasic)
+                { Reject("above-price-ceiling"); continue; }
+                var scryfallId = printing?.ScryfallId;
 
                 picked.Add(new PlannedCard(def, scryfallId, board));
                 addedOracleIds.Add(def.OracleId);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "AI build: failed to resolve card '{Name}' for {Board}", name, board);
                 Reject(Rejection.AddFailed);
@@ -1603,7 +1629,7 @@ public sealed class AiBuildService : IAiBuildService
         CandidatePool pool,
         string? brief = null,
         Func<int, Task>? onCardsNamed = null,
-        Func<int, Task>? onThinking = null)
+        Func<int, Task>? onThinking = null, string existingInventory = "", CancellationToken ct = default)
     {
         var bracketDesc = DescribeBracket(bracket);
         var priceDesc = DescribePrice(priceRange);
@@ -1746,6 +1772,7 @@ public sealed class AiBuildService : IAiBuildService
             Commander: {{commanderName}}
             Oracle text: {{commanderText}}
             Color identity: {{colors}}
+            Existing main deck (keep these cards; fill the remaining slots around them): {{existingInventory}}
             {{briefSection}}
             {{recentSection}}
             {{gameChangerSection}}
@@ -1829,7 +1856,7 @@ public sealed class AiBuildService : IAiBuildService
         string respJson;
         if (onCardsNamed is null)
         {
-            respJson = await _anthropic.SendAsync(buildRequest);
+            respJson = await _anthropic.SendAsync(buildRequest, ct);
         }
         else
         {
@@ -1849,7 +1876,7 @@ public sealed class AiBuildService : IAiBuildService
                     lastReported = named;
                     await onCardsNamed(named);
                 },
-                onThinking);
+                onThinking, ct);
         }
 
         var parsed = AnthropicResponse.DeserializeJson<JsonElement>(respJson);
@@ -1911,6 +1938,23 @@ public sealed class AiBuildService : IAiBuildService
     {
         var bytes = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(prompt));
         return Convert.ToHexString(bytes)[..12];
+    }
+
+    private static int Copies(CollectionCardDto card) => card.Quantity + card.QuantityFoil + card.QuantityEtched;
+    private static bool IsCommander(string oracleId, DeckDetailDto deck) =>
+        string.Equals(oracleId, deck.CommanderOracleId, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(oracleId, deck.SecondaryCommanderOracleId, StringComparison.OrdinalIgnoreCase);
+    private async Task<HashSet<ManaColor>> CommanderColorsAsync(CardDefinition primary, DeckDetailDto deck, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var colors = primary.ColorIdentity.ToHashSet();
+        if (!string.IsNullOrEmpty(deck.SecondaryCommanderOracleId))
+        {
+            var secondary = await _scryfall.GetByOracleIdAsync(deck.SecondaryCommanderOracleId, ct)
+                ?? throw new ResourceNotFoundException("Secondary commander not found.");
+            colors.UnionWith(secondary.ColorIdentity);
+        }
+        return colors;
     }
 
     private static string FormatColors(HashSet<ManaColor> colors)

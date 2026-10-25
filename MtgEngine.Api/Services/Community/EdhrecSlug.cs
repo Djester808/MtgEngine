@@ -16,7 +16,7 @@ internal static class EdhrecSlug
     /// <summary>"Atraxa, Praetors' Voice" -> "atraxa-praetors-voice"</summary>
     public static string From(string name)
     {
-        var value = (name ?? "").ToLowerInvariant();
+        var value = (name ?? "").Split("//", StringSplitOptions.None)[0].Trim().ToLowerInvariant();
         value = NonSlug.Replace(value, "");
         value = Whitespace.Replace(value, "-");
         return Dashes.Replace(value, "-").Trim('-');

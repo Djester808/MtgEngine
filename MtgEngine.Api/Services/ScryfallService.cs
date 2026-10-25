@@ -20,16 +20,22 @@ namespace MtgEngine.Api.Services;
 /// </remarks>
 public interface ICardLookup
 {
+    long CatalogVersion => 0;
     Task<CardDefinition?> GetLocalByOracleIdAsync(string oracleId) => Task.FromResult<CardDefinition?>(null);
     Task<CardDefinition?> GetLocalByScryfallIdAsync(string scryfallId) => Task.FromResult<CardDefinition?>(null);
 
     Task<CardDefinition?> GetLocalByNameAsync(string name) => Task.FromResult<CardDefinition?>(null);
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
+    Task<CardDefinition?> GetByOracleIdAsync(string oracleId, CancellationToken ct) => GetByOracleIdAsync(oracleId).WaitAsync(ct);
     Task<CardDefinition?> GetByNameAsync(string name);
+    Task<CardDefinition?> GetByNameAsync(string name, CancellationToken ct) => GetByNameAsync(name).WaitAsync(ct);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
+    Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId, CancellationToken ct) => GetByScryfallIdAsync(scryfallId).WaitAsync(ct);
     Task<PrintingDto[]> GetPrintingsAsync(string oracleId);
+    Task<PrintingDto[]> GetPrintingsAsync(string oracleId, CancellationToken ct) => GetPrintingsAsync(oracleId).WaitAsync(ct);
     Task<RulingDto[]> GetRulingsAsync(string oracleId);
-    Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
+    Task<RulingDto[]> GetRulingsAsync(string oracleId, CancellationToken ct) => GetRulingsAsync(oracleId).WaitAsync(ct);
+
 }
 
 public static class CardLookupExtensions
@@ -44,20 +50,21 @@ public static class CardLookupExtensions
     /// GetCard but the pinned art from GetCollection. Falls back to the oracle default
     /// when the pinned id cannot be resolved rather than dropping the card details.
     /// </remarks>
-    public static Task<CardDefinition?> ResolveForEntryAsync(this ICardLookup lookup, CollectionCard card) =>
-        lookup.ResolveSelectionAsync(card.OracleId, card.ScryfallId);
+    public static Task<CardDefinition?> ResolveForEntryAsync(this ICardLookup lookup, CollectionCard card, CancellationToken ct = default) =>
+        lookup.ResolveSelectionAsync(card.OracleId, card.ScryfallId, ct: ct);
 
     /// <summary>One selected-printing policy for collection entries and authorized game views.</summary>
     public static async Task<CardDefinition?> ResolveSelectionAsync(
-        this ICardLookup lookup, string oracleId, string? printingId, bool localOnly = false)
+        this ICardLookup lookup, string oracleId, string? printingId, bool localOnly = false, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (!string.IsNullOrWhiteSpace(printingId))
         {
-            var pinned = await (localOnly ? lookup.GetLocalByScryfallIdAsync(printingId) : lookup.GetByScryfallIdAsync(printingId)).ConfigureAwait(false);
+            var pinned = await (localOnly ? lookup.GetLocalByScryfallIdAsync(printingId) : lookup.GetByScryfallIdAsync(printingId, ct)).ConfigureAwait(false);
             if (pinned is not null && string.Equals(pinned.OracleId, oracleId, StringComparison.OrdinalIgnoreCase))
                 return pinned;
         }
-        return await (localOnly ? lookup.GetLocalByOracleIdAsync(oracleId) : lookup.GetByOracleIdAsync(oracleId)).ConfigureAwait(false);
+        return await (localOnly ? lookup.GetLocalByOracleIdAsync(oracleId) : lookup.GetByOracleIdAsync(oracleId, ct)).ConfigureAwait(false);
     }
 }
 
@@ -67,6 +74,7 @@ public static class CardLookupExtensions
 /// </summary>
 public interface IScryfallService : ICardLookup
 {
+    Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
     Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null);
 
@@ -165,12 +173,14 @@ public sealed class ScryfallService : ICardLookup, IDisposable
 
     // ---- IScryfallService ----------------------------------------
 
-    public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
+    public Task<CardDefinition?> GetByOracleIdAsync(string oracleId) => GetByOracleIdAsync(oracleId, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId, CancellationToken ct)
     {
         if (TryGetFresh(_byOracleId, oracleId, out var mem))
             return mem;
 
-        var (json, transient) = await LoadOrFetchAsync(OraclePath(oracleId), $"cards/{oracleId}");
+        var (json, transient) = await LoadOrFetchAsync(OraclePath(oracleId), $"cards/{oracleId}", ct);
 
         var def = json is null ? null : CardParser.Parse(json.Value);
         if (!transient)
@@ -178,13 +188,15 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         return def; // on transient this may be a stale disk copy — served, but retried next call
     }
 
-    public async Task<CardDefinition?> GetByNameAsync(string name)
+    public Task<CardDefinition?> GetByNameAsync(string name) => GetByNameAsync(name, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByNameAsync(string name, CancellationToken ct)
     {
         if (TryGetFresh(_byName, name, out var mem))
             return mem;
 
         var encoded = Uri.EscapeDataString(name);
-        var (json, transient) = await LoadOrFetchAsync(NamePath(name), $"cards/named?fuzzy={encoded}");
+        var (json, transient) = await LoadOrFetchAsync(NamePath(name), $"cards/named?fuzzy={encoded}", ct);
 
         var def = json is null ? null : CardParser.Parse(json.Value);
         if (!transient)
@@ -193,21 +205,23 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         {
             _byOracleId[def.OracleId] = new CachedDef(def, DateTime.UtcNow);
             if (json.HasValue && json.Value.TryGetProperty("oracle_id", out var oid))
-                await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value);
+                await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value, ct);
         }
         return def;
     }
 
-    public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
+    public Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId) => GetByScryfallIdAsync(scryfallId, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId, CancellationToken ct)
     {
-        var (json, transient) = await LoadOrFetchAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}");
+        var (json, transient) = await LoadOrFetchAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}", ct);
 
         var def = json is null ? null : CardParser.Parse(json.Value);
         if (def is not null && !transient)
         {
             _byOracleId.TryAdd(def.OracleId, new CachedDef(def, DateTime.UtcNow));
             if (json.HasValue && json.Value.TryGetProperty("oracle_id", out var oid))
-                await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value);
+                await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value, ct);
         }
         return def;
     }
@@ -224,11 +238,13 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         return false;
     }
 
-    public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
+    public Task<PrintingDto[]> GetPrintingsAsync(string oracleId) => GetPrintingsAsync(oracleId, CancellationToken.None);
+
+    public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId, CancellationToken ct)
     {
         var encoded = Uri.EscapeDataString($"oracleid:{oracleId}");
         // dir=desc: newest printing first, matching the bulk-data index ordering.
-        var json = await FetchRawAsync($"cards/search?q={encoded}&unique=prints&order=released&dir=desc");
+        var json = await FetchRawAsync($"cards/search?q={encoded}&unique=prints&order=released&dir=desc", ct);
         if (json is null)
             return [];
         if (!json.Value.TryGetProperty("data", out var data))
@@ -246,25 +262,26 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         return [.. printings];
     }
 
-    private readonly ConcurrentDictionary<string, RulingDto[]> _rulingsByOracleId = new();
+    private readonly ConcurrentDictionary<string, (RulingDto[] Rulings, DateTime CachedAt)> _rulingsByOracleId = new();
 
     // Scryfall's rulings endpoint requires a printing-specific Scryfall ID, not an oracle ID.
     // GetRulingsAsync resolves an oracleId → scryfallId via printings, then delegates here.
-    internal async Task<RulingDto[]> GetRulingsByScryfallIdAsync(string scryfallId)
+    internal async Task<RulingDto[]> GetRulingsByScryfallIdAsync(string scryfallId, CancellationToken ct = default)
     {
-        if (_rulingsByOracleId.TryGetValue(scryfallId, out var mem))
-            return mem;
+        if (_rulingsByOracleId.TryGetValue(scryfallId, out var mem) && DateTime.UtcNow - mem.CachedAt < CacheTtl)
+            return mem.Rulings;
 
         Directory.CreateDirectory(Path.Combine(_cacheDir, "rulings"));
         var cachePath = Path.Combine(_cacheDir, "rulings", $"{scryfallId}.json");
 
-        var (json, transient) = await LoadOrFetchAsync(cachePath, $"cards/{scryfallId}/rulings");
+        var (json, transient) = await LoadOrFetchAsync(cachePath, $"cards/{scryfallId}/rulings", ct);
         if (transient && json is null)
             return []; // nothing cached either — retried on the next call
 
         if (json is null || !json.Value.TryGetProperty("data", out var data))
         {
-            _rulingsByOracleId[scryfallId] = [];
+            if (!transient)
+                _rulingsByOracleId[scryfallId] = ([], DateTime.UtcNow);
             return [];
         }
 
@@ -276,33 +293,20 @@ public sealed class ScryfallService : ICardLookup, IDisposable
             .Where(r => r.Comment.Length > 0)
             .ToArray();
 
-        _rulingsByOracleId[scryfallId] = rulings;
+        if (!transient)
+            _rulingsByOracleId[scryfallId] = (rulings, DateTime.UtcNow);
         return rulings;
     }
 
-    public async Task<RulingDto[]> GetRulingsAsync(string oracleId)
+    public Task<RulingDto[]> GetRulingsAsync(string oracleId) => GetRulingsAsync(oracleId, CancellationToken.None);
+
+    public async Task<RulingDto[]> GetRulingsAsync(string oracleId, CancellationToken ct)
     {
         // Resolve oracle ID → any printing's Scryfall ID, then fetch rulings by that ID.
-        var printings = await GetPrintingsAsync(oracleId);
+        var printings = await GetPrintingsAsync(oracleId, ct);
         if (printings.Length == 0)
             return [];
-        return await GetRulingsByScryfallIdAsync(printings[0].ScryfallId);
-    }
-
-    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)
-    {
-        // Strip name:"..." wrapper if present so Scryfall fuzzy lookup gets the plain name
-        var name = query.Trim();
-        var idx = name.IndexOf("name:\"", StringComparison.OrdinalIgnoreCase);
-        if (idx >= 0)
-        {
-            var start = idx + 6;
-            var end = name.IndexOf('"', start);
-            if (end > start)
-                name = name[start..end];
-        }
-        var def = await GetByNameAsync(name);
-        return def is null ? [] : [def];
+        return await GetRulingsByScryfallIdAsync(printings[0].ScryfallId, ct);
     }
 
     // ---- Disk helpers --------------------------------------------
@@ -315,32 +319,41 @@ public sealed class ScryfallService : ICardLookup, IDisposable
     }
     private string ScryfallPath(string id) => Path.Combine(_cacheDir, "by-scryfall", $"{id}.json");
 
-    private async Task<JsonElement?> LoadDiskAsync(string path)
+    private async Task<JsonElement?> LoadDiskAsync(string path, CancellationToken ct)
     {
         if (!File.Exists(path))
             return null;
         try
         {
             await using var stream = File.OpenRead(path);
-            return await JsonSerializer.DeserializeAsync<JsonElement>(stream);
+            return await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Disk cache read failed: {Path}", path);
             return null;
         }
     }
 
-    private async Task SaveDiskAsync(string path, JsonElement json)
+    private async Task SaveDiskAsync(string path, JsonElement json, CancellationToken ct)
     {
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            await using var stream = File.Create(path);
-            await JsonSerializer.SerializeAsync(stream, json, _jsonOpts);
+            await using (var stream = File.Create(temporary))
+                await JsonSerializer.SerializeAsync(stream, json, _jsonOpts, ct);
+            ct.ThrowIfCancellationRequested();
+            File.Move(temporary, path, overwrite: true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "Disk cache write failed: {Path}", path);
+        }
+        finally
+        {
+            try
+            { File.Delete(temporary); }
+            catch (IOException ex) { _logger.LogDebug(ex, "Could not remove temporary cache file"); }
         }
     }
 
@@ -360,26 +373,26 @@ public sealed class ScryfallService : ICardLookup, IDisposable
     /// expiry, which pinned first-fetch prices for the life of the file.
     /// </remarks>
     private async Task<(JsonElement? Json, bool Transient)> LoadOrFetchAsync(
-        string cachePath, string apiPath)
+        string cachePath, string apiPath, CancellationToken ct)
     {
         var age = CacheFileAge(cachePath);
         if (age is not null && age < CacheTtl)
         {
-            var disk = await LoadDiskAsync(cachePath);
+            var disk = await LoadDiskAsync(cachePath, ct);
             if (disk is not null)
                 return (disk, false);
         }
 
-        var (outcome, json) = await FetchResultAsync(apiPath);
+        var (outcome, json) = await FetchResultAsync(apiPath, ct);
         if (outcome == FetchOutcome.Ok)
         {
-            await SaveDiskAsync(cachePath, json!.Value);
+            await SaveDiskAsync(cachePath, json!.Value, ct);
             return (json, false);
         }
         if (outcome == FetchOutcome.NotFound)
             return (null, false);
 
-        var stale = age is null ? null : await LoadDiskAsync(cachePath);
+        var stale = age is null ? null : await LoadDiskAsync(cachePath, ct);
         return (stale, true);
     }
 
@@ -400,17 +413,17 @@ public sealed class ScryfallService : ICardLookup, IDisposable
 
     private enum FetchOutcome { Ok, NotFound, Transient }
 
-    private async Task<(FetchOutcome Outcome, JsonElement? Json)> FetchResultAsync(string path)
+    private async Task<(FetchOutcome Outcome, JsonElement? Json)> FetchResultAsync(string path, CancellationToken ct)
     {
-        await _rateLimiter.WaitAsync();
+        await _rateLimiter.WaitAsync(ct);
         try
         {
             var elapsed = DateTime.UtcNow - _lastRequest;
             if (elapsed < MinInterval)
-                await Task.Delay(MinInterval - elapsed);
+                await Task.Delay(MinInterval - elapsed, ct);
             _lastRequest = DateTime.UtcNow;
 
-            var response = await _http.GetAsync(path);
+            using var response = await _http.GetAsync(path, ct);
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return (FetchOutcome.NotFound, null);
             if (!response.IsSuccessStatusCode)
@@ -419,10 +432,10 @@ public sealed class ScryfallService : ICardLookup, IDisposable
                 return (FetchOutcome.Transient, null);
             }
 
-            var stream = await response.Content.ReadAsStreamAsync();
-            return (FetchOutcome.Ok, await JsonSerializer.DeserializeAsync<JsonElement>(stream));
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            return (FetchOutcome.Ok, await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: ct));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _logger.LogError(ex, "Scryfall request failed: {Path}", path);
             return (FetchOutcome.Transient, null);
@@ -433,9 +446,9 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         }
     }
 
-    private async Task<JsonElement?> FetchRawAsync(string path)
+    private async Task<JsonElement?> FetchRawAsync(string path, CancellationToken ct)
     {
-        var (_, json) = await FetchResultAsync(path);
+        var (_, json) = await FetchResultAsync(path, ct);
         return json;
     }
 

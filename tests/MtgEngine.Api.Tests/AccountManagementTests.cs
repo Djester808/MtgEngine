@@ -26,6 +26,38 @@ public sealed class AccountManagementTests : IDisposable
         _accounts = new(_db, new TokenService(config), _mail, _clock);
     }
 
+    [Theory]
+    [InlineData("admin")]
+    [InlineData("SUPPORT")]
+    [InlineData("deleted_account")]
+    public async Task Registration_uses_the_same_reserved_name_policy_as_rename(string username)
+    {
+        await Assert.ThrowsAsync<InvalidRequestException>(() => _accounts.RegisterAsync(
+            new(username, "new@example.test", "ValidPassword!123", true), "Test", default));
+        Assert.False(await _db.Users.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Database_rejects_case_only_duplicate_usernames_even_without_service_precheck()
+    {
+        await Register();
+        _db.Users.Add(new() { Username = "NISSA", Email = "other@example.test", PasswordHash = "x" });
+        await Assert.ThrowsAsync<DbUpdateException>(() => _db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Account_retention_preserves_live_revoked_tokens_for_reuse_detection()
+    {
+        var first = await Register();
+        await _accounts.RefreshAsync(first.RefreshToken, default);
+        var now = _clock.GetUtcNow().UtcDateTime;
+        await CacheCleanupWorker.PruneAccountsAsync(_db, now.AddMinutes(11), default);
+        Assert.Equal(2, await _db.AccountSessions.CountAsync());
+        Assert.Empty(await _db.AccountCodes.ToListAsync());
+        await Assert.ThrowsAsync<AccountAuthenticationException>(() => _accounts.RefreshAsync(first.RefreshToken, default));
+        await CacheCleanupWorker.PruneAccountsAsync(_db, now.AddDays(31), default);
+        Assert.Empty(await _db.AccountSessions.ToListAsync());
+    }
     [Fact]
     public async Task Username_change_checks_password_uniqueness_cooldown_and_revokes_sessions()
     {

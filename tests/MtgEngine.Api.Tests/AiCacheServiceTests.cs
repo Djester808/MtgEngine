@@ -36,6 +36,23 @@ public sealed class AiCacheServiceTests : IDisposable
     private sealed record Payload(string Value, int Number);
 
     [Fact]
+    public async Task ConcurrentCacheWinnerDoesNotPoisonLaterBusinessSave()
+    {
+        var result = await _sut.GetOrCreateAsync("race", "v1", ["key"], async () =>
+        {
+            await using var winnerDb = new MtgEngineDbContext(new DbContextOptionsBuilder<MtgEngineDbContext>().UseSqlite(_conn).Options);
+            var winner = new AiCacheService(winnerDb, NullLogger<AiCacheService>.Instance);
+            await winner.GetOrCreateAsync("race", "v1", ["key"], () => Task.FromResult(new Payload("winner", 1)));
+            return new Payload("fresh", 2);
+        });
+        Assert.Equal("fresh", result.Value);
+        _db.Collections.Add(new("owner", "Business write"));
+        await _db.SaveChangesAsync();
+        Assert.Single(await _db.Collections.ToArrayAsync());
+        Assert.Single(await _db.AiResponseCache.ToArrayAsync());
+    }
+
+    [Fact]
     public async Task Miss_InvokesFactory_AndReturnsItsResult()
     {
         int calls = 0;

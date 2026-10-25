@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 
 namespace MtgEngine.Api.Services.Community;
@@ -80,30 +79,6 @@ internal static class EdhrecPages
 
     /// <summary>The most themes one stored commander page keeps.</summary>
     public const int MaxTags = 200;
-
-    /// <summary>Row payloads are camel-cased and drop their nulls: the rows are read whole.</summary>
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
-    public static string Write<T>(T value) => JsonSerializer.Serialize(value, Json);
-
-    /// <summary>A stored payload that cannot be read counts as a miss, never as an empty page.</summary>
-    public static bool TryRead<T>(string payload, out T value)
-    {
-        try
-        {
-            var read = JsonSerializer.Deserialize<T>(payload, Json);
-            value = read!;
-            return read is not null;
-        }
-        catch (JsonException)
-        {
-            value = default!;
-            return false;
-        }
-    }
 
     /// <summary>
     /// The cardlists of a page, capped. A section without cardviews is kept for its header: the

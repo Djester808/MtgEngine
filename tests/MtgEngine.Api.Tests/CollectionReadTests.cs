@@ -9,6 +9,39 @@ namespace MtgEngine.Api.Tests;
 
 public sealed class CollectionReadTests
 {
+    private sealed class CountingReader : ICollectionReader
+    {
+        public int Reads;
+        public Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId)
+        {
+            Reads++;
+            return Task.FromResult<CollectionDetailDto?>(Fixture());
+        }
+    }
+
+    [Fact]
+    public async Task LaterPagesReuseBoundedReadSnapshotAndMutationsInvalidateIt()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        await using var db = new MtgEngineDbContext(new DbContextOptionsBuilder<MtgEngineDbContext>().UseSqlite(connection).Options);
+        await db.Database.EnsureCreatedAsync();
+        var collection = new Collection("owner", "Inventory");
+        db.Collections.Add(collection);
+        await db.SaveChangesAsync();
+        using var cache = new CollectionReadCache();
+        var reader = new CountingReader();
+        var service = new CollectionReadService(db, reader, new Lookup(), cache);
+        await service.PageAsync(collection.Id, "owner", new(), default);
+        await service.PageAsync(collection.Id, "owner", new() { Page = 2 }, default);
+        Assert.Equal(1, reader.Reads);
+        collection.UpdatedAt = collection.UpdatedAt.AddSeconds(1);
+        await db.SaveChangesAsync();
+        await service.PageAsync(collection.Id, "owner", new(), default);
+        Assert.Equal(2, reader.Reads);
+        Assert.Null(await service.PageAsync(collection.Id, "stranger", new(), default));
+    }
+
     private sealed class Lookup : StubScryfallService { public override Task<CardDefinition?> GetByOracleIdAsync(string oracleId) => Task.FromResult<CardDefinition?>(null); }
     private static CollectionDetailDto Fixture(int count = 205) => new()
     {

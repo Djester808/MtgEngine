@@ -16,7 +16,7 @@ public delegate Task SuggestionEmit(string @event, object payload);
 
 public interface IDeckSuggestionsService
 {
-    Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request);
+    Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Same result as <see cref="GetSuggestionsAsync"/>, but reports progress through
@@ -144,8 +144,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// <summary>How many cards each category shows.</summary>
     private const int CategorySize = 8;
 
-    public Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request)
-        => RunAsync(request, emit: null, CancellationToken.None);
+    public Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request, CancellationToken ct = default)
+        => RunAsync(request, emit: null, ct);
 
     public Task<DeckSuggestionsDto> GetSuggestionsStreamAsync(
         DeckSuggestionsRequest request, SuggestionEmit emit, CancellationToken ct = default)
@@ -192,7 +192,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     private async Task<DeckSuggestionsDto> BuildAsync(
         DeckSuggestionsRequest request, SuggestionEmit? emit, CancellationToken ct)
     {
-        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {request.CommanderOracleId}");
 
         // Never trust the client's commander name/text: both feed the reason and judge prompts,
@@ -233,7 +233,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // and they surface the deck's real engine (spells, ramp, draw) instead of a wall of
         // on-colour creatures. Obscure or brand-new commanders have no EDHREC page and fall
         // back to the Scryfall pool automatically.
-        var edhrecPool = await ResolveEdhrecPoolAsync(cmdDef);
+        var edhrecPool = await ResolveEdhrecPoolAsync(cmdDef, ct);
         var everythingPool = edhrecPool.Count > 0
             ? Pool() with { Candidates = edhrecPool, ScoreWindow = 150 }
             : Pool();
@@ -251,7 +251,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             Pool(sets: recentCodes),   // latest — newest-set discovery (Scryfall pool)
             everythingPool,            // top synergy — EDHREC-grounded when available
             Pool(gameChangers: true),  // official game-changers list
-        ]);
+        ], ct);
 
         await StageAsync(emit, 2, "Selecting the best cards…");
         var shown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -260,9 +260,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // list and takes everything they did not claim. There is no fourth "notable" tier:
         // it drew from the same pool as Top Synergy, so a card in it always sat just below
         // the section above with nothing to distinguish the two but an arbitrary cut.
-        var latest = await TakeAsync(pools[0], inDeck, shown, recentCodes);
-        var gameChangers = await TakeAsync(pools[2], inDeck, shown, null);
-        var top = await TakeAsync(pools[1], inDeck, shown, null);
+        var latest = await TakeAsync(pools[0], inDeck, shown, recentCodes, ct);
+        var gameChangers = await TakeAsync(pools[2], inDeck, shown, null, ct);
+        var top = await TakeAsync(pools[1], inDeck, shown, null, ct);
 
         // Provisional reveal: the cards and their scores are settled now, so the UI can render
         // them immediately. Their reasons are still the scorer's first pass and some cards may
@@ -288,7 +288,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // commander" reached the UI for a commander with no such ability.
         var proposed = latest.Length + gameChangers.Length + top.Length;
         ct.ThrowIfCancellationRequested();
-        var dropped = await GroundReasonsAsync(request, [latest, gameChangers, top], emit);
+        var dropped = await GroundReasonsAsync(request, [latest, gameChangers, top], emit, ct);
 
         if (dropped.Count > 0)
         {
@@ -334,14 +334,14 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// for commanders EDHREC has no page for; the caller then falls back to the Scryfall pool.
     /// EDHREC itself is cached for weeks, so this resolves names against the in-memory index.
     /// </summary>
-    private async Task<IReadOnlyList<CardDefinition>> ResolveEdhrecPoolAsync(CardDefinition commander)
+    private async Task<IReadOnlyList<CardDefinition>> ResolveEdhrecPoolAsync(CardDefinition commander, CancellationToken ct)
     {
         IReadOnlyList<EdhrecCard> raw;
         try
         {
-            raw = await _edhrec.GetCommanderPoolAsync(commander.Name);
+            raw = await _edhrec.GetCommanderPoolAsync(commander.Name, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "EDHREC lookup failed for {Commander}; using Scryfall pool", commander.Name);
             return [];
@@ -356,7 +356,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
         foreach (var ec in raw)
         {
-            var def = await _scryfall.GetByNameAsync(ec.Name);
+            var def = await _scryfall.GetByNameAsync(ec.Name, ct);
             if (def is null || def.OracleId == commander.OracleId)
                 continue;
             // Basic lands are the mana base, not a suggestion — the Scryfall pool path drops
@@ -387,7 +387,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         RankedPool pool,
         HashSet<string> inDeck,
         HashSet<string> shown,
-        IReadOnlySet<string>? preferSets)
+        IReadOnlySet<string>? preferSets, CancellationToken ct)
     {
         var picked = new List<SuggestedCardDto>(CategorySize);
 
@@ -402,7 +402,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             if (!shown.Add(r.Card.Name))
                 continue;
 
-            var printings = await _scryfall.GetPrintingsAsync(r.Card.OracleId);
+            var printings = await _scryfall.GetPrintingsAsync(r.Card.OracleId, ct);
             var printing = printings.FirstOrDefault(pr =>
                     pr.SetCode is not null && preferSets?.Contains(pr.SetCode) == true)
                 ?? printings.FirstOrDefault();
@@ -433,7 +433,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// </remarks>
     /// <returns>Names the judge rejected outright; the caller removes them.</returns>
     private async Task<HashSet<string>> GroundReasonsAsync(
-        DeckSuggestionsRequest request, SuggestedCardDto[][] groups, SuggestionEmit? emit = null)
+        DeckSuggestionsRequest request, SuggestedCardDto[][] groups, SuggestionEmit? emit = null, CancellationToken ct = default)
     {
         var dropped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -450,13 +450,13 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         try
         {
             await StageAsync(emit, 3, "Writing reasons…");
-            var reasons = await CallReasonPassAsync(request, resolved);
+            var reasons = await CallReasonPassAsync(request, resolved, ct);
 
             // Citing real text is not enough. Both halves of "Goblin Bombardment
             // converts Smaug's Treasures into damage" are quotable; the inference
             // joining them is what is false, so a separate pass attacks the inference.
             await StageAsync(emit, 4, "Fact-checking suggestions…");
-            (reasons, dropped) = await CritiqueReasonsAsync(request, resolved, reasons);
+            (reasons, dropped) = await CritiqueReasonsAsync(request, resolved, reasons, ct);
 
             int verified = 0, fallback = 0;
             foreach (var group in groups)
@@ -496,7 +496,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 "Grounded reasons for {Commander}: {Verified} verified, {Fallback} fell back to rules text",
                 request.CommanderName, verified, fallback);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Keep the first-pass reasons rather than failing the request. They may be
             // imprecise, but the suggestions themselves are still valid.
@@ -507,7 +507,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     }
 
     private async Task<Dictionary<string, string>> CallReasonPassAsync(
-        DeckSuggestionsRequest request, SuggestedCardDto[] cards)
+        DeckSuggestionsRequest request, SuggestedCardDto[] cards, CancellationToken ct)
     {
         var cardList = string.Join("\n", cards.Select(c =>
             $"- {c.Name} | {TypeLineOf(c.Card!)} | {c.Card!.ManaCost} | {c.Card.OracleText.Replace("\n", " ")}"));
@@ -562,7 +562,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             """;
 
         // Each entry now carries two verbatim quotes as well as the sentence.
-        var parsed = await CallJsonAsync<ReasonPassJson>(prompt, maxTokens: 4000);
+        var parsed = await CallJsonAsync<ReasonPassJson>(prompt, maxTokens: 4000, ct: ct);
 
         var byName = cards.ToDictionary(c => c.Name, c => c.Card!.OracleText!, StringComparer.OrdinalIgnoreCase);
         var commanderText = Normalize(request.CommanderText ?? string.Empty);
@@ -610,7 +610,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     private async Task<(Dictionary<string, string> Reasons, HashSet<string> Dropped)> CritiqueReasonsAsync(
         DeckSuggestionsRequest request,
         SuggestedCardDto[] cards,
-        Dictionary<string, string> reasons)
+        Dictionary<string, string> reasons, CancellationToken ct)
     {
         var dropped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -696,7 +696,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         try
         {
             var parsed = await CallJsonAsync<CritiquePassJson>(
-                prompt, maxTokens: 3000, withDoctrine: true, modelId: JudgeModelId);
+                prompt, maxTokens: 3000, withDoctrine: true, modelId: JudgeModelId, ct: ct);
 
             int corrected = 0, unusable = 0;
             foreach (var check in parsed?.Checks ?? [])
@@ -743,7 +743,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 request.CommanderName, toCheck.Length, corrected, unusable, dropped.Count,
                 string.Join(", ", dropped));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // An unchecked reason is still quote-grounded; keep it rather than fail.
             _logger.LogWarning(ex, "Reason critique failed for {Commander}", request.CommanderName);
@@ -872,7 +872,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// the commander starts in the command zone rather than the library (doctrine §1.1).
     /// </param>
     private async Task<T?> CallJsonAsync<T>(
-        string prompt, int maxTokens, bool withDoctrine = false, string? modelId = null)
+        string prompt, int maxTokens, bool withDoctrine = false, string? modelId = null, CancellationToken ct = default)
     {
         var request = new AnthropicRequest(
             modelId ?? ModelId,
@@ -893,7 +893,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             Operation = withDoctrine ? "suggestions (doctrine)" : "suggestions",
         };
 
-        return AnthropicResponse.DeserializeJson<T>(await _anthropic.SendAsync(request));
+        return AnthropicResponse.DeserializeJson<T>(await _anthropic.SendAsync(request, ct));
     }
 
     private sealed class ReasonPassJson

@@ -11,12 +11,12 @@ public sealed class ExploreDirectoryService(IScryfallService cards, ExploreServi
         var commanders = await cards.SearchCommandersAsync(options.Q, int.MaxValue);
         var popular = await explore.Directory(ct);
         var counts = popular.Commanders.GroupBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-        var entries = commanders.Select(c => { counts.TryGetValue(c.Name, out var counted); return new ExploreEntry(c.Name, DomainMapper.ToDto(c), Decks: options.Window == "all" ? counted?.Decks : null, Kind: "commander", Rank: c.EdhrecRank); });
+        var entries = commanders.Select(c => { counts.TryGetValue(c.Name, out var counted); return new ExploreEntry(c.Name, DomainMapper.ToDto(c), Decks: counted?.Decks, Kind: "commander", Rank: c.EdhrecRank); });
         return Run(entries, options, popular.FetchedAt);
     }
     public static void Validate(ExploreDirectoryOptions o)
     {
-        if (o.Q.Length > 200 || o.Identity is not null && (o.Identity.Length > 5 || o.Identity.ToUpperInvariant().Any(c => !"CWUBRG".Contains(c))) || o.Mode is not ("within" or "exact") || o.Window is not ("all" or "week" or "month" or "year") || o.Sort is not ("name" or "decks" or "rank") || o.Dir is not ("asc" or "desc") || o.Page < 1 || o.PageSize is < 1 or > 100)
+        if (o.Q.Length > 200 || o.Identity is not null && (o.Identity.Length > 5 || o.Identity.ToUpperInvariant().Any(c => !"CWUBRG".Contains(c))) || o.Mode is not ("within" or "exact") || o.Window != "all" || o.Sort is not ("name" or "decks" or "rank") || o.Dir is not ("asc" or "desc") || o.Page < 1 || o.PageSize is < 1 or > 100)
             throw new InvalidRequestException("Choose valid commander directory filters.");
     }
     public static ExploreDirectory Run(IEnumerable<ExploreEntry> source, ExploreDirectoryOptions o, DateTimeOffset fetched)

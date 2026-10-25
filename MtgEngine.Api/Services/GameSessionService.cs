@@ -42,7 +42,9 @@ public sealed record NewGameRequest(
 /// </remarks>
 public sealed class GameSessionService
 {
-    private readonly ConcurrentDictionary<Guid, GameSession> _live = new();
+    private readonly ConcurrentDictionary<Guid, WeakReference<GameSession>> _live = new();
+    private readonly object _cacheLock = new();
+    private readonly ConcurrentDictionary<Guid, Lazy<Task<GameSession?>>> _loads = new();
     private readonly IGameLogStore _store;
     private readonly ICardFilePool _pool;
     private readonly DeckGate _gate;
@@ -141,7 +143,7 @@ public sealed class GameSessionService
             return SameTable(recovered, request);
         }
 
-        return _live.GetOrAdd(id, session);
+        return Remember(id, session);
     }
 
     private static GameSession SameTable(GameSession existing, NewGameRequest request)
@@ -156,10 +158,28 @@ public sealed class GameSessionService
     /// <summary>The table, live if it is in memory and replayed from its log if it is not.</summary>
     public async Task<GameSession?> FindAsync(Guid id, CancellationToken ct = default)
     {
-        if (_live.TryGetValue(id, out var live))
+        if (_live.TryGetValue(id, out var reference) && reference.TryGetTarget(out var live))
             return live;
 
-        var stored = await _store.LoadAsync(id, ct).ConfigureAwait(false);
+        var pending = _loads.GetOrAdd(id, key => new Lazy<Task<GameSession?>>(() => LoadSharedAsync(key)));
+        return await pending.Value.WaitAsync(ct).ConfigureAwait(false);
+    }
+
+    private async Task<GameSession?> LoadSharedAsync(Guid id)
+    {
+        try
+        {
+            return await LoadCoreAsync(id).ConfigureAwait(false);
+        }
+        finally
+        {
+            _loads.TryRemove(id, out _);
+        }
+    }
+
+    private async Task<GameSession?> LoadCoreAsync(Guid id)
+    {
+        var stored = await _store.LoadAsync(id, CancellationToken.None).ConfigureAwait(false);
         if (stored is null)
             return null;
 
@@ -171,14 +191,31 @@ public sealed class GameSessionService
             id, new Game(_subsystems(enforcedIds), _pool), state, log, seats,
             enforcedIds, stored.AllowHonourSystem);
 
-        return _live.GetOrAdd(id, session);
+        return Remember(id, session);
     }
 
+    private GameSession Remember(Guid id, GameSession session)
+    {
+        lock (_cacheLock)
+        {
+            if (_live.TryGetValue(id, out var reference) && reference.TryGetTarget(out var existing))
+            {
+                session.Dispose();
+                return existing;
+            }
+            foreach (var entry in _live)
+                if (!entry.Value.TryGetTarget(out _))
+                    _live.TryRemove(entry.Key, out _);
+            _live[id] = new WeakReference<GameSession>(session);
+            return session;
+        }
+    }
     /// <summary>Applies a command to a table and stores the log it produced.</summary>
     public Task<GameResult> ApplyAsync(GameSession session, Command command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.ApplyAsync(command, PersistAsync, ct);
+        return session.ApplyAsync(command, (log, appended, finished, token) =>
+            _store.AppendAsync(session.Id, EventLogSerializer.Write(appended), log.Count - appended.Count, appended.Count, finished, token), ct);
     }
 
     /// <summary>Whether the table plays this object by the rules, or leaves it to the players.</summary>
@@ -188,9 +225,6 @@ public sealed class GameSessionService
         return session.State.Objects.TryGetValue(what, out var obj)
             && RulesCoverage.IsEnforced(obj, session.EnforcedOracleIds.Contains);
     }
-
-    private Task PersistAsync(GameSession session, ImmutableList<GameEvent> appended, CancellationToken ct) =>
-        _store.SaveLogAsync(session.Id, EventLogSerializer.Write(session.Log), session.Log.Count, session.Finished, ct);
 
     /// <summary>
     /// What a resumed game enforces, read from its admission snapshot.

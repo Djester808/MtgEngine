@@ -32,7 +32,7 @@ public sealed class PersistedGame
     /// </remarks>
     public string SeatsJson { get; set; } = "[]";
 
-    /// <summary>The event log, as written by the engine's log serializer.</summary>
+    /// <summary>The initial event log; later batches are held in PersistedGameEvent.</summary>
     public string LogJson { get; set; } = "[]";
 
     /// <summary>How many events the log holds, so a report can name a position without parsing it.</summary>

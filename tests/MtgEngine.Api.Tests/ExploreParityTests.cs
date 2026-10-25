@@ -6,6 +6,13 @@ namespace MtgEngine.Api.Tests;
 
 public sealed class ExploreParityTests
 {
+    [Theory]
+    [InlineData("week")]
+    [InlineData("month")]
+    [InlineData("year")]
+    public void UnsupportedDirectoryWindowsAreExplicitlyRejected(string window) =>
+        Assert.Throws<InvalidRequestException>(() => ExploreDirectoryService.Validate(new(Window: window)));
+
     [Fact]
     public void DirectoryContinuationPagesUseRootCardviews()
     {

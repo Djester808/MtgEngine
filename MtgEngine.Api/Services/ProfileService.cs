@@ -87,59 +87,30 @@ public sealed class ProfileService : IProfileService
     {
         var take = Math.Clamp(limit, 1, MaxPlayerLimit);
 
-        // Ordered by contribution, so the list opens on the people worth reading.
-        var users = await _db.Users
-            .AsNoTracking()
-            .Where(u => u.DeletedAt == null)
+        // Rank and cap in SQL before materializing the directory.
+        var users = await _db.Users.AsNoTracking()
             .Select(u => new
             {
-                u.Id,
                 u.Username,
                 u.DisplayName,
                 u.Tagline,
                 u.CreatedAt,
                 u.AvatarUpdatedAt,
-                u.HideProfileDecks,
+                DeckCount = u.HideProfileDecks ? 0 : _db.ForumPosts.Count(p => p.AuthorId == u.Id.ToString().ToLower()),
+                CommentCount = _db.ForumComments.Count(c => c.AuthorId == u.Id.ToString().ToLower()),
             })
+            .OrderByDescending(u => u.DeckCount)
+            .ThenByDescending(u => u.CommentCount)
+            .ThenBy(u => u.Username)
+            .Take(take)
             .ToListAsync(ct);
-
-        var ids = users.Select(u => u.Id.ToString()).ToList();
-
-        var deckCounts = await _db.ForumPosts
-            .AsNoTracking()
-            .Where(p => ids.Contains(p.AuthorId))
-            .GroupBy(p => p.AuthorId)
-            .Select(g => new { AuthorId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.AuthorId, x => x.Count, ct);
-
-        var commentCounts = await _db.ForumComments
-            .AsNoTracking()
-            .Where(c => ids.Contains(c.AuthorId))
-            .GroupBy(c => c.AuthorId)
-            .Select(g => new { AuthorId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.AuthorId, x => x.Count, ct);
-
-        return [.. users
-            .Select(u =>
-            {
-                var key = u.Id.ToString();
-                return new PlayerSummaryDto
-                {
-                    Username = u.Username,
-                    DisplayName = u.DisplayName,
-                    Tagline = u.Tagline,
-                    AvatarUrl = AvatarUrl(u.Username, u.AvatarUpdatedAt),
-                    JoinedAt = u.CreatedAt,
-                    DeckCount = u.HideProfileDecks ? 0 : deckCounts.GetValueOrDefault(key),
-                    CommentCount = commentCounts.GetValueOrDefault(key),
-                };
-            })
-            .OrderByDescending(p => p.DeckCount)
-            .ThenByDescending(p => p.CommentCount)
-            .ThenBy(p => p.Username, StringComparer.OrdinalIgnoreCase)
-            .Take(take)];
+        return [.. users.Select(u => new PlayerSummaryDto
+        {
+            Username = u.Username, DisplayName = u.DisplayName, Tagline = u.Tagline,
+            AvatarUrl = AvatarUrl(u.Username, u.AvatarUpdatedAt), JoinedAt = u.CreatedAt,
+            DeckCount = u.DeckCount, CommentCount = u.CommentCount,
+        })];
     }
-
     public async Task<UserProfileDto> GetPublicProfileAsync(string username, CancellationToken ct = default)
     {
         var user = await FindUserAsync(username, ct);
@@ -252,7 +223,7 @@ public sealed class ProfileService : IProfileService
 
         var row = await _db.Users
             .AsNoTracking()
-            .Where(u => u.DeletedAt == null && u.Username.ToLower() == normalized)
+            .Where(u => u.DeletedAt == null && u.Username == normalized)
             .Join(
                 _db.Set<UserAvatar>().AsNoTracking(),
                 u => u.Id,
@@ -451,8 +422,8 @@ public sealed class ProfileService : IProfileService
             ct.ThrowIfCancellationRequested();
 
             var card = row.ScryfallId is not null
-                ? await _cards.GetByScryfallIdAsync(row.ScryfallId) ?? await _cards.GetByOracleIdAsync(row.OracleId)
-                : await _cards.GetByOracleIdAsync(row.OracleId);
+                ? await _cards.GetByScryfallIdAsync(row.ScryfallId, ct) ?? await _cards.GetByOracleIdAsync(row.OracleId, ct)
+                : await _cards.GetByOracleIdAsync(row.OracleId, ct);
 
             if (card is null)
                 continue;
@@ -527,7 +498,7 @@ public sealed class ProfileService : IProfileService
             if (results.Count == RailSize)
                 break;
 
-            var card = await _cards.GetByOracleIdAsync(row.OracleId);
+            var card = await _cards.GetByOracleIdAsync(row.OracleId, ct);
             if (card is null || IsBasicLand(card))
                 continue;
 
@@ -556,7 +527,7 @@ public sealed class ProfileService : IProfileService
         {
             ct.ThrowIfCancellationRequested();
 
-            var card = await _cards.GetByOracleIdAsync(oracleId);
+            var card = await _cards.GetByOracleIdAsync(oracleId, ct);
             if (card is null)
                 continue; // A commander the card data no longer knows is left out, not rendered blank.
 
@@ -593,7 +564,7 @@ public sealed class ProfileService : IProfileService
         {
             ct.ThrowIfCancellationRequested();
 
-            var card = await _cards.GetByOracleIdAsync(oracleId);
+            var card = await _cards.GetByOracleIdAsync(oracleId, ct);
             if (card is null)
                 continue;
 
@@ -674,7 +645,7 @@ public sealed class ProfileService : IProfileService
     {
         var normalized = (username ?? string.Empty).ToLower();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized, ct);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == normalized, ct);
 
         return user ?? throw new ResourceNotFoundException($"User '{username}' was not found.");
     }
@@ -714,7 +685,7 @@ public sealed class ProfileService : IProfileService
 
         ct.ThrowIfCancellationRequested();
 
-        var card = await _cards.GetByOracleIdAsync(oracleId);
+        var card = await _cards.GetByOracleIdAsync(oracleId, ct);
         if (card is null)
             throw new InvalidRequestException("That commander could not be found.");
 

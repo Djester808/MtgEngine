@@ -93,6 +93,15 @@ public class ManaFineTuneGroundingTests
     private static ManaFineTuneRequest Request(params string[] deckCardNames) =>
         new() { DeckCardNames = deckCardNames };
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(201)]
+    public async Task InvalidCardNameLengthIsRejectedBeforeLookupOrModel(int length)
+    {
+        var (service, _) = MakeService();
+        await Assert.ThrowsAsync<InvalidRequestException>(() => service.GetFineTuneAsync(Request(new string('x', length))));
+    }
+
     [Fact]
     public async Task ResolvedLand_IsKept_WithNewestPrintingAndCardData()
     {

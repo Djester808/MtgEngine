@@ -172,3 +172,19 @@ invitation selection. It requires an active authenticated account, excludes the 
 and deleted accounts, matches username prefixes, and caps results at 20 in stable name/ID
 order. Trimmed prefixes shorter than two characters return no matches; more than 64 are
 rejected. No email, deck, collection or other private profile fields are included.
+
+## Audit hardening (2026-10-25)
+
+Registration and rename share the reserved-name policy. Username and email uniqueness
+is case-insensitive in the database, including writes that race the service precheck.
+The migration refuses existing case-only duplicates instead of silently combining accounts;
+those conflicts must be resolved against the actual account owners before upgrading.
+Expired account sessions and verification/reset codes are pruned daily. Revoked refresh
+hashes remain until their original expiry so replay detection continues to revoke a family.
+The player directory ranks and limits in SQL before materializing results.
+
+Public forum lists accept offset/limit (default 50, maximum 200); post detail accepts
+commentOffset/commentLimit with the same defaults and maximum. Responses retain their
+existing array shapes. Historical merge-migration correction protects databases that have
+not yet applied it; metadata already overwritten by the old migration cannot be recovered
+without a pre-migration backup.

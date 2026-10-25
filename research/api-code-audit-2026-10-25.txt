@@ -1,0 +1,261 @@
+API CODE AUDIT — 2026-10-25
+
+Scope and evidence
+------------------
+Four reviewers (primary plus three agents) audited the ASP.NET API by subsystem,
+including controllers, DTOs, mappings, services, persistence, startup, domain
+models, relevant tests and selected client/engine integration call sites.
+Inventory: 200 API C# files, including 69 migration/generated snapshot files,
+and 19 Domain C# files. Generated migration designers were inspected selectively;
+this is not a separate exhaustive audit of the Rules/Cards engines or client.
+
+No application source was changed. Findings are source-confirmed unless marked
+as a candidate. User-visible and concurrent failure reproductions are unverified:
+the existing suite was run, not new reproductions for each finding.
+
+Verification: dotnet test tests/MtgEngine.Api.Tests/MtgEngine.Api.Tests.csproj
+--no-restore --verbosity minimal: 835 passed, 0 failed, 0 skipped. Its build
+succeeded. Initial sandbox execution failed because .NET could not access the
+Windows Service Control Manager; the approved outside-sandbox run succeeded.
+No full-solution test, live UI test, migration upgrade test or benchmark was run.
+
+Priority meanings: High = correctness/durability requiring early attention;
+Medium = concrete behavioral or scalability issue; Low = cleanup/design debt.
+Performance findings describe work visible in code, not measured speedups.
+
+CORRECTNESS AND RELIABILITY
+
+1. High — Live game advances before persistence succeeds
+   MtgEngine.Api/Services/GameSession.cs:136-138
+   State and Log are assigned before awaiting persistence. A save exception or
+   cancellation leaves an accepted command in memory even though its invocation
+   fails. Restart can lose the move; a later successful command can unexpectedly
+   save it. GameHub.cs:83 passes ConnectionAborted, making disconnect cancellation
+   relevant. Persist a proposed snapshot/log before publishing it, or restore the
+   previous values on failure; publish the state/log pair consistently.
+   Regression: make the store throw/cancel and assert state, log and replay agree.
+
+2. High — Game updates cross between an account's different tables
+   MtgEngine.Api/Hubs/GameHub.cs:151-154; group bookkeeping at 44-55
+   Delivery uses Clients.User, so all connections for a seated account receive
+   each table's updates. ViewUpdated has no table identity. The client at
+   ../mtg-client/src/app/services/signalr.service.ts:110-112 assigns its current
+   local game ID to incoming messages. Tabs for tables A and B can display each
+   other's state. Join/Leave changes a group that delivery never uses.
+   Use authenticated per-table/per-account subscriptions and include game ID in
+   the envelope. Do not broadcast private views to the all-player game group.
+   Regression: two connections for one account subscribed to different games.
+
+3. Medium — Overlapping commands can deliver older views after newer ones
+   MtgEngine.Api/Hubs/GameHub.cs:99-104,142-154
+   Projection/delivery occurs outside the command lock, with asynchronous artwork
+   work before sending. Invocation A can capture revision N, B send N+1, then A
+   send N. There is no revision in Delivery to reject stale arrivals. Capture a
+   committed snapshot and attach a monotonically increasing event revision.
+   Regression: block one artwork request while a second command completes.
+
+4. Medium — Pinning an unspecified printing loses newly added etched copies
+   MtgEngine.Api/Services/CollectionService.cs:272-284
+   TryAdoptUnpinnedAsync increments Quantity and QuantityFoil but omits
+   QuantityEtched, unlike ordinary increment and insert paths. Adding three
+   etched copies to an existing unpinned row pins the row without adding those
+   copies; history still records the requested etched delta at line 363.
+   Include all finishes in adoption and check history against persisted totals.
+
+5. Medium — AI deck size calculations omit foil and etched copies
+   MtgEngine.Api/Services/AiBuildService.cs:390-401,533-544
+   Planning and applying use only Quantity for existing main-deck occupancy.
+   Fifty foil noncommander cards can be counted as zero occupied slots, permitting
+   up to 99 further cards. Refine size calculations repeat the omission at
+   1047,1103,1184. Centralize finish-aware copy counts and slot policy across
+   planning, applying and refining. Test mixed-finish and foil-only decks.
+
+6. Medium — Collection deletion paths bypass published-deck cleanup
+   MtgEngine.Api/Services/CollectionService.cs:187-201,724-728
+   Generic collection deletion accepts decks; merge-with-DeleteSource can also
+   delete decks. Neither performs the forum post/comment cleanup implemented by
+   DeleteDeckAsync at 865-881. There is no deck foreign-key cascade for posts.
+   These paths can strand published posts pointing to missing decks.
+   Share one deletion policy and transaction, or reject decks on generic paths.
+
+7. Medium — Reserved username rules differ between registration and rename
+   MtgEngine.Api/Services/AccountManagementService.cs:24-29
+   MtgEngine.Api/Services/AccountManagementService.Profile.cs:8-15
+   Registration duplicates length/character checks but omits reserved-name checks
+   for admin/support/system/etc. and deleted_*. Availability and rename reject
+   names registration accepts. Reuse the same validator on all three paths.
+
+8. Medium — Database uniqueness does not match case-insensitive usernames
+   MtgEngine.Api/Data/MtgEngineDbContext.cs:121
+   MtgEngine.Api/Services/AccountManagementService.cs:28,44-45
+   The username unique index is case-sensitive, but signup checks and login use
+   lowercase comparisons. Concurrent Alice/alice registrations can pass the
+   pre-check and both persist, making username login ambiguous. Enforce canonical
+   or NOCASE uniqueness in the database after checking existing collisions.
+   Concurrent reproduction is unverified; schema/query mismatch is confirmed.
+
+9. Medium — Commander directory accepts unsupported time-window behavior
+   MtgEngine.Api/Services/Community/ExploreDirectoryService.cs:13,19
+   MtgEngine.Api/Services/Community/ExploreService.cs:63-64
+   week/month/year are accepted, but every non-all window sets Decks to null;
+   sorting by decks then degenerates into alphabetical ties. Directory loading
+   always fetches yearly paths. Implement the requested windows or reject them
+   explicitly; do not advertise window-specific statistics that are absent.
+
+10. Medium — Cancellation stops at AI entry points
+    MtgEngine.Api/Services/AiBuildService.cs:323-353,362,1832
+    PlanDeckStreamAsync accepts a token but ComputePlanAsync/assessment and
+    underlying calls omit it; cancellation is checked after expensive work.
+    Nonstreaming controllers/contracts also omit request cancellation:
+    Controllers/DecksController.cs:164-171,254-262,274-284 and
+    Services/DeckSuggestionsService.cs:147-148 (CancellationToken.None).
+    Disconnected requests can keep consuming model calls and holding deck locks.
+    Thread cancellation through provider calls, data access and lock acquisition.
+
+11. Low — Republishing a discussed deck reports zero comments
+    MtgEngine.Api/Services/ForumService.cs:225-242,265
+    Existing-post updates return CommentCount = 0 regardless of stored comments.
+    The normal read projection computes it correctly. Reuse that projection or
+    fetch the count when returning the updated summary.
+
+12. Low — Hub validation does not validate nested attack/block elements
+    MtgEngine.Api/Hubs/GameHub.cs:188-221; Dtos/GameDtos.cs:123,137
+    Validation inspects the top-level DTO/constructor but not list elements.
+    Attacks:[null] or Blocks:[null] reaches ToCommand and throws instead of
+    returning normal validation/refusal feedback. Validate nested elements and
+    null entries explicitly. Existing transport-level limits still apply.
+
+13. Low — Development clear/seed operations do not share an acquired gate
+    MtgEngine.Api/Controllers/AdminController.cs:40-42,57
+    Clear checks the seed flag without acquiring it; seed alone acquires it.
+    A clear can overlap seed, and two clears can overlap. Acquire the same gate
+    for both operations. This controller is development-only.
+
+OPTIMIZATION AND RESOURCE LIFECYCLE
+
+14. Medium — Every collection page hydrates the entire collection
+    MtgEngine.Api/Services/CollectionReadService.cs:16,43
+    MtgEngine.Api/Services/CollectionService.cs:119-133
+    PageAsync loads/maps/resolves all entries, then filters and pages in memory.
+    A small page repeats full work, including serial fallback lookups when needed.
+    Separate filter/sort metadata and aggregates from page-detail hydration;
+    preserve full-collection filtering semantics rather than simply applying
+    SQL Take before filters that depend on catalog data.
+
+15. Medium — Anonymous forum requests are unbounded and over-fetch deck cards
+    MtgEngine.Api/Services/ForumService.cs:41-48,80-87,120-125
+    Controllers/ForumController.cs:29-44 exposes all posts and all detail comments.
+    Summary projection includes c.Cards and c.Description, neither consumed,
+    then separately queries card-count aggregates. Remove unused projection
+    members and paginate posts/comments before enrichment.
+
+16. Medium — Player limit is applied only after loading/sorting everybody
+    MtgEngine.Api/Services/ProfileService.cs:86-140
+    Users and their activity aggregates are materialized for all IDs before Take.
+    limit=1 therefore still scales with the entire community. Push counts, order
+    and limit into a database query before mapping the selected users.
+
+17. Medium — Live game sessions have no eviction lifecycle
+    MtgEngine.Api/Services/GameSessionService.cs:45,144,159-174
+    Singleton _live retains every loaded/created session, including finished
+    games, with state, full log, engine and semaphore. Concurrent cold loads also
+    replay independently before GetOrAdd and discard losing sessions without
+    disposing them. Add safe bounded idle/finished eviction and single-flight
+    loading, coordinated with active commands.
+
+18. Medium — Each game command rewrites the entire accumulated event log
+    MtgEngine.Api/Services/GameSessionService.cs:192-193
+    MtgEngine.Api/Services/GameLogStore.cs:56-68
+    PersistAsync ignores appended and serializes all session.Log; the store
+    replaces the complete JSON column while the command lock remains held.
+    Cumulative serialization/write volume is approximately quadratic as events
+    accumulate. Consider append-only sequenced events with expected revision
+    checks and periodic recovery snapshots. Benchmark before choosing storage.
+
+19. Medium — Authentication records have no expiry retention sweep
+    MtgEngine.Api/Services/AccountManagementService.Sessions.cs:47-59
+    MtgEngine.Api/Services/AccountManagementService.Credentials.cs:19-28
+    Rotation and code issuance append rows. References show deletion only during
+    account/email lifecycle operations, not expiration maintenance. Add bounded
+    cleanup; retain revoked refresh hashes until original expiry so token-reuse
+    detection remains effective.
+
+20. Optimization — Moves/merges issue a destination SELECT per source row
+    MtgEngine.Api/Services/CollectionService.cs:515-525,650,702
+    FoldIntoAsync queries inside both bulk loops. Preload destination keys once,
+    index by the full matching key and update the map for newly created rows.
+    Preserve tracked-local-row matching and transaction semantics.
+
+DEAD CODE, DUPLICATION AND SOLID
+
+21. Confirmed unused dependency
+    ForumService.cs:30,33-38 injects/assigns ICollectionService _collections but
+    never reads it. Remove field and constructor dependency; update test setup.
+
+22. Unused versus test-only EDHREC helpers
+    Services/Community/EdhrecPages.cs:93-108 TryRead<T> has no API/test callers.
+    Write<T> at line 90 is used only by EdhrecCommanderPageParserTests.cs:150.
+    Remove the unused helper; move test serialization into test code as useful.
+
+23. Production-unused game creation alternatives
+    Services/GameLogStore.cs:18,47-54 CreateAsync is used for test seeding;
+    production uses TryCreateAsync. GameSessionService.cs:70-71 CreateAsync is
+    likewise test-only; production uses CreateForLobbyAsync. These are not wholly
+    dead. Consider test helpers/narrower APIs rather than blindly deleting them.
+    Hub group bookkeeping is ineffective today; resolve as part of finding 2.
+
+24. Duplicate EDHREC slug conversion
+    Services/EdhrecPoolService.cs:151-158 duplicates Community/EdhrecSlug.cs:18-24.
+    The latter uses reusable timed regexes, the former static untimed calls.
+    Share one slug policy and test supported punctuation/Unicode cases.
+
+25. Duplicate streaming transport/error code
+    Controllers/DecksController.cs:210-235,317-341 repeat SSE setup, JSON writes,
+    flushing, cancellation and error emission. Generic catches do not log errors.
+    Extract a stream writer/error boundary and preserve endpoint-specific events.
+
+26. Concrete SRP/ISP debt: collection policy spans unrelated capabilities
+    Services/CollectionService.cs:9-66 exposes read models, collection/deck CRUD,
+    individual mutations and transfers through one interface. Read-only callers
+    depend on the entire mutation surface. Repeated deletion logic has already
+    diverged (finding 6). Prefer focused read contracts and one shared deletion
+    policy; merely splitting the file does not address this coupling.
+
+27. Concrete SRP debt: AI orchestration also owns inventory and mutation policy
+    Services/AiBuildService.cs combines candidate retrieval, prompts, assessments,
+    validation, mutation and locking. Independent size calculations have already
+    drifted (finding 5). Extract shared deck inventory/slot policy and an atomic
+    mutation boundary before separating planning/prompt orchestration.
+
+28. Thin-controller and validation conventions are inconsistently enforced
+    Controllers/CardsController.cs Candidates performs scope selection, type
+    parsing, ranking, printing selection and DTO assembly; CommandersController
+    SearchCommanders combines search/stats/sorting/mapping. Move these use cases
+    behind services. Forum requests at Dtos/Dtos.cs:681-683 lack length annotations
+    while ForumController.cs:48-111 manually repeats limits/error formatting.
+    DecksController.cs:85-91 returns raw InvalidOperationException/HttpRequestException
+    messages, contrary to the repository's safe typed-error policy. Use validated
+    DTOs and central typed error translation.
+
+No substantiated LSP/OCP/DIP violation is claimed solely because a type is large,
+sealed, or injects a concrete helper. No public DTO/controller was called dead
+solely because text-reference counts were low: framework discovery, serialization
+and dependency injection are real consumers.
+
+CANDIDATE REQUIRING TARGETED REPRODUCTION
+
+AiCacheService.cs:77-96 catches cache-save failure without detaching the failed
+Added entity from the shared scoped DbContext. A unique-index race may leave that
+insert pending, so a later SaveChanges in the same scope retries it. Explore deck
+copy combines cached fetching with deck creation and could expose this. Verify
+with a real concurrent cache collision before treating it as a confirmed runtime
+defect; isolate cache persistence/upsert or clear failed tracking if reproduced.
+
+Suggested work order
+--------------------
+First address game durability/routing and collection quantity/deletion defects.
+Then unify identity and inventory policies and propagate cancellation. Add focused
+regressions for those failures. Next tackle bounded reads, resource retention and
+append-only log persistence with measurements. Finally remove unused helpers and
+extract duplicate transport/slug code. Avoid a large structural rewrite before
+correctness regressions pin down existing behavior.

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace MtgEngine.Api.Services;
 
@@ -66,7 +65,7 @@ public sealed class EdhrecPoolService : IEdhrecPoolService
 
             return cached ?? [];
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A transient EDHREC failure must NOT be cached as "no data" for 30 days — the
             // factory throwing means GetOrCreateAsync never wrote a cache entry. Callers
@@ -83,7 +82,7 @@ public sealed class EdhrecPoolService : IEdhrecPoolService
         var slug = ToSlug(commanderName);
 
         var http = _httpFactory.CreateClient("EdhrecApi");
-        var resp = await http.GetAsync($"pages/commanders/{slug}.json", ct);
+        using var resp = await http.GetAsync($"pages/commanders/{slug}.json", ct);
 
         // 404 is the one status that means "genuinely no page" — obscure or brand-new
         // commanders — and an empty pool for it is correct and cacheable.
@@ -148,12 +147,5 @@ public sealed class EdhrecPoolService : IEdhrecPoolService
     }
 
     /// <summary>"Atraxa, Praetors' Voice" -> "atraxa-praetors-voice"</summary>
-    internal static string ToSlug(string name)
-    {
-        var s = name.ToLowerInvariant();
-        s = Regex.Replace(s, @"[^a-z0-9\s-]", "");
-        s = Regex.Replace(s, @"\s+", "-");
-        s = Regex.Replace(s, @"-+", "-").Trim('-');
-        return s;
-    }
+    internal static string ToSlug(string name) => Community.EdhrecSlug.From(name);
 }

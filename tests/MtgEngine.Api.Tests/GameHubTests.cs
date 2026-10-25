@@ -65,12 +65,21 @@ public sealed partial class GameHubTests
                 .FirstOrDefault();
     }
 
-    /// <summary>Group membership, which these tests do not assert on: nothing is ever sent to a group.</summary>
+    /// <summary>Tracks private table subscription changes.</summary>
     private sealed class NoGroups : IGroupManager
     {
-        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken ct = default) => Task.CompletedTask;
+        public List<string> Joined { get; } = [];
+        public List<string> Left { get; } = [];
+        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken ct = default)
+        {
+            Joined.Add(groupName);
+            return Task.CompletedTask;
+        }
+        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken ct = default)
+        {
+            Left.Add(groupName);
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>The log store, in memory. One row per game, exactly as the database holds it.</summary>
@@ -79,9 +88,28 @@ public sealed partial class GameHubTests
         public Dictionary<Guid, PersistedGame> Rows { get; } = [];
 
         public int Saves { get; private set; }
+        public bool FailSave { get; set; }
 
-        public Task<PersistedGame?> LoadAsync(Guid id, CancellationToken ct = default) =>
-            Task.FromResult(Rows.TryGetValue(id, out var row) ? row : null);
+        public Task AppendAsync(Guid id, string eventsJson, int expectedCount, int addedCount, bool finished, CancellationToken ct = default)
+        {
+            if (FailSave)
+                throw new IOException("Simulated persistence failure.");
+            ct.ThrowIfCancellationRequested();
+            var row = Rows[id];
+            Assert.Equal(expectedCount, row.EventCount);
+            var log = EventLogSerializer.Read(row.LogJson).Concat(EventLogSerializer.Read(eventsJson));
+            return SaveLogAsync(id, EventLogSerializer.Write(log), expectedCount + addedCount, finished, ct);
+        }
+
+        public Task? LoadDelay { get; set; }
+        public int Loads { get; private set; }
+        public async Task<PersistedGame?> LoadAsync(Guid id, CancellationToken ct = default)
+        {
+            Loads++;
+            if (LoadDelay is not null)
+                await LoadDelay.WaitAsync(ct);
+            return Rows.GetValueOrDefault(id);
+        }
 
         public Task CreateAsync(PersistedGame game, CancellationToken ct = default)
         {
@@ -123,7 +151,14 @@ public sealed partial class GameHubTests
         public IClientProxy All => new Proxy(this, To.Other, null);
         public IClientProxy AllExcept(IReadOnlyList<string> excluded) => new Proxy(this, To.Other, null);
         public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new Proxy(this, To.Other, null);
-        public IClientProxy Group(string groupName) => new Proxy(this, To.Group, null);
+        public IClientProxy Group(string groupName)
+        {
+            SentGroups.Add(groupName);
+            return groupName.Contains(":user:", StringComparison.Ordinal)
+                ? new Proxy(this, To.User, groupName[(groupName.IndexOf(":user:", StringComparison.Ordinal) + 6)..])
+                : new Proxy(this, To.Group, null);
+        }
+        public List<string> SentGroups { get; } = [];
         public IClientProxy Groups(IReadOnlyList<string> groupNames) => new Proxy(this, To.Group, null);
         public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excluded) => new Proxy(this, To.Group, null);
         public IClientProxy OthersInGroup(string groupName) => new Proxy(this, To.Group, null);

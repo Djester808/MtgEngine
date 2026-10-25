@@ -21,11 +21,9 @@ public sealed partial class AccountManagementService(
     {
         if (!request.AcceptedTerms)
             throw new InvalidRequestException("Accept the terms of use before creating an account.");
-        var name = request.Username.Trim();
+        var name = Username(request.Username);
         var address = NormalizeEmail(request.Email);
-        if (name.Length < 3 || name.Length > 32 || name.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_'))
-            throw new InvalidRequestException("Use 3–32 letters, numbers or underscores for your username.");
-        if (await db.Users.AnyAsync(u => u.Username.ToLower() == name.ToLower() || u.Email.ToLower() == address, ct).ConfigureAwait(false))
+        if (await db.Users.AnyAsync(u => u.Username == name || u.Email == address, ct).ConfigureAwait(false))
             throw new InvalidResourceStateException("Username or email is already taken.");
         var user = new User { Username = name, Email = address, PasswordHash = PasswordHasher.Hash(request.Password), CreatedAt = Now };
         db.Users.Add(user);
@@ -39,7 +37,7 @@ public sealed partial class AccountManagementService(
     public async Task<AccountSignIn> LoginAsync(LoginRequest request, string device, CancellationToken ct)
     {
         var login = request.Username.Trim().ToLowerInvariant();
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == login || u.Email.ToLower() == login, ct).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == login || u.Email == login, ct).ConfigureAwait(false);
         if (user is null)
         {
             PasswordHasher.VerifyDummy(request.Password);

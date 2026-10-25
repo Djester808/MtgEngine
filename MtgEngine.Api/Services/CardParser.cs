@@ -52,11 +52,15 @@ internal static class CardParser
             }
 
             int? power = null, toughness = null, loyalty = null;
-            if (json.TryGetProperty("power", out var pw) && int.TryParse(pw.GetString(), out var p))
+            var characteristics = json;
+            if (json.TryGetProperty("card_faces", out var characteristicFaces)
+                && characteristicFaces.ValueKind == JsonValueKind.Array && characteristicFaces.GetArrayLength() > 0)
+                characteristics = characteristicFaces[0];
+            if (characteristics.TryGetProperty("power", out var pw) && int.TryParse(pw.GetString(), out var p))
                 power = p;
-            if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t))
+            if (characteristics.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t))
                 toughness = t;
-            if (json.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
+            if (characteristics.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
                 loyalty = l;
 
             string? imgNormal = null, imgLarge = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
@@ -347,7 +351,9 @@ internal static class CardParser
         var idx = front.IndexOf('—');
         if (idx < 0)
             return [];
-        return front[(idx + 1)..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Time Lord is a single creature type, despite containing a space.
+        return front[(idx + 1)..].Trim().Replace("Time Lord", "Time\u001fLord", StringComparison.Ordinal)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(type => type.Replace('\u001f', ' ')).ToArray();
     }
 
     private static IReadOnlyList<string> ParseSupertypes(string typeLine)

@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -163,21 +161,14 @@ public sealed class DecksController : ControllerBase
     [HttpPost("suggestions")]
     public async Task<ActionResult<DeckSuggestionsDto>> GetSuggestions(
         [FromBody] DeckSuggestionsRequest request,
-        [FromServices] IDeckSuggestionsService suggestionsService)
+        [FromServices] IDeckSuggestionsService suggestionsService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
-        var result = await suggestionsService.GetSuggestionsAsync(request);
+        var result = await suggestionsService.GetSuggestionsAsync(request, ct);
         return Ok(result);
     }
-
-    /// <summary>Web defaults (camelCase) plus enum-as-string, matching the MVC-serialized
-    /// non-streaming endpoint so the client parses both responses identically.</summary>
-    private static readonly JsonSerializerOptions SseJson = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-    };
 
     /// <summary>
     /// Server-Sent-Events variant of <see cref="GetSuggestions"/>. Emits coarse "stage" events
@@ -207,32 +198,9 @@ public sealed class DecksController : ControllerBase
             return;
         }
 
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers["X-Accel-Buffering"] = "no"; // stop proxies buffering the stream
-
-        async Task Emit(string @event, object payload)
-        {
-            var json = JsonSerializer.Serialize(payload, SseJson);
-            await Response.WriteAsync($"event: {@event}\ndata: {json}\n\n", ct);
-            await Response.Body.FlushAsync(ct);
-        }
-
-        try
-        {
-            var result = await suggestionsService.GetSuggestionsStreamAsync(request, Emit, ct);
-            await Emit("final", result);
-        }
-        catch (OperationCanceledException)
-        {
-            // Client disconnected mid-stream; nothing to report.
-        }
-        catch (Exception)
-        {
-            try
-            { await Emit("error", new { message = "Failed to generate suggestions." }); }
-            catch { /* client already gone */ }
-        }
+        await SseResponse.RunAsync(Response,
+            emit => suggestionsService.GetSuggestionsStreamAsync(request, emit, ct),
+            "Failed to generate suggestions.", ct);
     }
 
     // ---- Mana fine-tune -------------------------------------------
@@ -241,9 +209,9 @@ public sealed class DecksController : ControllerBase
     [HttpPost("mana-tune")]
     public async Task<ActionResult<ManaFineTuneDto>> GetManaFineTune(
         [FromBody] ManaFineTuneRequest request,
-        [FromServices] IManaFineTuneService manaFineTuneService)
+        [FromServices] IManaFineTuneService manaFineTuneService, CancellationToken ct = default)
     {
-        var result = await manaFineTuneService.GetFineTuneAsync(request);
+        var result = await manaFineTuneService.GetFineTuneAsync(request, ct);
         return Ok(result);
     }
 
@@ -254,12 +222,12 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<AiBuildResultDto>> AiBuildDeck(
         Guid deckId,
         [FromBody] AiBuildRequest request,
-        [FromServices] IAiBuildService aiBuildService)
+        [FromServices] IAiBuildService aiBuildService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
-        var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request);
+        var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request, ct);
         return Ok(result);
     }
 
@@ -276,12 +244,12 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<AiBuildPlanDto>> PlanBuild(
         Guid deckId,
         [FromBody] AiBuildRequest request,
-        [FromServices] IAiBuildService aiBuildService)
+        [FromServices] IAiBuildService aiBuildService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
-        var plan = await aiBuildService.PlanDeckAsync(deckId, UserId, request);
+        var plan = await aiBuildService.PlanDeckAsync(deckId, UserId, request, ct);
         return Ok(plan);
     }
 
@@ -314,32 +282,9 @@ public sealed class DecksController : ControllerBase
             return;
         }
 
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers["X-Accel-Buffering"] = "no";
-
-        async Task Emit(string @event, object payload)
-        {
-            var json = JsonSerializer.Serialize(payload, SseJson);
-            await Response.WriteAsync($"event: {@event}\ndata: {json}\n\n", ct);
-            await Response.Body.FlushAsync(ct);
-        }
-
-        try
-        {
-            var plan = await aiBuildService.PlanDeckStreamAsync(deckId, UserId, request, Emit, ct);
-            await Emit("final", plan);
-        }
-        catch (OperationCanceledException)
-        {
-            // Client went away mid-build; nothing to report.
-        }
-        catch (Exception)
-        {
-            try
-            { await Emit("error", new { message = "Failed to build the deck." }); }
-            catch { /* client already gone */ }
-        }
+        await SseResponse.RunAsync(Response,
+            emit => aiBuildService.PlanDeckStreamAsync(deckId, UserId, request, (name, value) => emit(name, value), ct),
+            "Failed to build the deck.", ct);
     }
 
     /// <summary>Writes a plan the player accepted. Every card is re-validated on the way in.</summary>
@@ -347,14 +292,14 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<AiBuildResultDto>> ApplyBuildPlan(
         Guid deckId,
         [FromBody] AiApplyPlanRequest request,
-        [FromServices] IAiBuildService aiBuildService)
+        [FromServices] IAiBuildService aiBuildService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
         if (request.Cards.Length == 0)
             return Problem(detail: "The plan contains no cards", statusCode: StatusCodes.Status400BadRequest);
 
-        var result = await aiBuildService.ApplyPlanAsync(deckId, UserId, request);
+        var result = await aiBuildService.ApplyPlanAsync(deckId, UserId, request, ct);
         return Ok(result);
     }
 
@@ -381,9 +326,9 @@ public sealed class DecksController : ControllerBase
     [HttpPost("{deckId:guid}/ai-score")]
     public async Task<ActionResult<DeckScoreDto>> ScoreDeck(
         Guid deckId,
-        [FromServices] ISynergyService synergyService)
+        [FromServices] ISynergyService synergyService, CancellationToken ct = default)
     {
-        var result = await synergyService.ScoreDeckAsync(deckId, UserId);
+        var result = await synergyService.ScoreDeckAsync(deckId, UserId, ct);
         return Ok(result);
     }
 
@@ -393,9 +338,9 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<AiRefineResultDto>> RefineDeck(
         Guid deckId,
         [FromBody] AiRefineRequest? request,
-        [FromServices] IAiBuildService aiBuildService)
+        [FromServices] IAiBuildService aiBuildService, CancellationToken ct = default)
     {
-        var result = await aiBuildService.RefineDeckAsync(deckId, UserId, request ?? new AiRefineRequest());
+        var result = await aiBuildService.RefineDeckAsync(deckId, UserId, request ?? new AiRefineRequest(), ct);
         return Ok(result);
     }
 
@@ -410,9 +355,9 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<AiRefineResultDto>> ApplyRefineSwaps(
         Guid deckId,
         [FromBody] AiApplySwapsRequest request,
-        [FromServices] IAiBuildService aiBuildService)
+        [FromServices] IAiBuildService aiBuildService, CancellationToken ct = default)
     {
-        var result = await aiBuildService.ApplySwapsAsync(deckId, UserId, request);
+        var result = await aiBuildService.ApplySwapsAsync(deckId, UserId, request, ct);
         return Ok(result);
     }
 
@@ -422,12 +367,12 @@ public sealed class DecksController : ControllerBase
     [HttpPost("synergy")]
     public async Task<ActionResult<SynergyResultDto>> GetSynergy(
         [FromBody] SynergyRequest request,
-        [FromServices] ISynergyService synergyService)
+        [FromServices] ISynergyService synergyService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId) || string.IsNullOrWhiteSpace(request.CardOracleId))
             return Problem(detail: "CommanderOracleId and CardOracleId are required", statusCode: StatusCodes.Status400BadRequest);
 
-        var result = await synergyService.GetSynergyAsync(request);
+        var result = await synergyService.GetSynergyAsync(request, ct);
         return Ok(result);
     }
 
@@ -439,7 +384,7 @@ public sealed class DecksController : ControllerBase
     [HttpPost("synergy/batch")]
     public async Task<ActionResult<ScoredCardDto[]>> GetSynergyBatch(
         [FromBody] SynergyBatchRequest request,
-        [FromServices] ISynergyService synergyService)
+        [FromServices] ISynergyService synergyService, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
@@ -455,7 +400,7 @@ public sealed class DecksController : ControllerBase
             : ScoringMode.Ideal;
 
         var result = await synergyService.ScoreCardsAsync(
-            request.CommanderOracleId, request.CardOracleIds, mode, profile: null, focus: request.Focus);
+            request.CommanderOracleId, request.CardOracleIds, mode, profile: null, focus: request.Focus, ct: ct);
 
         return Ok(result);
     }

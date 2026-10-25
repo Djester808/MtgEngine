@@ -47,6 +47,7 @@ public sealed record CommanderRequirements(
 public interface ICommanderAnalysis
 {
     Task<CommanderRequirements> AnalyseAsync(CardDefinition commander);
+    Task<CommanderRequirements> AnalyseAsync(CardDefinition commander, CancellationToken ct) => AnalyseAsync(commander).WaitAsync(ct);
 }
 
 public sealed class CommanderAnalysis : ICommanderAnalysis
@@ -68,7 +69,9 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
         _logger = logger;
     }
 
-    public async Task<CommanderRequirements> AnalyseAsync(CardDefinition commander)
+    public Task<CommanderRequirements> AnalyseAsync(CardDefinition commander) => AnalyseAsync(commander, CancellationToken.None);
+
+    public async Task<CommanderRequirements> AnalyseAsync(CardDefinition commander, CancellationToken ct)
     {
         var text = commander.OracleText ?? string.Empty;
 
@@ -77,7 +80,7 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
             return new CommanderRequirements([], [.. commander.Subtypes], [], commander.ColorIdentity);
 
         var extracted = await _cache.GetOrCreateAsync(
-            "commander-reqs", CacheVersion, [commander.OracleId], () => CallAsync(commander, text));
+            "commander-reqs", CacheVersion, [commander.OracleId], () => CallAsync(commander, text, ct));
 
         // `= []` initializers only cover ABSENT properties — an explicit `"key": null`
         // in the model's reply overwrites them with null, and this value is cached, so
@@ -148,7 +151,7 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
     /// <summary>Attributes a card actually has a field for, and can therefore be checked against.</summary>
     private static readonly string[] ValidAttributes = ["power", "toughness", "mana value"];
 
-    private async Task<ExtractedJson> CallAsync(CardDefinition commander, string text)
+    private async Task<ExtractedJson> CallAsync(CardDefinition commander, string text, CancellationToken ct)
     {
         var prompt = $$"""
             Read this Magic: The Gathering commander and report what its abilities require
@@ -185,7 +188,7 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
             Messages: [new { role = "user", content = prompt }])
         {
             Operation = "commander analysis",
-        });
+        }, ct);
 
         return AnthropicResponse.DeserializeJson<ExtractedJson>(json) ?? new ExtractedJson();
     }

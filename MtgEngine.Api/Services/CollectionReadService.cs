@@ -7,14 +7,22 @@ namespace MtgEngine.Api.Services;
 
 /// <summary>Owner-only read model. Filtering and ordering precede paging; only the requested
 /// page and compact whole-collection aggregates cross the wire.</summary>
-public sealed class CollectionReadService(MtgEngineDbContext db, ICollectionService collections, ICardLookup lookup)
+public sealed class CollectionReadService(MtgEngineDbContext db, ICollectionReader collections, ICardLookup lookup,
+    CollectionReadCache? cache = null)
 {
     public async Task<CollectionDetailDto?> PageAsync(Guid id, string owner, CollectionPageQuery query, CancellationToken ct)
     {
-        if (!await db.Collections.AsNoTracking().AnyAsync(c => c.Id == id && c.UserId == owner && !c.IsDeck, ct))
+        var revision = await db.Collections.AsNoTracking().Where(c => c.Id == id && c.UserId == owner && !c.IsDeck)
+            .Select(c => (DateTime?)c.UpdatedAt).FirstOrDefaultAsync(ct);
+        if (revision is null)
             return null;
-        var collection = await collections.GetCollectionAsync(id, owner);
+        var key = (owner, id, revision.Value, lookup.CatalogVersion);
+        if (cache?.Get(key) is { } cached)
+            return Project(cached, query, ct);
+        var collection = await collections.GetCollectionAsync(id, owner, ct);
         ct.ThrowIfCancellationRequested();
+        if (collection is not null)
+            cache?.Set(key, collection);
         return collection is null ? null : Project(collection, query, ct);
     }
 
@@ -29,7 +37,7 @@ public sealed class CollectionReadService(MtgEngineDbContext db, ICollectionServ
         foreach (var row in rows)
         {
             ct.ThrowIfCancellationRequested();
-            result.Add(MtgEngine.Api.Mapping.DomainMapper.ToDto(row, await lookup.ResolveForEntryAsync(row)));
+            result.Add(MtgEngine.Api.Mapping.DomainMapper.ToDto(row, await lookup.ResolveForEntryAsync(row, ct)));
         }
         return result.ToArray();
     }

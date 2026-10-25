@@ -16,7 +16,7 @@ namespace MtgEngine.Api.Services;
 /// </remarks>
 public interface ICandidateRanking
 {
-    Task<RankedPool> RankAsync(RankRequest request);
+    Task<RankedPool> RankAsync(RankRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Ranks several pools that share a commander, scoring the union of their shortlists in
@@ -28,7 +28,7 @@ public interface ICandidateRanking
     /// the last. Collapsing them into a single fan-out is most of the difference between a
     /// twenty-second wait and a five-second one.
     /// </remarks>
-    Task<IReadOnlyList<RankedPool>> RankManyAsync(IReadOnlyList<RankRequest> requests);
+    Task<IReadOnlyList<RankedPool>> RankManyAsync(IReadOnlyList<RankRequest> requests, CancellationToken ct = default);
 }
 
 /// <param name="ScoreWindow">
@@ -94,10 +94,10 @@ public sealed class CandidateRanking : ICandidateRanking
     }
 
     /// <summary>One request is just the batch path with a single entry; there is one implementation.</summary>
-    public async Task<RankedPool> RankAsync(RankRequest request) =>
-        (await RankManyAsync([request]))[0];
+    public async Task<RankedPool> RankAsync(RankRequest request, CancellationToken ct = default) =>
+        (await RankManyAsync([request], ct))[0];
 
-    public async Task<IReadOnlyList<RankedPool>> RankManyAsync(IReadOnlyList<RankRequest> requests)
+    public async Task<IReadOnlyList<RankedPool>> RankManyAsync(IReadOnlyList<RankRequest> requests, CancellationToken ct = default)
     {
         if (requests.Count == 0)
             return [];
@@ -137,7 +137,7 @@ public sealed class CandidateRanking : ICandidateRanking
 
         var first = requests[0];
         var scores = await _synergy.ScoreCardsAsync(
-            first.Commander.OracleId, union, ScoringMode.Ideal, profile: null, focus: first.Focus);
+            first.Commander.OracleId, union, ScoringMode.Ideal, profile: null, focus: first.Focus, ct: ct);
 
         var byId = scores.ToDictionary(s => s.OracleId, StringComparer.OrdinalIgnoreCase);
 

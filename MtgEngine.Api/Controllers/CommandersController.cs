@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
-using MtgEngine.Domain.Enums;
 
 namespace MtgEngine.Api.Controllers;
 
@@ -56,51 +55,12 @@ public sealed class CommandersController : ControllerBase
     [AllowAnonymous]
     [HttpGet("search")]
     public async Task<ActionResult<CommanderSummaryDto[]>> SearchCommanders(
+        [FromServices] CommanderBrowseService browse,
         [FromQuery] string? q = null,
         [FromQuery] int limit = 100,
         [FromQuery] string? set = null)
     {
-        limit = Math.Clamp(limit, 1, 200);
-
-        var matches = await _scryfall.SearchCommandersAsync(q, limit, set);
-        if (matches.Length == 0)
-            return Ok(Array.Empty<CommanderSummaryDto>());
-
-        // Deck counts come from the ranked list; anything not in it simply has none.
-        var ranked = await _stats.GetTopCommandersAsync(limit: 200);
-        var counts = ranked.ToDictionary(c => c.OracleId, c => c.DeckCount, StringComparer.OrdinalIgnoreCase);
-
-        var results = matches
-            .Select(d => new
-            {
-                Def = d,
-                Count = counts.TryGetValue(d.OracleId, out var n) ? n : 0,
-            })
-            // Popular commanders first, then alphabetical, so the list is stable.
-            .OrderByDescending(x => x.Count)
-            .ThenBy(x => x.Def.Name, StringComparer.OrdinalIgnoreCase)
-            .Select((x, i) => new CommanderSummaryDto
-            {
-                OracleId = x.Def.OracleId,
-                Name = x.Def.Name,
-                ImageUri = x.Def.ImageUriNormal,
-                ImageUriArtCrop = x.Def.ImageUriArtCrop,
-                ColorIdentity = [.. x.Def.ColorIdentity.Select(c => c switch
-                {
-                    ManaColor.White => "W",
-                    ManaColor.Blue => "U",
-                    ManaColor.Black => "B",
-                    ManaColor.Red => "R",
-                    ManaColor.Green => "G",
-                    _ => "C",
-                })],
-                ManaCost = string.IsNullOrEmpty(x.Def.ManaCostRaw) ? null : x.Def.ManaCostRaw,
-                DeckCount = x.Count,
-                Rank = i + 1,
-            })
-            .ToArray();
-
-        return Ok(results);
+        return Ok(await browse.SearchAsync(q, limit, set));
     }
 
     /// <summary>Profile + community deck count + top strategy tags for one commander.</summary>

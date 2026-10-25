@@ -11,7 +11,7 @@ public sealed class CommanderDeckAdmission(ICardLookup cards)
         foreach (var id in deck.Concat(commanders).Distinct(StringComparer.Ordinal))
         {
             ct.ThrowIfCancellationRequested();
-            definitions.Add(id, await cards.GetByOracleIdAsync(id).ConfigureAwait(false)
+            definitions.Add(id, await cards.GetByOracleIdAsync(id, ct).ConfigureAwait(false)
                 ?? throw new InvalidRequestException("Card metadata is unavailable; this deck cannot be validated yet."));
         }
         CommanderDeckValidator.Validate([.. deck.Select(id => definitions[id])], [.. commanders.Select(id => definitions[id])]);

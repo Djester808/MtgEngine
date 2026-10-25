@@ -51,11 +51,11 @@ public class CardGroundingTests
     }
 
     [Fact]
-    public void EmptyCommanderIdentity_SkipsTheColorCheck()
+    public void EmptyCommanderIdentity_RejectsColoredCards()
     {
         var result = CardGrounding.ValidateForCommanderDeck(
             Card(identity: [ManaColor.Green]), new HashSet<ManaColor>(), bracket: 3);
-        Assert.Null(result);
+        Assert.Equal(CardGrounding.Rejection.ColorIdentity, result);
     }
 
     [Theory]

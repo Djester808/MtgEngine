@@ -62,6 +62,7 @@ public sealed class CacheCleanupWorker : BackgroundService
             var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
 
             var now = DateTime.UtcNow;
+            await PruneAccountsAsync(db, now, ct);
             var aiCutoff = now - AiCacheRetention;
             var synergyCutoff = now - SynergyRetention;
 
@@ -91,5 +92,11 @@ public sealed class CacheCleanupWorker : BackgroundService
             { _logger.LogError(ex, "CacheCleanupWorker: sweep failed"); }
             catch { /* logger may be disposed during shutdown */ }
         }
+    }
+    internal static async Task PruneAccountsAsync(MtgEngineDbContext db, DateTime now, CancellationToken ct)
+    {
+        // Revoked refresh hashes remain until expiry so reuse still revokes the family.
+        await db.AccountSessions.Where(session => session.ExpiresAt <= now).ExecuteDeleteAsync(ct);
+        await db.AccountCodes.Where(code => code.ExpiresAt <= now).ExecuteDeleteAsync(ct);
     }
 }

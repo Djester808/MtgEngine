@@ -10,12 +10,12 @@ namespace MtgEngine.Api.Services;
 
 public interface IForumService
 {
-    Task<ForumPostSummaryDto[]> GetAllPostsAsync();
+    Task<ForumPostSummaryDto[]> GetAllPostsAsync(int offset = 0, int limit = 50, CancellationToken ct = default);
 
     /// <summary>Every post a user has published, newest first. Backs their profile.</summary>
     Task<ForumPostSummaryDto[]> GetPostsByAuthorAsync(string authorId, CancellationToken ct = default);
 
-    Task<ForumPostDetailDto?> GetPostAsync(Guid postId);
+    Task<ForumPostDetailDto?> GetPostAsync(Guid postId, int commentOffset = 0, int commentLimit = 50, CancellationToken ct = default);
     Task<ForumPostSummaryDto> PublishDeckAsync(string userId, string username, PublishDeckRequest request);
     Task<bool> DeletePostAsync(Guid postId, string userId);
     Task<ForumCommentDto> AddCommentAsync(Guid postId, string userId, string username, CreateCommentRequest request);
@@ -27,25 +27,26 @@ public sealed class ForumService : IForumService
 {
     private readonly MtgEngineDbContext _context;
     private readonly ICardLookup _scryfall;
-    private readonly ICollectionService _collections;
 
     private static readonly string[] ColorOrder = ["W", "U", "B", "R", "G"];
 
-    public ForumService(MtgEngineDbContext context, ICardLookup scryfall, ICollectionService collections)
+    public ForumService(MtgEngineDbContext context, ICardLookup scryfall)
     {
         _context = context;
         _scryfall = scryfall;
-        _collections = collections;
     }
 
-    public async Task<ForumPostSummaryDto[]> GetAllPostsAsync()
+    public async Task<ForumPostSummaryDto[]> GetAllPostsAsync(int offset = 0, int limit = 50, CancellationToken ct = default)
     {
         var posts = await _context.ForumPosts
             .AsNoTracking()
             .OrderByDescending(p => p.PublishedAt)
-            .ToListAsync();
+            .ThenBy(p => p.Id)
+            .Skip(Math.Clamp(offset, 0, 1_000_000))
+            .Take(Math.Clamp(limit, 1, 200))
+            .ToListAsync(ct);
 
-        return await SummariseAsync(posts, CancellationToken.None);
+        return await SummariseAsync(posts, ct);
     }
 
     public async Task<ForumPostSummaryDto[]> GetPostsByAuthorAsync(string authorId, CancellationToken ct = default)
@@ -77,7 +78,7 @@ public sealed class ForumService : IForumService
         var decks = await _context.Collections
             .AsNoTracking()
             .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
-            .Select(c => new { c.Id, c.Name, c.CoverUri, c.Description, c.Format, c.Cards })
+            .Select(c => new { c.Id, c.Name, c.CoverUri, c.Format })
             .ToListAsync(ct);
 
         var deckCardCounts = await _context.Collections
@@ -117,12 +118,13 @@ public sealed class ForumService : IForumService
         }).ToArray();
     }
 
-    public async Task<ForumPostDetailDto?> GetPostAsync(Guid postId)
+    public async Task<ForumPostDetailDto?> GetPostAsync(Guid postId, int commentOffset = 0, int commentLimit = 50, CancellationToken ct = default)
     {
         var post = await _context.ForumPosts
             .AsNoTracking()
-            .Include(p => p.Comments)
-            .FirstOrDefaultAsync(p => p.Id == postId);
+            .Include(p => p.Comments.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+                .Skip(Math.Clamp(commentOffset, 0, 1_000_000)).Take(Math.Clamp(commentLimit, 1, 200)))
+            .FirstOrDefaultAsync(p => p.Id == postId, ct);
 
         if (post == null)
             return null;
@@ -131,7 +133,7 @@ public sealed class ForumService : IForumService
             .AsNoTracking()
             .Where(c => c.Id == post.DeckId && c.IsDeck)
             .Include(c => c.Cards)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(ct);
 
         CollectionCardDto[] cardDtos = [];
         if (deck != null)
@@ -139,7 +141,7 @@ public sealed class ForumService : IForumService
             var cardList = new List<CollectionCardDto>();
             foreach (var card in deck.Cards)
             {
-                var cardDef = await _scryfall.ResolveForEntryAsync(card);
+                var cardDef = await _scryfall.ResolveForEntryAsync(card, ct);
                 cardList.Add(DomainMapper.ToDto(card, cardDef));
             }
             cardDtos = [.. cardList];
@@ -151,7 +153,7 @@ public sealed class ForumService : IForumService
         string? commanderName = null;
         if (deck?.CommanderOracleId is not null)
         {
-            var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId);
+            var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId, ct);
             commanderImageUri = cmdDef?.ImageUriNormal;
             commanderName = cmdDef?.Name;
         }
@@ -195,7 +197,7 @@ public sealed class ForumService : IForumService
             .Where(c => c.Id == request.DeckId && c.UserId == userId && c.IsDeck)
             .Include(c => c.Cards)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException("Deck not found");
+            ?? throw new ResourceNotFoundException("Deck not found");
 
         // Compute color identity from all cards
         var colorSet = new HashSet<string>();
@@ -262,7 +264,7 @@ public sealed class ForumService : IForumService
             Description = post.Description,
             ColorIdentity = colorIdentity,
             CardCount = cardCount,
-            CommentCount = 0,
+            CommentCount = await _context.ForumComments.CountAsync(c => c.ForumPostId == post.Id),
             PublishedAt = post.PublishedAt,
         };
     }
@@ -284,7 +286,7 @@ public sealed class ForumService : IForumService
     {
         var postExists = await _context.ForumPosts.AnyAsync(p => p.Id == postId);
         if (!postExists)
-            throw new KeyNotFoundException("Forum post not found");
+            throw new ResourceNotFoundException("Forum post not found");
 
         var comment = new ForumComment
         {

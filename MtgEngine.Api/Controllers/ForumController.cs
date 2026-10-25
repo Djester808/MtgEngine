@@ -29,17 +29,17 @@ public sealed class ForumController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public async Task<ActionResult<ForumPostSummaryDto[]>> GetPosts()
+    public async Task<ActionResult<ForumPostSummaryDto[]>> GetPosts([FromQuery] int offset = 0, [FromQuery] int limit = 50, CancellationToken ct = default)
     {
-        var posts = await _forum.GetAllPostsAsync();
+        var posts = await _forum.GetAllPostsAsync(offset, limit, ct);
         return Ok(posts);
     }
 
     [AllowAnonymous]
     [HttpGet("{postId:guid}")]
-    public async Task<ActionResult<ForumPostDetailDto>> GetPost(Guid postId)
+    public async Task<ActionResult<ForumPostDetailDto>> GetPost(Guid postId, [FromQuery] int commentOffset = 0, [FromQuery] int commentLimit = 50, CancellationToken ct = default)
     {
-        var post = await _forum.GetPostAsync(postId);
+        var post = await _forum.GetPostAsync(postId, commentOffset, commentLimit, ct);
         if (post == null)
             return NotFound();
         return Ok(post);
@@ -47,26 +47,13 @@ public sealed class ForumController : ControllerBase
 
     // ---- Auth-required write endpoints ----
 
-    // SQLite does not enforce the model's HasMaxLength, so the caps live here.
-    private const int MaxDescriptionLength = 2000;
-    private const int MaxCommentLength = 4000;
 
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<ForumPostSummaryDto>> PublishDeck([FromBody] PublishDeckRequest request)
     {
-        if (request.Description is { Length: > MaxDescriptionLength })
-            return BadRequest($"Description must be at most {MaxDescriptionLength} characters");
-
-        try
-        {
-            var post = await _forum.PublishDeckAsync(UserId, Username, request);
-            return Ok(post);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Problem(detail: "Deck not found", statusCode: StatusCodes.Status404NotFound);
-        }
+        var post = await _forum.PublishDeckAsync(UserId, Username, request);
+        return Ok(post);
     }
 
     [Authorize]
@@ -85,18 +72,9 @@ public sealed class ForumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Content))
             return Problem(detail: "Comment content is required", statusCode: StatusCodes.Status400BadRequest);
-        if (request.Content.Length > MaxCommentLength)
-            return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
-        try
-        {
-            var comment = await _forum.AddCommentAsync(postId, UserId, Username, request);
-            return Ok(comment);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Problem(detail: "Forum post not found", statusCode: StatusCodes.Status404NotFound);
-        }
+        var comment = await _forum.AddCommentAsync(postId, UserId, Username, request);
+        return Ok(comment);
     }
 
     [Authorize]
@@ -105,8 +83,6 @@ public sealed class ForumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Content))
             return Problem(detail: "Comment content is required", statusCode: StatusCodes.Status400BadRequest);
-        if (request.Content.Length > MaxCommentLength)
-            return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
         var comment = await _forum.UpdateCommentAsync(postId, commentId, UserId, request);
         if (comment == null)

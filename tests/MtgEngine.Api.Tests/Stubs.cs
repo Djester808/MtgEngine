@@ -75,22 +75,26 @@ public abstract class StubSynergyService : ISynergyService
     private static T NotStubbed<T>(string member) =>
         throw new NotSupportedException($"{member} was called but this test did not stub it.");
 
-    public virtual Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request) =>
+    public virtual Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request, CancellationToken ct = default) =>
         NotStubbed<Task<SynergyResultDto>>(nameof(GetSynergyAsync));
 
-    public virtual Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId) =>
+    public virtual Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId, CancellationToken ct = default) =>
         NotStubbed<Task<DeckScoreDto>>(nameof(ScoreDeckAsync));
 
     public virtual Task<ScoredCardDto[]> ScoreCardsAsync(
         string commanderOracleId, IReadOnlyList<string> cardOracleIds,
         ScoringMode mode = ScoringMode.Ideal, DeckProfile? profile = null,
-        IReadOnlyList<string>? focus = null) =>
+        IReadOnlyList<string>? focus = null, CancellationToken ct = default) =>
         NotStubbed<Task<ScoredCardDto[]>>(nameof(ScoreCardsAsync));
 }
 
 /// <inheritdoc cref="StubScryfallService"/>
 public abstract class StubCollectionService : ICollectionService
 {
+    public virtual Task<bool> ReplaceCardCopiesAsync(Guid deckId, string userId, string outOracleId,
+        AddCardToCollectionRequest incoming, CancellationToken ct = default) =>
+        throw new NotSupportedException("Atomic replacement was not stubbed.");
+
     private static T NotStubbed<T>(string member) =>
         throw new NotSupportedException($"{member} was called but this test did not stub it.");
 

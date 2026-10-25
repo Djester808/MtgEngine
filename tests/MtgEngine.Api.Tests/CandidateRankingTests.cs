@@ -44,7 +44,7 @@ public class CandidateRankingTests
         public override Task<ScoredCardDto[]> ScoreCardsAsync(
             string commanderOracleId, IReadOnlyList<string> cardOracleIds,
             ScoringMode mode = ScoringMode.Ideal, DeckProfile? profile = null,
-            IReadOnlyList<string>? focus = null)
+            IReadOnlyList<string>? focus = null, CancellationToken ct = default)
         {
             Calls++;
             TotalCardsScored += cardOracleIds.Count;

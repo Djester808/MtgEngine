@@ -58,7 +58,7 @@ internal static class CardRoleClassifier
 
     private static readonly Regex Removal = new(
         @"\b(destroy target|destroy all|destroy each|exile target|exile all|exile each" +
-        @"|deals? \d+ damage to target|deals? X damage to target" +
+        @"|deals? \d+ damage to target|deals? x damage to target" +
         @"|target creature gets -|target player sacrifices|each (opponent|player) sacrifices" +
         @"|return target (creature|permanent|nonland permanent) to its owner's hand" +
         @"|counter target)\b",

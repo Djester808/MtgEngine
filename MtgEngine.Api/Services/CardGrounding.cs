@@ -29,16 +29,14 @@ public static class CardGrounding
     /// <summary>
     /// Validates a resolved card against a commander deck's constraints. Returns null
     /// when the card passes, else the <see cref="Rejection"/> constant naming the first
-    /// failed rule. An empty <paramref name="commanderColors"/> skips the identity check
-    /// (no commander assigned yet).
+    /// failed rule. An empty identity represents a colorless commander.
     /// </summary>
     public static string? ValidateForCommanderDeck(
         CardDefinition def,
         IReadOnlySet<ManaColor> commanderColors,
         int bracket)
     {
-        if (commanderColors.Count > 0
-            && !def.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
+        if (!def.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
             return Rejection.ColorIdentity;
 
         if (!CommanderRules.IsLegalInCommander(def))

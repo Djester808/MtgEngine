@@ -1,0 +1,89 @@
+API AUDIT REPAIR RECORD — 2026-10-25
+
+Scope
+Primary reviewer plus three agents reviewed the API by subsystem and implemented
+the confirmed corrections. The original api-code-audit-2026-10-25.txt is the
+pre-change evidence record; its statements about unchanged code and verification
+describe that earlier audit, not the completed repair work.
+
+Implemented
+- Games: publish committed state only after persistence; authorize within the
+  session lock; isolate private delivery by game/account; serialize delivery;
+  validate nested commands; share cold loads and release unused session retention.
+- Persist game event batches with expected revision checks instead of rewriting
+  all prior events. Migration rollback folds batches back into the legacy log.
+- Collections: preserve etched quantities on printing adoption; share published
+  post/comment cleanup across deletion paths; preload merge/move destinations;
+  provide atomic one-copy swaps and a narrower reader interface.
+- Cache collection read snapshots by owner, update timestamp and catalog version.
+  Publish correlated catalog indexes atomically; stream array imports; preserve
+  requested sorting and filters; expire rulings; write disk caches atomically.
+- AI: count every finish; preserve both commanders and their color identities;
+  assess complete partial decks; enforce selected printing budgets; propagate
+  cancellation; centralize SSE transport and safe error handling. The sibling
+  client carries the preview budget into the apply request.
+- Accounts/community: consistent reserved names; case-insensitive unique account
+  indexes; expired authentication retention cleanup; SQL-ranked player limits;
+  bounded forum list/comment reads; accurate republish counts; request validation;
+  shared admin operation gate; explicit rejection of unsupported time windows.
+- Remove unused forum dependency and EDHREC helpers, share slug conversion, and
+  move candidate/commander browsing business logic out of controllers.
+- Fix parser/classifier edge cases and historical migration defects affecting
+  fresh database creation and acquisition metadata during row consolidation.
+- Detach failed AI cache inserts so they cannot poison subsequent business saves.
+- Track in-place collection tag edits using structural comparison and cloned
+  snapshots; tested with independent SQLite contexts and successive saves.
+
+Verification and limits
+Release solution run: 3,295 passed (882 API, 1,765 Rules, 326 Cards, 322 Pipeline).
+After the final tag-tracking fix: API rerun 883 passed, zero failures.
+dotnet format verification passed; TableQa Release build passed with zero
+warnings/errors; EF confirms the model matches the latest migration.
+Client npm run verify passed: formatting, lint (zero errors; 19 advisory
+warnings), style/UI-registration gates, coverage gates, 1,896 unit tests and production
+build. The build reports an existing card-modal stylesheet budget warning.
+Budget regressions were also checked against the old payload behavior: exactly
+the two budget assertions failed; restoring the fixes passed all 34 targeted specs.
+Regression coverage includes failed persistence, game delivery isolation/order,
+collection quantities and atomicity, catalog publication, timeout/cancellation,
+cache races, AI budgets/inventory, and real SQLite migration upgrade/downgrade.
+Applied 20261025163654_EnforceAccountIdentityAndAppendGameEvents to the actual
+local application database MtgEngine.Api/mtgengine.db after a SQLite online backup
+(mtgengine.db.bak-audit-20261025-120810). Preflight found zero case collisions.
+After migration: integrity_check=ok, foreign_key_check empty, all 316 users,
+663 collections, 28,326 collection-card rows and 163 persisted games preserved.
+The API and client were started against this migrated database. No remote
+deployment was performed.
+
+The first uncached collection read still hydrates the complete collection;
+bounded short-lived snapshots reduce repeated page work, not initial hydration.
+Profile composition still loads an author's complete published-post set to
+preserve its existing statistics and response contract. Forum feed/comments
+have bounded paging. These are not claims of universal database-side paging.
+Session retention is weak-reference based; garbage collection determines when
+idle sessions are released. No throughput/latency benchmark was run.
+Historical acquisition metadata already overwritten by an applied old migration
+cannot be reconstructed without backup. Account case collisions cause the new
+unique-index migration to fail rather than merge accounts automatically.
+Live verification (2026-10-25)
+- Real collection browser suites: 42/42 passed, including create/rename/delete,
+  exact card additions, quantities, text/color filters, zoom, modal printing
+  controls and notes retained after close/reopen. Desktop/375px screenshots
+  inspected and overflow assertions passed. Repaired stale harness selectors,
+  first-fuzzy-match fixture selection and asynchronous intro handling.
+- Four-seat production game hub/engine through the isolated TableQa host:
+  manual draw, pending refresh, replacement choices, private hands, broadcasts
+  and all-seat reload passed. Desktop and mobile-landscape captures inspected.
+- Real API/database account/forum browser flow: reserved-name rejection,
+  uppercase login, saved/public profile, publish, comment create/edit, republish
+  count, filtered player directory passed. Desktop and 375px captures inspected;
+  mobile forum/profile had no horizontal overflow. Disposable accounts cleaned.
+- AI build/refine desktop and 375px browser contract checks passed; outgoing
+  budget stayed pinned to preview even when the refine input changed. Real
+  components/buttons with deterministic mocked auth/API responses; no paid model
+  call. This proves browser serialization, not a live-provider/model integration.
+- Reusable account/AI probes are under tools/ApiAudit. Screenshot evidence stays
+  locally in audit-live-account/, audit-live-ai/ and tools/TableQa/.
+  Collection captures are in sibling e2e/screenshots/audit-collection/.
+Final cleanup: zero leftover new test collections or active audit accounts;
+SQLite integrity and foreign keys still pass after all browser runs.

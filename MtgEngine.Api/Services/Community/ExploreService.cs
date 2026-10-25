@@ -77,7 +77,7 @@ public sealed class ExploreService(IScryfallService cards, IHttpClientFactory cl
     {
         if (!Guid.TryParse(oracleId, out _))
             throw new InvalidRequestException("Choose a valid card.");
-        var subject = await cards.GetByOracleIdAsync(oracleId) ?? throw new ResourceNotFoundException("Card not found.");
+        var subject = await cards.GetByOracleIdAsync(oracleId, ct) ?? throw new ResourceNotFoundException("Card not found.");
         if (kind != "card" && !CommanderRules.IsCommanderEligible(subject))
             throw new InvalidRequestException("This card cannot lead a Commander deck.");
         if (!EdhrecVariant.TryParse(key, out var variant) || (kind == "card" && key.Length > 0))

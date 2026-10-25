@@ -45,9 +45,11 @@ public sealed class AiBuildPlanTests
     private sealed class Cards : StubScryfallService
     {
         public List<CardDefinition> Known { get; init; } = [];
+        public decimal? PrintingPrice { get; init; }
+        public CardDefinition Primary { get; init; } = CommanderCard();
 
         public override Task<CardDefinition?> GetByOracleIdAsync(string oracleId) =>
-            Task.FromResult(Known.Concat([CommanderCard()])
+            Task.FromResult(Known.Concat([Primary])
                 .FirstOrDefault(c => c.OracleId == oracleId));
 
         public override Task<CardDefinition?> GetByNameAsync(string name) =>
@@ -55,7 +57,7 @@ public sealed class AiBuildPlanTests
                 c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)));
 
         public override Task<PrintingDto[]> GetPrintingsAsync(string oracleId) =>
-            Task.FromResult<PrintingDto[]>([new() { ScryfallId = "print-" + oracleId }]);
+            Task.FromResult<PrintingDto[]>([new() { ScryfallId = "print-" + oracleId, Prices = new MtgEngine.Api.Dtos.CardPricesDto { Usd = PrintingPrice } }]);
 
         public override Task<IReadOnlySet<string>> GetRecentSetCodesAsync(
             int monthsBack = 6, int? maxSets = null) =>
@@ -86,10 +88,12 @@ public sealed class AiBuildPlanTests
     private sealed class ReadOnlyDeck : StubCollectionService
     {
         public int Writes { get; private set; }
+        public CollectionCardDto[] Existing { get; init; } = [];
+        public string? Secondary { get; init; }
         public List<string> WrittenOracleIds { get; } = [];
 
         public override Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId) =>
-            Task.FromResult<DeckDetailDto?>(new DeckDetailDto { Id = deckId, Name = "Deck", Cards = [] });
+            Task.FromResult<DeckDetailDto?>(new DeckDetailDto { Id = deckId, Name = "Deck", Cards = Existing, CommanderOracleId = CommanderOracleId, SecondaryCommanderOracleId = Secondary });
 
         public override Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(
             Guid collectionId, string userId, AddCardToCollectionRequest request)
@@ -124,6 +128,7 @@ public sealed class AiBuildPlanTests
     {
         private readonly string[] _main;
         public AnthropicRequest? Last { get; private set; }
+        public CancellationToken LastToken { get; private set; }
 
         public ScriptedModel(params string[] main) => _main = main;
 
@@ -133,6 +138,7 @@ public sealed class AiBuildPlanTests
         public Task<string> SendAsync(AnthropicRequest request, CancellationToken ct = default)
         {
             Last = request;
+            LastToken = ct;
 
             // Two passes share this stub: the build, then the assessment of what it built.
             bool assessing = request.Operation.Contains("assessment", StringComparison.OrdinalIgnoreCase);
@@ -489,4 +495,70 @@ public sealed class AiBuildPlanTests
         await Assert.ThrowsAsync<AiUpstreamException>(
             () => sut.PlanDeckAsync(DeckId, UserId, Request()));
     }
+    [Fact]
+    public async Task PlanningCountsEveryFinishAndAssessesExistingCards()
+    {
+        var old = Card("Old", ManaColor.Green);
+        var fresh = Card("New", ManaColor.Green);
+        var cards = new Cards { Known = [old, fresh] };
+        var deck = new ReadOnlyDeck { Existing = [new CollectionCardDto { OracleId = old.OracleId, Board = "main", QuantityFoil = 40, QuantityEtched = 58 }] };
+        var model = new ScriptedModel("New", "Old");
+        var sut = new AiBuildService(cards, deck, new NoEdhrec(), model, new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var plan = await sut.PlanDeckAsync(DeckId, UserId, Request());
+        Assert.Equal(1, plan.MainTarget);
+        Assert.Single(plan.Cards);
+        Assert.Equal(99, plan.Assessment.Facts.Cards);
+        Assert.Contains("98 oracle-old", JsonSerializer.Serialize(model.LastBuild), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ColorlessCommanderCannotAcceptColoredProposals()
+    {
+        var cards = new Cards { Primary = new CardDefinition { OracleId = CommanderOracleId, Name = "Colorless", ColorIdentity = [] }, Known = [Card("Green", ManaColor.Green)] };
+        var sut = new AiBuildService(cards, new ReadOnlyDeck(), new NoEdhrec(), new ScriptedModel("Green"), new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var plan = await sut.PlanDeckAsync(DeckId, UserId, Request());
+        Assert.Empty(plan.Cards);
+        Assert.Equal(1, plan.SkippedByReason[CardGrounding.Rejection.ColorIdentity]);
+    }
+
+    [Fact]
+    public async Task PartnerIdentityAndCommandZoneSlotsAreCombined()
+    {
+        var partner = Card("Partner", ManaColor.Blue);
+        var cards = new Cards { Known = [partner, Card("Blue", ManaColor.Blue)] };
+        var deck = new ReadOnlyDeck { Secondary = partner.OracleId };
+        var sut = new AiBuildService(cards, deck, new NoEdhrec(), new ScriptedModel("Blue", "Partner"), new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var plan = await sut.PlanDeckAsync(DeckId, UserId, Request());
+        Assert.Equal(98, plan.MainTarget);
+        Assert.Equal("Blue", Assert.Single(plan.Cards).Name);
+    }
+
+    [Fact]
+    public async Task BudgetRejectsExpensiveModelPicksEvenWhenPromptPoolContainsThem()
+    {
+        var cards = new Cards { Known = [Card("Expensive", ManaColor.Green)], PrintingPrice = 50m };
+        var sut = new AiBuildService(cards, new ReadOnlyDeck(), new NoEdhrec(), new ScriptedModel("Expensive"), new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var plan = await sut.PlanDeckAsync(DeckId, UserId, Request() with { PriceRange = "budget" });
+        Assert.Empty(plan.Cards);
+        Assert.Equal("budget", plan.PriceRange);
+        Assert.Equal(1, plan.SkippedByReason["above-price-ceiling"]);
+    }
+
+    [Fact]
+    public async Task CancelledPlanDoesNotStartModelWork()
+    {
+        var (sut, _, model) = Build("New");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.PlanDeckAsync(DeckId, UserId, Request(), new CancellationToken(true)));
+        Assert.Null(model.LastBuild);
+    }
+
+    [Fact]
+    public async Task PlanningForwardsCancellationToAssessmentAndGeneration()
+    {
+        var (sut, _, model) = Build("New");
+        using var cancellation = new CancellationTokenSource();
+        await sut.PlanDeckAsync(DeckId, UserId, Request(), cancellation.Token);
+        Assert.Equal(cancellation.Token, model.LastToken);
+    }
+
 }

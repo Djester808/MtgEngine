@@ -112,6 +112,7 @@ public sealed record PlannedCardDto
 /// </remarks>
 public sealed record AiBuildPlanDto
 {
+    public string PriceRange { get; init; } = "any";
     public string CommanderOracleId { get; init; } = string.Empty;
     public string CommanderName { get; init; } = string.Empty;
 
@@ -220,6 +221,9 @@ public sealed record DeckAssessmentDto
 /// </remarks>
 public sealed record AiApplyPlanRequest
 {
+    [Required, RegularExpression("^(budget|mid|any)$")]
+    public string PriceRange { get; init; } = "any";
+
     [Required]
     [StringLength(64)]
     public string CommanderOracleId { get; init; } = string.Empty;

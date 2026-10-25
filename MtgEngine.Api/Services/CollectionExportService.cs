@@ -7,7 +7,7 @@ using MtgEngine.Domain.Models;
 namespace MtgEngine.Api.Services;
 
 public sealed record CollectionExport(string Content, string ContentType, string FileName);
-public sealed class CollectionExportService(ICollectionService collections, MtgEngineDbContext db)
+public sealed class CollectionExportService(ICollectionReader collections, MtgEngineDbContext db)
 {
     public async Task<CollectionExport> ExportAsync(Guid id, string owner, string format, CancellationToken ct)
     {
@@ -16,7 +16,7 @@ public sealed class CollectionExportService(ICollectionService collections, MtgE
         await using var snapshot = await db.Database.BeginTransactionAsync(ct);
         if (!await db.Collections.AnyAsync(c => c.Id == id && c.UserId == owner && !c.IsDeck, ct))
             throw new ResourceNotFoundException("Collection not found.");
-        var collection = await collections.GetCollectionAsync(id, owner)
+        var collection = await collections.GetCollectionAsync(id, owner, ct)
             ?? throw new ResourceNotFoundException("Collection not found.");
         var metadata = await db.CollectionCards.AsNoTracking().Where(c => c.CollectionId == id).ToDictionaryAsync(c => c.Id, ct);
         return Format(collection, metadata, format);

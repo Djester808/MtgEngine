@@ -27,13 +27,13 @@ public enum ScoringMode
 
 public interface ISynergyService
 {
-    Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request);
+    Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Scores every main-deck card against the commander in one call, and persists the
     /// results to the same cache the single-card path reads.
     /// </summary>
-    Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId);
+    Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId, CancellationToken ct = default);
 
     /// <summary>
     /// Scores an arbitrary set of cards against a commander, reading the cache first and
@@ -53,7 +53,7 @@ public interface ISynergyService
         IReadOnlyList<string> cardOracleIds,
         ScoringMode mode = ScoringMode.Ideal,
         DeckProfile? profile = null,
-        IReadOnlyList<string>? focus = null);
+        IReadOnlyList<string>? focus = null, CancellationToken ct = default);
 }
 
 public sealed class SynergyService : ISynergyService
@@ -138,12 +138,12 @@ public sealed class SynergyService : ISynergyService
     /// <summary>The version the legacy single-card path reads and writes.</summary>
     private static string CacheVersion => $"{CacheVersionBase}-ideal";
 
-    public async Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request)
+    public async Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request, CancellationToken ct = default)
     {
         var cached = await _db.CardSynergyScores.FirstOrDefaultAsync(s =>
             s.CommanderOracleId == request.CommanderOracleId &&
             s.CardOracleId == request.CardOracleId &&
-            s.ModelVersion == CacheVersion);
+            s.ModelVersion == CacheVersion, ct);
 
         if (cached != null)
             return new SynergyResultDto { Score = cached.Score, Reason = cached.Reason };
@@ -152,9 +152,9 @@ public sealed class SynergyService : ISynergyService
         // oracle texts. The result is cached by oracle id and served to every user, so
         // trusting client text would let one caller poison the shared cache — and it is
         // a direct prompt-injection channel besides.
-        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {request.CommanderOracleId}");
-        var cardDef = await _scryfall.GetByOracleIdAsync(request.CardOracleId)
+        var cardDef = await _scryfall.GetByOracleIdAsync(request.CardOracleId, ct)
             ?? throw new ResourceNotFoundException($"Card not found: {request.CardOracleId}");
 
         // Deck names also reach the prompt: keep only names that resolve to real cards,
@@ -162,7 +162,7 @@ public sealed class SynergyService : ISynergyService
         var deckNames = new List<string>(Math.Min(request.DeckCardNames.Length, 150));
         foreach (var name in request.DeckCardNames.Take(150))
         {
-            var def = string.IsNullOrWhiteSpace(name) ? null : await _scryfall.GetByNameAsync(name);
+            var def = string.IsNullOrWhiteSpace(name) ? null : await _scryfall.GetByNameAsync(name, ct);
             if (def is not null)
                 deckNames.Add(def.Name);
         }
@@ -176,7 +176,7 @@ public sealed class SynergyService : ISynergyService
             DeckCardNames = [.. deckNames],
         };
 
-        var result = await CallAnthropicAsync(request);
+        var result = await CallAnthropicAsync(request, ct);
 
         var entity = new CardSynergyScore
         {
@@ -194,7 +194,7 @@ public sealed class SynergyService : ISynergyService
         var stale = await _db.CardSynergyScores.FirstOrDefaultAsync(s =>
             s.CommanderOracleId == request.CommanderOracleId &&
             s.CardOracleId == request.CardOracleId &&
-            s.ModelVersion == CacheVersion);
+            s.ModelVersion == CacheVersion, ct);
 
         if (stale != null)
         {
@@ -209,23 +209,23 @@ public sealed class SynergyService : ISynergyService
         }
 
         try
-        { await _db.SaveChangesAsync(); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to cache synergy score"); }
+        { await _db.SaveChangesAsync(ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to cache synergy score"); }
 
         return result;
     }
 
     // ---- Batched deck scoring ---------------------------------------
 
-    public async Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId)
+    public async Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId, CancellationToken ct = default)
     {
-        var deck = await _collection.GetDeckAsync(deckId, userId)
+        var deck = await _collection.GetDeckAsync(deckId, userId, ct)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
         if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
             throw new InvalidResourceStateException("Deck has no commander to score against.");
 
-        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
 
         // Score distinct non-commander main-deck cards. Basic lands are excluded:
@@ -250,14 +250,14 @@ public sealed class SynergyService : ISynergyService
 
         var mode = profile.IsTooSmallForGapAnalysis ? ScoringMode.Ideal : ScoringMode.DeckAware;
 
-        var requirements = await _analysis.AnalyseAsync(cmdDef);
+        var requirements = await _analysis.AnalyseAsync(cmdDef, ct);
 
         var scores = await ScoreAllAsync(
             CommanderContext.From(cmdDef, requirements),
             [.. cards.Select(c => ToFactCard(c.OracleId, c.CardDetails!))],
             mode,
             mode == ScoringMode.DeckAware ? profile : null,
-            null);
+            null, ct);
 
         var scored = cards
             .Select(c =>
@@ -275,7 +275,7 @@ public sealed class SynergyService : ISynergyService
             .Where(s => s.Score > 0)   // unscored cards would drag the average to zero
             .ToArray();
 
-        await PersistScoresAsync(deck.CommanderOracleId, scored, CacheVersionFor(mode, profile, null));
+        await PersistScoresAsync(deck.CommanderOracleId, scored, CacheVersionFor(mode, profile, null), ct);
 
         return new DeckScoreDto
         {
@@ -312,7 +312,7 @@ public sealed class SynergyService : ISynergyService
         IReadOnlyList<string> cardOracleIds,
         ScoringMode mode = ScoringMode.Ideal,
         DeckProfile? profile = null,
-        IReadOnlyList<string>? focus = null)
+        IReadOnlyList<string>? focus = null, CancellationToken ct = default)
     {
         var wanted = cardOracleIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -322,7 +322,7 @@ public sealed class SynergyService : ISynergyService
         if (wanted.Count == 0)
             return [];
 
-        var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId)
+        var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId, ct)
             ?? throw new ResourceNotFoundException($"Commander not found: {commanderOracleId}");
 
         // Doctrine §10.2: gap analysis on a near-empty deck is noise, so fall back to the
@@ -344,7 +344,7 @@ public sealed class SynergyService : ISynergyService
             .Where(s => s.CommanderOracleId == commanderOracleId
                         && s.ModelVersion == version
                         && wanted.Contains(s.CardOracleId))
-            .ToDictionaryAsync(s => s.CardOracleId, StringComparer.OrdinalIgnoreCase);
+            .ToDictionaryAsync(s => s.CardOracleId, StringComparer.OrdinalIgnoreCase, ct);
 
         var results = new List<ScoredCardDto>(wanted.Count);
         var missing = new List<CardFactSheet.FactCard>();
@@ -356,23 +356,23 @@ public sealed class SynergyService : ISynergyService
                 results.Add(new ScoredCardDto
                 {
                     OracleId = id,
-                    Name = (await _scryfall.GetByOracleIdAsync(id))?.Name ?? string.Empty,
+                    Name = (await _scryfall.GetByOracleIdAsync(id, ct))?.Name ?? string.Empty,
                     Score = hit.Score,
                     Reason = hit.Reason,
                 });
                 continue;
             }
 
-            var def = await _scryfall.GetByOracleIdAsync(id);
+            var def = await _scryfall.GetByOracleIdAsync(id, ct);
             if (def is not null)
                 missing.Add(CardFactSheet.From(id, def));
         }
 
         if (missing.Count > 0)
         {
-            var requirements = await _analysis.AnalyseAsync(cmdDef);
+            var requirements = await _analysis.AnalyseAsync(cmdDef, ct);
             var scores = await ScoreAllAsync(
-                CommanderContext.From(cmdDef, requirements), missing, mode, profile, focus);
+                CommanderContext.From(cmdDef, requirements), missing, mode, profile, focus, ct);
 
             var fresh = missing
                 .Select(c =>
@@ -389,7 +389,7 @@ public sealed class SynergyService : ISynergyService
                 .Where(s => s.Score > 0)
                 .ToArray();
 
-            await PersistScoresAsync(commanderOracleId, fresh, version);
+            await PersistScoresAsync(commanderOracleId, fresh, version, ct);
             results.AddRange(fresh);
         }
 
@@ -429,7 +429,7 @@ public sealed class SynergyService : ISynergyService
         IReadOnlyList<CardFactSheet.FactCard> cards,
         ScoringMode mode,
         DeckProfile? profile,
-        IReadOnlyList<string>? focus)
+        IReadOnlyList<string>? focus, CancellationToken ct)
     {
         // What the commander requires is read from its text once and cached per commander,
         // so the same facts reach every chunk. Deriving it here rather than per chunk also
@@ -438,14 +438,14 @@ public sealed class SynergyService : ISynergyService
 
         var chunks = cards.Chunk(ScoringChunkSize).ToArray();
         if (chunks.Length == 1)
-            return await CallDeckScoringAsync(cmd, req, chunks[0], mode, profile, focus);
+            return await CallDeckScoringAsync(cmd, req, chunks[0], mode, profile, focus, ct);
 
         using var gate = new SemaphoreSlim(MaxConcurrentScoringCalls);
         var parts = await Task.WhenAll(chunks.Select(async chunk =>
         {
-            await gate.WaitAsync();
+            await gate.WaitAsync(ct);
             try
-            { return await CallDeckScoringAsync(cmd, req, chunk, mode, profile, focus); }
+            { return await CallDeckScoringAsync(cmd, req, chunk, mode, profile, focus, ct); }
             finally { gate.Release(); }
         }));
 
@@ -463,7 +463,7 @@ public sealed class SynergyService : ISynergyService
         IReadOnlyList<CardFactSheet.FactCard> cards,
         ScoringMode mode,
         DeckProfile? profile,
-        IReadOnlyList<string>? focus)
+        IReadOnlyList<string>? focus, CancellationToken ct)
     {
         var commanderName = cmd.Name;
         var commanderPt = cmd.Pt is null ? "" : $" ({cmd.Pt})";
@@ -563,7 +563,7 @@ public sealed class SynergyService : ISynergyService
                 },
             ],
             Operation = "deck-scoring",
-        });
+        }, ct);
 
         WarnIfDoctrineUncached(respJson);
         var parsed = AnthropicResponse.DeserializeJson<DeckScoreJson>(respJson);
@@ -585,7 +585,7 @@ public sealed class SynergyService : ISynergyService
 
     /// <summary>Writes batch results into the same cache the single-card path reads.</summary>
     private async Task PersistScoresAsync(
-        string commanderOracleId, ScoredCardDto[] scored, string version)
+        string commanderOracleId, ScoredCardDto[] scored, string version, CancellationToken ct)
     {
         try
         {
@@ -599,7 +599,7 @@ public sealed class SynergyService : ISynergyService
                 .Where(s => s.CommanderOracleId == commanderOracleId
                             && s.ModelVersion == version
                             && cardIds.Contains(s.CardOracleId))
-                .ToDictionaryAsync(s => s.CardOracleId, StringComparer.OrdinalIgnoreCase);
+                .ToDictionaryAsync(s => s.CardOracleId, StringComparer.OrdinalIgnoreCase, ct);
 
             foreach (var s in scored)
             {
@@ -622,9 +622,9 @@ public sealed class SynergyService : ISynergyService
                 }
             }
 
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Persisting is a cache warm-up; never fail the caller over it.
             _logger.LogWarning(ex, "Failed to persist batch synergy scores");
@@ -682,7 +682,7 @@ public sealed class SynergyService : ISynergyService
 
     // ---- Single-card scoring ----------------------------------------
 
-    private async Task<SynergyResultDto> CallAnthropicAsync(SynergyRequest req)
+    private async Task<SynergyResultDto> CallAnthropicAsync(SynergyRequest req, CancellationToken ct)
     {
         var deckContext = req.DeckCardNames.Length > 0
             ? $"\n\nOther cards already in the deck ({req.DeckCardNames.Length}):\n{string.Join(", ", req.DeckCardNames)}"
@@ -711,7 +711,7 @@ public sealed class SynergyService : ISynergyService
             Messages: [new { role = "user", content = prompt }])
         {
             Operation = "single-card scoring",
-        });
+        }, ct);
 
         var parsed = AnthropicResponse.DeserializeJson<SynergyJson>(respJson);
 

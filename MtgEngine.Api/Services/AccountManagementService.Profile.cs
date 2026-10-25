@@ -16,7 +16,7 @@ public sealed partial class AccountManagementService
     public async Task<UsernameAvailability> UsernameAvailableAsync(Guid id, string requested, CancellationToken ct)
     {
         var name = Username(requested).ToLowerInvariant();
-        return new(!await db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == name, ct));
+        return new(!await db.Users.AnyAsync(u => u.Id != id && u.Username == name, ct));
     }
     public async Task ChangeUsernameAsync(Guid id, ChangeUsernameRequest request, CancellationToken ct)
     {

@@ -29,28 +29,39 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     private readonly ILogger<BulkDataService> _logger;
     private readonly string _bulkDir;
 
-    // oracle_id → CardDefinition (from oracle_cards file)
-    private Dictionary<string, CardDefinition> _byOracleId = new(32_000);
-    // A rules-shaped projection of the same catalog source, without executable abilities.
-    private Dictionary<string, MtgEngine.Cards.CardDefinition> _printedByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
-    // lower-case name → oracle_id
-    private Dictionary<string, string> _byName = new(32_000, StringComparer.OrdinalIgnoreCase);
-    // oracle_id → ordered array of all printings
-    private Dictionary<string, PrintingDto[]> _printingsByOracleId = new(32_000);
-    // oracle_id → cheapest USD price across every printing, where any printing has one
-    private Dictionary<string, decimal> _minUsdByOracleId = new(32_000);
-    // scryfall_id → (oracleId, imgNormal, imgSmall, imgArtCrop, setCode) – lightweight
-    private Dictionary<string, PrintingEntry> _byScryfallId = new(250_000);
-    // set code → oracle IDs that have a printing in that set
-    private Dictionary<string, List<string>> _bySetCode = new(StringComparer.OrdinalIgnoreCase);
-    // set code → human-readable set name
-    private Dictionary<string, string> _setNames = new(StringComparer.OrdinalIgnoreCase);
-    // set code → release date (from released_at on card printings)
-    private Dictionary<string, DateOnly> _setReleaseDates = new(StringComparer.OrdinalIgnoreCase);
-    // set code → Scryfall set_type (expansion, commander, promo, alchemy, token, ...)
-    private Dictionary<string, string> _setTypes = new(StringComparer.OrdinalIgnoreCase);
-    // oracle_id → rarity of canonical printing
-    private Dictionary<string, string> _rarityByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
+    private CatalogSnapshot _catalog = new();
+    private long _catalogVersion;
+    public long CatalogVersion => Interlocked.Read(ref _catalogVersion);
+
+    private sealed class CatalogSnapshot
+    {
+        // oracle_id → CardDefinition (from oracle_cards file)
+        public Dictionary<string, CardDefinition> _byOracleId = new(32_000);
+        // A rules-shaped projection of the same catalog source, without executable abilities.
+        public Dictionary<string, MtgEngine.Cards.CardDefinition> _printedByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
+        // lower-case name → oracle_id
+        public Dictionary<string, string> _byName = new(32_000, StringComparer.OrdinalIgnoreCase);
+        // oracle_id → ordered array of all printings
+        public Dictionary<string, PrintingDto[]> _printingsByOracleId = new(32_000);
+        // oracle_id → cheapest USD price across every printing, where any printing has one
+        public Dictionary<string, decimal> _minUsdByOracleId = new(32_000);
+        // scryfall_id → (oracleId, imgNormal, imgSmall, imgArtCrop, setCode) – lightweight
+        public Dictionary<string, PrintingEntry> _byScryfallId = new(250_000);
+        // set code → oracle IDs that have a printing in that set
+        public Dictionary<string, List<string>> _bySetCode = new(StringComparer.OrdinalIgnoreCase);
+        // set code → human-readable set name
+        public Dictionary<string, string> _setNames = new(StringComparer.OrdinalIgnoreCase);
+        // set code → release date (from released_at on card printings)
+        public Dictionary<string, DateOnly> _setReleaseDates = new(StringComparer.OrdinalIgnoreCase);
+        // set code → Scryfall set_type (expansion, commander, promo, alchemy, token, ...)
+        public Dictionary<string, string> _setTypes = new(StringComparer.OrdinalIgnoreCase);
+        // oracle_id → rarity of canonical printing
+        public Dictionary<string, string> _rarityByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
+
+
+        public CardDefinition[]? Commanders;
+        public HashSet<string>? Subtypes;
+    }
 
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _ready = false;
@@ -86,84 +97,102 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
     /// <summary>Optional display metadata, never a network lookup or a startup wait.</summary>
     public Task<CardDefinition?> GetLocalByOracleIdAsync(string oracleId) =>
-        Task.FromResult(_byOracleId.GetValueOrDefault(oracleId));
+        Task.FromResult(Volatile.Read(ref _catalog)._byOracleId.GetValueOrDefault(oracleId));
 
     public async Task<MtgEngine.Cards.CardDefinition?> FindPrintedAsync(string oracleId, CancellationToken ct = default)
     {
         await WaitReadyAsync().WaitAsync(ct).ConfigureAwait(false);
-        return _printedByOracleId.GetValueOrDefault(oracleId);
+        var catalog = Volatile.Read(ref _catalog);
+        return catalog._printedByOracleId.GetValueOrDefault(oracleId);
     }
 
-    public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
+    public Task<CardDefinition?> GetByOracleIdAsync(string oracleId) => GetByOracleIdAsync(oracleId, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId, CancellationToken ct)
     {
-        await WaitReadyAsync();
-        if (_byOracleId.TryGetValue(oracleId, out var def))
+        await WaitReadyAsync().WaitAsync(ct);
+        var catalog = Volatile.Read(ref _catalog);
+        if (catalog._byOracleId.TryGetValue(oracleId, out var def))
             return def;
         _logger.LogDebug("Oracle miss, falling back to API: {Id}", oracleId);
-        return await _api.GetByOracleIdAsync(oracleId);
+        return await _api.GetByOracleIdAsync(oracleId, ct);
     }
 
     public async Task<CardDefinition?> GetLocalByNameAsync(string name)
     {
         await WaitReadyAsync();
-        if (_byName.TryGetValue(name, out var oracleId) && _byOracleId.TryGetValue(oracleId, out var exact))
+        var catalog = Volatile.Read(ref _catalog);
+        if (catalog._byName.TryGetValue(name, out var oracleId) && catalog._byOracleId.TryGetValue(oracleId, out var exact))
             return exact;
         var front = name + " // ";
-        var match = _byName.FirstOrDefault(pair => pair.Key.StartsWith(front, StringComparison.OrdinalIgnoreCase));
-        return match.Value is not null && _byOracleId.TryGetValue(match.Value, out var face) ? face : null;
+        var match = catalog._byName.FirstOrDefault(pair => pair.Key.StartsWith(front, StringComparison.OrdinalIgnoreCase));
+        return match.Value is not null && catalog._byOracleId.TryGetValue(match.Value, out var face) ? face : null;
     }
 
-    public async Task<CardDefinition?> GetByNameAsync(string name)
+    public Task<CardDefinition?> GetByNameAsync(string name) => GetByNameAsync(name, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByNameAsync(string name, CancellationToken ct)
     {
-        await WaitReadyAsync();
-        if (_byName.TryGetValue(name, out var oracleId) && _byOracleId.TryGetValue(oracleId, out var def))
+        await WaitReadyAsync().WaitAsync(ct);
+        var catalog = Volatile.Read(ref _catalog);
+        if (catalog._byName.TryGetValue(name, out var oracleId) && catalog._byOracleId.TryGetValue(oracleId, out var def))
             return def;
         _logger.LogDebug("Name miss, falling back to API: {Name}", name);
-        return await _api.GetByNameAsync(name);
+        return await _api.GetByNameAsync(name, ct);
     }
 
-    public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
+    public Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId) => GetByScryfallIdAsync(scryfallId, CancellationToken.None);
+
+    public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId, CancellationToken ct)
     {
-        await WaitReadyAsync();
+        await WaitReadyAsync().WaitAsync(ct);
         if (await GetLocalByScryfallIdAsync(scryfallId).ConfigureAwait(false) is { } printed)
             return printed;
         _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
-        return await _api.GetByScryfallIdAsync(scryfallId);
+        return await _api.GetByScryfallIdAsync(scryfallId, ct);
     }
 
     public Task<CardDefinition?> GetLocalByScryfallIdAsync(string scryfallId)
     {
-        if (_byScryfallId.TryGetValue(scryfallId, out var entry)
-            && _byOracleId.TryGetValue(entry.OracleId, out var oracle))
+        var catalog = Volatile.Read(ref _catalog);
+        if (catalog._byScryfallId.TryGetValue(scryfallId, out var entry)
+            && catalog._byOracleId.TryGetValue(entry.OracleId, out var oracle))
         {
             return Task.FromResult<CardDefinition?>(CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack, entry.Prices, entry.CollectorNumber));
         }
         return Task.FromResult<CardDefinition?>(null);
     }
 
-    public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
+    public Task<PrintingDto[]> GetPrintingsAsync(string oracleId) => GetPrintingsAsync(oracleId, CancellationToken.None);
+
+    public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId, CancellationToken ct)
     {
-        await WaitReadyAsync();
-        if (_printingsByOracleId.TryGetValue(oracleId, out var printings))
+        await WaitReadyAsync().WaitAsync(ct);
+        var catalog = Volatile.Read(ref _catalog);
+        if (catalog._printingsByOracleId.TryGetValue(oracleId, out var printings))
             return printings;
         _logger.LogDebug("Printings miss, falling back to API: {Id}", oracleId);
-        return await _api.GetPrintingsAsync(oracleId);
+        return await _api.GetPrintingsAsync(oracleId, ct);
     }
 
-    public async Task<RulingDto[]> GetRulingsAsync(string oracleId)
+    public Task<RulingDto[]> GetRulingsAsync(string oracleId) => GetRulingsAsync(oracleId, CancellationToken.None);
+
+    public async Task<RulingDto[]> GetRulingsAsync(string oracleId, CancellationToken ct)
     {
-        await WaitReadyAsync();
+        await WaitReadyAsync().WaitAsync(ct);
+        var catalog = Volatile.Read(ref _catalog);
         // Use the first known Scryfall ID for this oracle entry so we call the right rulings endpoint.
-        if (_printingsByOracleId.TryGetValue(oracleId, out var prints) && prints.Length > 0)
-            return await _api.GetRulingsByScryfallIdAsync(prints[0].ScryfallId);
-        return await _api.GetRulingsAsync(oracleId); // fallback: let ScryfallService resolve it
+        if (catalog._printingsByOracleId.TryGetValue(oracleId, out var prints) && prints.Length > 0)
+            return await _api.GetRulingsByScryfallIdAsync(prints[0].ScryfallId, ct);
+        return await _api.GetRulingsAsync(oracleId, ct); // fallback: let ScryfallService resolve it
     }
 
     public async Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
 
-        IEnumerable<KeyValuePair<string, List<string>>> source = _bySetCode;
+        IEnumerable<KeyValuePair<string, List<string>>> source = catalog._bySetCode;
 
         if (!string.IsNullOrWhiteSpace(filterQuery))
         {
@@ -175,11 +204,11 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             var (cmcOp, cmcVal) = ParseCmc(q);
             var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
 
-            var matchingOracleIds = _byOracleId.Values
+            var matchingOracleIds = catalog._byOracleId.Values
                 .Where(d => nameFilter is null || d.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
                 .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
                 .Where(d => supertypeFilter.Count == 0 || supertypeFilter.All(s => d.Supertypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
-                .Where(d => raritySet.Count == 0 || (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
+                .Where(d => raritySet.Count == 0 || (catalog._rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
                 .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
                 .Where(d => !colorFilter || MatchesColor(d, multicolor, colorless, colorSet))
                 .Select(d => d.OracleId)
@@ -187,7 +216,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
             var relevantSets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var oid in matchingOracleIds)
-                if (_printingsByOracleId.TryGetValue(oid, out var prints))
+                if (catalog._printingsByOracleId.TryGetValue(oid, out var prints))
                     foreach (var p in prints)
                         if (p.SetCode is not null)
                             relevantSets.Add(p.SetCode);
@@ -195,10 +224,10 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             // A bare word is far more likely to name the set than a card inside it.
             // Matching only card text meant "hobbit" listed the Lord of the Rings sets
             // (they contain cards with Hobbit in the name) and not The Hobbit itself.
-            foreach (var code in MatchSetCodes(nameFilter ?? q))
+            foreach (var code in MatchSetCodes(catalog, nameFilter ?? q))
                 relevantSets.Add(code);
 
-            source = _bySetCode.Where(kv => relevantSets.Contains(kv.Key));
+            source = catalog._bySetCode.Where(kv => relevantSets.Contains(kv.Key));
         }
 
         // Newest first: a set picker is nearly always used to reach a recent set, and
@@ -207,9 +236,9 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         return source
             .Select(kv => new SetSummaryDto(
                 kv.Key.ToUpperInvariant(),
-                _setNames.TryGetValue(kv.Key, out var name) ? name : kv.Key.ToUpperInvariant(),
+                catalog._setNames.TryGetValue(kv.Key, out var name) ? name : kv.Key.ToUpperInvariant(),
                 kv.Value.Count,
-                _setReleaseDates.TryGetValue(kv.Key, out var d) ? d : null))
+                catalog._setReleaseDates.TryGetValue(kv.Key, out var d) ? d : null))
             .OrderByDescending(s => s.ReleasedAt.HasValue)
             .ThenByDescending(s => s.ReleasedAt)
             .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
@@ -252,9 +281,9 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     /// Marvel sets are standalone products where every card is not_legal. Treating one
     /// as "the latest set" made the suggestions panel offer cards that cannot be played.
     /// </remarks>
-    private int CountCommanderLegalCards(string setCode) =>
-        _bySetCode.TryGetValue(setCode, out var oracleIds)
-            ? oracleIds.Count(oid => _byOracleId.TryGetValue(oid, out var d) && CommanderRules.IsLegalInCommander(d))
+    private int CountCommanderLegalCards(CatalogSnapshot catalog, string setCode) =>
+        catalog._bySetCode.TryGetValue(setCode, out var oracleIds)
+            ? oracleIds.Count(oid => catalog._byOracleId.TryGetValue(oid, out var d) && CommanderRules.IsLegalInCommander(d))
             : 0;
 
     /// <summary>
@@ -278,6 +307,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     public async Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
 
         // Walk newest-first and record why each set was passed over. When the answer is
         // a set from months ago, the log has to explain what happened to everything
@@ -285,12 +315,12 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         var skipped = new List<string>();
         var accepted = new List<RecentSetDto>();
 
-        foreach (var kv in _setReleaseDates
+        foreach (var kv in catalog._setReleaseDates
                      .OrderByDescending(kv => kv.Value)
                      .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
             var (code, date) = (kv.Key, kv.Value);
-            _setTypes.TryGetValue(code, out var setType);
+            catalog._setTypes.TryGetValue(code, out var setType);
 
             // No cutoff on the release date. Scryfall carries sets months ahead, but a
             // set only reaches the card-count threshold below once it is substantially
@@ -302,7 +332,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             int legal = 0;
             if (skipReason is null)
             {
-                legal = CountCommanderLegalCards(code);
+                legal = CountCommanderLegalCards(catalog, code);
                 if (legal == 0)
                     skipReason = "no Commander-legal cards";
                 else if (legal < MinLegalCardsForRelease)
@@ -318,7 +348,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             }
 
             accepted.Add(new RecentSetDto(
-                code, _setNames.TryGetValue(code, out var n) ? n : code.ToUpperInvariant(), date, legal));
+                code, catalog._setNames.TryGetValue(code, out var n) ? n : code.ToUpperInvariant(), date, legal));
 
             if (maxSets is > 0 && accepted.Count >= maxSets.Value)
                 break;
@@ -342,25 +372,25 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     }
 
     /// <summary>Cached list of every Commander-legal commander, built once on first use.</summary>
-    private CardDefinition[]? _commanders;
 
     public async Task<CardDefinition[]> SearchCommandersAsync(
         string? nameQuery, int limit = 100, string? setCode = null)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
 
-        _commanders ??= _byOracleId.Values
+        catalog.Commanders ??= catalog._byOracleId.Values
             .Where(IsCommanderEligible)
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var pool = _commanders;
+        var pool = catalog.Commanders;
 
         // Restrict to one set when asked. Uses the set index rather than the card's
         // canonical SetCode, so a commander reprinted into the set still counts.
         if (!string.IsNullOrWhiteSpace(setCode))
         {
-            var inSet = _bySetCode.TryGetValue(setCode.Trim(), out var oracleIds)
+            var inSet = catalog._bySetCode.TryGetValue(setCode.Trim(), out var oracleIds)
                 ? new HashSet<string>(oracleIds, StringComparer.OrdinalIgnoreCase)
                 : [];
             pool = [.. pool.Where(d => inSet.Contains(d.OracleId))];
@@ -373,15 +403,15 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         // A query is as likely to name a set as a card. Searching only card names meant
         // "hobbit" returned the five cards with Hobbit in the title and none of the
         // commanders from The Hobbit, which is what someone typing it actually wants.
-        var matchedSets = MatchSetCodes(q);
+        var matchedSets = MatchSetCodes(catalog, q);
         var inMatchedSets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var code in matchedSets)
-            if (_bySetCode.TryGetValue(code, out var ids))
+            if (catalog._bySetCode.TryGetValue(code, out var ids))
                 inMatchedSets.UnionWith(ids);
 
         // Someone searching "wolf" wants Wolf commanders, not the six cards with Wolf in
         // the name. Plurals count too -- "wolves" is the natural way to ask.
-        var subtype = ResolveSubtype(q);
+        var subtype = ResolveSubtype(catalog, q);
 
         // Prefix matches first -- typing "kro" should surface Krosan before Sakashima
         // of a Thousand Faces just because the latter contains the letters later on.
@@ -415,17 +445,17 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     /// Set codes whose code or name matches the query. An exact code match ("hob") wins
     /// outright; otherwise any set whose name contains the query counts.
     /// </summary>
-    private List<string> MatchSetCodes(string q)
+    private List<string> MatchSetCodes(CatalogSnapshot catalog, string q)
     {
-        if (_setNames.ContainsKey(q))
+        if (catalog._setNames.ContainsKey(q))
             return [q];
 
         var matches = new List<string>();
-        foreach (var (code, name) in _setNames)
+        foreach (var (code, name) in catalog._setNames)
         {
             // Tokens, art series and the like share their parent's name; they hold no
             // commanders, and including them only widens the scan.
-            if (_setTypes.TryGetValue(code, out var t)
+            if (catalog._setTypes.TryGetValue(code, out var t)
                 && (t is "token" or "memorabilia" or "art_series" or "minigame"))
                 continue;
             if (name.Contains(q, StringComparison.OrdinalIgnoreCase))
@@ -435,19 +465,14 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     }
 
     /// <summary>Every subtype in the corpus, built once. Used to tell a creature type from a word.</summary>
-    private HashSet<string>? _allSubtypes;
-
-    private HashSet<string> AllSubtypes => _allSubtypes ??= new HashSet<string>(
-        _byOracleId.Values.SelectMany(d => d.Subtypes), StringComparer.OrdinalIgnoreCase);
-
     /// <summary>
     /// The creature type a query names, or null when it names no type at all.
     /// </summary>
-    private string? ResolveSubtype(string? query)
+    private string? ResolveSubtype(CatalogSnapshot catalog, string? query)
     {
         if (string.IsNullOrWhiteSpace(query))
             return null;
-        return Array.Find(SingularCandidates(query), AllSubtypes.Contains);
+        return Array.Find(SingularCandidates(query), (catalog.Subtypes ??= new HashSet<string>(catalog._byOracleId.Values.SelectMany(d => d.Subtypes), StringComparer.OrdinalIgnoreCase)).Contains);
     }
 
     // Commander eligibility lives in CommanderRules, shared with the API gate.
@@ -458,8 +483,9 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         IReadOnlySet<ManaColor> commanderColors, int bracket, decimal? maxUsd = null)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
 
-        var legal = _byOracleId.Values
+        var legal = catalog._byOracleId.Values
             .Where(d =>
                 // Legality only. No popularity or playability judgement -- a card the
                 // model could reasonably want must not be filtered out here.
@@ -469,7 +495,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
                 && (commanderColors.Count == 0
                     || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
                 && !(d.GameChanger && bracket < 4)
-                && WithinBudget(d.OracleId, maxUsd))
+                && WithinBudget(catalog, d.OracleId, maxUsd))
             .ToArray();
 
         // Enum order for sections, alphabetical within them: the prompt prefix must be
@@ -511,9 +537,9 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     /// to be priced.
     /// </para>
     /// </remarks>
-    private bool WithinBudget(string oracleId, decimal? maxUsd) =>
+    private bool WithinBudget(CatalogSnapshot catalog, string oracleId, decimal? maxUsd) =>
         maxUsd is not { } ceiling
-        || !_minUsdByOracleId.TryGetValue(oracleId, out var usd)
+        || !catalog._minUsdByOracleId.TryGetValue(oracleId, out var usd)
         || usd <= ceiling;
 
     /// <summary>
@@ -658,20 +684,21 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         int offset = 0)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
 
         IEnumerable<CardDefinition> pool;
         if (setCodes is { Count: > 0 })
         {
             var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var code in setCodes)
-                if (_bySetCode.TryGetValue(code, out var setIds))
+                if (catalog._bySetCode.TryGetValue(code, out var setIds))
                     ids.UnionWith(setIds);
-            pool = ids.Select(id => _byOracleId.TryGetValue(id, out var d) ? d : null)
+            pool = ids.Select(id => catalog._byOracleId.TryGetValue(id, out var d) ? d : null)
                       .Where(d => d is not null)!;
         }
         else
         {
-            pool = _byOracleId.Values;
+            pool = catalog._byOracleId.Values;
         }
 
         pool = pool.Where(d =>
@@ -700,7 +727,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
         if (terms.Length > 0)
         {
-            var subtypes = terms.Select(ResolveSubtype).ToArray();
+            var subtypes = terms.Select(term => ResolveSubtype(catalog, term)).ToArray();
 
             // Rank by how directly the card answers the query. When a term names a real
             // creature type, being that type outranks having the word in the title:
@@ -799,7 +826,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
         var all = pool.ToArray();
         var page = all.Skip(offset).Take(limit)
-            .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d)
+            .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(catalog, d) : d)
             .ToArray();
 
         return (page, all.Length);
@@ -814,23 +841,23 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     /// was offering cards like Thran Dynamo, first printed in 1998. Filtering on the
     /// debut printing is what makes the heading true.
     /// </remarks>
-    private bool DebutedIn(string oracleId, IReadOnlySet<string> setCodes)
+    private bool DebutedIn(CatalogSnapshot catalog, string oracleId, IReadOnlySet<string> setCodes)
     {
-        if (!_printingsByOracleId.TryGetValue(oracleId, out var prints) || prints.Length == 0)
+        if (!catalog._printingsByOracleId.TryGetValue(oracleId, out var prints) || prints.Length == 0)
             return false;
 
         DateOnly? earliest = null;
         foreach (var p in prints)
         {
             if (p.SetCode is not null
-                && _setReleaseDates.TryGetValue(p.SetCode, out var d)
+                && catalog._setReleaseDates.TryGetValue(p.SetCode, out var d)
                 && (earliest is null || d < earliest))
                 earliest = d;
         }
 
         DateOnly? target = null;
         foreach (var code in setCodes)
-            if (_setReleaseDates.TryGetValue(code, out var d) && (target is null || d < target))
+            if (catalog._setReleaseDates.TryGetValue(code, out var d) && (target is null || d < target))
                 target = d;
 
         if (earliest is null || target is null)
@@ -848,6 +875,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         bool debutOnly = false)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var names = new List<string>(256);
 
@@ -856,19 +884,19 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         // reproducible, cacheable prompt.
         foreach (var setCode in setCodes.OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
         {
-            if (!_bySetCode.TryGetValue(setCode, out var oracleIds))
+            if (!catalog._bySetCode.TryGetValue(setCode, out var oracleIds))
                 continue;
             foreach (var oid in oracleIds)
             {
                 if (!seen.Add(oid))
                     continue;
-                if (!_byOracleId.TryGetValue(oid, out var def))
+                if (!catalog._byOracleId.TryGetValue(oid, out var def))
                     continue;
                 // Not-legal cards (Un-sets, Alchemy, standalone Universes Beyond
                 // products) must never be spotlighted -- they cannot go in the deck.
                 if (!CommanderRules.IsLegalInCommander(def))
                     continue;
-                if (debutOnly && !DebutedIn(oid, setCodes))
+                if (debutOnly && !DebutedIn(catalog, oid, setCodes))
                     continue;
                 // Skip tokens, basic lands, and commander-illegal card types
                 if (def.Supertypes.Contains("Basic"))
@@ -897,6 +925,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
     public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)
     {
         await WaitReadyAsync();
+        var catalog = Volatile.Read(ref _catalog);
         var q = query.Trim();
         if (q.Length < 2)
             return [];
@@ -918,13 +947,13 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
         // "wolves" should find Wolves, not just cards with Wolf in the title. Only a bare
         // word is treated this way -- an explicit t:/o: query already says what it means.
-        var subtype = useRegex || matchWord ? null : ResolveSubtype(nameFilter);
+        var subtype = useRegex || matchWord ? null : ResolveSubtype(catalog, nameFilter);
 
         IEnumerable<string> oracleIds;
         if (setFilter is not null)
         {
-            if (!_bySetCode.TryGetValue(setFilter, out var setList) || setList.Count == 0)
-                return await _api.SearchAsync(query, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
+            if (!catalog._bySetCode.TryGetValue(setFilter, out var setList) || setList.Count == 0)
+                return []; // An empty filtered catalog result must not become an unrelated fuzzy-name hit.
             oracleIds = setList;
         }
         else
@@ -932,28 +961,29 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags, no oracle filter).
             // A recognised creature type has to take the full scan: the name index cannot see subtypes.
             if (nameFilter is not null && subtype is null && oracleFilter is null && typeFlags == CardType.None && supertypeFilter.Count == 0
-                && raritySet.Count == 0 && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
+                && raritySet.Count == 0 && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex
+                && sortBy.Equals("name", StringComparison.OrdinalIgnoreCase))
             {
-                var nameKeys = _byName.Keys
+                var nameKeys = catalog._byName.Keys
                     .Where(n => n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase))
-                    .Concat(_byName.Keys.Where(n => !n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase)
+                    .Concat(catalog._byName.Keys.Where(n => !n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase)
                                                  && n.Contains(nameFilter, StringComparison.OrdinalIgnoreCase)));
                 nameKeys = descending ? nameKeys.OrderByDescending(n => n) : nameKeys.OrderBy(n => n);
                 var localResults = nameKeys
                     .Skip(offset)
                     .Take(limit)
-                    .Select(n => _byOracleId.TryGetValue(_byName[n], out var d) ? d : null)
+                    .Select(n => catalog._byOracleId.TryGetValue(catalog._byName[n], out var d) ? d : null)
                     .Where(d => d is not null).Cast<CardDefinition>()
-                    .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d)
+                    .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(catalog, d) : d)
                     .ToArray();
                 if (localResults.Length > 0 || offset > 0)
                     return localResults;
             }
-            oracleIds = _byOracleId.Keys;
+            oracleIds = catalog._byOracleId.Keys;
         }
 
         var filtered = oracleIds
-            .Select(oid => _byOracleId.TryGetValue(oid, out var d) ? d : null)
+            .Select(oid => catalog._byOracleId.TryGetValue(oid, out var d) ? d : null)
             .Where(d => d is not null).Cast<CardDefinition>()
             .Where(d => (nameFilter is null && oracleFilter is null)
                      || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex, nameRegex))
@@ -962,14 +992,14 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
             .Where(d => supertypeFilter.Count == 0 || supertypeFilter.All(s => d.Supertypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
             .Where(d => raritySet.Count == 0 ||
-                        (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
+                        (catalog._rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
             .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
             .Where(d => !colorFilter || MatchesColor(d, multicolor, colorless, colorSet));
 
         var sorted = sortBy.Equals("cmc", StringComparison.OrdinalIgnoreCase)
             ? (descending
-                ? filtered.OrderByDescending(d => d.ManaCost.ManaValue).ThenBy(d => d.Name)
-                : filtered.OrderBy(d => d.ManaCost.ManaValue).ThenBy(d => d.Name))
+                ? filtered.OrderByDescending(d => d.Cmc).ThenBy(d => d.Name)
+                : filtered.OrderBy(d => d.Cmc).ThenBy(d => d.Name))
             : (descending
                 ? filtered.OrderByDescending(d => d.Name)
                 : (IOrderedEnumerable<CardDefinition>)filtered.OrderBy(d => d.Name));
@@ -979,7 +1009,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             .Take(limit)
             .Select(d =>
             {
-                if (setFilter is not null && _printingsByOracleId.TryGetValue(d.OracleId, out var prints))
+                if (setFilter is not null && catalog._printingsByOracleId.TryGetValue(d.OracleId, out var prints))
                 {
                     var p = prints.FirstOrDefault(pr =>
                         pr.SetCode?.Equals(setFilter, StringComparison.OrdinalIgnoreCase) == true);
@@ -987,13 +1017,13 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
                         return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriLarge, p.ImageUriSmall, null,
                                                        p.SetCode, p.ImageUriNormalBack, collectorNumber: p.CollectorNumber);
                 }
-                return d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d;
+                return d.ImageUriSmall is null ? EnrichWithNewestPrinting(catalog, d) : d;
             })
             .ToArray();
 
         if (results.Length > 0 || offset > 0)
             return results;
-        return await _api.SearchAsync(query, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
+        return []; // An empty filtered catalog result must not become an unrelated fuzzy-name hit.
     }
 
     // ---- Refresh logic ---------------------------------------------------
@@ -1043,12 +1073,12 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         await Task.WhenAny(_readySignal.Task, Task.Delay(TimeSpan.FromSeconds(30)));
     }
 
-    private async Task RebuildIndexesAsync()
+    internal async Task RebuildIndexesAsync()
     {
         await _loadLock.WaitAsync();
         try
         {
-            _ready = false;
+            var catalog = new CatalogSnapshot();
 
             var oraclePath = Path.Combine(_bulkDir, "oracle_cards.json");
             var defaultPath = Path.Combine(_bulkDir, "default_cards.json");
@@ -1057,25 +1087,27 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
             // Parsing is CPU-bound and takes seconds; keep it off the caller's thread.
             if (File.Exists(oraclePath))
-                await Task.Run(() => LoadOracleCards(oraclePath));
+                await Task.Run(() => LoadOracleCards(oraclePath, catalog));
             else
                 _logger.LogWarning("oracle_cards.json not found — card lookups will use live API");
 
             if (File.Exists(defaultPath))
-                await Task.Run(() => LoadDefaultCards(defaultPath));
+                await Task.Run(() => LoadDefaultCards(defaultPath, catalog));
             else
                 _logger.LogWarning("default_cards.json not found — printings will use live API");
 
             sw.Stop();
             _logger.LogInformation(
                 "Bulk indexes ready: {Oracle} oracle cards, {Prints} printing groups, {Scryfall} scryfall IDs ({Ms}ms)",
-                _byOracleId.Count, _printingsByOracleId.Count, _byScryfallId.Count, sw.ElapsedMilliseconds);
+                catalog._byOracleId.Count, catalog._printingsByOracleId.Count, catalog._byScryfallId.Count, sw.ElapsedMilliseconds);
 
             // The derived caches are computed lazily from the indexes just replaced;
             // without this reset they keep serving the previous corpus until restart.
-            _commanders = null;
-            _allSubtypes = null;
+            catalog.Commanders = null;
+            catalog.Subtypes = null;
 
+            Volatile.Write(ref _catalog, catalog);
+            Interlocked.Increment(ref _catalogVersion);
             _ready = true;
             _readySignal.TrySetResult();
         }
@@ -1119,9 +1151,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
         if (reader.Peek() == '[')
         {
-            using var doc = JsonDocument.Parse(
-                reader.ReadToEnd(), new JsonDocumentOptions { AllowTrailingCommas = true });
-            foreach (var el in doc.RootElement.EnumerateArray())
+            foreach (var el in ReadArrayCards(reader))
                 yield return el;
             yield break;
         }
@@ -1148,6 +1178,58 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
             using (doc)
                 yield return doc.RootElement;
+        }
+    }
+
+    private static IEnumerable<JsonElement> ReadArrayCards(TextReader reader)
+    {
+        reader.Read(); // opening array
+        while (true)
+        {
+            while (reader.Peek() is ' ' or '\t' or '\r' or '\n')
+                reader.Read();
+            if (reader.Peek() == ']')
+            {
+                reader.Read();
+                yield break;
+            }
+            if (reader.Peek() != '{')
+                throw new JsonException("Expected a card object in the bulk array.");
+            var text = new System.Text.StringBuilder();
+            var depth = 0;
+            var quoted = false;
+            var escaped = false;
+            do
+            {
+                var next = reader.Read();
+                if (next < 0)
+                    throw new JsonException("Incomplete card object in the bulk array.");
+                var c = (char)next;
+                text.Append(c);
+                if (quoted)
+                {
+                    if (escaped)
+                        escaped = false;
+                    else if (c == '\\')
+                        escaped = true;
+                    else if (c == '"')
+                        quoted = false;
+                }
+                else if (c == '"')
+                    quoted = true;
+                else if (c == '{')
+                    depth++;
+                else if (c == '}')
+                    depth--;
+            } while (depth > 0);
+            using (var document = JsonDocument.Parse(text.ToString()))
+                yield return document.RootElement;
+            while (reader.Peek() is ' ' or '\t' or '\r' or '\n')
+                reader.Read();
+            if (reader.Peek() == ',')
+                reader.Read();
+            else if (reader.Peek() != ']')
+                throw new JsonException("Expected a separator in the bulk array.");
         }
     }
 
@@ -1192,7 +1274,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         && layout.GetString() is { } name
         && NonCardLayouts.Contains(name);
 
-    private void LoadOracleCards(string path)
+    private void LoadOracleCards(string path, CatalogSnapshot catalog)
     {
         var byOracleId = new Dictionary<string, CardDefinition>(32_000);
         var printedByOracleId = new Dictionary<string, MtgEngine.Cards.CardDefinition>(32_000, StringComparer.OrdinalIgnoreCase);
@@ -1236,17 +1318,17 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             + "(art, tokens, emblems, format supplements)",
             byOracleId.Count, skippedByLayout);
 
-        _byOracleId = byOracleId;
-        _printedByOracleId = printedByOracleId;
-        _byName = byName;
-        _rarityByOracleId = rarityMap;
+        catalog._byOracleId = byOracleId;
+        catalog._printedByOracleId = printedByOracleId;
+        catalog._byName = byName;
+        catalog._rarityByOracleId = rarityMap;
     }
 
-    private void LoadDefaultCards(string path)
+    private void LoadDefaultCards(string path, CatalogSnapshot catalog)
     {
         var printings = new Dictionary<string, List<PrintingDto>>(32_000);
         var scryfallIdx = new Dictionary<string, PrintingEntry>(250_000);
-        var setIdx = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
+        var setIdx = new Dictionary<string, HashSet<string>>(500, StringComparer.OrdinalIgnoreCase);
         var setNames = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
         var setReleaseDates = new Dictionary<string, DateOnly>(500, StringComparer.OrdinalIgnoreCase);
         var setTypes = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
@@ -1291,11 +1373,10 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             {
                 if (!setIdx.TryGetValue(setCode, out var setList))
                 {
-                    setList = new List<string>(32);
+                    setList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     setIdx[setCode] = setList;
                 }
-                if (!setList.Contains(oid))
-                    setList.Add(oid);
+                setList.Add(oid);
                 if (setName.Length > 0)
                     setNames.TryAdd(setCode, setName);
                 // released_at is per printing, and promos folded into a set can carry
@@ -1313,7 +1394,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
 
         // Newest set first: printing pickers across the client default to the first entry,
         // and "the latest printing" is the sensible default everywhere one is chosen.
-        _printingsByOracleId = printings.ToDictionary(
+        catalog._printingsByOracleId = printings.ToDictionary(
             kv => kv.Key,
             kv => kv.Value
                 .OrderByDescending(p =>
@@ -1324,7 +1405,7 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
         // What the card actually costs to acquire: the cheapest printing, not the newest.
         // A staple reprinted at bulk rates is a budget card however much its first printing
         // goes for, and a price filter that read the newest printing would say otherwise.
-        _minUsdByOracleId = _printingsByOracleId
+        catalog._minUsdByOracleId = catalog._printingsByOracleId
             .Select(kv => (kv.Key, Min: kv.Value
                 .Select(p => p.Prices?.Usd)
                 .Where(v => v is > 0)
@@ -1333,17 +1414,17 @@ public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDis
             .Where(x => x.Min is not null)
             .ToDictionary(x => x.Key, x => x.Min!.Value);
 
-        _byScryfallId = scryfallIdx;
-        _bySetCode = setIdx;
-        _setNames = setNames;
-        _setReleaseDates = setReleaseDates;
-        _setTypes = setTypes;
+        catalog._byScryfallId = scryfallIdx;
+        catalog._bySetCode = setIdx.ToDictionary(kv => kv.Key, kv => kv.Value.ToList(), StringComparer.OrdinalIgnoreCase);
+        catalog._setNames = setNames;
+        catalog._setReleaseDates = setReleaseDates;
+        catalog._setTypes = setTypes;
     }
 
     /// <summary>Fills missing images from printings[0] — newest set first, per the index sort.</summary>
-    private CardDefinition EnrichWithNewestPrinting(CardDefinition oracle)
+    private CardDefinition EnrichWithNewestPrinting(CatalogSnapshot catalog, CardDefinition oracle)
     {
-        if (!_printingsByOracleId.TryGetValue(oracle.OracleId, out var printings) || printings.Length == 0)
+        if (!catalog._printingsByOracleId.TryGetValue(oracle.OracleId, out var printings) || printings.Length == 0)
             return oracle;
         var newest = printings[0];
         return CardParser.WithPrinting(oracle, newest.ImageUriNormal, newest.ImageUriLarge, newest.ImageUriSmall, null, newest.SetCode, collectorNumber: newest.CollectorNumber);

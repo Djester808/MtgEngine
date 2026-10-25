@@ -407,6 +407,24 @@ GET /api/cards/{oracleId}/history?limit=100
 
 ## Service Implementation Details
 
+### Audited mutation and read boundaries
+
+All collection/deck deletion paths remove published posts and comments in the same
+transaction, including a merge that deletes its source. Adopting an unspecified
+printing adds nonfoil, foil and etched quantities consistently. Bulk moves preload
+destination rows once and match on Oracle ID, printing, board and language.
+
+AI refinement uses `ReplaceCardCopiesAsync`: one outgoing main-board copy becomes
+one incoming copy in one transaction. Other copies/printings remain, and neither
+commander can be swapped out. A failure rolls back both inventory and history.
+
+Paged collection reads share a bounded snapshot cache (50,000 rows total, one-minute
+expiry), keyed by owner, collection update time and catalog version. Each request
+still verifies ownership; mutations and catalog reloads invalidate the read key.
+This avoids resolving the entire collection again for every page while preserving
+whole-collection filtering, ordering and valuation. The first read after invalidation
+still builds the complete read snapshot.
+
 ### CollectionService
 
 Handles all business logic:

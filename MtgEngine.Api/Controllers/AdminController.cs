@@ -37,10 +37,17 @@ public sealed class AdminController : ControllerBase
     {
         if (!_env.IsDevelopment())
             return NotFound();
-        if (_seedingInProgress == 1)
+        if (Interlocked.CompareExchange(ref _seedingInProgress, 1, 0) != 0)
             return Conflict(new { message = "Seeding in progress — wait for it to finish first." });
-        var result = await seeder.ClearSeedAsync();
-        return Ok(new { message = result });
+        try
+        {
+            var result = await seeder.ClearSeedAsync(HttpContext.RequestAborted);
+            return Ok(new { message = result });
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _seedingInProgress, 0);
+        }
     }
 
     /// <summary>

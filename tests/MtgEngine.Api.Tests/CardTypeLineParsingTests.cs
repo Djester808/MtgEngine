@@ -9,6 +9,32 @@ namespace MtgEngine.Api.Tests;
 /// </summary>
 public class CardTypeLineParsingTests
 {
+    [Fact]
+    public void Parsed_doctor_pairs_with_companion()
+    {
+        var doctor = CardParser.Parse(Json("""
+            {"oracle_id":"doctor","name":"Doctor","type_line":"Legendary Creature — Time Lord Doctor",
+             "oracle_text":"","legalities":{"commander":"legal"}}
+            """))!;
+        var companion = CardParser.Parse(Json("""
+            {"oracle_id":"companion","name":"Companion","type_line":"Legendary Creature — Human",
+             "oracle_text":"Doctor's companion","legalities":{"commander":"legal"}}
+            """))!;
+        Assert.Equal(["Time Lord", "Doctor"], doctor.Subtypes);
+        Assert.True(CommanderPairPolicy.CanPair(companion, doctor));
+    }
+
+    [Fact]
+    public void Front_face_supplies_numeric_characteristics_without_leaking_back_face()
+    {
+        var card = CardParser.Parse(Json("""
+            {"oracle_id":"two-face","name":"Front // Back","type_line":"Creature — Human // Planeswalker",
+             "card_faces":[{"power":"3","toughness":"4","oracle_text":""},{"loyalty":"6","oracle_text":""}]}
+            """))!;
+        Assert.Equal(3, card.Power);
+        Assert.Equal(4, card.Toughness);
+        Assert.Null(card.StartingLoyalty);
+    }
     private static JsonElement Json(string json) => JsonDocument.Parse(json).RootElement;
 
     private const string Delver = """

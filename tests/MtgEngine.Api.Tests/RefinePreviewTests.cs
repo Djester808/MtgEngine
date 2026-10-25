@@ -81,6 +81,9 @@ public sealed class RefinePreviewTests
     private sealed class CountingDeck : StubCollectionService
     {
         public int Adds { get; private set; }
+        public int Foil { get; init; }
+        public int Etched { get; init; }
+        public string? Secondary { get; init; }
         public int Removes { get; private set; }
 
         public override Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId) =>
@@ -89,6 +92,7 @@ public sealed class RefinePreviewTests
                 Id = deckId,
                 Name = "Deck",
                 CommanderOracleId = CommanderOracleId,
+                SecondaryCommanderOracleId = Secondary,
                 Cards =
                 [
                     new CollectionCardDto
@@ -96,6 +100,8 @@ public sealed class RefinePreviewTests
                         OracleId = "oracle-weak-card",
                         Board = "main",
                         Quantity = 1,
+                        QuantityFoil = Foil,
+                        QuantityEtched = Etched,
                         CardDetails = new CardDto { Name = "Weak Card", OracleId = "oracle-weak-card" },
                     },
                 ],
@@ -106,6 +112,13 @@ public sealed class RefinePreviewTests
         {
             Adds++;
             return Task.FromResult((new CollectionCardDto { OracleId = request.OracleId }, true));
+        }
+
+        public override async Task<bool> ReplaceCardCopiesAsync(Guid deckId, string userId, string outOracleId,
+            AddCardToCollectionRequest incoming, CancellationToken ct = default)
+        {
+            await AddCardToCollectionAsync(deckId, userId, incoming);
+            return await RemoveCardByOracleAsync(deckId, outOracleId, userId, "main");
         }
 
         public override Task<bool> RemoveCardByOracleAsync(
@@ -250,4 +263,27 @@ public sealed class RefinePreviewTests
         Assert.Equal(0, deck.Removes);
         Assert.True(result.RejectedByReason.ContainsKey("out-card-not-in-deck"));
     }
+    [Fact]
+    public async Task RefineProtectsSecondaryCommander()
+    {
+        var deck = new CountingDeck { Secondary = "oracle-weak-card" };
+        var cards = new Cards { Known = [Card("Weak Card"), Card("Strong Card")] };
+        var sut = new AiBuildService(cards, deck, new NoEdhrec(), new OneSwap(), new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var result = await sut.ApplySwapsAsync(DeckId, UserId, new AiApplySwapsRequest { Swaps = [new() { Out = "Weak Card", In = "Strong Card" }] });
+        Assert.Empty(result.Swaps);
+        Assert.Equal(0, deck.Adds);
+    }
+
+    [Fact]
+    public async Task RefinePreviewCountsAllFinishesWithoutDeletingCopies()
+    {
+        var deck = new CountingDeck { Foil = 2, Etched = 3 };
+        var cards = new Cards { Known = [Card("Weak Card"), Card("Strong Card")] };
+        var sut = new AiBuildService(cards, deck, new NoEdhrec(), new OneSwap(), new Doctrine(), new NoAnalysis(), NullLogger<AiBuildService>.Instance);
+        var result = await sut.RefineDeckAsync(DeckId, UserId, new AiRefineRequest { Preview = true });
+        Assert.Equal(6, result.DeckSizeBefore);
+        Assert.Equal(6, result.DeckSizeAfter);
+        Assert.Equal(0, deck.Adds);
+    }
+
 }

@@ -41,18 +41,21 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
             ? id
             : throw new HubException("Not signed in.");
 
-    private static string Group(Guid gameId) => $"game:{gameId:N}";
+    internal static string Group(Guid gameId, string userId) => $"game:{gameId:N}:user:{userId}";
 
     /// <summary>Joins a table the caller is seated at and receives their view.</summary>
     public async Task Join(Guid gameId)
     {
         var (session, seat) = await SeatAsync(gameId).ConfigureAwait(false);
-        await Groups.AddToGroupAsync(Context.ConnectionId, Group(gameId)).ConfigureAwait(false);
+        if (Context.Items.TryGetValue("active-game", out var previous) && previous is Guid previousId && previousId != gameId)
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(previousId, Me)).ConfigureAwait(false);
+        await Groups.AddToGroupAsync(Context.ConnectionId, Group(gameId, Me)).ConfigureAwait(false);
+        Context.Items["active-game"] = gameId;
         await PushAsync(session, Me, seat).ConfigureAwait(false);
     }
 
     /// <summary>Leaves the group. The seat is kept, so the player can come back to it.</summary>
-    public Task Leave(Guid gameId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(gameId));
+    public Task Leave(Guid gameId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, Group(gameId, Me));
 
     /// <summary>
     /// One command, one method.
@@ -73,9 +76,6 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
             await RefuseAsync(invalid, null).ConfigureAwait(false);
             return;
         }
-
-        if (command.IsManual && await RefuseManualAsync(session, command).ConfigureAwait(false))
-            return;
 
         GameResult result;
         try
@@ -98,57 +98,36 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
 
         // Prepare sequentially: artwork may use a scoped database context. Delivery
         // is independent per account so one slow connection cannot hold later seats.
-        var deliveries = new List<Delivery>();
-        foreach (var (userId, player) in session.SeatedPlayers())
-            deliveries.Add(await PrepareAsync(session, userId, player).ConfigureAwait(false));
-        await Task.WhenAll(deliveries.Select(SendAsync)).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Honour-system actions are accepted only where the table left something to the players.
-    /// </summary>
-    /// <remarks>
-    /// The fourth rule of the card plan reaching the table: a card the engine enforces is played
-    /// by the engine, and a manual action on it is a refusal rather than an override. Otherwise
-    /// a player could quietly hand-wave a card the server was already playing correctly, and
-    /// the log would show two authorities for one object.
-    /// </remarks>
-    private async Task<bool> RefuseManualAsync(GameSession session, GameCommandDto command)
-    {
-        if (!session.AllowHonourSystem)
+        await session.DeliverAsync(async () =>
         {
-            await RefuseAsync("This table enforces every card; manual actions are not accepted here.", null).ConfigureAwait(false);
-            return true;
-        }
-
-        if (command.Subject is { } subject && GameSessionService.IsEnforced(session, subject))
-        {
-            await RefuseAsync("The engine plays that card; it cannot be handled manually.", null).ConfigureAwait(false);
-            return true;
-        }
-
-        return false;
+            var deliveries = new List<Delivery>();
+            foreach (var (userId, player) in session.SeatedPlayers())
+                deliveries.Add(await PrepareAsync(session, userId, player).ConfigureAwait(false));
+            await Task.WhenAll(deliveries.Select(SendAsync)).ConfigureAwait(false);
+        }, Context.ConnectionAborted).ConfigureAwait(false);
     }
 
     /// <summary>Sends one account its view, its legal actions and any question that is waiting for it.</summary>
     private async Task PushAsync(GameSession session, string userId, PlayerId player)
     {
-        await SendAsync(await PrepareAsync(session, userId, player).ConfigureAwait(false)).ConfigureAwait(false);
+        await session.DeliverAsync(async () =>
+            await SendAsync(await PrepareAsync(session, userId, player).ConfigureAwait(false)).ConfigureAwait(false),
+            Context.ConnectionAborted).ConfigureAwait(false);
     }
 
-    private sealed record Delivery(string UserId, PlayerId Player, GameView? View, LegalActions? Legal,
+    private sealed record Delivery(Guid GameId, string UserId, PlayerId Player, GameView? View, LegalActions? Legal,
         IReadOnlyDictionary<string, GameArtwork>? Images);
 
     private async Task<Delivery> PrepareAsync(GameSession session, string userId, PlayerId player)
     {
         var (view, legal) = session.ProjectFor(player);
         var images = artwork is null ? null : await artwork.ForAsync(view, Context.ConnectionAborted).ConfigureAwait(false);
-        return new Delivery(userId, player, view, legal, images);
+        return new Delivery(session.Id, userId, player, view, legal, images);
     }
 
     private async Task SendAsync(Delivery delivery)
     {
-        var recipient = Clients.User(delivery.UserId);
+        var recipient = Clients.Group(Group(delivery.GameId, delivery.UserId));
         await recipient.SendAsync("ViewUpdated", delivery.View, delivery.Legal, delivery.Images).ConfigureAwait(false);
         if (delivery.View?.Pending is { } pending && pending.Player == delivery.Player)
             await recipient.SendAsync("ChoiceRequested", pending).ConfigureAwait(false);
@@ -191,6 +170,14 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
     private static bool Validate(GameCommandDto command, out string reason)
     {
         var results = new List<ValidationResult>();
+        ValidateObject(command, results);
+
+        reason = results.Count == 0 ? string.Empty : results[0].ErrorMessage ?? "That command is not well formed.";
+        return results.Count == 0;
+    }
+
+    private static void ValidateObject(object command, List<ValidationResult> results)
+    {
         var type = command.GetType();
         Validator.TryValidateObject(command, new ValidationContext(command), results, validateAllProperties: true);
 
@@ -213,9 +200,21 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
                 attributes);
         }
 
-        reason = results.Count == 0
-            ? string.Empty
-            : results[0].ErrorMessage ?? "That command is not well formed.";
-        return results.Count == 0;
+        foreach (var property in type.GetProperties())
+        {
+            var value = property.GetValue(command);
+            if (value is System.Collections.IEnumerable items && value is not string)
+            {
+                foreach (var item in items)
+                {
+                    if (item is null)
+                        results.Add(new ValidationResult("Command entries cannot be null."));
+                    else if (item.GetType().Namespace == typeof(GameCommandDto).Namespace)
+                        ValidateObject(item, results);
+                }
+            }
+            else if (value is not null && value.GetType().Namespace == typeof(GameCommandDto).Namespace)
+                ValidateObject(value, results);
+        }
     }
 }

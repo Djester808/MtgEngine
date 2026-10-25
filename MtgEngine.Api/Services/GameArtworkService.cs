@@ -23,7 +23,7 @@ public sealed class GameArtworkService(ICardLookup lookup)
         foreach (var selected in selections.DistinctBy(o => o.ArtworkKey))
         {
             ct.ThrowIfCancellationRequested();
-            var card = await lookup.ResolveSelectionAsync(selected.OracleId, selected.PrintingId, localOnly: true).ConfigureAwait(false);
+            var card = await lookup.ResolveSelectionAsync(selected.OracleId, selected.PrintingId, localOnly: true, ct: ct).ConfigureAwait(false);
             if (card is not null && (card.ImageUriNormal is not null || card.ImageUriArtCrop is not null))
                 result[selected.ArtworkKey] = new GameArtwork(card.ImageUriNormal, card.ImageUriArtCrop);
         }

@@ -83,3 +83,5 @@ ready/
 /research/board-implementation/*.png
 /library-payment-qa-preview.json
 /library-payment-qa-snapshot.json
+/audit-live-account/
+/audit-live-ai/

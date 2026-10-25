@@ -26,6 +26,9 @@ public sealed class GameSession : IDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly Game _engine;
+    private readonly SemaphoreSlim _deliveryLock = new(1, 1);
+    private sealed record Snapshot(GameState State, ImmutableList<GameEvent> Log);
+    private Snapshot _snapshot;
 
     internal GameSession(
         Guid id,
@@ -38,8 +41,7 @@ public sealed class GameSession : IDisposable
     {
         Id = id;
         _engine = engine;
-        State = state;
-        Log = log;
+        _snapshot = new Snapshot(state, log);
         Seats = seats;
         EnforcedOracleIds = enforcedOracleIds;
         AllowHonourSystem = allowHonourSystem;
@@ -55,9 +57,9 @@ public sealed class GameSession : IDisposable
 
     public bool AllowHonourSystem { get; }
 
-    public GameState State { get; private set; }
+    public GameState State => Volatile.Read(ref _snapshot).State;
 
-    public ImmutableList<GameEvent> Log { get; private set; }
+    public ImmutableList<GameEvent> Log => Volatile.Read(ref _snapshot).Log;
 
     public bool Finished => State.Outcome is not null;
 
@@ -122,20 +124,31 @@ public sealed class GameSession : IDisposable
     /// two commands at one table are serialised, which is what "the server is authoritative"
     /// means when both players click at once.
     /// </remarks>
-    internal async Task<GameResult> ApplyAsync(Command command, Func<GameSession, ImmutableList<GameEvent>, CancellationToken, Task> persist, CancellationToken ct)
+    internal async Task<GameResult> ApplyAsync(Command command, Func<ImmutableList<GameEvent>, ImmutableList<GameEvent>, bool, CancellationToken, Task> persist, CancellationToken ct)
     {
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (command is ManualLibraryCommand && !AllowHonourSystem)
-                return new Refused("This table does not allow manual library actions.");
+            var manual = command is ManualLibraryCommand or ManualMove or ManualTap or ManualCounters or ManualLife;
+            if (manual && !AllowHonourSystem)
+                return new Refused("This table enforces every card; manual actions are not accepted here.");
+            ObjectId? subject = command switch
+            {
+                ManualMove move => move.Object,
+                ManualTap tap => tap.Object,
+                ManualCounters counters => counters.Object,
+                _ => null,
+            };
+            if (subject is { } id && State.Objects.TryGetValue(id, out var obj)
+                && RulesCoverage.IsEnforced(obj, EnforcedOracleIds.Contains))
+                return new Refused("The engine plays that card; it cannot be handled manually.");
             var result = _engine.Apply(State, command);
             if (result is not Applied applied)
                 return result;
 
-            State = applied.State;
-            Log = Log.AddRange(applied.Events);
-            await persist(this, applied.Events, ct).ConfigureAwait(false);
+            var next = new Snapshot(applied.State, Log.AddRange(applied.Events));
+            await persist(next.Log, applied.Events, applied.State.Outcome is not null, ct).ConfigureAwait(false);
+            Volatile.Write(ref _snapshot, next);
             return result;
         }
         finally
@@ -145,5 +158,17 @@ public sealed class GameSession : IDisposable
     }
 
     /// <summary>Releases the table's lock. A live table is not disposed while anyone is at it.</summary>
-    public void Dispose() => _lock.Dispose();
+    internal async Task DeliverAsync(Func<Task> deliver, CancellationToken ct)
+    {
+        await _deliveryLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        { await deliver().ConfigureAwait(false); }
+        finally { _deliveryLock.Release(); }
+    }
+
+    public void Dispose()
+    {
+        _lock.Dispose();
+        _deliveryLock.Dispose();
+    }
 }

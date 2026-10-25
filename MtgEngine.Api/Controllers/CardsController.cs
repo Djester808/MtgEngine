@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
 using MtgEngine.Api.Services;
-using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Controllers;
@@ -32,10 +31,6 @@ public sealed class CardsController : ControllerBase
         _priceHistory = priceHistory;
         _cardHistory = cardHistory;
     }
-
-    /// <summary>Must match DeckSuggestionsService.LatestSetCount so the browse list
-    /// covers exactly the sets the "latest" category drew from.</summary>
-    private const int LatestSetScopeCount = 3;
 
     [HttpGet("search")]
     public async Task<ActionResult<CardDto[]>> Search(
@@ -80,7 +75,7 @@ public sealed class CardsController : ControllerBase
     [HttpGet("candidates")]
     public async Task<ActionResult<CandidatePoolDto>> Candidates(
         [FromQuery] string commanderOracleId,
-        [FromServices] ICandidateRanking ranking,
+        [FromServices] CandidateBrowseService browse,
         [FromQuery] string? q = null,
         [FromQuery] string? scope = null,
         [FromQuery] string? types = null,
@@ -91,71 +86,7 @@ public sealed class CardsController : ControllerBase
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0)
     {
-        if (string.IsNullOrWhiteSpace(commanderOracleId))
-            return Problem(detail: "commanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
-
-        var commander = await _scryfall.GetByOracleIdAsync(commanderOracleId);
-        if (commander is null)
-            return NotFound($"No card with oracle id '{commanderOracleId}'");
-
-        IReadOnlySet<string>? setCodes = null;
-        bool gameChangersOnly = false;
-        if (string.Equals(scope, "latest", StringComparison.OrdinalIgnoreCase))
-            setCodes = await _scryfall.GetRecentSetCodesAsync(maxSets: LatestSetScopeCount);
-        else if (string.Equals(scope, "gamechangers", StringComparison.OrdinalIgnoreCase))
-            gameChangersOnly = true;
-
-        // Unknown type names are ignored rather than rejected: the filter is a
-        // convenience, and a typo should not turn the whole browse list into an error.
-        var typeFlags = CardType.None;
-        foreach (var name in (types ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            if (Enum.TryParse<CardType>(name, ignoreCase: true, out var parsed))
-                typeFlags |= parsed;
-
-        var focusTags = (focus ?? string.Empty)
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        CardDefinition[] cards;
-        int total;
-        Dictionary<string, int> scoreOf = new(StringComparer.OrdinalIgnoreCase);
-
-        if (string.Equals(rank, "synergy", StringComparison.OrdinalIgnoreCase))
-        {
-            var ranked = await ranking.RankAsync(new RankRequest(
-                commander, q, setCodes, gameChangersOnly, typeFlags, cmcMin, cmcMax,
-                focusTags, Math.Clamp(limit, 1, 200), Math.Max(0, offset)));
-
-            cards = [.. ranked.Cards.Select(c => c.Card)];
-            total = ranked.Total;
-            foreach (var c in ranked.Cards)
-                scoreOf[c.Card.OracleId] = c.Score;
-        }
-        else
-        {
-            (cards, total) = await _scryfall.GetCandidatePoolAsync(
-                commander.ColorIdentity.ToHashSet(), commander, q, setCodes, gameChangersOnly,
-                typeFlags, cmcMin, cmcMax,
-                Math.Clamp(limit, 1, 200), Math.Max(0, offset));
-        }
-
-        var rows = await Task.WhenAll(cards.Select(async d =>
-        {
-            var printings = await _scryfall.GetPrintingsAsync(d.OracleId);
-
-            // Prefer the printing from the set being browsed, so a card reprinted into
-            // the latest set is labelled with that set rather than its oldest one.
-            var printing = printings.FirstOrDefault(p =>
-                    p.SetCode is not null && setCodes?.Contains(p.SetCode) == true)
-                ?? printings.FirstOrDefault();
-
-            // Ranked responses carry the score, so the client renders the same number it
-            // was ordered by instead of fetching it again and risking a different answer.
-            return new CandidateCardDto(
-                MapToDto(d), printing?.ScryfallId, printing?.SetCode?.ToUpperInvariant(), printing?.SetName,
-                scoreOf.TryGetValue(d.OracleId, out var score) && score >= 0 ? score : null);
-        }));
-
-        return Ok(new CandidatePoolDto(total, rows));
+        return Ok(await browse.BrowseAsync(commanderOracleId, q, scope, types, cmcMin, cmcMax, focus, rank, limit, offset));
     }
 
     [HttpGet("by-name")]

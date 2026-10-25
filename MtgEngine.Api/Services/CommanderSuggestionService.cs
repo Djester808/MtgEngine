@@ -138,7 +138,7 @@ public sealed class CommanderSuggestionService : ICommanderSuggestionService
             // sample is reported distinctly from one that does not exist.
             if (!byName.TryGetValue(pick.Name.Trim(), out var def))
             {
-                var resolved = await _scryfall.GetByNameAsync(pick.Name.Trim());
+                var resolved = await _scryfall.GetByNameAsync(pick.Name.Trim(), ct);
                 if (resolved is null)
                 { Discard("unknown-card"); continue; }
                 if (!CommanderRules.IsCommanderEligible(resolved))

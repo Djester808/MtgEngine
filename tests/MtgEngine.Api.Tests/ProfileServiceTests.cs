@@ -42,8 +42,7 @@ public sealed class ProfileServiceTests : IDisposable
         _db.Users.Add(_user);
         _db.SaveChanges();
 
-        var collections = new CollectionService(_db, _cards, new CardHistoryService(_db));
-        var forum = new ForumService(_db, _cards, collections);
+        var forum = new ForumService(_db, _cards);
         _sut = new ProfileService(_db, _cards, forum);
     }
 
@@ -395,7 +394,7 @@ public sealed class ProfileServiceTests : IDisposable
         _cards.Cards.Clear();
         var unknown = new Lookup();
         var sut = new ProfileService(
-            _db, new MissingCardLookup(), new ForumService(_db, unknown, new CollectionService(_db, unknown, new CardHistoryService(_db))));
+            _db, new MissingCardLookup(), new ForumService(_db, unknown));
 
         await Assert.ThrowsAsync<InvalidRequestException>(() =>
             sut.UpdateMyProfileAsync(_user.Id, new UpdateProfileRequest

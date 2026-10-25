@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
 using MtgEngine.Domain.Models;
@@ -55,7 +54,7 @@ public sealed class CommanderDeckSeeder
         var userId = await EnsureSeedUserAsync(ct);
 
         var existing = await _db.ForumPosts.CountAsync(f => f.AuthorId == userId, ct);
-        if (existing >= (commanderCount * decksPerCommander) / 2)
+        if (existing >= Math.Max(1, (commanderCount * decksPerCommander) / 2))
             return $"Already seeded ({existing} decks). Skipping.";
 
         // Pre-resolve basic land oracle IDs from bulk data
@@ -84,7 +83,7 @@ public sealed class CommanderDeckSeeder
                 var deckCount = DeckCountForRank(cmdIdx, commanders.Count, decksPerCommander);
 
                 for (int i = 0; i < deckCount; i++)
-                    await CreateDeckAsync(cmd, pool, basicLandIds, i, deckCount, userId, rng);
+                    await CreateDeckAsync(cmd, pool, basicLandIds, i, userId, rng);
 
                 await _db.SaveChangesAsync(ct);
 
@@ -151,7 +150,7 @@ public sealed class CommanderDeckSeeder
         var result = new Dictionary<string, string>();
         foreach (var (color, landName) in BasicLandNames)
         {
-            var def = await _scryfall.GetByNameAsync(landName);
+            var def = await _scryfall.GetByNameAsync(landName, ct);
             if (def is not null)
                 result[color] = def.OracleId;
         }
@@ -162,7 +161,6 @@ public sealed class CommanderDeckSeeder
 
     private record CommanderInfo(
         string OracleId,
-        string ScryfallId,
         string Name,
         string[] ColorIdentity,
         string? ImageUri);
@@ -294,7 +292,7 @@ public sealed class CommanderDeckSeeder
                     if (name is null || !seen.Add(name))
                         continue;
 
-                    var def = await _scryfall.GetByNameAsync(name);
+                    var def = await _scryfall.GetByNameAsync(name, ct);
                     if (def is null)
                         continue;
 
@@ -313,7 +311,7 @@ public sealed class CommanderDeckSeeder
                     if (colors.Length == 0)
                         continue;
 
-                    list.Add(new CommanderInfo(def.OracleId, def.OracleId, def.Name, colors, def.ImageUriNormal));
+                    list.Add(new CommanderInfo(def.OracleId, def.Name, colors, def.ImageUriNormal));
                 }
             }
 
@@ -329,9 +327,8 @@ public sealed class CommanderDeckSeeder
     private CommanderInfo? ParseCommanderCard(JsonElement card)
     {
         var oracleId = GetStr(card, "oracle_id");
-        var scryfallId = GetStr(card, "id");
         var name = GetStr(card, "name");
-        if (oracleId is null || scryfallId is null || name is null)
+        if (oracleId is null || name is null)
             return null;
 
         var colors = Array.Empty<string>();
@@ -356,7 +353,7 @@ public sealed class CommanderDeckSeeder
             }
         }
 
-        return new CommanderInfo(oracleId, scryfallId, name, colors, imgUri);
+        return new CommanderInfo(oracleId, name, colors, imgUri);
     }
 
     /// <summary>Art crop for a card or one face of it, preferring the crop over the full frame.</summary>
@@ -426,7 +423,7 @@ public sealed class CommanderDeckSeeder
                     if (name is null || !seen.Add(name))
                         continue;
 
-                    var def = await _scryfall.GetByNameAsync(name);
+                    var def = await _scryfall.GetByNameAsync(name, ct);
                     if (def is not null)
                         pool.Add(new CardEntry(def.OracleId, def.Name));
                 }
@@ -487,7 +484,6 @@ public sealed class CommanderDeckSeeder
         List<CardEntry> pool,
         Dictionary<string, string> landIds,
         int index,
-        int total,
         string userId,
         Random rng)
     {
@@ -620,18 +616,5 @@ public sealed class CommanderDeckSeeder
     private static string? GetStr(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var v) ? v.GetString() : null;
 
-    internal static string ToEdhrecSlug(string name)
-    {
-        // "Atraxa, Praetor's Voice" → "atraxa-praetors-voice"
-        //
-        // A double-faced card is named "Front // Back", but EDHREC pages it under the front
-        // face alone: the combined slug 403s, which this code read as "no pool" and turned
-        // into a silent skip for every modal-DFC commander (Birgi was dropped that way).
-        var front = name.Split("//", StringSplitOptions.RemoveEmptyEntries)[0].Trim();
-        var s = front.ToLowerInvariant();
-        s = Regex.Replace(s, @"[^a-z0-9\s-]", "");
-        s = Regex.Replace(s, @"\s+", "-");
-        s = Regex.Replace(s, @"-+", "-").Trim('-');
-        return s;
-    }
+    internal static string ToEdhrecSlug(string name) => Community.EdhrecSlug.From(name);
 }

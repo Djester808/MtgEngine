@@ -79,7 +79,15 @@ namespace MtgEngine.Api.Migrations
                                   AND u.OracleId     = keep.OracleId
                                   AND u.Board        = keep.Board
                                   AND u.ScryfallId IS NULL
-                                  AND u.AddedAt < keep.AddedAt);
+                                  AND u.AddedAt < keep.AddedAt)
+                   AND keep.Id = (
+                           SELECT p.Id FROM CollectionCards p
+                            WHERE p.CollectionId = keep.CollectionId
+                              AND p.OracleId = keep.OracleId
+                              AND p.Board = keep.Board
+                              AND p.ScryfallId IS NOT NULL
+                            ORDER BY p.AddedAt, p.Id
+                            LIMIT 1);
                 """);
 
             // 3. Drop the now-absorbed unpinned rows.

@@ -28,13 +28,15 @@ public sealed class PriceCeilingTests
         Assert.Equal(30m, AiBuildService.PriceCeiling("mid"));
     }
 
+    [Fact]
+    public void Any_is_uncapped() => Assert.Null(AiBuildService.PriceCeiling("any"));
+
     [Theory]
-    [InlineData("any")]
     [InlineData("")]
     [InlineData("something-else")]
-    public void Anything_else_is_uncapped(string tier)
+    public void Unknown_tiers_are_rejected(string tier)
     {
-        Assert.Null(AiBuildService.PriceCeiling(tier));
+        Assert.Throws<InvalidRequestException>(() => AiBuildService.PriceCeiling(tier));
     }
 
     [Fact]

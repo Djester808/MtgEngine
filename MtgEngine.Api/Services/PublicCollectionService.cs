@@ -40,7 +40,7 @@ public sealed class PublicCollectionService(MtgEngineDbContext db, ICardLookup c
             ct.ThrowIfCancellationRequested();
             if (!definitions.TryGetValue(row.OracleId, out var card))
             {
-                card = await cards.GetByOracleIdAsync(row.OracleId);
+                card = await cards.GetByOracleIdAsync(row.OracleId, ct);
                 definitions[row.OracleId] = card;
             }
             var copies = row.Quantity + row.QuantityFoil + row.QuantityEtched;
@@ -49,7 +49,7 @@ public sealed class PublicCollectionService(MtgEngineDbContext db, ICardLookup c
             foreach (var type in (card is null ? null : MtgEngine.Api.Mapping.DomainMapper.ToDto(card).CardTypes.Select(t => t.ToString()).DefaultIfEmpty("Other")) ?? ["Unknown"])
                 Add(types, type, copies);
             // Resolve pinned printing for set and rarity; no monetary data enters this projection.
-            var printing = row.ScryfallId is null ? card : await cards.GetByScryfallIdAsync(row.ScryfallId);
+            var printing = row.ScryfallId is null ? card : await cards.GetByScryfallIdAsync(row.ScryfallId, ct);
             Add(sets, printing?.SetCode ?? "Unpinned", copies);
             Add(rarities, printing?.Rarity ?? "Unknown", copies);
             Add(curve, card is null ? "Unknown" : card.Cmc >= 7 ? "7+" : card.Cmc.ToString(System.Globalization.CultureInfo.InvariantCulture), copies);

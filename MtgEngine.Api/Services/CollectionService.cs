@@ -6,11 +6,17 @@ using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
 
-public interface ICollectionService
+public interface ICollectionReader
+{
+    Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId);
+    Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId, CancellationToken ct) =>
+        GetCollectionAsync(collectionId, userId).WaitAsync(ct);
+}
+
+public interface ICollectionService : ICollectionReader
 {
     // Collections (IsDeck = false only)
     Task<CollectionDto[]> GetUserCollectionsAsync(string userId);
-    Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId);
 
     /// <summary>
     /// Every oracle id the user owns a copy of, across all their collections. Decks are
@@ -28,12 +34,19 @@ public interface ICollectionService
         Guid collectionId,
         string userId,
         AddCardToCollectionRequest request);
+    Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(Guid collectionId, string userId,
+        AddCardToCollectionRequest request, CancellationToken ct) => AddCardToCollectionAsync(collectionId, userId, request).WaitAsync(ct);
     Task<CollectionCardDto> UpdateCollectionCardAsync(
         Guid collectionId,
         Guid cardId,
         string userId,
         UpdateCollectionCardRequest request);
     Task<bool> RemoveCardFromCollectionAsync(Guid collectionId, Guid cardId, string userId);
+
+    /// <summary>Atomically exchanges one main-board copy, preserving the remaining copies.</summary>
+    Task<bool> ReplaceCardCopiesAsync(Guid deckId, string userId, string outOracleId,
+        AddCardToCollectionRequest incoming, CancellationToken ct = default) =>
+        throw new NotSupportedException("This collection provider does not support atomic swaps.");
 
     /// <summary>
     /// Removes every row of a card (all printings). Pass <paramref name="board"/> to
@@ -60,6 +73,7 @@ public interface ICollectionService
     // Decks (IsDeck = true)
     Task<DeckDto[]> GetUserDecksAsync(string userId);
     Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId);
+    Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId, CancellationToken ct) => GetDeckAsync(deckId, userId).WaitAsync(ct);
     Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request);
     Task<DeckDetailDto> UpdateDeckAsync(Guid deckId, string userId, UpdateDeckRequest request);
     Task<bool> DeleteDeckAsync(Guid deckId, string userId);
@@ -114,13 +128,16 @@ public sealed class CollectionService : ICollectionService
             .ToArrayAsync(ct);
     }
 
-    public async Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId)
+    public Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId) =>
+        GetCollectionAsync(collectionId, userId, CancellationToken.None);
+
+    public async Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId, CancellationToken ct)
     {
         var collection = await _context.Collections
             .AsNoTracking()
             .Where(c => c.Id == collectionId && c.UserId == userId)
             .Include(c => c.Cards)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(ct);
 
         if (collection == null)
             return null;
@@ -128,7 +145,7 @@ public sealed class CollectionService : ICollectionService
         var cards = new List<CollectionCardDto>();
         foreach (var card in collection.Cards)
         {
-            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+            var cardDef = await _scryfallService.ResolveForEntryAsync(card, ct);
             cards.Add(DomainMapper.ToDto(card, cardDef));
         }
 
@@ -193,11 +210,20 @@ public sealed class CollectionService : ICollectionService
         if (collection == null)
             return false;
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         await RecordCardsLostWithCollectionAsync(collection);
-
+        await RemovePublishedPostsAsync(collection.Id);
         _context.Collections.Remove(collection);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
         return true;
+    }
+
+    private async Task RemovePublishedPostsAsync(Guid collectionId, CancellationToken ct = default)
+    {
+        var posts = _context.ForumPosts.Where(p => p.DeckId == collectionId);
+        await _context.ForumComments.Where(c => posts.Select(p => p.Id).Contains(c.ForumPostId)).ExecuteDeleteAsync(ct);
+        await posts.ExecuteDeleteAsync(ct);
     }
 
     /// <summary>
@@ -234,15 +260,18 @@ public sealed class CollectionService : ICollectionService
         return b is "side" or "maybe" ? b : "main";
     }
 
+    public Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(Guid collectionId, string userId, AddCardToCollectionRequest request) =>
+        AddCardToCollectionAsync(collectionId, userId, request, CancellationToken.None);
+
     public async Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(
         Guid collectionId,
         string userId,
-        AddCardToCollectionRequest request)
+        AddCardToCollectionRequest request, CancellationToken ct)
     {
         // Verify collection exists and belongs to user
         var collection = await _context.Collections
             .Where(c => c.Id == collectionId && c.UserId == userId)
-            .FirstOrDefaultAsync()
+            .FirstOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException("Collection not found");
 
         var board = NormalizeBoard(request.Board);
@@ -261,7 +290,7 @@ public sealed class CollectionService : ICollectionService
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(c => c.Quantity, c => c.Quantity + request.Quantity)
                     .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil)
-                    .SetProperty(c => c.QuantityEtched, c => c.QuantityEtched + (request.QuantityEtched ?? 0)));
+                    .SetProperty(c => c.QuantityEtched, c => c.QuantityEtched + (request.QuantityEtched ?? 0)), ct);
             return n > 0;
         }
 
@@ -281,7 +310,8 @@ public sealed class CollectionService : ICollectionService
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(c => c.ScryfallId, request.ScryfallId)
                     .SetProperty(c => c.Quantity, c => c.Quantity + request.Quantity)
-                    .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil));
+                    .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil)
+                    .SetProperty(c => c.QuantityEtched, c => c.QuantityEtched + (request.QuantityEtched ?? 0)), ct);
             return n > 0;
         }
 
@@ -300,8 +330,8 @@ public sealed class CollectionService : ICollectionService
             // Baseline for the price-change display: snapshot today's market price once,
             // on the row's creation. Increments to an existing row keep the original.
             var defAtAdd = request.ScryfallId is not null
-                ? await _scryfallService.GetByScryfallIdAsync(request.ScryfallId)
-                : await _scryfallService.GetByOracleIdAsync(request.OracleId);
+                ? await _scryfallService.GetByScryfallIdAsync(request.ScryfallId, ct)
+                : await _scryfallService.GetByOracleIdAsync(request.OracleId, ct);
             fresh.PriceUsdAtAdd = defAtAdd?.Prices.Usd;
             fresh.PriceUsdFoilAtAdd = defAtAdd?.Prices.UsdFoil;
             fresh.PriceUsdEtchedAtAdd = defAtAdd?.Prices.UsdEtched;
@@ -309,7 +339,7 @@ public sealed class CollectionService : ICollectionService
             collection.UpdatedAt = DateTime.UtcNow;
             try
             {
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
                 created = true;
             }
             catch (DbUpdateException)
@@ -325,13 +355,13 @@ public sealed class CollectionService : ICollectionService
                         "That printing is already saved under a different card.");
                 // Persist the collection's UpdatedAt bump the failed SaveChanges rolled back
                 // (fresh is detached, so this writes only the timestamp).
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
             }
         }
         else
         {
             collection.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
         }
 
         var cardRecord = await _context.CollectionCards
@@ -339,13 +369,13 @@ public sealed class CollectionService : ICollectionService
             .FirstAsync(cc => cc.CollectionId == collectionId
                            && cc.OracleId == request.OracleId
                            && cc.ScryfallId == request.ScryfallId
-                           && cc.Board == board && cc.Language == language);
+                           && cc.Board == board && cc.Language == language, ct);
 
         // Pinned printing first — resolving by oracle id here made the added card render
         // with the default printing's art until the next full reload.
-        var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord);
+        var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord, ct);
         CollectionFinishData.Initialize(cardRecord, request.Quantity, request.QuantityFoil, request.QuantityEtched ?? 0, cardDef, DateTime.UtcNow);
-        await _context.CollectionCards.Where(c => c.Id == cardRecord.Id).ExecuteUpdateAsync(setters => setters.SetProperty(c => c.FinishMetadataJson, cardRecord.FinishMetadataJson));
+        await _context.CollectionCards.Where(c => c.Id == cardRecord.Id).ExecuteUpdateAsync(setters => setters.SetProperty(c => c.FinishMetadataJson, cardRecord.FinishMetadataJson), ct);
 
         // Recorded here rather than beside each branch above: the increment paths run as
         // ExecuteUpdate, which bypasses the change tracker, so the post-write row read is
@@ -361,7 +391,7 @@ public sealed class CollectionService : ICollectionService
             cardRecord.QuantityFoil,
             setCode: cardDef?.SetCode,
             priceUsd: cardDef?.Prices.Usd, quantityEtchedDelta: request.QuantityEtched ?? 0, quantityEtchedAfter: cardRecord.QuantityEtched);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(ct);
 
         return (DomainMapper.ToDto(cardRecord, cardDef), created);
     }
@@ -492,6 +522,51 @@ public sealed class CollectionService : ICollectionService
 
     // ---- Moving and merging ----
 
+    public async Task<bool> ReplaceCardCopiesAsync(Guid deckId, string userId, string outOracleId,
+        AddCardToCollectionRequest incoming, CancellationToken ct = default)
+    {
+        if (incoming.Quantity + incoming.QuantityFoil + (incoming.QuantityEtched ?? 0) != 1
+            || incoming.Quantity < 0 || incoming.QuantityFoil < 0 || incoming.QuantityEtched < 0
+            || NormalizeBoard(incoming.Board) != "main" || incoming.OracleId == outOracleId)
+            throw new InvalidRequestException("A swap must add one different main-board card.");
+        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var deck = await _context.Collections.FirstOrDefaultAsync(c => c.Id == deckId && c.UserId == userId && c.IsDeck, ct)
+                ?? throw new ResourceNotFoundException("Deck not found.");
+            if (outOracleId == deck.CommanderOracleId || outOracleId == deck.SecondaryCommanderOracleId)
+                throw new InvalidRequestException("A swap cannot remove a commander.");
+            var row = await _context.CollectionCards.Where(c => c.CollectionId == deckId && c.OracleId == outOracleId
+                && c.Board == "main" && c.Quantity + c.QuantityFoil + c.QuantityEtched > 0)
+                .OrderBy(c => c.AddedAt).ThenBy(c => c.Id).FirstOrDefaultAsync(ct);
+            if (row is null)
+                return false;
+            var normal = row.Quantity > 0 ? 1 : 0;
+            var foil = normal == 0 && row.QuantityFoil > 0 ? 1 : 0;
+            var etched = normal + foil == 0 ? 1 : 0;
+            await AddCardToCollectionAsync(deckId, userId, incoming, ct);
+            ct.ThrowIfCancellationRequested();
+            row.Quantity -= normal;
+            row.QuantityFoil -= foil;
+            row.QuantityEtched -= etched;
+            var empty = row.Quantity + row.QuantityFoil + row.QuantityEtched == 0;
+            CollectionFinishData.ClearEmpty(row);
+            _history.RecordFinishes(deck, row, empty ? CollectionCardEventType.Removed : CollectionCardEventType.QuantityChanged,
+                -normal, -foil, row.Quantity, row.QuantityFoil, quantityEtchedDelta: -etched, quantityEtchedAfter: row.QuantityEtched);
+            if (empty)
+                _context.CollectionCards.Remove(row);
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            _context.ChangeTracker.Clear();
+            throw;
+        }
+    }
+
     /// <summary>
     /// Loads a collection the caller owns, or throws. Decks and collections share the
     /// table, so moves work between either — what matters is ownership.
@@ -513,9 +588,10 @@ public sealed class CollectionService : ICollectionService
     /// </summary>
     /// <returns>The destination row, and whether it had to be created.</returns>
     private async Task<(CollectionCard Row, bool Created)> FoldIntoAsync(
-        Guid targetCollectionId, CollectionCard source, int quantity, int quantityFoil, CancellationToken ct, int quantityEtched = 0)
+        Guid targetCollectionId, CollectionCard source, int quantity, int quantityFoil, CancellationToken ct, int quantityEtched = 0, Dictionary<(string Oracle, string? Printing, string Board, string Language), CollectionCard>? targets = null)
     {
-        var existing = await _context.CollectionCards
+        var key = (source.OracleId, source.ScryfallId, source.Board, source.Language);
+        var existing = targets is not null ? targets.GetValueOrDefault(key) : await _context.CollectionCards
             .Where(cc => cc.CollectionId == targetCollectionId
                       && cc.ScryfallId == source.ScryfallId
                       && cc.Language == source.Language
@@ -560,6 +636,7 @@ public sealed class CollectionService : ICollectionService
             PriceUsdEtchedAtAdd = source.PriceUsdEtchedAtAdd,
         };
         _context.CollectionCards.Add(moved);
+        targets?.Add(key, moved);
         return (moved, true);
     }
 
@@ -613,7 +690,7 @@ public sealed class CollectionService : ICollectionService
         target.UpdatedAt = now;
         await _context.SaveChangesAsync(ct);
 
-        var def = await _scryfallService.ResolveForEntryAsync(targetRow);
+        var def = await _scryfallService.ResolveForEntryAsync(targetRow, ct);
         return new MoveCardResultDto
         {
             Target = DomainMapper.ToDto(targetRow, def),
@@ -641,6 +718,8 @@ public sealed class CollectionService : ICollectionService
         if (cards.Count != ids.Length)
             throw new ResourceNotFoundException("One or more selected cards are no longer in this collection.");
 
+        var targets = (await _context.CollectionCards.Where(c => c.CollectionId == target.Id).ToListAsync(ct))
+            .ToDictionary(c => (c.OracleId, c.ScryfallId, c.Board, c.Language));
         var moved = 0;
         var folded = 0;
         var copies = 0;
@@ -648,7 +727,7 @@ public sealed class CollectionService : ICollectionService
         {
             ct.ThrowIfCancellationRequested();
             var (targetRow, created) = await FoldIntoAsync(
-                request.TargetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched);
+                request.TargetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched, targets);
             if (created)
                 moved++;
             else
@@ -687,19 +766,22 @@ public sealed class CollectionService : ICollectionService
             throw new InvalidResourceStateException("A collection cannot be merged into itself.");
 
         var target = await OwnedCollectionAsync(targetCollectionId, userId, "Target", ct);
+        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
         var source = await OwnedCollectionAsync(request.SourceCollectionId, userId, "Source", ct);
 
         var sourceCards = await _context.CollectionCards
             .Where(cc => cc.CollectionId == request.SourceCollectionId)
             .ToListAsync(ct);
 
+        var targets = (await _context.CollectionCards.Where(c => c.CollectionId == target.Id).ToListAsync(ct))
+            .ToDictionary(c => (c.OracleId, c.ScryfallId, c.Board, c.Language));
         var moved = 0;
         var folded = 0;
         var copies = 0;
         foreach (var card in sourceCards)
         {
             ct.ThrowIfCancellationRequested();
-            var (targetRow, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched);
+            var (targetRow, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct, card.QuantityEtched, targets);
             if (created)
                 moved++;
             else
@@ -722,9 +804,14 @@ public sealed class CollectionService : ICollectionService
         target.UpdatedAt = now;
         source.UpdatedAt = now;
         if (request.DeleteSource)
+        {
+            await RemovePublishedPostsAsync(source.Id, ct);
             _context.Collections.Remove(source);
+        }
 
         await _context.SaveChangesAsync(ct);
+
+        await transaction.CommitAsync(ct);
 
         return new MergeCollectionsResultDto
         {
@@ -732,7 +819,7 @@ public sealed class CollectionService : ICollectionService
             CardsFolded = folded,
             CopiesTransferred = copies,
             SourceDeleted = request.DeleteSource,
-            Target = await GetCollectionAsync(targetCollectionId, userId)
+            Target = await GetCollectionAsync(targetCollectionId, userId, ct)
                      ?? throw new InvalidOperationException("Merged collection could not be reloaded"),
         };
     }
@@ -759,23 +846,25 @@ public sealed class CollectionService : ICollectionService
             .ToArrayAsync();
     }
 
-    public async Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId)
+    public Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId) => GetDeckAsync(deckId, userId, CancellationToken.None);
+
+    public async Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId, CancellationToken ct)
     {
         var deck = await _context.Collections
             .AsNoTracking()
             .Where(c => c.Id == deckId && c.UserId == userId && c.IsDeck)
             .Include(c => c.Cards)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(ct);
 
         if (deck == null)
             return null;
 
-        var isPublished = await _context.ForumPosts.AnyAsync(p => p.DeckId == deckId);
+        var isPublished = await _context.ForumPosts.AnyAsync(p => p.DeckId == deckId, ct);
 
         var cards = new List<CollectionCardDto>();
         foreach (var card in deck.Cards)
         {
-            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+            var cardDef = await _scryfallService.ResolveForEntryAsync(card, ct);
             cards.Add(DomainMapper.ToDto(card, cardDef));
         }
 
@@ -858,27 +947,13 @@ public sealed class CollectionService : ICollectionService
         if (deck == null)
             return false;
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         await RecordCardsLostWithCollectionAsync(deck);
-
-        // A published deck's forum post references it by DeckId with no DB-level cascade,
-        // so deleting the deck alone would strand a post that renders as "Unknown Deck" and
-        // still accepts comments. Remove the post (and its comments) in the same operation.
-        var postIds = await _context.ForumPosts
-            .Where(p => p.DeckId == deckId)
-            .Select(p => p.Id)
-            .ToListAsync();
-        if (postIds.Count > 0)
-        {
-            await _context.ForumComments
-                .Where(c => postIds.Contains(c.ForumPostId))
-                .ExecuteDeleteAsync();
-            await _context.ForumPosts
-                .Where(p => p.DeckId == deckId)
-                .ExecuteDeleteAsync();
-        }
+        await RemovePublishedPostsAsync(deck.Id);
 
         _context.Collections.Remove(deck);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
         return true;
     }
 

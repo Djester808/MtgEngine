@@ -269,11 +269,18 @@ public sealed class QaLogStore : IGameLogStore
 
     public Task<PersistedGame?> LoadAsync(Guid id, CancellationToken ct = default) => Task.FromResult(Rows.GetValueOrDefault(id));
 
-    public Task CreateAsync(PersistedGame game, CancellationToken ct = default) { Rows[game.Id] = game; return Task.CompletedTask; }
     public Task<bool> TryCreateAsync(PersistedGame game, CancellationToken ct = default) => Task.FromResult(Rows.TryAdd(game.Id, game));
 
-    public Task SaveLogAsync(Guid id, string logJson, int eventCount, bool finished, CancellationToken ct = default)
-    { Rows[id].LogJson = logJson; Rows[id].EventCount = eventCount; Rows[id].Finished = finished; return Task.CompletedTask; }
+    public Task AppendAsync(Guid id, string eventsJson, int expectedCount, int addedCount, bool finished, CancellationToken ct = default)
+    {
+        var row = Rows[id];
+        if (row.EventCount != expectedCount)
+            throw new InvalidOperationException("Game revision changed.");
+        row.LogJson = EventLogSerializer.Write(EventLogSerializer.Read(row.LogJson).Concat(EventLogSerializer.Read(eventsJson)));
+        row.EventCount = expectedCount + addedCount;
+        row.Finished = finished;
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class QaPool : ICardFilePool

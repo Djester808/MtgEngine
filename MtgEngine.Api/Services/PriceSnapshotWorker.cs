@@ -92,7 +92,7 @@ public sealed class PriceSnapshotWorker : BackgroundService
         foreach (var oracleId in unpinnedOracles)
         {
             ct.ThrowIfCancellationRequested();
-            var printings = await _cards.GetPrintingsAsync(oracleId);
+            var printings = await _cards.GetPrintingsAsync(oracleId, ct);
             if (printings.Length > 0)
                 ids.Add(printings[0].ScryfallId);
         }
@@ -110,7 +110,7 @@ public sealed class PriceSnapshotWorker : BackgroundService
                 continue;
             ct.ThrowIfCancellationRequested();
 
-            var def = await _cards.GetByScryfallIdAsync(scryfallId);
+            var def = await _cards.GetByScryfallIdAsync(scryfallId, ct);
             var prices = def?.Prices;
             if (prices is null || prices == CardPrices.None)
                 continue;

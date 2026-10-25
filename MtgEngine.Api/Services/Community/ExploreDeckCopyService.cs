@@ -22,9 +22,9 @@ public sealed class ExploreDeckCopyService(ExploreService explore, ICollectionSe
         foreach (var entry in entries)
         {
             ct.ThrowIfCancellationRequested();
-            await collections.AddCardToCollectionAsync(deck.Id, userId, new(entry.Card!.OracleId, Quantity: entry.Quantity));
+            await collections.AddCardToCollectionAsync(deck.Id, userId, new(entry.Card!.OracleId, Quantity: entry.Quantity), ct);
         }
-        var result = await collections.GetDeckAsync(deck.Id, userId) ?? throw new ResourceNotFoundException("Deck not found.");
+        var result = await collections.GetDeckAsync(deck.Id, userId, ct) ?? throw new ResourceNotFoundException("Deck not found.");
         await transaction.CommitAsync(ct);
         return result;
     }

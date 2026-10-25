@@ -423,11 +423,17 @@ public sealed record SuggestionDiagnosticsDto
 
 public sealed record ManaFineTuneRequest
 {
+    [Required(AllowEmptyStrings = true), StringLength(30)]
     public string Format { get; init; } = string.Empty;
+    [Required, MaxLength(500)]
     public string[] DeckCardNames { get; init; } = [];
+    [Range(0, 500)]
     public int CurrentLands { get; init; }
+    [Range(0, 500)]
     public int RecommendedLands { get; init; }
+    [Range(0, 100)]
     public double AvgCmc { get; init; }
+    [Required, MaxLength(6)]
     public string[] ActiveColors { get; init; } = [];
 }
 
@@ -508,6 +514,7 @@ public sealed record AiBuildRequest
     [System.ComponentModel.DataAnnotations.Range(1, 5)]
     public int Bracket { get; init; } = 3;
 
+    [Required, RegularExpression("^(budget|mid|any)$")]
     public string PriceRange { get; init; } = "any";       // "budget" | "mid" | "any"
     public bool IncludeSideboard { get; init; } = false;
     public bool IncludeMaybeboard { get; init; } = false;
@@ -532,6 +539,7 @@ public sealed record AiRefineRequest
     [System.ComponentModel.DataAnnotations.Range(1, 5)]
     public int Bracket { get; init; } = 3;
 
+    [Required, RegularExpression("^(budget|mid|any)$")]
     public string PriceRange { get; init; } = "any";
 
     /// <summary>Upper bound on swaps, so a refine cannot quietly rebuild the whole deck.</summary>
@@ -565,6 +573,9 @@ public sealed record AiRefineRequest
 /// </remarks>
 public sealed record AiApplySwapsRequest
 {
+    [Required, RegularExpression("^(budget|mid|any)$")]
+    public string PriceRange { get; init; } = "any";
+
     [Required]
     [MaxLength(25)]
     public CardSwapDto[] Swaps { get; init; } = [];
@@ -678,9 +689,9 @@ public sealed record UserPreferencesDto
     [StringLength(200)] public string? CollectionGroup { get; init; }
 }
 
-public sealed record PublishDeckRequest(Guid DeckId, string? Description = null);
-public sealed record CreateCommentRequest(string Content);
-public sealed record UpdateCommentRequest(string Content);
+public sealed record PublishDeckRequest(Guid DeckId, [StringLength(2000)] string? Description = null);
+public sealed record CreateCommentRequest([Required, StringLength(4000)] string Content);
+public sealed record UpdateCommentRequest([Required, StringLength(4000)] string Content);
 
 // ---- Commanders --------------------------------------------------
 

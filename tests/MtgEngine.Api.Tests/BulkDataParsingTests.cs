@@ -8,6 +8,19 @@ namespace MtgEngine.Api.Tests;
 /// </summary>
 public class BulkDataParsingTests
 {
+    private sealed class StreamingReader(string value) : StringReader(value)
+    {
+        public override string ReadToEnd() => throw new InvalidOperationException("Full-file reads are forbidden.");
+    }
+
+    [Fact]
+    public void ArrayReaderStreamsNestedObjectsAndEscapedBraces()
+    {
+        using var reader = new StreamingReader("""[{"name":"brace } and \" quote","faces":[{"nested":{}}]},{"name":"next"}]""");
+        var names = BulkDataService.ReadCards(reader).Select(e => e.GetProperty("name").GetString()!).ToArray();
+        Assert.Equal(["brace } and \" quote", "next"], names);
+    }
+
     private static string[] NamesFrom(string content)
     {
         using var reader = new StringReader(content);

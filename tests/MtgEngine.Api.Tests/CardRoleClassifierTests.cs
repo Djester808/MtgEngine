@@ -70,6 +70,7 @@ public class CardRoleClassifierTests
     }
 
     [Theory]
+    [InlineData("Variable damage", "This spell deals X damage to target creature.")]
     [InlineData("Murder", "Destroy target creature.")]
     [InlineData("Damnation", "Destroy all creatures. They can't be regenerated.")]
     [InlineData("Go for the Throat", "Destroy target nonartifact creature.")]
