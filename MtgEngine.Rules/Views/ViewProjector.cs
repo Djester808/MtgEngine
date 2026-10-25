@@ -33,7 +33,6 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     public GameView Project(GameState state, PlayerId viewer)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var reveals = new RevealArea(state, viewer);
         var view = new GameView(
             viewer,
             state.Turn.Number,
@@ -50,9 +49,13 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
         {
             ChoiceCards = ChoiceCards(state, viewer),
             ManualLibraryLookActive = Library.ManualLibraryInspection.IsActive(state, viewer),
-            InspectedLibraryCards = ViewsOf(state, reveals.ActiveCards),
-            LastReveal = reveals.PublicReveal,
-            LastLook = reveals.PrivateLook,
+            InspectedLibraryCards = ViewsOf(state, state.LibraryInspections.Values
+                .Where(inspection => inspection.Viewer == viewer)
+                .SelectMany(inspection => inspection.Cards.Where(id => state.Objects.TryGetValue(id, out var card)
+                    && card.Zone == ZoneKey.Of(CardZone.Library, inspection.Owner)
+                    && state.In(card.Zone).Contains(id))).Distinct().ToImmutableList()),
+            LastReveal = state.LastReveal,
+            LastLook = state.LastLooks.GetValueOrDefault(viewer),
             Combat = state.Combat is { } combat
                 ? new CombatView(
                     [.. combat.Attackers.Select(a => new CombatAttackView(a.Key, a.Value.Player, a.Value.Permanent))],

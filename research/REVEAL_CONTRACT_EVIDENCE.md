@@ -6,17 +6,17 @@ file tools. No new REA session, client runtime or foreign server was executed.
 
 ## Terminology and implemented contract
 
-`Views.RevealArea` is a read-only viewer-specific snapshot over `GameState`, not a
-new rules zone or inspection store. It exposes `Viewer`, `PublicReveal`,
-`PrivateLook`, existing keyed `Inspections`, deduplicated `ActiveCards`, `Count`
-and `Contains`. Count/membership refer to current authorized library references,
-not the historical cards. Scope keys identify inspection grants; `ObjectId`
+At the user's request, the redundant `RevealArea` wrapper was removed. Disclosure
+is represented by the existing `GameView.LastReveal`, `LastLook` and
+`InspectedLibraryCards` properties. The projected list supplies count/membership;
+existing `GameState.LibraryInspections` retains scope and provenance. No new rules
+zone or inspection store is needed. Scope keys identify inspection grants; `ObjectId`
 identifies a currently inspectable object. Neither is `CardInstanceId`.
 Historical `RevealedCard` has no physical/object identity or future-location link.
 No new reveal ID, replay mechanism, catalog or mutable collection was added.
 
-`ViewProjector.Project` consumes the area for the existing three disclosure
-fields. It checks the viewer, the inspection's library owner, object existence,
+`ViewProjector.Project` populates the existing three disclosure properties
+directly. It checks the viewer, the inspection's library owner, object existence,
 the object's zone, and authoritative zone membership. The last check closes a
 demonstrated defensive gap: a dangling inspection plus an object still labelled
 Library could previously disclose that object even when absent from the zone
@@ -28,7 +28,7 @@ after expiry, departure or shuffle. They do not disclose the new hidden location
 or grant current-object access. Existing live object projection preserves selected
 printing/finish, owner/control and face-down redaction. Historical snapshots keep
 their existing wire format (which does not include finish); no new private data
-was added to it. Captured area instances remain immutable when later states change.
+was added to it. Captured views remain immutable when later states change.
 
 ## Concrete evidence and method mapping
 
@@ -38,8 +38,8 @@ was added to it. Captured area instances remain immutable when later states chan
 | Temporary reveal UI | MTGO `PlayerViewModel.ConfigureZones`, `PlayerViewModel.cs:1548,1560-1562`, uses card-zone value 16 for a temporary revealed view and enables card dismissal. Graveyard dismissal is disabled in the same method. | Client terminology includes a reveal zone; dismissible presentation is not evidence of a Magic rules zone or its server lifetime algorithm. |
 | Membership/count | Current Arena `MtgZone.cs:7-25` keeps `Type`, `Id`, `Owner`, `Visibility`, `CardIds`, `VisibleCards`; total count derives from `CardIds`. | Keep current access derived from authoritative membership, with historical display kept separate. Do not transplant Arena's mutable UI store. |
 | Reveal-specific notifications | Retained `GreInterface.cs:45,49,795` uses reveal-specific event generators; `1429-1440` emits delete events for absent revealed instances; `1827` excludes Revealed/Limbo from normal zone changes. | Disclosure lifecycle and ordinary movement are distinct. Exact foreign server expiry and identity allocation remain unknown. |
-| Public versus private | Local `CardsRevealed.Apply` updates `LastReveal`; `CardsLookedAt.Apply` updates only named viewers in `LastLooks`. `ViewProjector` routes these through `RevealArea`. | Public history reaches every seat; private history reaches named viewers only. A look granted to all viewers still does not become public-reveal provenance. |
-| Provenance and expiry | `LibraryInspection` retains Viewer/Owner/Cards plus Resolution/PublicReveal. Existing `LibraryInspectionChanged`, resolution completion, manual stop and `ZoneReordered` own lifetime. | Area reads grants; it does not issue/extend them. Stale/moved/reidentified objects cannot be followed by physical identity. Shuffle invalidates owner inspections; other reorder paths retain their existing policies. |
+| Public versus private | Local `CardsRevealed.Apply` updates `LastReveal`; `CardsLookedAt.Apply` updates only named viewers in `LastLooks`. `ViewProjector` populates the existing view properties. | Public history reaches every seat; private history reaches named viewers only. A look granted to all viewers still does not become public-reveal provenance. |
+| Provenance and expiry | `LibraryInspection` retains Viewer/Owner/Cards plus Resolution/PublicReveal. Existing `LibraryInspectionChanged`, resolution completion, manual stop and `ZoneReordered` own lifetime. | Projection reads grants; it does not issue/extend them. Stale/moved/reidentified objects cannot be followed by physical identity. Shuffle invalidates owner inspections; other reorder paths retain their existing policies. |
 | Continuous top | `LibraryDisclosurePolicy.TopAvailable`, `LibraryRevealCoordinator.Reconcile` and `EndReorderedDisclosures` control payment-time availability and top reidentification. | Continuous top and choice cards remain their existing separate projection paths; they are not counted as explicit inspection membership. Reidentification is not a zone move. |
 | Historical artwork | `VisibleGameObjects.Current` excludes historical reveals; `GameArtworkService.ForAsync` separately adds already-visible snapshot artwork keys using local-only lookup. | Historical artwork remains available without granting action/current-object access. Existing API artwork tests run unchanged. |
 | Client presentation | Sibling `library-reveal.component.ts` groups active inspected cards, renders histories separately, clears stale active context, and opens historical details without active actions. | Existing UI responsibilities fit this contract. No client changes or live UI claims were made. |
@@ -93,3 +93,11 @@ live UI is unverified. Nothing was staged, committed or pushed by this chat.
 Only the two new reveal-owned C# files were whitespace-formatted
 (`reveal-format.log`); `git diff --check` passes. Other chats' stack/command-zone
 branches in the shared ViewProjector file were preserved.
+
+Property simplification verification: all 19 reveal, foundation integration and
+library-disclosure lifetime tests pass (reveal-property-tests.log).
+
+Push verification for the property simplification: full backend passes 1,765 Rules,
+835 API, 326 Cards and 322 Pipeline cases (reveal-property-push-tests.log).
+These counts reflect the concurrent checkout; only reveal cleanup is included
+in this chat's commit.

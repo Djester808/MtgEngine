@@ -38,11 +38,11 @@ public sealed class FoundationIntegrationTests
 
         Fold(new LibraryInspectionChanged("integration", new LibraryInspection(owner, owner, [original.Id])));
         Fold(new CardsLookedAt([owner], [new RevealedCard("fixture", "Fixture", null, "Descriptive text.", selection.PrintingId)]));
-        Assert.True(new RevealArea(state, owner).Contains(original.Id));
-        Assert.Empty(new RevealArea(state, other).ActiveCards);
+        Assert.Contains(Subsystems.Wave2().Views.Project(state, owner).InspectedLibraryCards, card => card.Id == original.Id);
+        Assert.Empty(Subsystems.Wave2().Views.Project(state, other).InspectedLibraryCards);
         Apply(LibraryDraw.Apply(state, owner));
         var current = state.Objects[Assert.Single(new Hand(state, owner).Members)];
-        Assert.False(new RevealArea(state, owner).Contains(original.Id));
+        Assert.DoesNotContain(Subsystems.Wave2().Views.Project(state, owner).InspectedLibraryCards, card => card.Id == original.Id);
         CheckViews(publicCard: false);
 
         Apply(zones.Move(state, current.Id, ZoneKey.Shared(Zone.Battlefield), Placement.Default, false, other, 0, true));

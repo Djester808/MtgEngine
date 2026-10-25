@@ -33,15 +33,15 @@ public sealed class RevealContractTests
     }
 
     [Fact]
-    public void Empty_area_has_no_snapshots_or_live_references()
+    public void Empty_view_has_no_snapshots_or_live_references()
     {
         var table = new InterpreterTable();
-        var area = new RevealArea(table.State, table.A);
-        Assert.Equal(0, area.Count);
-        Assert.Null(area.PublicReveal);
-        Assert.Null(area.PrivateLook);
-        Assert.Empty(area.Inspections);
-        Assert.False(area.Contains(new ObjectId(999)));
+        var view = Subsystems.Wave2().Views.Project(table.State, table.A);
+        Assert.Empty(view.InspectedLibraryCards);
+        Assert.Null(view.LastReveal);
+        Assert.Null(view.LastLook);
+        Assert.Empty(table.State.LibraryInspections);
+        Assert.DoesNotContain(view.InspectedLibraryCards, card => card.Id == new ObjectId(999));
     }
 
     [Fact]
@@ -52,13 +52,13 @@ public sealed class RevealContractTests
         var state = new LibraryInspectionChanged("public", new LibraryInspection(table.B, table.A, [card])
         { Resolution = "resolve", PublicReveal = true }).Apply(table.State);
         state = new LibraryInspectionChanged("private", new LibraryInspection(table.B, table.A, [card])).Apply(state);
-        var area = new RevealArea(state, table.B);
-        Assert.Equal(1, area.Count);
-        Assert.True(area.Contains(card));
-        Assert.True(area.Inspections["public"].PublicReveal);
-        Assert.False(area.Inspections["private"].PublicReveal);
-        Assert.Equal("resolve", area.Inspections["public"].Resolution);
-        Assert.Equal(0, new RevealArea(state, table.A).Count);
+        var view = Subsystems.Wave2().Views.Project(state, table.B);
+        Assert.Single(view.InspectedLibraryCards);
+        Assert.Equal(card, Assert.Single(view.InspectedLibraryCards).Id);
+        Assert.True(state.LibraryInspections["public"].PublicReveal);
+        Assert.False(state.LibraryInspections["private"].PublicReveal);
+        Assert.Equal("resolve", state.LibraryInspections["public"].Resolution);
+        Assert.Empty(Subsystems.Wave2().Views.Project(state, table.A).InspectedLibraryCards);
         Assert.Equal(table.State.Zones, state.Zones);
         Assert.Equal(table.State.Objects, state.Objects);
     }
@@ -76,16 +76,16 @@ public sealed class RevealContractTests
             new CardsLookedAt([table.B], [snapshot]),
             new LibraryInspectionChanged("look", new LibraryInspection(table.B, table.A, [card])));
         var state = GameReducer.Apply(table.State, events);
-        var captured = new RevealArea(state, table.B);
+        var captured = Subsystems.Wave2().Views.Project(state, table.B);
         GameEvent end = shuffle ? new ZoneReordered(ZoneKey.Of(Zone.Library, table.A), [card], true)
             : new LibraryInspectionChanged("look", null);
         state = GameReducer.Apply(table.State, EventLogSerializer.Read(EventLogSerializer.Write(events.Add(end))));
-        var area = new RevealArea(state, table.B);
-        Assert.Equal(0, area.Count);
-        Assert.Equal(1, captured.Count);
-        Assert.Equal(snapshot, Assert.Single(area.PublicReveal!.Cards));
-        Assert.Equal("known/printing", Assert.Single(area.PrivateLook!.Cards).ArtworkKey);
-        Assert.Null(new RevealArea(state, table.A).PrivateLook);
+        var view = Subsystems.Wave2().Views.Project(state, table.B);
+        Assert.Empty(view.InspectedLibraryCards);
+        Assert.Single(captured.InspectedLibraryCards);
+        Assert.Equal(snapshot, Assert.Single(view.LastReveal!.Cards));
+        Assert.Equal("known/printing", Assert.Single(view.LastLook!.Cards).ArtworkKey);
+        Assert.Null(Subsystems.Wave2().Views.Project(state, table.A).LastLook);
         Assert.Empty(VisibleGameObjects.Current(Subsystems.Wave2().Views.Project(state, table.B)));
     }
 
@@ -97,10 +97,10 @@ public sealed class RevealContractTests
         var state = new LibraryInspectionChanged("look", new LibraryInspection(table.B, table.A, [card])).Apply(table.State);
         var zones = Subsystems.Wave2().Zones;
         var moved = zones.Move(state, card, ZoneKey.Of(Zone.Hand, table.A));
-        Assert.Equal(0, new RevealArea(moved.State, table.B).Count);
+        Assert.Empty(Subsystems.Wave2().Views.Project(moved.State, table.B).InspectedLibraryCards);
         var hand = Assert.Single(moved.State.In(ZoneKey.Of(Zone.Hand, table.A)));
         var returned = zones.Move(moved.State, hand, ZoneKey.Of(Zone.Library, table.A));
-        Assert.Equal(0, new RevealArea(returned.State, table.B).Count);
+        Assert.Empty(Subsystems.Wave2().Views.Project(returned.State, table.B).InspectedLibraryCards);
         Assert.NotEqual(card, Assert.Single(returned.State.In(ZoneKey.Of(Zone.Library, table.A))));
     }
 
@@ -135,4 +135,3 @@ public sealed class RevealContractTests
         Assert.Empty(Subsystems.Wave2().Views.Project(state, table.B).InspectedLibraryCards);
     }
 }
-
