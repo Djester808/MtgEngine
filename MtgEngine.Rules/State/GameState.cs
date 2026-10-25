@@ -117,9 +117,16 @@ public sealed record CombatState(
     bool AttackersDeclared,
     bool BlockersDeclared)
 {
+    /// <summary>Participants with first/double strike as the first damage step begins (CR 510.4).
+    /// The combat checkpoint refreshes this during declare blockers, then preserves it.</summary>
+    public ImmutableHashSet<ObjectId> FirstStrikeParticipants { get; init; } = [];
+
     public ImmutableList<PlayerId> DefendingPlayers { get; init; } = [];
 
     public ImmutableList<PlayerId> BlockersDeclaredBy { get; init; } = [];
+
+    /// <summary>Participants removed by a control change cannot rejoin this combat even if control changes back.</summary>
+    public ImmutableHashSet<ObjectId> RemovedFromCombat { get; init; } = [];
 }
 
 /// <summary>What an attacker attacks: a player, or a planeswalker or battle, CR 506.1.</summary>

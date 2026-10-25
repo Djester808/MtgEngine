@@ -51,7 +51,7 @@ public sealed partial record GameObject(
     [RuleRef("903.3")]
     public bool IsCommander { get; init; }
 
-    /// <summary>Stored deathtouch damage marker; no damage or state-based action processing is implemented.</summary>
+    /// <summary>Damage from deathtouch since the last state-based-action check; consumed by the bounded combat provider.</summary>
     [RuleRef("702.2b")]
     public bool DealtDeathtouchDamage { get; init; }
 

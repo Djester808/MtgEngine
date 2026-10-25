@@ -94,7 +94,10 @@ public static class ZoneTransitions
             throw new ArgumentException("Expected a current battlefield object.", nameof(id));
         if (obj.Controller == controller)
             return state;
-        return state with { Objects = state.Objects.SetItem(id, obj with { Controller = controller, SummoningSick = true }) };
+        var combat = state.Combat;
+        if (combat is not null && (combat.Attackers.ContainsKey(id) || combat.Blockers.Values.Any(blockers => blockers.Contains(id))))
+            combat = combat with { RemovedFromCombat = combat.RemovedFromCombat.Add(id) };
+        return state with { Objects = state.Objects.SetItem(id, obj with { Controller = controller, SummoningSick = true }), Combat = combat };
     }
 
     /// <summary>Records an externally authorized look under CR 406.3; this is not a client permission request.</summary>

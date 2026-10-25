@@ -41,6 +41,8 @@ public sealed class TurnExecution
     {
         Check(state);
         _ = state.Player(startingPlayer);
+        if (state.Players.Any(p => p.HasLost))
+            throw new NotSupportedException("Start requires all seats to be present; departures occur during play.");
         if (state.Turn.Number != 0 || state.Outcome is not null || state.OpeningHands is not null || state.Pending is not null
             || state.Priority.Holder is not null || !state.In(ZoneKey.Shared(Zone.Stack)).IsEmpty)
             throw new InvalidOperationException("Finish setup before starting turns.");
@@ -71,7 +73,7 @@ public sealed class TurnExecution
     {
         RequirePriority(actor);
         var passes = State.Priority.PassedInSuccession.Add(actor);
-        if (passes.Count < State.Players.Count)
+        if (passes.Count < State.Players.Count(p => !p.HasLost))
         {
             var next = Next(State, actor);
             return new(State with { Priority = new(null, passes) }, ExecutionBoundary.Checkpoint, next);
@@ -99,11 +101,12 @@ public sealed class TurnExecution
         {
             if (!cleanupActivity && result.In(ZoneKey.Shared(Zone.Stack)).IsEmpty)
                 return Advance(result);
-            return new(result with { Priority = new(result.Turn.ActivePlayer, []) }, ExecutionBoundary.Priority);
+            return new(result with { Priority = new(LivingRecipient(result, result.Turn.ActivePlayer), []) }, ExecutionBoundary.Priority);
         }
-        var passes = result.In(ZoneKey.Shared(Zone.Stack)).SequenceEqual(State.In(ZoneKey.Shared(Zone.Stack)))
+        var passes = result.Players.Select(p => p.HasLost).SequenceEqual(State.Players.Select(p => p.HasLost))
+            && result.In(ZoneKey.Shared(Zone.Stack)).SequenceEqual(State.In(ZoneKey.Shared(Zone.Stack)))
             ? result.Priority.PassedInSuccession : [];
-        return new(result with { Priority = new(PriorityRecipient, passes) },
+        return new(result with { Priority = new(LivingRecipient(result, PriorityRecipient!.Value), passes) },
             ExecutionBoundary.Priority);
     }
 
@@ -124,8 +127,8 @@ public sealed class TurnExecution
 
     /// <summary>
     /// Mandatory trusted turn-based-action provider: untap (including phasing/day-night),
-    /// draw, declare attackers, or cleanup (discard, then damage/effect expiration).
-    /// This coordinator implements ordering, not these actions. Combat with attackers is unsupported.
+    /// draw, combat declarations/damage, or cleanup (discard, then damage/effect expiration).
+    /// This coordinator implements ordering; providers own legality and damage.
     /// </summary>
     public TurnExecution CompleteTurnAction(Func<GameState, GameState> perform)
     {
@@ -135,9 +138,10 @@ public sealed class TurnExecution
             return new(result, ExecutionBoundary.Finished);
         if (State.Turn.Step == Step.Untap)
             return Enter(EndStep(result), Step.Upkeep);
-        if (State.Turn.Step == Step.DeclareAttackers && (result.Combat is not { AttackersDeclared: true } combat
-            || !combat.Attackers.IsEmpty))
-            throw new NotSupportedException("A combat provider must certify an empty attack declaration; combat execution is not implemented.");
+        if (State.Turn.Step == Step.DeclareAttackers && result.Combat is not { AttackersDeclared: true })
+            throw new NotSupportedException("A combat provider must complete the attack declaration.");
+        if (State.Turn.Step == Step.DeclareBlockers && result.Combat is not { BlockersDeclared: true })
+            return new(result, ExecutionBoundary.TurnAction);
         return Checkpoint(result, State.Turn.Step == Step.Cleanup ? null : State.Turn.ActivePlayer);
     }
 
@@ -162,6 +166,8 @@ public sealed class TurnExecution
                             ? pair.Value with { Tapped = false, SummoningSick = false } : pair.Value),
                 };
             case Step.Draw:
+                if (player.HasLost)
+                    return state;
                 var library = state.In(ZoneKey.Of(Zone.Library, active));
                 if (library.IsEmpty)
                     return state with { Players = state.Players.SetItem(active.Value, player with { DrewFromEmptyLibrary = true }) };
@@ -209,11 +215,16 @@ public sealed class TurnExecution
     private static void Check(GameState state)
     {
         state.Validate();
-        if (state.Players.Any(p => p.HasLost) || state.Turn.IsExtraTurn || !state.Turn.ExtraTurns.IsEmpty)
-            throw new NotSupportedException("Player departure and extra turns require future scheduling support.");
+        if (state.Turn.IsExtraTurn || !state.Turn.ExtraTurns.IsEmpty)
+            throw new NotSupportedException("Extra turns require future scheduling support.");
     }
 
-    private static PlayerId Next(GameState state, PlayerId player) => new((player.Value + 1) % state.Players.Count);
+    internal static PlayerId Next(GameState state, PlayerId player) => Enumerable.Range(1, state.Players.Count)
+        .Select(offset => new PlayerId((player.Value + offset) % state.Players.Count))
+        .First(id => !state.Player(id).HasLost);
+
+    private static PlayerId LivingRecipient(GameState state, PlayerId player) =>
+        state.Player(player).HasLost ? Next(state, player) : player;
 
     private static TurnExecution Checkpoint(GameState state, PlayerId? recipient) =>
         state.Outcome is not null ? new(state with { Priority = PriorityState.None }, ExecutionBoundary.Finished)
@@ -236,7 +247,7 @@ public sealed class TurnExecution
     private static TurnExecution Enter(GameState state, Step step)
     {
         state = state with { Turn = state.Turn with { Step = step } };
-        return step is Step.Draw or Step.DeclareAttackers or Step.Cleanup
+        return step is Step.Draw or Step.DeclareAttackers or Step.DeclareBlockers or Step.FirstStrikeCombatDamage or Step.CombatDamage or Step.Cleanup
             ? new(state, ExecutionBoundary.TurnAction) : Checkpoint(state, state.Turn.ActivePlayer);
     }
 
@@ -249,6 +260,10 @@ public sealed class TurnExecution
             Step.PrecombatMain => Step.BeginningOfCombat,
             Step.BeginningOfCombat => Step.DeclareAttackers,
             Step.DeclareAttackers when state.Combat is { AttackersDeclared: true } combat && combat.Attackers.IsEmpty => Step.EndOfCombat,
+            Step.DeclareAttackers => Step.DeclareBlockers,
+            Step.DeclareBlockers => state.Combat!.FirstStrikeParticipants.IsEmpty ? Step.CombatDamage : Step.FirstStrikeCombatDamage,
+            Step.FirstStrikeCombatDamage => Step.CombatDamage,
+            Step.CombatDamage => Step.EndOfCombat,
             Step.EndOfCombat => Step.PostcombatMain,
             Step.PostcombatMain => Step.End,
             Step.End => Step.Cleanup,

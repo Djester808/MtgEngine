@@ -163,14 +163,16 @@ public sealed class FoundationModelTests
     }
 
     [Fact]
-    public void Foundation_allows_only_the_authorized_turn_coordinator_execution_scope()
+    public void Foundation_allows_only_the_authorized_turn_and_basic_action_execution_scope()
     {
         var forbidden = new[] { "Engine", "Casting", "Combat", "Interpreter", "Keywords", "Replacement", "Sba", "Triggers", "Events", "Legal" };
+        var allowed = new[] { typeof(Engine.TurnExecution), typeof(Engine.ExecutionBoundary), typeof(Engine.BasicActions),
+            typeof(Engine.BasicCard), typeof(Engine.BasicBehavior), typeof(Engine.BasicKeyword), typeof(Engine.CastChoice), typeof(Engine.BasicMana),
+            typeof(Engine.BasicCombat), typeof(Engine.AttackDeclaration), typeof(Engine.BlockDeclaration), typeof(Engine.CombatDamageAssignment) };
         Assert.DoesNotContain(typeof(GameState).Assembly.GetTypes(), t =>
             forbidden.Any(name => (t.Namespace == "MtgEngine.Rules." + name
                 || (t.Namespace?.StartsWith("MtgEngine.Rules." + name + ".", StringComparison.Ordinal) ?? false))
-                && !(name == "Engine" && (t == typeof(Engine.TurnExecution)
-                    || t == typeof(Engine.ExecutionBoundary) || t.DeclaringType == typeof(Engine.TurnExecution)))));
+                && !(name == "Engine" && (allowed.Contains(t) || (t.DeclaringType is { } parent && allowed.Contains(parent))))));
         Assert.DoesNotContain(typeof(CardDefinition).Assembly.GetTypes(), t => t.Name is "Effect" or "KeywordSemantics" or "Ability");
     }
 }

@@ -10,10 +10,27 @@ changing anything here.
 
 ## Game foundation status
 
+The local rules subset now supports registered creature combat and game
+completion through `BasicCombat`, alongside `BasicActions` and `TurnExecution`.
+It covers player-only attacks, multiplayer blocks, simultaneous combat damage,
+creature deaths, life/failed-draw losses, and continuing with surviving seats.
+General card effects remain unsupported; gameplay API integration is still
+disconnected. See the checkpoint document for public contracts and limits.
+
+The bounded creature subset supports explicitly registered flying/reach,
+vigilance, attack haste, defender, menace, trample, deathtouch, lifelink,
+first/double strike, and indestructible combat behavior. Use the combat checkpoint
+provider throughout keyword games. Registration/text restrictions and exact limits
+are documented in the foundation checkpoint; arbitrary card support is not implied.
+
 The legacy rules executor was removed on 2026-10-25. `MtgEngine.Rules` now contains
 game models, read-only snapshots, bounded state/zone operations, and an isolated turn/priority/stack coordinator. `MtgEngine.Cards` contains printed
 card data and catalog mapping, without executable abilities or keywords. The old
 card pipeline, compiled corpus and game session/hub endpoints are removed.
+
+The library also provides a closed basic-action subset: explicitly registered basic
+lands, vanilla creatures, targeted life gain and creature bounce, with atomic mana
+payment and target rechecks. It does not interpret arbitrary card text.
 
 No games can be executed through this API yet. The browser client in the sibling
 repository has not been changed; its old play screens require a future rebuild.
