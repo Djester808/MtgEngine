@@ -79,7 +79,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     [RuleRef("400.2")]
     private PlayerView Seat(GameState state, PlayerState player, PlayerId viewer)
     {
-        var graveyard = InZone(state, CardZone.Graveyard, player.Id);
+        var graveyard = new Zones.Graveyard(state, player.Id);
         var limits = _characteristics.PlayerRestrictions(state, player.Id);
         return new PlayerView(
             player.Id,
@@ -90,7 +90,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             graveyard.Count,
             player.Counters,
             player.Mana,
-            ViewsOf(state, graveyard),
+            ViewsOf(state, graveyard.Order),
             ViewsOf(state, InZone(state, CardZone.Command, player.Id)),
 
             // CR 702.16j: computed, not stored, so it is asked of the characteristics seam here

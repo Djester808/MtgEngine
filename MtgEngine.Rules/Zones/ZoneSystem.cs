@@ -173,6 +173,11 @@ public sealed partial class ZoneSystem : IZoneSystem
         // to its owner's instead; and the shared zones take no player in their key, CR 400.1.
         var destination = KeyFor(to.Zone, moving.Owner);
 
+        // A graveyard is an ordered pile, not a freely reorderable library. A request
+        // to put a member back in that same pile is not a zone change (CR 400.7, 404.2).
+        if (destination.Zone == Cards.Zone.Graveyard && moving.Zone == destination)
+            return null;
+
         // Retain the existing object for an order instruction, including when stored in a
         // deferred batch. ApplyMove translates this instruction into ZoneReordered.
         if (destination.Zone == Cards.Zone.Library && moving.Zone == destination)
@@ -318,14 +323,18 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// </summary>
     [RuleRef("400.7")]
     internal static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
-        new(new ObjectId(state.NextObjectId), moving.Definition, FaceFor(moving, faceIndex), moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
+        new(new ObjectId(state.NextObjectId), moving.Definition,
+            destination.Zone == Cards.Zone.Graveyard ? 0 : FaceFor(moving, faceIndex),
+            moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
             IsCommander = moving.IsCommander,
             DeckSelection = moving.DeckSelection,
             CardInstanceId = moving.CardInstanceId,
             Tapped = tapped,
-            FaceDown = faceDown,
+            // CR 404.2: graveyards are face up. CR 712.8a: a double-faced card there
+            // uses its front face; an entry instruction cannot preserve its back face.
+            FaceDown = destination.Zone != Cards.Zone.Graveyard && faceDown,
 
             // CR 302.6: a creature entering the battlefield has not been controlled since the turn
             // began. In every other zone the flag has nothing to say.

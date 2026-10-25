@@ -1,5 +1,12 @@
 # Test scope
 
+Graveyard acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Graveyard`.
+Its focused contract tests cover an empty owner-specific pile, public ordered
+inspection, lookup, owner routing, normal top insertion, same-zone no-op,
+face-up/front-face entry, departure identity and privacy, caller-supplied batch
+arrival order, and serialized replay. It adds no permission to reorder, cast or
+activate cards. `EngineRegression` excludes both Deck and Graveyard acceptance.
+
 Push checkpoint (2026-10-25): regenerated the two stale scenario schema snapshots
 after the earlier payment-order removal. The full solution now passes 1,645 rules,
 835 API, 326 Cards and 322 pipeline tests (`push-backend-tests.log`). The card/deck
