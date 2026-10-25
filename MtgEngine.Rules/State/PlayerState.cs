@@ -3,6 +3,27 @@ namespace MtgEngine.Rules.State;
 /// <summary>What the rules track per player, CR 119 onwards. Cards are objects; this is the rest.</summary>
 public sealed record PlayerState(PlayerId Id, string Name, int Life)
 {
+    /// <summary>Creates a game participant. Id is a zero-based seat, never an account id; names need not be unique.</summary>
+    public static PlayerState Create(PlayerId id, string name, int life)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(id.Value);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return new PlayerState(id, name, life);
+    }
+
+    /// <summary>
+    /// Identifies this participant's library, hand or graveyard (CR 400.1).
+    /// A key grants no viewing or movement permission. Read membership from GameState;
+    /// use the existing zone service to move cards and viewer projection for transport.
+    /// </summary>
+    public ZoneKey OwnedZone(Cards.Zone zone)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(Id.Value);
+        if (zone is not (Cards.Zone.Library or Cards.Zone.Hand or Cards.Zone.Graveyard))
+            throw new ArgumentOutOfRangeException(nameof(zone), "The zone is not owned by an individual player.");
+        return ZoneKey.Of(zone, Id);
+    }
+
     public ImmutableDictionary<string, int> Counters { get; init; } = ImmutableDictionary<string, int>.Empty;
 
     public ManaPool Mana { get; init; } = ManaPool.Empty;

@@ -72,7 +72,16 @@ public sealed record GameState
     public int CommandZoneCasts(GameObject commander, PlayerId caster) =>
         CommanderCasts.GetValueOrDefault((CommanderIdentity.Of(commander), caster));
 
-    public PlayerState Player(PlayerId id) => Players[id.Value];
+    /// <summary>Resolve a game-local seat without silently accepting an inconsistent stored identity.</summary>
+    public PlayerState Player(PlayerId id)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(id.Value);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(id.Value, Players.Count);
+        var player = Players[id.Value];
+        if (player.Id != id)
+            throw new InvalidOperationException("The stored player identity does not match its seat.");
+        return player;
+    }
 
     public ImmutableList<ObjectId> In(ZoneKey zone) => Zones.TryGetValue(zone, out var list) ? list : [];
 

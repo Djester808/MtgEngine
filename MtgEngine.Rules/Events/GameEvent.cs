@@ -50,13 +50,23 @@ public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed,
     };
 
     /// <summary>CR 103.1: the starting player is decided before anything else; the turn system reads it from the state.</summary>
-    public override GameState Apply(GameState state) => Empty with
+    public override GameState Apply(GameState state)
     {
-        Players = [.. Players.Select((p, i) => new PlayerState(new PlayerId(i), p.Name, StartingLife))],
-        Rng = new RngState(Seed, 0),
-        Turn = new TurnState(0, new PlayerId(StartingPlayer), Step.Untap, StartingPlayer),
-        Format = Format,
-    };
+        ArgumentNullException.ThrowIfNull(Players);
+        ArgumentOutOfRangeException.ThrowIfNegative(StartingPlayer);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(StartingPlayer, Players.Count);
+        return Empty with
+        {
+            Players = [.. Players.Select((p, i) =>
+            {
+                ArgumentNullException.ThrowIfNull(p);
+                return PlayerState.Create(new PlayerId(i), p.Name, StartingLife);
+            })],
+            Rng = new RngState(Seed, 0),
+            Turn = new TurnState(0, new PlayerId(StartingPlayer), Step.Untap, StartingPlayer),
+            Format = Format,
+        };
+    }
 }
 
 /// <summary>A card was drawn, CR 121.1: the move itself is the preceding <see cref="ObjectMoved"/>; this names the draw for triggers and replacements.</summary>

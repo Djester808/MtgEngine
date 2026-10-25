@@ -9,6 +9,7 @@ public readonly record struct ObjectId(int Value)
     public override string ToString() => $"#{Value}";
 }
 
+/// <summary>A zero-based seat within one game, not an account identity or a card/object identity.</summary>
 public readonly record struct PlayerId(int Value)
 {
     public override string ToString() => $"P{Value}";
