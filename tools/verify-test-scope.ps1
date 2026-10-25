@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Deck', 'Graveyard', 'EngineRegression', 'All')]
+    [ValidateSet('Deck', 'Graveyard', 'Hand', 'EngineRegression', 'All')]
     [string] $Scope = 'Deck'
 )
 
@@ -8,11 +8,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $filter = switch ($Scope) {
     'Deck' { 'Scope=Deck' }
     'Graveyard' { 'Scope=Graveyard' }
-    'EngineRegression' { 'Scope!=Deck&Scope!=Graveyard' }
+    'Hand' { 'Scope=Hand' }
+    'EngineRegression' { 'Scope!=Deck&Scope!=Graveyard&Scope!=Hand' }
     'All' { $null }
 }
 
-$projects = if ($Scope -eq 'Graveyard') { @('MtgEngine.Rules.Tests') } else { @('MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') }
+$projects = if ($Scope -in @('Graveyard', 'Hand')) { @('MtgEngine.Rules.Tests') } else { @('MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') }
 foreach ($project in $projects) {
     Write-Host "$Scope verification: $project"
     $arguments = @('test', (Join-Path $repoRoot "tests/$project"), '--no-restore', '--verbosity', 'minimal')

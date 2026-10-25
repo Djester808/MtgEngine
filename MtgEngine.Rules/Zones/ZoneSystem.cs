@@ -178,6 +178,10 @@ public sealed partial class ZoneSystem : IZoneSystem
         if (destination.Zone == Cards.Zone.Graveyard && moving.Zone == destination)
             return null;
 
+        // CR 402.3: arranging a hand is presentation, not a zone change or new object.
+        if (destination.Zone == Cards.Zone.Hand && moving.Zone == destination)
+            return null;
+
         // Retain the existing object for an order instruction, including when stored in a
         // deferred batch. ApplyMove translates this instruction into ZoneReordered.
         if (destination.Zone == Cards.Zone.Library && moving.Zone == destination)
@@ -324,7 +328,8 @@ public sealed partial class ZoneSystem : IZoneSystem
     [RuleRef("400.7")]
     internal static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
         new(new ObjectId(state.NextObjectId), moving.Definition,
-            destination.Zone == Cards.Zone.Graveyard ? 0 : FaceFor(moving, faceIndex),
+            destination.Zone == Cards.Zone.Hand ? FaceRules.FrontFace(moving.Definition)
+                : destination.Zone == Cards.Zone.Graveyard ? 0 : FaceFor(moving, faceIndex),
             moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
@@ -334,7 +339,8 @@ public sealed partial class ZoneSystem : IZoneSystem
             Tapped = tapped,
             // CR 404.2: graveyards are face up. CR 712.8a: a double-faced card there
             // uses its front face; an entry instruction cannot preserve its back face.
-            FaceDown = destination.Zone != Cards.Zone.Graveyard && faceDown,
+            // A hidden hand still lets its owner inspect the card (CR 402.3).
+            FaceDown = destination.Zone is not (Cards.Zone.Graveyard or Cards.Zone.Hand) && faceDown,
 
             // CR 302.6: a creature entering the battlefield has not been controlled since the turn
             // began. In every other zone the flag has nothing to say.

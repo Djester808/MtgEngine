@@ -1,5 +1,12 @@
 # Test scope
 
+Hand acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Hand`.
+Its `HandContractTests` cover owner-specific membership, count, lookup, shared
+draw behavior, four-seat privacy, control versus ownership, same-hand no-op,
+front-face entry, departure, printing/finish identity and serialized replay.
+It adds no hand-size, discard, casting or mulligan behavior. `EngineRegression`
+excludes Hand acceptance as well as the other explicitly separated scopes.
+
 Graveyard acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Graveyard`.
 Its focused contract tests cover an empty owner-specific pile, public ordered
 inspection, lookup, owner routing, normal top insertion, same-zone no-op,
