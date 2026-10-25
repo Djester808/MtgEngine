@@ -47,7 +47,7 @@ public sealed class FoundationIntegrationTests
 
         Apply(zones.Move(state, current.Id, ZoneKey.Shared(Zone.Battlefield), Placement.Default, false, other, 0, true));
         current = Assert.Single(state.Objects.Values, card => card.CardInstanceId == original.CardInstanceId);
-        Assert.Same(current, PermanentAccess.Require(state, current.Id));
+        Assert.True(current.IsPermanent);
         Assert.Equal(current.Id, Assert.Single(new Battlefield(state).ControlledBy(other, new LayerSystem())));
         CheckViews(publicCard: false);
 

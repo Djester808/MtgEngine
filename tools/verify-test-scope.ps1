@@ -1,11 +1,11 @@
 param(
-    [ValidateSet('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'Permanent', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration', 'Foundations', 'EngineRegression', 'All')]
+    [ValidateSet('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration', 'Foundations', 'EngineRegression', 'All')]
     [string] $Scope = 'Deck'
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$foundationScopes = @('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'Permanent', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration')
+$foundationScopes = @('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration')
 $filter = switch ($Scope) {
     'Foundations' { ($foundationScopes | ForEach-Object { "Scope=$_" }) -join '|' }
     'EngineRegression' { ($foundationScopes | ForEach-Object { "Scope!=$_" }) -join '&' }

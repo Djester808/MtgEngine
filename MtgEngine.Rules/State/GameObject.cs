@@ -33,6 +33,10 @@ public sealed partial record GameObject(
 
     public bool SummoningSick { get; init; } = true;
 
+    /// <summary>A permanent is an object on the battlefield, including while phased out.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsPermanent => Zone.Zone == Cards.Zone.Battlefield;
+
     public bool IsToken { get; init; }
 
     public int Damage { get; init; }

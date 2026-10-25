@@ -1,10 +1,14 @@
 # Test scope
 
+Permanent cleanup: permanent status is now the derived `GameObject.IsPermanent` property.
+Its checks live with Battlefield acceptance; the separate Permanent suite and scope
+were removed. Counts below describe the earlier integration checkpoint.
+
 ## Combined foundation checkpoint (2026-10-25)
 
-`./tools/verify-test-scope.ps1 -Scope Foundations` passes 197 Rules and 80 API
-acceptance tests. It combines Deck (including card/library), Graveyard, Hand,
-Exile, Player, CommandZone, Reveal, Stack, Battlefield, Permanent, TokenCopy,
+The pre-cleanup Foundations checkpoint passed 197 Rules and 80 API
+acceptance tests. The current `./tools/verify-test-scope.ps1 -Scope Foundations` combines Deck (including card/library), Graveyard, Hand,
+Exile, Player, CommandZone, Reveal, Stack, Battlefield, TokenCopy,
 GameTable, TurnPriority and FoundationIntegration. Each named scope can also run
 individually. `EngineRegression` excludes all these acceptance scopes; `All`
 runs the complete Rules and API suites. The default remains Deck.

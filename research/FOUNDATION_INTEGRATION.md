@@ -11,7 +11,7 @@ services remain the implementation boundaries.
 | Reveal area | Viewer-specific disclosure history and validated live references; not a rules zone | [Reveal](REVEAL_CONTRACT_EVIDENCE.md) |
 | Stack | Shared ordered snapshot, top last; cards and stack-only objects | [Stack](STACK_CONTRACT_EVIDENCE.md) |
 | Battlefield | Shared membership, phased-out versus active members, evaluated controller | [Battlefield](BATTLEFIELD_CONTRACT_EVIDENCE.md) |
-| Permanent | Validated battlefield access and existing evaluated characteristics | [Permanent](PERMANENT_CONTRACT_EVIDENCE.md) |
+| Permanent status | Derived GameObject.IsPermanent property; covered by Battlefield acceptance | No separate contract or evidence package |
 | Tokens and copies | Existing identity/lifecycle paths; preserve copy-of-card marker across movement | [Tokens and copies](TOKEN_COPY_CONTRACT_EVIDENCE.md) |
 | Game/table | Validate initialization and replay start boundaries | [Game/table](GAME_TABLE_CONTRACT_EVIDENCE.md) |
 | Turn and priority | Validated snapshots and pass refusal during unavailable priority | [Turn/priority](TURN_PRIORITY_CONTRACT_EVIDENCE.md) |

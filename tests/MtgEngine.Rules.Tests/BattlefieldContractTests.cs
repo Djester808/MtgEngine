@@ -30,6 +30,7 @@ public sealed class BattlefieldContractTests
         Assert.Empty(battlefield.Find(_ => true));
         Assert.False(battlefield.Contains(new ObjectId(1)));
         Assert.Null(battlefield.Get(new ObjectId(1))); // It exists, but in the library.
+        Assert.False(Start().State.Objects[new ObjectId(1)].IsPermanent);
         Assert.Throws<ArgumentNullException>(() => new Battlefield(null!));
         Assert.Throws<ArgumentNullException>(() => battlefield.Find(null!));
     }
@@ -109,6 +110,8 @@ public sealed class BattlefieldContractTests
         Assert.Equal(id, Assert.Single(battlefield.Members));
         Assert.Empty(battlefield.ActiveMembers);
         Assert.True(battlefield.Get(id)!.PhasedOut);
+        Assert.True(battlefield.Get(id)!.IsPermanent);
+        Assert.DoesNotContain("IsPermanent", JsonSerializer.Serialize(battlefield.Get(id)));
         Assert.Equal(before.Get(id)!.CardInstanceId, battlefield.Get(id)!.CardInstanceId);
         Assert.Equal(id, Assert.Single(Project(restored, Other).Battlefield).Id);
         Assert.Equal(id, Assert.Single(before.ActiveMembers));
@@ -157,6 +160,8 @@ public sealed class BattlefieldContractTests
         Assert.Equal(1, before.Count);
         var hand = restored.Objects[Assert.Single(restored.In(ZoneKey.Of(Zone.Hand, Owner)))];
         Assert.NotEqual(id, hand.Id);
+        Assert.True(before.Get(id)!.IsPermanent);
+        Assert.False(hand.IsPermanent);
         Assert.Equal(before.Get(id)!.CardInstanceId, hand.CardInstanceId);
         Assert.Equal(before.Get(id)!.DeckSelection, hand.DeckSelection);
         Assert.Empty(Project(restored, Other).Battlefield);
