@@ -43,7 +43,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             ViewsOf(state, InZone(state, CardZone.Battlefield)),
             ViewsOf(state, InZone(state, CardZone.Stack)),
             ViewsOf(state, new Zones.Hand(state, viewer).Members),
-            ViewsOf(state, InZone(state, CardZone.Exile)),
+            ViewsOf(state, new Zones.ExileZone(state).Members),
             Redact(state.Pending, viewer),
             state.Outcome)
         {

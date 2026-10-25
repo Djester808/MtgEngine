@@ -1,5 +1,12 @@
 # Test scope
 
+Exile acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Exile`.
+The `Scope=Exile` tests cover shared membership, individual ownership, lookup,
+public inspection, default face-down secrecy, private disclosure, front-face
+entry, re-exile identity, departure and serialized replay. They do not certify
+persistent face-down look permissions or pile selection; see
+`research/EXILE_CONTRACT_EVIDENCE.md`. `EngineRegression` excludes Exile acceptance.
+
 Hand acceptance is separate: `./tools/verify-test-scope.ps1 -Scope Hand`.
 Its `HandContractTests` cover owner-specific membership, count, lookup, shared
 draw behavior, four-seat privacy, control versus ownership, same-hand no-op,

@@ -328,7 +328,7 @@ public sealed partial class ZoneSystem : IZoneSystem
     [RuleRef("400.7")]
     internal static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
         new(new ObjectId(state.NextObjectId), moving.Definition,
-            destination.Zone == Cards.Zone.Hand ? FaceRules.FrontFace(moving.Definition)
+            destination.Zone is Cards.Zone.Exile or Cards.Zone.Hand ? FaceRules.FrontFace(moving.Definition)
                 : destination.Zone == Cards.Zone.Graveyard ? 0 : FaceFor(moving, faceIndex),
             moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {

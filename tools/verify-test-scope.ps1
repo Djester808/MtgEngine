@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Deck', 'Graveyard', 'Hand', 'EngineRegression', 'All')]
+    [ValidateSet('Deck', 'Graveyard', 'Hand', 'Exile', 'EngineRegression', 'All')]
     [string] $Scope = 'Deck'
 )
 
@@ -9,11 +9,12 @@ $filter = switch ($Scope) {
     'Deck' { 'Scope=Deck' }
     'Graveyard' { 'Scope=Graveyard' }
     'Hand' { 'Scope=Hand' }
-    'EngineRegression' { 'Scope!=Deck&Scope!=Graveyard&Scope!=Hand' }
+    'Exile' { 'Scope=Exile' }
+    'EngineRegression' { 'Scope!=Deck&Scope!=Graveyard&Scope!=Hand&Scope!=Exile' }
     'All' { $null }
 }
 
-$projects = if ($Scope -in @('Graveyard', 'Hand')) { @('MtgEngine.Rules.Tests') } else { @('MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') }
+$projects = if ($Scope -in @('Graveyard', 'Hand', 'Exile')) { @('MtgEngine.Rules.Tests') } else { @('MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') }
 foreach ($project in $projects) {
     Write-Host "$Scope verification: $project"
     $arguments = @('test', (Join-Path $repoRoot "tests/$project"), '--no-restore', '--verbosity', 'minimal')
