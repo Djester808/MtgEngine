@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -8,18 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Domain\MtgEngine.Domain.csproj" />
-    <!-- The card vocabulary and the engine. The API is the only place the two meet: it holds
-         the definition store, the deck gate, the session and the hub. -->
-    <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
     <ProjectReference Include="..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- The prompt/response helpers are internal by design but are pure logic worth unit testing. -->
     <InternalsVisibleTo Include="MtgEngine.Api.Tests" />
-    <!-- The card vocabulary's keyword enums are generated from the same rules text this
-         project parses; the Cards tests read ParsedRules to prove the two agree. -->
-    <InternalsVisibleTo Include="MtgEngine.Cards.Tests" />
   </ItemGroup>
 
   <ItemGroup>

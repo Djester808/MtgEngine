@@ -1,4 +1,3 @@
-using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Zones;
@@ -7,8 +6,8 @@ namespace MtgEngine.Rules.Zones;
 /// The single shared battlefield at an immutable game snapshot. Membership includes
 /// phased-out objects; ActiveMembers excludes them without moving or recreating them.
 /// Enumeration is storage order, not layout or a top/bottom ordering permission.
-/// Server-side access does not grant disclosure: transport callers use ViewProjector.
-/// Movement and identity remain the responsibility of IZoneSystem.
+/// Server-side access does not grant disclosure: transport callers apply a future disclosure policy.
+/// No movement or identity transitions are executed by this snapshot.
 /// </summary>
 [Cards.RuleRef("403")]
 public sealed class Battlefield
@@ -38,10 +37,6 @@ public sealed class Battlefield
 
     public ImmutableList<ObjectId> OwnedBy(PlayerId owner) => Find(obj => obj.Owner == owner);
 
-    /// <summary>Group stored members by evaluated control, never initial control, owner or layout.</summary>
-    public ImmutableList<ObjectId> ControlledBy(PlayerId controller, ICharacteristics characteristics)
-    {
-        ArgumentNullException.ThrowIfNull(characteristics);
-        return Find(obj => characteristics.ControllerOf(_state, obj.Id) == controller);
-    }
+    /// <summary>Groups by current stored control, independently of ownership and layout.</summary>
+    public ImmutableList<ObjectId> ControlledBy(PlayerId controller) => Find(obj => obj.Controller == controller);
 }

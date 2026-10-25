@@ -20,8 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MtgEngine.Cards\MtgEngine.Cards.csproj" />
-    <!-- Only for the keyword-agreement test: the API parses the rulebook the enums were generated from. -->
-    <ProjectReference Include="..\..\MtgEngine.Api\MtgEngine.Api.csproj" />
   </ItemGroup>
 
 </Project>

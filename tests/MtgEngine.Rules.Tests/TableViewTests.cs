@@ -1,5 +1,3 @@
-using MtgEngine.Rules.Events;
-using MtgEngine.Rules.Layers;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Views;
 
@@ -13,14 +11,15 @@ public sealed class TableViewTests
     [InlineData(4)]
     public void Every_viewer_is_at_bottom_and_opponents_keep_circular_order(int count)
     {
-        var state = GameReducer.Replay([new GameStarted(
-            [.. Enumerable.Range(0, count).Select(i => new PlayerStart($"Seat {i}", [], []))],
-            Seed: 42, StartingLife: 40, Format: "test")]);
-        var projector = new ViewProjector(new LayerSystem(), _ => true);
         for (var viewer = 0; viewer < count; viewer++)
         {
-            var view = projector.Project(state, new PlayerId(viewer));
-            var table = Assert.IsType<TableView>(view.Table);
+            var view = EmptyView() with
+            {
+                Viewer = new PlayerId(viewer),
+                Players = [.. Enumerable.Range(0, count).Select(i => new PlayerView(new PlayerId(i),
+                    $"Seat {i}", 20, 0, 0, 0, ImmutableDictionary<string, int>.Empty, ManaPool.Empty, [], []))],
+            };
+            var table = TableView.From(view);
             Assert.Equal(viewer, table.Self.Seat);
             Assert.Equal(new PlayerId(viewer), table.Self.Player);
             Assert.Equal(Enumerable.Range(1, count - 1).Select(i => (viewer + i) % count),
@@ -91,9 +90,10 @@ public sealed class TableViewTests
 
     private static GameView EmptyView()
     {
-        var state = GameReducer.Replay([new GameStarted(
-            [new PlayerStart("A", [], []), new PlayerStart("B", [], [])], Seed: 42, StartingLife: 40, Format: "test")]);
-        return new ViewProjector(new LayerSystem(), _ => true).Project(state, new PlayerId(0));
+        var players = Enumerable.Range(0, 2).Select(i => new PlayerView(new PlayerId(i),
+            $"Seat {i}", 20, 0, 0, 0, ImmutableDictionary<string, int>.Empty, ManaPool.Empty, [], [])).ToImmutableList();
+        return new GameView(new PlayerId(0), 0, Cards.Step.Untap, new PlayerId(0), null,
+            players, [], [], [], [], null, null);
     }
 
     private static ObjectView Object(int id, int owner, int controller, params string[] types) =>

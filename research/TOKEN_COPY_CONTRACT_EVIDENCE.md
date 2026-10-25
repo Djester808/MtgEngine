@@ -1,3 +1,5 @@
+> Historical evidence from the pre-reset implementation. See [the current models-only checkpoint](FOUNDATION_INTEGRATION.md); execution and replay claims below no longer describe the active code.
+
 # Token and copy contract
 
 Inspected 2026-10-25. This pass applies the reverse-engineer-anything evidence workflow to retained client reconstructions. It does not claim new REA analysis, runtime gameplay observation, or access to either server. The local abstraction is already present in `GameObject`, `StackEntry`, `CopiableValues`, `CopyRules` and `ZoneSystem`; another token catalog or mutable copy store would duplicate it.

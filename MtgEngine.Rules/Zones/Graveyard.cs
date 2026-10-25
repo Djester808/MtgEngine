@@ -4,8 +4,8 @@ namespace MtgEngine.Rules.Zones;
 
 /// <summary>
 /// An owner's public, top-first discard pile at one immutable game snapshot.
-/// Membership and order come only from GameState; movement belongs to IZoneSystem.
-/// These are authoritative server objects. Transport callers still use ViewProjector.
+/// Membership and order come only from GameState; movement is not implemented.
+/// These are authoritative server objects. Transport callers still apply a future disclosure policy.
 /// </summary>
 [Cards.RuleRef("404")]
 public sealed class Graveyard

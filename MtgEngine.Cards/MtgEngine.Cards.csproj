@@ -1,10 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!--
-    The card vocabulary: every record a card definition is made of, the JSON shape they
-    serialise to, the schema handed to the translator, and the linter. This project depends
-    on nothing. The engine (MtgEngine.Rules) interprets these records; the pipeline writes
-    them; the API loads them. No card is named here, and nothing here executes.
-  -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

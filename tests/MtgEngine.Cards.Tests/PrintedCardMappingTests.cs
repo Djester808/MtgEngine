@@ -26,7 +26,6 @@ public sealed class PrintedCardMappingTests
         Assert.Equal(Color.Blue | Color.Red, card.Faces[1].ColorIndicator);
         Assert.Null(card.Faces[1].ManaCost);
         Assert.Equal("Rules for back.", card.Faces[1].OracleText);
-        Assert.All(card.Faces, face => Assert.Empty(face.AbilityList));
     }
 
     [Theory]

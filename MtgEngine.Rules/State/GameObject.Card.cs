@@ -7,7 +7,7 @@ public sealed partial record GameObject
     /// <summary>
     /// Creates one selected deck card. The game supplies its unique object id; that id also
     /// seeds the persistent card identity. Zone movement owns subsequent object identities.
-    /// This is server state: callers must use the existing view projection for disclosure.
+    /// This is server state: callers must apply a disclosure policy before transport.
     /// </summary>
     public static GameObject CreateCard(ObjectId id, CardDefinition definition, StartingCard selection,
         PlayerId owner, ZoneKey zone, int timestamp)

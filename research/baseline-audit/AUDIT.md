@@ -1,3 +1,5 @@
+> Historical audit of the retired engine. These results do not apply to the models-only reset; see [the checkpoint](../FOUNDATION_INTEGRATION.md).
+
 # Existing engine baseline audit
 
 ## Conclusion

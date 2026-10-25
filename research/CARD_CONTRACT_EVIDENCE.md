@@ -1,3 +1,5 @@
+> Historical evidence from the pre-reset implementation. See [the current models-only checkpoint](FOUNDATION_INTEGRATION.md); execution and replay claims below no longer describe the active code.
+
 # Basic card contract: evidence and scope
 
 Inspected 2026-10-25. This is static reconstruction evidence, not observed gameplay or a reconstruction of either server. The proposed contract deliberately reuses existing MtgEngine responsibilities: catalog `Domain.Models.CardDefinition`, executable/printed `Cards.CardDefinition`, quantity-bearing `CollectionCard`, per-copy `StartingCard`, and the existing `GameObject` with `CardInstanceId` and `DeckSelection`.

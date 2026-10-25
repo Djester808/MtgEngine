@@ -1,8 +1,5 @@
 #!/usr/bin/env sh
-# Scoped build for one agent: one project, then that project's tests filtered to the
-# agent's anchor. CARD_ENGINE_PLAN.md § "Build isolation" — a scoped build is ~8s where the
-# solution build is ~3min, and shared compilation plus node reuse is what lets one
-# worktree's build abort another worktree's test host.
+# Scoped project build and optional filtered tests.
 #
 #   tools/build.sh <project.csproj|project-dir> [<anchor>]
 #
@@ -48,8 +45,6 @@ NAME="${NAME%.csproj}"
 TESTS="tests/${NAME}.Tests/${NAME}.Tests.csproj"
 # A test project given directly is its own test project; appending .Tests again found nothing (E9b).
 case "$NAME" in *.Tests) TESTS="$PROJECT" ;; esac
-# The pipeline's test project drops the "Cards." from its name.
-[ "$NAME" = "MtgEngine.Cards.Pipeline" ] && TESTS="tests/MtgEngine.Pipeline.Tests/MtgEngine.Pipeline.Tests.csproj"
 
 if [ ! -f "$TESTS" ]; then
   echo "no test project at $TESTS — nothing to filter for anchor '$ANCHOR'" >&2

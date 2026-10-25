@@ -1,3 +1,5 @@
+> Historical evidence from the pre-reset implementation. See [the current models-only checkpoint](FOUNDATION_INTEGRATION.md); execution and replay claims below no longer describe the active code.
+
 # Basic command-zone contract and evidence
 
 Inspected 2026-10-25 using the reverse-engineer-anything skill and retained static reconstructions. No target application was executed, no foreign server was inspected, and no new REA Evidence ID is claimed. REA tools are unavailable in this session; existing retained records and ordinary file/hash inspection suffice for the bounded questions below.

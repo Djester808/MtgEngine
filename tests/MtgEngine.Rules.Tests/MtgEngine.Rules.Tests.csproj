@@ -24,8 +24,5 @@
     <ProjectReference Include="..\..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="events.txt" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 
 </Project>

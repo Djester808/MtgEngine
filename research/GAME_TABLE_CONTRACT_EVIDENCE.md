@@ -1,3 +1,5 @@
+> Historical evidence from the pre-reset implementation. See [the current models-only checkpoint](FOUNDATION_INTEGRATION.md); execution and replay claims below no longer describe the active code.
+
 # Basic game/table contract and evidence
 
 Inspected 2026-10-25. This report follows the reverse-engineer-anything workflow:

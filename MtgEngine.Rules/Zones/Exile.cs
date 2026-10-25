@@ -5,8 +5,8 @@ namespace MtgEngine.Rules.Zones;
 /// <summary>
 /// The shared exile zone at one immutable game snapshot (CR 400.1, 406).
 /// Members retain their individual owners. Enumeration order is storage order,
-/// not a top/bottom or permission to rearrange cards. Movement belongs to IZoneSystem.
-/// These are authoritative server objects; transport callers must use ViewProjector,
+/// not a top/bottom or permission to rearrange cards. Movement is not implemented.
+/// These are authoritative server objects; transport callers must apply a future disclosure policy,
 /// which withholds face-down identities even from their owners.
 /// </summary>
 [Cards.RuleRef("406")]

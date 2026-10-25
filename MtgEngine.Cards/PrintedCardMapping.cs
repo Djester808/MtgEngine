@@ -121,8 +121,7 @@ public static partial class PrintedCardMapping
         LayoutWords.TryGetValue(scryfallLayout, out var layout) ? layout : Layout.Other;
 
     /// <summary>
-    /// What a face is to its card. The first face is always Main: the linter requires one
-    /// (L007), including on a split card whose halves are otherwise Left and Right.
+    /// What a face is to its card. The first face uses Main, including on split cards.
     /// </summary>
     public static FaceRole RoleOf(string scryfallLayout, int index) => index == 0
         ? FaceRole.Main

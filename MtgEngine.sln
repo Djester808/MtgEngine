@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -18,10 +18,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MtgEngine.Cards.Tests", "tests\MtgEngine.Cards.Tests\MtgEngine.Cards.Tests.csproj", "{45621C94-1373-49BD-9044-639565A92453}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MtgEngine.Rules.Tests", "tests\MtgEngine.Rules.Tests\MtgEngine.Rules.Tests.csproj", "{2992D916-70BF-4EB8-AC18-0AC96C93AF6B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MtgEngine.Cards.Pipeline", "MtgEngine.Cards.Pipeline\MtgEngine.Cards.Pipeline.csproj", "{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MtgEngine.Pipeline.Tests", "tests\MtgEngine.Pipeline.Tests\MtgEngine.Pipeline.Tests.csproj", "{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -117,30 +113,6 @@ Global
 		{2992D916-70BF-4EB8-AC18-0AC96C93AF6B}.Release|x64.Build.0 = Release|Any CPU
 		{2992D916-70BF-4EB8-AC18-0AC96C93AF6B}.Release|x86.ActiveCfg = Release|Any CPU
 		{2992D916-70BF-4EB8-AC18-0AC96C93AF6B}.Release|x86.Build.0 = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|x64.Build.0 = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Debug|x86.Build.0 = Debug|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|x64.ActiveCfg = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|x64.Build.0 = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|x86.ActiveCfg = Release|Any CPU
-		{9BF9FB81-60D8-4EC8-899C-E7C96B08F721}.Release|x86.Build.0 = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|x64.Build.0 = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Debug|x86.Build.0 = Debug|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|x64.ActiveCfg = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|x64.Build.0 = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|x86.ActiveCfg = Release|Any CPU
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -149,6 +121,5 @@ Global
 		{FEF88F2D-F292-485C-969C-CA5C20774859} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{45621C94-1373-49BD-9044-639565A92453} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{2992D916-70BF-4EB8-AC18-0AC96C93AF6B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
-		{769E6A92-4FEC-4D86-ADF2-CD0CC6689CE5} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

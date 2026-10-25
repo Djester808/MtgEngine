@@ -1,23 +1,16 @@
 param(
-    [ValidateSet('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration', 'Foundations', 'EngineRegression', 'All')]
-    [string] $Scope = 'Deck'
+    [ValidateSet('Foundations', 'Api', 'All')]
+    [string] $Scope = 'Foundations'
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$foundationScopes = @('Deck', 'Graveyard', 'Hand', 'Exile', 'Player', 'CommandZone', 'Reveal', 'Stack', 'Battlefield', 'TokenCopy', 'GameTable', 'TurnPriority', 'FoundationIntegration')
-$filter = switch ($Scope) {
-    'Foundations' { ($foundationScopes | ForEach-Object { "Scope=$_" }) -join '|' }
-    'EngineRegression' { ($foundationScopes | ForEach-Object { "Scope!=$_" }) -join '&' }
-    'All' { $null }
-    default { "Scope=$Scope" }
+$projects = switch ($Scope) {
+    'Foundations' { @('MtgEngine.Cards.Tests', 'MtgEngine.Rules.Tests') }
+    'Api' { @('MtgEngine.Api.Tests') }
+    'All' { @('MtgEngine.Cards.Tests', 'MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') }
 }
-
-$projects = if ($Scope -in @('Deck', 'Foundations', 'EngineRegression', 'All')) { @('MtgEngine.Rules.Tests', 'MtgEngine.Api.Tests') } else { @('MtgEngine.Rules.Tests') }
 foreach ($project in $projects) {
-    Write-Host "$Scope verification: $project"
-    $arguments = @('test', (Join-Path $repoRoot "tests/$project"), '--no-restore', '--verbosity', 'minimal')
-    if ($filter) { $arguments += @('--filter', $filter) }
-    & dotnet @arguments
+    & dotnet test (Join-Path $repoRoot "tests/$project") --no-restore --verbosity minimal
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

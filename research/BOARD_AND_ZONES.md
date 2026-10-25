@@ -1,3 +1,5 @@
+> Historical design and integration notes. The current implementation is models-only; see [the foundation checkpoint](FOUNDATION_INTEGRATION.md).
+
 # Board and zones for two to four players
 
 ## Foundation

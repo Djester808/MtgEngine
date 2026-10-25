@@ -1,12 +1,27 @@
 # Compleat
 
-Formerly MTGEngine. This is the active Compleat engine; its browser client is in the sibling `mtg-client` repository. Project paths, namespaces and database settings retain their existing names for compatibility.
+Formerly MTGEngine. This is the Compleat API and game-model foundation; its browser client is in the sibling `mtg-client` repository. Project paths, namespaces and database settings retain their existing names for compatibility.
 
 ASP.NET Core (.NET 10) API behind the MTG deck builder. The Angular client lives in the
 sibling `mtg-client` repo.
 
 The engineering standards for this repo are in [CLAUDE.md](CLAUDE.md); read it before
 changing anything here.
+
+## Game foundation status
+
+The legacy rules executor was removed on 2026-10-25. `MtgEngine.Rules` now contains
+game models, read-only snapshots, and bounded state/zone operations. `MtgEngine.Cards` contains printed
+card data and catalog mapping, without executable abilities or keywords. The old
+card pipeline, compiled corpus and game session/hub endpoints are removed.
+
+No games can be executed through this API yet. The browser client in the sibling
+repository has not been changed; its old play screens require a future rebuild.
+Collection, deck, account, forum, rules-reference and life-counter features remain.
+Existing database migrations and historical game storage models are retained to
+avoid destroying saved data; they are not a live rules engine.
+
+See [the foundation checkpoint](research/FOUNDATION_INTEGRATION.md) for what remains.
 
 ## Solution structure
 
@@ -26,7 +41,9 @@ MtgEngine.sln
 │   ├── Data/                  # MtgEngineDbContext (SQLite)
 │   └── Migrations/
 │
-└── tests/MtgEngine.Api.Tests/ # xUnit, including the architecture tests that enforce layering
+├── MtgEngine.Cards/           # Printed card/face data and catalog mapping only
+├── MtgEngine.Rules/           # State/zone primitives, identity, turn models and viewer snapshots
+└── tests/                    # API, printed-card and foundation-model tests
 ```
 
 ## Features

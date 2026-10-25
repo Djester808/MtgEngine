@@ -6,8 +6,8 @@ namespace MtgEngine.Rules.Zones;
 /// An owner's hand at one immutable game snapshot. Enumeration preserves stored membership
 /// order for stable presentation; it has no top, bottom, or rules-significant ordering.
 /// These are authoritative server objects, not a disclosure permission. Transport callers
-/// must use ViewProjector, which exposes only the viewer's hand and other hands' counts.
-/// Drawing and movement remain responsibilities of the existing library and zone services.
+/// must apply a future disclosure policy, which exposes only the viewer's hand and other hands' counts.
+/// Drawing and movement are not implemented.
 /// </summary>
 [Cards.RuleRef("402")]
 public sealed class Hand

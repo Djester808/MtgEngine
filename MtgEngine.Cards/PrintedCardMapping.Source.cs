@@ -5,7 +5,7 @@ namespace MtgEngine.Cards;
 
 public static partial class PrintedCardMapping
 {
-    /// <summary>Printed characteristics only. Executable abilities are supplied separately by the rules pipeline.</summary>
+    /// <summary>Printed characteristics only. Rules text is preserved without executable interpretation.</summary>
     public static Face? Face(string name, FaceRole role, string typeLine, string? manaCost, string? oracleText,
         string? power, string? toughness, string? loyalty, string? defense, Color? colorIndicator = null)
     {

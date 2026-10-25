@@ -15,6 +15,14 @@ public class ArchitectureTests
     private static readonly Assembly Domain = typeof(ManaCost).Assembly;
     private static readonly Assembly Api = typeof(AiExceptionHandler).Assembly;
 
+    [Fact]
+    public void Api_does_not_depend_on_a_game_executor()
+    {
+        Assert.DoesNotContain(Api.GetReferencedAssemblies(), a => a.Name == "MtgEngine.Rules");
+        Assert.DoesNotContain(Api.GetTypes(), t => t.Name is "GameSessionService" or "GameHub"
+            or "GamesController" or "GameLobbiesController" or "CardsImplementationController");
+    }
+
     private static void AssertPasses(TestResult result)
     {
         Assert.True(

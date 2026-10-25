@@ -5,8 +5,8 @@ namespace MtgEngine.Rules.Zones;
 /// <summary>
 /// The shared command zone at one immutable game snapshot. Objects retain individual
 /// owners; membership does not imply commander designation or that an object is a card.
-/// Enumeration is storage order, not a top/bottom contract. Movement belongs to IZoneSystem.
-/// These are authoritative objects; transport callers still use ViewProjector.
+/// Enumeration is storage order, not a top/bottom contract. Movement is not implemented.
+/// These are authoritative objects; transport callers still apply a future disclosure policy.
 /// </summary>
 [Cards.RuleRef("408")]
 public sealed class CommandZone

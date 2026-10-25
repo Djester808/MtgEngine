@@ -1,3 +1,5 @@
+> Historical evidence from the pre-reset implementation. See [the current models-only checkpoint](FOUNDATION_INTEGRATION.md); execution and replay claims below no longer describe the active code.
+
 # Basic graveyard contract and evidence
 
 Inspected 2026-10-25 using the reverse-engineer-anything workflow: reuse retained evidence, follow concrete reconstructed methods, distinguish static observations from inference, and use public rules for semantics absent from client code. No client was launched; no server implementation was inspected. No graveyard ability, trigger, casting or replacement implementation is implied by this report.
